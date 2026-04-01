@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { jwtDecode } from 'jwt-decode';
 
 const STORAGE_KEY = 'agentcalls_auth';
 
@@ -51,6 +52,20 @@ const useAuthStore = create((set, get) => ({
       email,
     };
     const token = `mock_token_${Date.now()}`;
+    persist(user, token);
+    set({ user, token });
+  },
+
+  googleLogin: (credential) => {
+    const decoded = jwtDecode(credential);
+    const user = {
+      id: decoded.sub,
+      name: decoded.name,
+      email: decoded.email,
+      avatar: decoded.picture,
+      authProvider: 'google',
+    };
+    const token = credential;
     persist(user, token);
     set({ user, token });
   },

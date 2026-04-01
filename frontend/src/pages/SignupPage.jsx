@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import classes from './SignupPage.module.css';
@@ -33,6 +34,7 @@ const VERTICALS = [
 const SignupPage = () => {
   const navigate = useNavigate();
   const signup = useAuthStore((s) => s.signup);
+  const googleLogin = useAuthStore((s) => s.googleLogin);
 
   const [form, setForm] = useState({
     fullName: '',
@@ -88,6 +90,28 @@ const SignupPage = () => {
 
         <h1 className={classes.heading}>Create Agent Account</h1>
         <p className={classes.subtitle}>Sign up to start receiving calls</p>
+
+        <div className={classes.googleBtnWrapper}>
+          <GoogleLogin
+            onSuccess={(resp) => {
+              googleLogin(resp.credential);
+              toast.success('Account created!');
+              navigate('/');
+            }}
+            onError={() => toast.error('Google sign-in failed')}
+            theme="filled_black"
+            size="large"
+            width="396"
+            text="signup_with"
+            shape="rectangular"
+          />
+        </div>
+
+        <div className={classes.divider}>
+          <span className={classes.dividerLine} />
+          <span className={classes.dividerText}>or</span>
+          <span className={classes.dividerLine} />
+        </div>
 
         <form className={classes.form} onSubmit={handleSubmit}>
           <div className={classes.fieldGroup}>

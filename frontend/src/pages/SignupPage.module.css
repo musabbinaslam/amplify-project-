@@ -203,6 +203,31 @@
   cursor: not-allowed;
 }
 
+.googleBtnWrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.dividerLine {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.dividerText {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: lowercase;
+}
+
 .footer {
   text-align: center;
   margin-top: 20px;

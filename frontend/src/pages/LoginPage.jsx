@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import classes from './LoginPage.module.css';
@@ -7,6 +8,7 @@ import classes from './LoginPage.module.css';
 const LoginPage = () => {
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
+  const googleLogin = useAuthStore((s) => s.googleLogin);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,6 +45,28 @@ const LoginPage = () => {
 
         <h1 className={classes.heading}>Welcome Back</h1>
         <p className={classes.subtitle}>Sign in to your account</p>
+
+        <div className={classes.googleBtnWrapper}>
+          <GoogleLogin
+            onSuccess={(resp) => {
+              googleLogin(resp.credential);
+              toast.success('Welcome back!');
+              navigate('/');
+            }}
+            onError={() => toast.error('Google sign-in failed')}
+            theme="filled_black"
+            size="large"
+            width="396"
+            text="signin_with"
+            shape="rectangular"
+          />
+        </div>
+
+        <div className={classes.divider}>
+          <span className={classes.dividerLine} />
+          <span className={classes.dividerText}>or</span>
+          <span className={classes.dividerLine} />
+        </div>
 
         <form className={classes.form} onSubmit={handleSubmit}>
           <div className={classes.fieldGroup}>
