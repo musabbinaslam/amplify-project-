@@ -1,6 +1,6 @@
 .banner {
   height: var(--banner-height);
-  background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-dim) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -8,37 +8,41 @@
   position: relative;
   width: 100%;
   flex-shrink: 0;
+  border-bottom: 2px solid var(--surface-container-highest);
 }
 
 .text {
-  color: white;
-  font-weight: 500;
+  color: var(--surface-container-highest);
+  font-weight: 700;
   font-size: 14px;
 }
 
 .button {
-  background: rgba(0, 0, 0, 0.4);
-  color: white;
+  background: var(--surface-container-highest);
+  color: var(--accent-green);
   padding: 4px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-full);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   transition: background 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .button:hover {
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--surface);
 }
 
 .closeButton {
   position: absolute;
-  right: 16px;
-  color: white;
+  right: 24px;
+  color: var(--surface-container-highest);
   font-size: 20px;
   line-height: 1;
   opacity: 0.8;
+  transition: all 0.2s ease;
 }
 
 .closeButton:hover {
   opacity: 1;
+  transform: scale(1.1);
 }

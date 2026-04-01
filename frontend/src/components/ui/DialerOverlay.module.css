@@ -1,24 +1,24 @@
 .overlayContainer {
   position: fixed;
-  bottom: 30px;
-  right: 30px;
+  bottom: 32px;
+  right: 32px;
   z-index: 9999;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  pointer-events: none; /* Let clicks pass through transparent areas */
+  pointer-events: none;
 }
 
 .glassCard {
   pointer-events: auto;
-  background: rgba(17, 17, 17, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
-  padding: 24px;
-  width: 340px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: rgba(14, 14, 14, 0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  width: 360px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
   animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   position: relative;
   overflow: hidden;
@@ -36,7 +36,7 @@
   right: 0;
   height: 4px;
   background: var(--accent-green);
-  opacity: 0.8;
+  opacity: 0.9;
   animation: scanLight 2s infinite ease-in-out;
 }
 
@@ -51,15 +51,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .title {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-secondary);
-  font-weight: 500;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
 }
 
 .statusIndicator {
@@ -67,11 +67,11 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--accent-green);
-  background: rgba(0, 255, 128, 0.1);
+  background: var(--accent-green-dim);
   padding: 6px 12px;
-  border-radius: 20px;
+  border-radius: var(--radius-full);
 }
 
 .statusDot {
@@ -79,89 +79,88 @@
   height: 8px;
   border-radius: 50%;
   background-color: var(--accent-green);
-  box-shadow: 0 0 10px var(--accent-green);
+  box-shadow: 0 0 10px var(--accent-green-glow);
 }
 
 .statusDotRinging {
-  background-color: var(--accent-purple, #A855F7);
-  box-shadow: 0 0 10px var(--accent-purple, #A855F7);
+  background-color: var(--accent-cyan);
+  box-shadow: 0 0 10px rgba(0, 227, 253, 0.4);
   animation: pulseRing 1s infinite alternate;
 }
 
 @keyframes pulseRing {
-  from { box-shadow: 0 0 5px var(--accent-purple, #A855F7); }
-  to { box-shadow: 0 0 20px var(--accent-purple, #A855F7); }
+  from { box-shadow: 0 0 5px rgba(0, 227, 253, 0.2); }
+  to { box-shadow: 0 0 20px rgba(0, 227, 253, 0.6); }
 }
 
 .callerInfo {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
 }
 
 .callerAvatar {
-  width: 72px;
-  height: 72px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-  border: 1px solid rgba(255,255,255,0.1);
-  margin: 0 auto 16px;
+  background: var(--surface-container-highest);
+  border: 2px solid var(--surface-container-low);
+  margin: 0 auto 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-primary);
-  box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.3);
 }
 
 .avatarRinging {
-  border-color: var(--accent-purple, #A855F7);
+  border-color: var(--accent-cyan);
   animation: avatarPulse 1.5s infinite;
 }
 
 @keyframes avatarPulse {
-  0% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.4); }
-  70% { box-shadow: 0 0 0 20px rgba(168, 85, 247, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(0, 227, 253, 0.4); }
+  70% { box-shadow: 0 0 0 20px rgba(0, 227, 253, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 227, 253, 0); }
 }
 
 .callerName {
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 26px;
+  font-weight: 800;
   color: var(--text-primary);
-  margin: 0 0 4px;
-  font-family: 'Space Grotesk', sans-serif;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
 }
 
 .campaignBadge {
   display: inline-block;
   font-size: 13px;
+  font-weight: 600;
   color: var(--text-secondary);
-  background: rgba(255,255,255,0.05);
-  padding: 4px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.05);
+  background: var(--surface-container);
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
 }
 
 .timer {
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 800;
   color: var(--text-primary);
   text-align: center;
-  margin: 20px 0;
-  font-family: 'Space Grotesk', monospace;
+  margin: 24px 0;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
 }
 
 .controls {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 20px;
 }
 
 .actionBtn {
-  width: 56px;
-  height: 56px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   border: none;
   display: flex;
@@ -169,7 +168,7 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: white;
+  color: var(--surface-container-highest);
 }
 
 .actionBtn:hover {
@@ -177,69 +176,71 @@
 }
 
 .acceptBtn {
-  background: linear-gradient(135deg, var(--accent-green) 0%, #00cc66 100%);
-  box-shadow: 0 8px 24px rgba(0, 255, 128, 0.3);
-  width: 64px;
-  height: 64px;
+  background: var(--accent-green);
+  box-shadow: 0 8px 24px var(--accent-green-glow);
+  width: 72px;
+  height: 72px;
 }
 .acceptBtn:hover {
-  box-shadow: 0 12px 28px rgba(0, 255, 128, 0.4);
+  box-shadow: 0 12px 32px var(--accent-green-glow);
 }
 
 .rejectBtn {
-  background: linear-gradient(135deg, var(--accent-red) 0%, #cc0033 100%);
-  box-shadow: 0 8px 24px rgba(255, 51, 102, 0.3);
+  background: var(--accent-red);
+  box-shadow: 0 8px 24px rgba(255, 115, 81, 0.3);
+  color: white;
 }
 
 .muteBtn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--surface-container-highest);
+  color: var(--text-primary);
 }
 .muteBtnActive {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--surface-container);
   color: var(--accent-red);
-  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: inset 0 0 0 2px var(--accent-red);
 }
 
 /* Idle Badge */
 .idleBadge {
   pointer-events: auto;
-  background: rgba(17, 17, 17, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 12px 24px;
-  border-radius: 30px;
+  background: rgba(14, 14, 14, 0.85);
+  backdrop-filter: blur(20px);
+  border: none;
+  padding: 16px 32px;
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
-  gap: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  gap: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   cursor: default;
   transition: all 0.3s ease;
 }
 
 .idleBadge:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-container-high);
 }
 
 .idleText {
   color: var(--text-primary);
-  font-weight: 500;
-  font-size: 14px;
+  font-weight: 600;
+  font-size: 15px;
 }
 
 .hangupBtnSmall {
-  background: none;
+  background: var(--surface-container-highest);
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
-  padding: 4px;
+  padding: 8px;
   display: flex;
   align-items: center;
   border-radius: 50%;
-  margin-left: 8px;
+  margin-left: 12px;
+  transition: all 0.2s ease;
 }
 
 .hangupBtnSmall:hover {
-  color: var(--accent-red);
-  background: rgba(255, 51, 102, 0.1);
+  color: var(--text-primary);
+  background: var(--accent-red);
 }
