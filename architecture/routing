@@ -1,0 +1,38 @@
+# The AgentCalls Routing Engine Architecture
+
+Yes, we can build an engine that is **flawless and scale-proof**. The key to success is understanding the separation of power between **Trackdrive**, **Twilio**, and our **Node.js/Redis Backend**.
+
+Trackdrive/Ringba handles the *Macro*-routing. Our Node Server handles the *Micro*-routing. Trackdrive does not need to know which specific agent connects to the call; it just trusts our engine to connect it to *an* available, qualified agent.
+
+Here is exactly how we solve the three immense engineering challenges you brought up:
+
+### 1. The Separation of Macro and Micro Routing
+When an agent selects "Final Expense" and hits "Go Live" on our frontend:
+1. They establish a persistent **WebSocket (Socket.io)** connection to our Node.js server.
+2. The Node.js server registers this agent as `AVAILABLE` inside our blazing-fast in-memory database (**Redis**).
+3. The server also stores their specific **Licensed States** and the **Campaign ID** they selected inside that Redis session.
+
+When a caller from Texas dials the Trackdrive number:
+1. Trackdrive routes the call to our master Twilio DID for the Final Expense Campaign.
+2. Twilio pings our Node.js webhook: `POST /api/voice/incoming-call { callerState: 'TX', campaign: 'Final Expense' }`.
+3. Trackdrive's job is now paused; it waits for our engine to answer.
+
+### 2. State-Based & Skill-Based Matching
+When Node.js receives the webhook from Twilio, it runs a filtering script against Redis.
+It asks Redis: *"Give me all agents who are currently marked `AVAILABLE`, are taking `Final Expense` calls, and have `TX` in their licensed states array."*
+- If no agents match, our engine instantly plays hold music or a ringback tone until an agent frees up.
+
+### 3. Concurrency and Eliminating Race Conditions
+This is the most critical part of an enterprise dialer. If two calls ring at the exact same millisecond, and only one agent is available, a poorly coded system will route both calls to that single agent, crashing their browser.
+
+We solve this using **Redis Atomic Operations** or **PostgreSQL Row-level Locks (`SELECT FOR UPDATE SKIP LOCKED`)**.
+1. When Call A and Call B arrive at the exact same millisecond, they both query for an available agent.
+2. Call A randomly picks Agent John. Before Twilio dials John, Node.js executes an **Atomic Lock** on John's record, instantly flipping his status from `AVAILABLE` to `RINGING`. 
+3. Because the operation is atomic (running synchronously in Redis C++ memory), Call B is mathematically blocked from seeing John as available. Call B is forced to find the next available agent. 
+4. If no other agents are available, Call B is cleanly placed into the holding queue.
+
+---
+
+> [!TIP]
+> **Summary**
+> We build a powerful "State Machine" in Redis. This ensures true real-time accuracy, absolutely zero dropped/colliding calls from race conditions, and perfect algorithmic distribution across all 50 states without Trackdrive ever needing to know the complexities of your agent pool.

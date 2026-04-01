@@ -1,0 +1,44 @@
+.banner {
+  height: var(--banner-height);
+  background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  position: relative;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.text {
+  color: white;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.button {
+  background: rgba(0, 0, 0, 0.4);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.button:hover {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.closeButton {
+  position: absolute;
+  right: 16px;
+  color: white;
+  font-size: 20px;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+.closeButton:hover {
+  opacity: 1;
+}

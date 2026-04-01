@@ -1,0 +1,77 @@
+.callLogs {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header h2 {
+  font-size: 20px;
+  color: white;
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 8px 16px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+}
+
+.searchBox input {
+  background: transparent;
+  border: none;
+  color: white;
+  outline: none;
+  width: 200px;
+}
+
+.searchBox input::placeholder {
+  color: var(--text-secondary);
+}
+
+.filters {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dateBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 8px 16px;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+}
+
+.totalCalls {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.logsContainer {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emptyState {
+  color: var(--text-secondary);
+  font-size: 14px;
+}

@@ -1,0 +1,16 @@
+:root {
+  --bg-primary: #0a0f1e;
+  --bg-secondary: #0d1526;
+  --bg-card: #111827;
+  --border: #1e2d45;
+  --accent-blue: #3b82f6;
+  --accent-cyan: #22d3ee;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --text-primary: #ffffff;
+  --text-secondary: #8b9ab0;
+  --sidebar-width: 260px;
+  --sidebar-collapsed: 72px;
+  --topbar-height: 60px;
+  --banner-height: 44px;
+}

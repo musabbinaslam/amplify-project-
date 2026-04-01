@@ -1,0 +1,207 @@
+.billingPage {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1000px;
+}
+
+.sectionBox {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.sectionHeader h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  color: white;
+  margin-bottom: 4px;
+}
+
+.sectionHeader p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.blueIcon { color: var(--accent-blue); }
+.goldIcon { color: #fbbf24; }
+.silverIcon { color: #94a3b8; }
+.greenIcon { color: var(--accent-green); }
+
+.balanceRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.balanceAmount {
+  font-size: 36px;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 8px;
+}
+
+.lowBalanceWarning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #fbbf24;
+  font-size: 13px;
+}
+
+.addCreditsBtn {
+  background: var(--accent-blue);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.transHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.transHeader h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  color: white;
+  margin-bottom: 4px;
+}
+
+.transHeader p {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.refreshBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.emptyStateBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: var(--text-secondary);
+}
+
+.emptyIcon {
+  opacity: 0.5;
+  margin-bottom: 16px;
+}
+
+.emptyStateBox p {
+  color: white;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.emptyStateBox span {
+  font-size: 14px;
+}
+
+.currentPlan {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.planBadge {
+  width: 16px;
+  height: 12px;
+  background: var(--accent-cyan);
+  border-radius: 2px;
+}
+
+.currentPlan b {
+  color: white;
+  font-size: 14px;
+}
+
+.currentPlan span {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.planList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.planCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.planTitleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.planNameGroup {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.planNameGroup h4 {
+  color: white;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.planNameGroup p {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.subscribeBtn {
+  background: var(--accent-blue);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.planFeatures {
+  display: flex;
+  gap: 24px;
+}
+
+.planFeatures span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+  font-size: 14px;
+}
