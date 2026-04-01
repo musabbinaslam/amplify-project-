@@ -24,7 +24,7 @@ You're working inside the **WAT framework** (Workflows, Agents, Tools). This arc
 **Why this matters:** When AI tries to handle every step directly, accuracy drops fast. If each step is 90% accurate, you're down to 59% success after just five steps. By offloading execution to deterministic scripts, you stay focused on orchestration and decision-making where you excel.
 
 ## How to Operate
-
+rayyan
 **1. Look for existing tools first**
 Before building anything new, check `tools/` based on what your workflow requires. Only create new scripts when nothing exists for that task.
 
