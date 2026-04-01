@@ -1,7 +1,7 @@
 .callLogs {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
 }
 
 .header {
@@ -11,31 +11,35 @@
 }
 
 .header h2 {
-  font-size: 20px;
-  color: white;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
 }
 
 .searchBox {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  padding: 8px 16px;
-  border-radius: 8px;
+  gap: 12px;
+  background: var(--surface-container-highest);
+  border: none;
+  padding: 12px 20px;
+  border-radius: var(--radius-full);
   color: var(--text-secondary);
 }
 
 .searchBox input {
   background: transparent;
   border: none;
-  color: white;
+  color: var(--text-primary);
   outline: none;
-  width: 200px;
+  width: 240px;
+  font-family: 'Inter', sans-serif;
 }
 
 .searchBox input::placeholder {
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
+  font-weight: 500;
 }
 
 .filters {
@@ -47,25 +51,27 @@
 .dateBtn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  padding: 8px 16px;
-  border-radius: 8px;
-  color: white;
+  gap: 12px;
+  background: var(--surface-container-low);
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
   font-size: 14px;
+  font-weight: 600;
 }
 
 .totalCalls {
   color: var(--text-secondary);
   font-size: 14px;
+  font-weight: 500;
 }
 
 .logsContainer {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  min-height: 400px;
+  background: var(--surface-container-low);
+  border: none;
+  border-radius: var(--radius-xl);
+  min-height: 500px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -73,5 +79,6 @@
 
 .emptyState {
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 500;
 }

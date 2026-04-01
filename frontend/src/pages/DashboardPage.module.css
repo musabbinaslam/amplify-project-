@@ -1,103 +1,119 @@
 .dashboard {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
 }
 
 .sectionStats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: 24px;
 }
 
 .statCard {
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  padding: 20px;
-  border: 1px solid var(--border);
+  background: var(--surface-container-low);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  border: none;
+  transition: transform 0.2s ease;
+}
+
+.statCard:hover {
+  background: var(--surface-container);
+  transform: translateY(-2px);
 }
 
 .statHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .statTitle {
   color: var(--text-secondary);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .iconWrapper {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.05);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--surface-container-highest);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent-blue);
+  color: var(--accent-green);
 }
 
 .statValue {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
 }
 
 .campaignSection {
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, transparent 100%);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 24px;
+  background: var(--surface-container-low);
+  border: none;
+  border-radius: var(--radius-xl);
+  padding: 32px;
 }
 
 .sectionHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  color: white;
+  margin-bottom: 24px;
+  color: var(--text-primary);
 }
 
 .sectionHeader h3 {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .dollarBtn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--accent-blue);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--surface-container-highest);
+  color: var(--accent-green);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 0 10px var(--accent-green-glow);
 }
 
 .campaignGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 24px;
 }
 
 .campaignCard {
-  background: var(--bg-card);
-  border-radius: 12px;
-  padding: 20px;
-  border: 1px solid var(--border);
+  background: var(--surface-container);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  border: none;
+  transition: background 0.2s ease;
+}
+
+.campaignCard:hover {
+  background: var(--surface-container-high);
 }
 
 .campaignHeader {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .blueIcon {
@@ -109,61 +125,66 @@
 }
 
 .campaignTitle {
-  color: white;
-  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .campaignPrice {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .priceLarge {
-  font-size: 24px;
-  font-weight: 700;
-  color: white;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--accent-green);
 }
 
 .priceSub {
   font-size: 14px;
+  font-weight: 500;
   color: var(--text-secondary);
 }
 
 .campaignBuffer {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-secondary);
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-tertiary);
 }
 
 .performanceHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 16px;
+  margin-top: 32px;
 }
 
 .performanceHeader h3 {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 18px;
+  gap: 12px;
+  font-size: 20px;
 }
 
 .periodSelect {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  color: white;
-  padding: 6px 16px;
-  border-radius: 20px;
+  background: var(--surface-container-highest);
+  border: none;
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
   font-size: 14px;
+  font-weight: 600;
   outline: none;
+  cursor: pointer;
 }
 
 .perfStatsGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 24px;
 }
 
 .wideCard {
@@ -171,16 +192,17 @@
 }
 
 .statSub {
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--text-secondary);
   margin-top: 8px;
 }
 
 .chartSection, .statesSection, .callsSection {
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  padding: 24px;
+  background: var(--surface-container-low);
+  border-radius: var(--radius-xl);
+  border: none;
+  padding: 32px;
 }
 
 .chartHeader {
@@ -192,15 +214,15 @@
 .chartTitleBox {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 16px;
 }
 
 .chartIcon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--accent-blue);
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: var(--surface-container-highest);
+  color: var(--accent-green);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -209,35 +231,44 @@
 .chartTitle {
   color: var(--text-secondary);
   font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   margin-bottom: 4px;
 }
 
 .chartValue {
-  font-size: 24px;
-  font-weight: 700;
-  color: white;
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text-primary);
 }
 
 .chartStats {
   text-align: right;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 500;
   line-height: 1.6;
 }
 
 .chartContainer {
-  margin-top: 16px;
+  margin-top: 24px;
 }
 
 .statesBox, .callsBox {
   text-align: center;
-  padding: 40px;
+  padding: 48px;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .editBtn, .viewAllBtn {
-  color: white;
+  color: var(--accent-green);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
+}
+
+.editBtn:hover, .viewAllBtn:hover {
+  color: var(--accent-green-dim);
 }

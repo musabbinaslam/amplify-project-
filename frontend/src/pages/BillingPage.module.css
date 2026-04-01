@@ -1,35 +1,37 @@
 .billingPage {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
   max-width: 1000px;
 }
 
 .sectionBox {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 24px;
+  background: var(--surface-container-low);
+  border: none;
+  border-radius: var(--radius-xl);
+  padding: 32px;
 }
 
 .sectionHeader h3 {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 18px;
-  color: white;
-  margin-bottom: 4px;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
 }
 
 .sectionHeader p {
   color: var(--text-secondary);
   font-size: 14px;
-  margin-bottom: 24px;
+  font-weight: 500;
+  margin-bottom: 32px;
 }
 
 .blueIcon { color: var(--accent-blue); }
-.goldIcon { color: #fbbf24; }
-.silverIcon { color: #94a3b8; }
+.goldIcon { color: var(--accent-yellow); }
+.silverIcon { color: var(--text-tertiary); }
 .greenIcon { color: var(--accent-green); }
 
 .balanceRow {
@@ -39,60 +41,77 @@
 }
 
 .balanceAmount {
-  font-size: 36px;
-  font-weight: 700;
-  color: white;
-  margin-bottom: 8px;
+  font-size: 40px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
 }
 
 .lowBalanceWarning {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #fbbf24;
-  font-size: 13px;
+  color: var(--accent-yellow);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .addCreditsBtn {
-  background: var(--accent-blue);
-  color: white;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
+  background: var(--accent-green);
+  color: var(--surface-container-highest);
+  padding: 12px 24px;
+  border-radius: var(--radius-full);
+  font-size: 15px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px var(--accent-green-glow);
+}
+
+.addCreditsBtn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px var(--accent-green-glow);
 }
 
 .transHeader {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
 }
 
 .transHeader h3 {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 18px;
-  color: white;
-  margin-bottom: 4px;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
 }
 
 .transHeader p {
   color: var(--text-secondary);
   font-size: 14px;
+  font-weight: 500;
 }
 
 .refreshBtn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  color: white;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 13px;
+  gap: 8px;
+  background: var(--surface-container-highest);
+  border: none;
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.refreshBtn:hover {
+  background: var(--surface-container);
+  color: var(--accent-green);
 }
 
 .emptyStateBox {
@@ -100,64 +119,78 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px;
+  padding: 48px;
   color: var(--text-secondary);
+  background: var(--surface-container);
+  border-radius: var(--radius-lg);
 }
 
 .emptyIcon {
   opacity: 0.5;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
+  color: var(--text-tertiary);
 }
 
 .emptyStateBox p {
-  color: white;
-  font-size: 16px;
-  margin-bottom: 4px;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
 }
 
 .emptyStateBox span {
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .currentPlan {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
+  background: var(--surface-container);
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 20px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 16px;
+  margin-bottom: 32px;
 }
 
 .planBadge {
-  width: 16px;
-  height: 12px;
+  width: 20px;
+  height: 20px;
   background: var(--accent-cyan);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 10px rgba(0, 227, 253, 0.3);
 }
 
 .currentPlan b {
-  color: white;
-  font-size: 14px;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .currentPlan span {
   color: var(--text-secondary);
   font-size: 14px;
+  font-weight: 500;
 }
 
 .planList {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .planCard {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 24px;
+  background: var(--surface-container);
+  border: none;
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  transition: transform 0.2s ease;
+}
+
+.planCard:hover {
+  transform: translateY(-2px);
+  background: var(--surface-container-high);
 }
 
 .planTitleRow {
@@ -174,23 +207,31 @@
 }
 
 .planNameGroup h4 {
-  color: white;
-  font-size: 16px;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 700;
   margin-bottom: 4px;
 }
 
 .planNameGroup p {
   color: var(--text-secondary);
   font-size: 14px;
+  font-weight: 500;
 }
 
 .subscribeBtn {
-  background: var(--accent-blue);
-  color: white;
-  padding: 8px 16px;
-  border-radius: 8px;
+  background: var(--surface-container-highest);
+  color: var(--text-primary);
+  padding: 10px 24px;
+  border-radius: var(--radius-lg);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.subscribeBtn:hover {
+  background: var(--accent-green);
+  color: var(--surface-container-highest);
 }
 
 .planFeatures {
@@ -201,7 +242,8 @@
 .planFeatures span {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: white;
+  gap: 12px;
+  color: var(--text-primary);
   font-size: 14px;
+  font-weight: 500;
 }
