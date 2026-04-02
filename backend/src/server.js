@@ -37,6 +37,19 @@ const startEngine = async () => {
     app.post('/api/voice/token', verifyFirebaseToken, voiceController.generateToken);
     app.post('/api/voice/incoming-call', voiceController.handleIncomingCall);
 
+    // Revoke all refresh tokens for the authenticated user
+    app.post('/api/auth/revoke', verifyFirebaseToken, async (req, res) => {
+      try {
+        const admin = require('./config/firebaseAdmin');
+        if (!admin) return res.status(503).json({ error: 'Auth service unavailable' });
+        await admin.auth().revokeRefreshTokens(req.user.uid);
+        res.json({ success: true });
+      } catch (err) {
+        console.error('[Auth] Failed to revoke tokens:', err.message);
+        res.status(500).json({ error: 'Failed to revoke sessions' });
+      }
+    });
+
     app.get('/health', (req, res) => res.json({ status: 'Engine Active' }));
 
     const PORT = process.env.PORT || 3001;
