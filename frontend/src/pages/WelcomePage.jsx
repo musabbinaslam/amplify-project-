@@ -1,11 +1,14 @@
 import React from 'react';
 import { Play } from 'lucide-react';
+import useAuthStore from '../store/authStore';
 import classes from './WelcomePage.module.css';
 
 const WelcomePage = () => {
+  const user = useAuthStore((s) => s.user);
+
   return (
     <div className={classes.welcomePage}>
-      <h1 className={classes.title}>Welcome, Basit! 👋</h1>
+      <h1 className={classes.title}>Welcome, {user?.name || 'Agent'}! 👋</h1>
       <p className={classes.subtitle}>Get started by watching our platform tutorial below.</p>
       
       <div className={classes.videoContainer}>

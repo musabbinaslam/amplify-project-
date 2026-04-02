@@ -1,6 +1,7 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useUIStore } from '../../store/uiStore';
+import useAuthStore from '../../store/authStore';
 import {
   Play, Phone, LayoutDashboard, List, FileText,
   DollarSign, MapPin, Box, User, HeadphonesIcon,
@@ -27,6 +28,13 @@ const navItems = [
 
 const Sidebar = () => {
   const { isSidebarCollapsed, toggleSidebar } = useUIStore();
+  const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   return (
     <aside className={`${classes.sidebar} ${isSidebarCollapsed ? classes.collapsed : ''}`}>
@@ -70,7 +78,7 @@ const Sidebar = () => {
       </nav>
 
       <div className={classes.footer}>
-        <button className={classes.logoutBtn}>
+        <button className={classes.logoutBtn} onClick={handleLogout}>
           <LogOut size={20} className={classes.icon} />
           {!isSidebarCollapsed && <span className={classes.label}>Logout</span>}
         </button>

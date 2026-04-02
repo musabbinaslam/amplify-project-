@@ -1,8 +1,11 @@
 import React from 'react';
 import { User, MessageCircle } from 'lucide-react';
+import useAuthStore from '../store/authStore';
 import classes from './ProfilePage.module.css';
 
 const ProfilePage = () => {
+  const user = useAuthStore((s) => s.user);
+
   return (
     <div className={classes.profilePage}>
        <div className={classes.header}>
@@ -16,10 +19,10 @@ const ProfilePage = () => {
        <div className={classes.mainBox}>
           <h3>Your Profile</h3>
           <div className={classes.avatarRow}>
-             <div className={classes.avatar}>B</div>
+             <div className={classes.avatar}>{user?.name?.charAt(0)?.toUpperCase() || 'A'}</div>
              <div>
-                <h4>Basit</h4>
-                <p>basitasif8905@gmail.com</p>
+                <h4>{user?.name || 'Agent'}</h4>
+                <p>{user?.email || ''}</p>
                 <button className={classes.uploadBtn}>Click avatar to upload a photo</button>
              </div>
           </div>
@@ -28,7 +31,7 @@ const ProfilePage = () => {
              <label>Landing Page URL</label>
              <div className={classes.urlInputGroup}>
                 <span className={classes.urlPrefix}>https://agentcalls.io/a/</span>
-                <input type="text" defaultValue="basit" className={classes.urlInput} />
+                <input type="text" defaultValue={user?.name?.toLowerCase().replace(/\s+/g, '') || ''} className={classes.urlInput} />
              </div>
           </div>
 
