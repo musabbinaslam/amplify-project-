@@ -1,16 +1,74 @@
 :root {
-  --bg-primary: #0a0f1e;
-  --bg-secondary: #0d1526;
-  --bg-card: #111827;
-  --border: #1e2d45;
-  --accent-blue: #3b82f6;
-  --accent-cyan: #22d3ee;
-  --accent-green: #10b981;
-  --accent-red: #ef4444;
+  /* Core Surface Tiers */
+  --surface: #0e0e0e;
+  --surface-container-low: #131313;
+  --surface-container: #1a1a1a;
+  --surface-container-high: #202020;
+  --surface-container-highest: #262626;
+
+  /* Accent Colors */
+  --accent-green: #25f425;
+  --accent-green-dim: rgba(37, 244, 37, 0.15);
+  --accent-green-glow: rgba(37, 244, 37, 0.3);
+  
+  --accent-cyan: #00e3fd;
+  --accent-blue: #00e3fd; /* map blue to cyan to keep the theme */
+  --accent-red: #ff7351;
+  --accent-yellow: #ffcf33;
+
+  /* Text Colors */
   --text-primary: #ffffff;
-  --text-secondary: #8b9ab0;
+  --text-secondary: #adaaaa;
+  --text-tertiary: #6b6b6b;
+
+  /* Borders - Ghost Borders */
+  --border: rgba(255, 255, 255, 0.05); /* very faint line, primarily favor background shifts */
+  --border-focus: rgba(37, 244, 37, 0.4);
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Layout */
   --sidebar-width: 260px;
   --sidebar-collapsed: 72px;
-  --topbar-height: 60px;
-  --banner-height: 44px;
+  --topbar-height: 72px; /* Increased slightly for editorial vertical breathing room */
+  --banner-height: 48px;
+
+  /* Fallbacks mapping old variables to new ones */
+  --bg-primary: var(--surface);
+  --bg-secondary: var(--surface-container-low);
+  --bg-card: var(--surface-container);
+}
+
+/* ── Light Theme ── */
+[data-theme="light"] {
+  --surface: #fafafa;
+  --surface-container-low: #f0f0f0;
+  --surface-container: #e6e6e6;
+  --surface-container-high: #dbdbdb;
+  --surface-container-highest: #cfcfcf;
+
+  --accent-green: #18a818;
+  --accent-green-dim: rgba(24, 168, 24, 0.12);
+  --accent-green-glow: rgba(24, 168, 24, 0.25);
+
+  --accent-cyan: #0099ad;
+  --accent-blue: #0099ad;
+  --accent-red: #d94a2b;
+  --accent-yellow: #c49a00;
+
+  --text-primary: #111111;
+  --text-secondary: #555555;
+  --text-tertiary: #888888;
+
+  --border: rgba(0, 0, 0, 0.08);
+  --border-focus: rgba(24, 168, 24, 0.4);
+
+  --bg-primary: var(--surface);
+  --bg-secondary: var(--surface-container-low);
+  --bg-card: var(--surface-container);
 }

@@ -4,10 +4,11 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 32px;
-  background-color: rgba(10, 15, 30, 0.60);
+  background-color: color-mix(in srgb, var(--surface) 50%, transparent);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border: none;
+  border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   z-index: 50;
@@ -19,14 +20,17 @@
 }
 
 .title {
-  font-size: 18px;
-  font-weight: 600;
-  color: white;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
 }
 
 .subtitle {
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--text-secondary);
+  margin-top: 2px;
 }
 
 .actions {
@@ -39,19 +43,20 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(239, 68, 68, 0.1);
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: var(--surface-container-highest);
+  padding: 8px 16px;
+  border-radius: var(--radius-xl);
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .walletIcon {
-  color: var(--accent-red);
+  color: var(--accent-green);
 }
 
 .balance {
-  color: var(--accent-red);
-  font-weight: 600;
+  color: var(--text-primary);
+  font-weight: 700;
   font-size: 14px;
 }
 
@@ -60,8 +65,9 @@
   color: white;
   font-size: 11px;
   padding: 2px 8px;
-  border-radius: 12px;
-  font-weight: 600;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .iconBtn {
@@ -69,33 +75,34 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.05);
-  transition: all 0.2s;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--surface-container-low);
+  transition: all 0.2s ease;
 }
 
 .iconBtn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background: var(--surface-container-highest);
+  color: var(--text-primary);
 }
 
 .statusBadge {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 20px;
-  color: var(--text-secondary);
+  padding: 6px 16px;
+  background: var(--surface-container-low);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .statusDot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: var(--text-secondary);
+  background-color: var(--accent-green);
+  box-shadow: 0 0 8px var(--accent-green-glow);
 }

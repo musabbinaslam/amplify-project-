@@ -1,37 +1,21 @@
 import { Device } from '@twilio/voice-sdk';
 import useDialerStore from '../store/useDialerStore';
+import useAuthStore from '../store/authStore';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 
-// The base URL for the backend API
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export const initializeTwilioDevice = async (passedIdentity, campaign, licensedStates = []) => {
   const store = useDialerStore.getState();
   
   try {
-    // 1. Connect Socket.IO FIRST
-    const socket = io(API_URL);
-    
-    await new Promise((resolve, reject) => {
-       socket.on('connect', () => {
-           console.log('Socket connected! Socket ID:', socket.id);
-           store.setSocket && store.setSocket(socket);
-           // Register with campaign AND licensed states for smart LRU routing
-           socket.emit('agent:go_live', { 
-             campaign, 
-             agentId: passedIdentity,
-             licensedStates  // e.g. ['TX', 'FL', 'CA']
-           });
-           resolve();
-       });
-       socket.on('connect_error', (err) => reject(err));
-    });
-
-    const agentIdentity = passedIdentity; // Use the stable ID from the UI
-
-    // 2. Fetch Twilio access token from the backend
-    const response = await axios.post(`${API_URL}/api/voice/token`, { identity: agentIdentity, campaign });
+    const idToken = await useAuthStore.getState().getIdToken();
+    const response = await axios.post(
+      `${API_URL}/api/voice/token`,
+      { identity, campaign },
+      { headers: { Authorization: `Bearer ${idToken}` } }
+    );
     const { token } = response.data;
 
     // 3. Initialize the Twilio Device

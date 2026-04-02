@@ -1,77 +1,310 @@
 .callLogs {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 1.25rem;
 }
 
+/* ─── Header ─── */
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .header h2 {
-  font-size: 20px;
-  color: white;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 0.2rem;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 0;
 }
 
 .searchBox {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--bg-card);
+  gap: 0.65rem;
+  background: var(--surface-container-low);
   border: 1px solid var(--border);
-  padding: 8px 16px;
+  padding: 0.55rem 1rem;
   border-radius: 8px;
   color: var(--text-secondary);
+  transition: border-color 0.2s;
+}
+
+.searchBox:focus-within {
+  border-color: var(--accent-green);
 }
 
 .searchBox input {
   background: transparent;
   border: none;
-  color: white;
+  color: var(--text-primary);
   outline: none;
-  width: 200px;
+  width: 220px;
+  font-size: 0.85rem;
 }
 
 .searchBox input::placeholder {
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
+/* ─── Stats row ─── */
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.statCard {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+  background: var(--surface-container-low);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--accent-green);
+}
+
+.statCard div {
+  display: flex;
+  flex-direction: column;
+}
+
+.statValue {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.statLabel {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.statIcon {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+/* ─── Filters ─── */
 .filters {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.dateBtn {
+.filterTabs {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--bg-card);
+  gap: 0.35rem;
+  background: var(--surface-container-low);
   border: 1px solid var(--border);
-  padding: 8px 16px;
   border-radius: 8px;
-  color: white;
-  font-size: 14px;
+  padding: 0.2rem;
+}
+
+.filterTab {
+  padding: 0.4rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.filterTab:hover {
+  color: var(--text-primary);
+}
+
+.filterActive {
+  background: var(--accent-green);
+  color: #000;
+}
+
+.filterActive:hover {
+  color: #000;
 }
 
 .totalCalls {
-  color: var(--text-secondary);
-  font-size: 14px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 500;
 }
 
-.logsContainer {
-  background: var(--bg-secondary);
+/* ─── Table ─── */
+.tableWrap {
+  background: var(--surface-container-low);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  min-height: 400px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
-.emptyState {
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table thead {
+  background: color-mix(in srgb, var(--surface-container-high) 60%, transparent);
+}
+
+.table th {
+  text-align: left;
+  padding: 0.7rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+}
+
+.table td {
+  padding: 0.7rem 1rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
-  font-size: 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: color-mix(in srgb, var(--surface-container-high) 40%, transparent);
+}
+
+.rowMissed {
+  opacity: 0.6;
+}
+
+.nameCell {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.phoneCell {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.82rem;
+}
+
+.dateCell {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ─── Type badge ─── */
+.typeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.typeInbound {
+  background: color-mix(in srgb, var(--accent-green) 15%, transparent);
+  color: var(--accent-green);
+}
+
+.typeOutbound {
+  background: color-mix(in srgb, #3b82f6 15%, transparent);
+  color: #3b82f6;
+}
+
+/* ─── Disposition badge ─── */
+.dispBadge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.dispSold {
+  background: color-mix(in srgb, var(--accent-green) 15%, transparent);
+  color: var(--accent-green);
+}
+
+.dispCallback {
+  background: color-mix(in srgb, #f59e0b 15%, transparent);
+  color: #f59e0b;
+}
+
+.dispNotInterested {
+  background: color-mix(in srgb, #ef4444 12%, transparent);
+  color: #ef4444;
+}
+
+.dispNoAnswer {
+  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+  color: var(--text-muted);
+}
+
+/* ─── Duration ─── */
+.duration {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+/* ─── Score ─── */
+.score {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.scoreGood { color: var(--accent-green); }
+.scoreOk   { color: #f59e0b; }
+.scoreLow  { color: #ef4444; }
+
+.scoreDash {
+  color: var(--text-muted);
+}
+
+/* ─── Empty ─── */
+.emptyState {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .searchBox input {
+    width: 100%;
+  }
+
+  .statsRow {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .tableWrap {
+    overflow-x: auto;
+  }
+
+  .table {
+    min-width: 700px;
+  }
 }

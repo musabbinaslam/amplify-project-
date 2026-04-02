@@ -1,23 +1,27 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { Wallet, Globe, Moon, Settings2 } from 'lucide-react';
+import { Wallet, Globe, Moon, Sun, Settings2 } from 'lucide-react';
+import useAuthStore from '../../store/authStore';
+import { useUIStore } from '../../store/uiStore';
 import classes from './Topbar.module.css';
 
 const Topbar = () => {
   const location = useLocation();
+  const user = useAuthStore((s) => s.user);
+  const { theme, toggleTheme } = useUIStore();
   
   // Format pathname to Title Case for the header
   const getPageTitle = (pathname) => {
-    if (pathname === '/') return 'Welcome';
-    const path = pathname.split('/')[1];
-    return path.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    const stripped = pathname.replace(/^\/app\/?/, '');
+    if (!stripped) return 'Lets get started';
+    return stripped.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
   return (
     <header className={classes.topbar}>
       <div className={classes.pageInfo}>
         <h1 className={classes.title}>{getPageTitle(location.pathname)}</h1>
-        <span className={classes.subtitle}>Basit</span>
+        {/* <span className={classes.subtitle}>{user?.name || 'Agent'}</span> */}
       </div>
 
       <div className={classes.actions}>
@@ -30,8 +34,8 @@ const Topbar = () => {
         <button className={classes.iconBtn}>
           <Globe size={18} />
         </button>
-        <button className={classes.iconBtn}>
-          <Moon size={18} />
+        <button className={classes.iconBtn} onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
         
         <div className={classes.statusBadge}>

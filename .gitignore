@@ -6,3 +6,12 @@ dist-ssr/
 *.local
 .idea/
 .vscode/
+
+# Firebase service account (private key — never commit)
+firebase-service-account.json
+
+# AI context docs
+PROJECT_REFERENCE.md
+PROJECT_CONTEXT_FOR_CHATGPT.md
+CLAUDE.md
+README.md

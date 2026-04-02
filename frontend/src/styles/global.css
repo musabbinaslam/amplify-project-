@@ -1,28 +1,42 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import './variables.css';
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px;
+}
+
 body {
-  font-family: 'Inter', sans-serif;
-  background-color: var(--bg-primary);
-  background-image: 
-    radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.15), transparent 30%),
-    radial-gradient(circle at 90% 80%, rgba(34, 211, 238, 0.08), transparent 30%),
-    radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.08), transparent 40%);
-  background-attachment: fixed;
+  font-family: 'Inter', -apple-system, sans-serif;
+  background-color: var(--surface);
   color: var(--text-primary);
+  color-scheme: dark;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+[data-theme="light"] body {
+  color-scheme: light;
 }
 
 a {
   text-decoration: none;
   color: inherit;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--accent-green);
 }
 
 button {
@@ -30,20 +44,40 @@ button {
   border: none;
   background: none;
   font-family: inherit;
+  transition: all 0.2s ease;
 }
 
-/* Scrollbar styles */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+/* Scrollbar styles - Premium and sleek */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+  background: var(--surface-container);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
+  background: var(--surface-container-highest);
+  border-radius: var(--radius-full);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
+  background: var(--text-tertiary);
+}
+
+/* Base Utility / Glassmorphism Class */
+.glass-panel {
+  background: color-mix(in srgb, var(--surface-container-high) 60%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.no-lines {
+  border: none !important;
 }

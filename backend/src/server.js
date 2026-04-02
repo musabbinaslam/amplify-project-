@@ -7,6 +7,7 @@ require('dotenv').config();
 const { connectRedis } = require('./config/redis');
 const voiceRoutes = require('./routes/voiceRoutes');
 const { setupCallSockets } = require('./sockets/callSockets');
+const { verifyFirebaseToken } = require('./middleware/auth');
 
 const app = express();
 const server = http.createServer(app);
@@ -29,9 +30,23 @@ const startEngine = async () => {
 
     // Init Socket events
     setupCallSockets(io);
+    
+    // Twilio Voice Routes (token requires auth, incoming-call is a Twilio webhook)
+    app.post('/api/voice/token', verifyFirebaseToken, voiceController.generateToken);
+    app.post('/api/voice/incoming-call', voiceController.handleIncomingCall);
 
-    // Mount all voice routes (/token, /incoming-call, /call-completed, /logs)
-    app.use('/api/voice', voiceRoutes);
+    // Revoke all refresh tokens for the authenticated user
+    app.post('/api/auth/revoke', verifyFirebaseToken, async (req, res) => {
+      try {
+        const admin = require('./config/firebaseAdmin');
+        if (!admin) return res.status(503).json({ error: 'Auth service unavailable' });
+        await admin.auth().revokeRefreshTokens(req.user.uid);
+        res.json({ success: true });
+      } catch (err) {
+        console.error('[Auth] Failed to revoke tokens:', err.message);
+        res.status(500).json({ error: 'Failed to revoke sessions' });
+      }
+    });
 
     app.get('/health', (req, res) => res.json({ status: 'Engine Active' }));
 
