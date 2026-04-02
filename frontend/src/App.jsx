@@ -19,6 +19,7 @@ const CallLogsPage = lazy(() => import('./pages/CallLogsPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
 const LicensedStatesPage = lazy(() => import('./pages/LicensedStatesPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const SupportPage = lazy(() => import('./pages/SupportPage'));
 
 const ScriptPage = lazy(() => Promise.resolve({ default: () => <PageTransition><div><h2 style={{color: 'white'}}>Agent Script</h2></div></PageTransition> }));
 const LeadsPage = lazy(() => Promise.resolve({ default: () => <PageTransition><div><h2 style={{color: 'white'}}>Leads (Beta)</h2></div></PageTransition> }));
@@ -90,6 +91,9 @@ const AnimatedRoutes = () => {
             } />
             <Route path="profile" element={
               <Suspense fallback={<PageLoader />}><PageTransition><ProfilePage /></PageTransition></Suspense>
+            } />
+            <Route path="support" element={
+              <Suspense fallback={<PageLoader />}><PageTransition><SupportPage /></PageTransition></Suspense>
             } />
             <Route path="settings" element={
               <Suspense fallback={<PageLoader />}><PageTransition><SettingsPage /></PageTransition></Suspense>
