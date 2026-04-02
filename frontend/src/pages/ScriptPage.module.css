@@ -1,0 +1,474 @@
+.page {
+  padding: 0.75rem 1rem 4rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ─── Top bar ─── */
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.selectorWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.selectorLabel {
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.selectContainer {
+  position: relative;
+}
+
+.scriptSelect {
+  appearance: none;
+  background: var(--surface-container-low);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 2.5rem 0.55rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.scriptSelect:focus {
+  outline: none;
+  border-color: var(--accent-green);
+}
+
+.selectArrow {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.saveBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.25rem;
+  background: var(--accent-green);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.saveBtn:hover {
+  opacity: 0.88;
+}
+
+.saveBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ─── Title ─── */
+.scriptTitle {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.scriptTitle h1 {
+  font-size: 1.3rem;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+  margin: 0 0 0.2rem;
+}
+
+.scriptTitle p {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ─── Section cards ─── */
+.sectionCard {
+  background: var(--surface-container-low);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 1.25rem;
+  overflow: hidden;
+  border-left: 4px solid var(--border);
+}
+
+.border_green  { border-left-color: var(--accent-green); }
+.border_orange { border-left-color: #f59e0b; }
+.border_red    { border-left-color: #ef4444; }
+.border_dark   { border-left-color: var(--text-muted); }
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.7rem 1.25rem;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.sectionHeader h3 {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.header_green  { color: var(--accent-green); background: color-mix(in srgb, var(--accent-green) 8%, transparent); }
+.header_orange { color: #f59e0b; background: color-mix(in srgb, #f59e0b 8%, transparent); }
+.header_red    { color: #ef4444; background: color-mix(in srgb, #ef4444 8%, transparent); }
+.header_dark   { color: var(--text-secondary); background: color-mix(in srgb, var(--text-secondary) 6%, transparent); }
+
+.sectionBody {
+  padding: 0.85rem 1.25rem 1.15rem;
+}
+
+/* ─── Prompt text ─── */
+.promptText {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  margin: 0 0 0.55rem;
+}
+
+.promptText strong {
+  color: var(--text-primary);
+}
+
+.italic {
+  font-style: italic;
+  opacity: 0.75;
+  font-size: 0.82rem;
+}
+
+.inlineLabel {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.inlineInput {
+  display: inline-block;
+  background: var(--surface-container-high);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  margin: 0 0.2rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  min-width: 120px;
+  transition: border-color 0.2s;
+}
+
+.inlineInput:focus {
+  outline: none;
+  border-color: var(--accent-green);
+}
+
+/* ─── Badge ─── */
+.badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.15rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badgeGreen {
+  background: color-mix(in srgb, var(--accent-green) 18%, transparent);
+  color: var(--accent-green);
+}
+
+.badgeOrange {
+  background: color-mix(in srgb, #f59e0b 18%, transparent);
+  color: #f59e0b;
+}
+
+/* ─── Field grids ─── */
+.fieldGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.6rem;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.grid3_2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.inline3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem;
+}
+
+.inline3 .fieldWrap {
+  flex: 1;
+  min-width: 120px;
+}
+
+.inline3 .checkboxLabel {
+  flex: 0 0 auto;
+  padding-bottom: 0.35rem;
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.fieldWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fieldLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.fieldInput {
+  background: var(--surface-container-high);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  transition: border-color 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.fieldInput:focus {
+  outline: none;
+  border-color: var(--accent-green);
+}
+
+/* ─── Checkbox ─── */
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.checkbox {
+  accent-color: var(--accent-green);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* ─── Condition group ─── */
+.conditionGroup {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.conditionLabel {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 0.5rem;
+}
+
+.conditionOptions {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: 0.5rem 1rem;
+}
+
+.conditionOption {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.25rem 0;
+  transition: color 0.15s;
+}
+
+.conditionOption:has(input:checked) {
+  color: #ef4444;
+}
+
+/* ─── Quote tiers ─── */
+.quoteTiers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.tierCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: var(--surface-container-high);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.tierCard:hover {
+  border-color: var(--accent-green);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent-green) 12%, transparent);
+}
+
+.tierEmoji {
+  font-size: 1.1rem;
+}
+
+.tierLabel {
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+}
+
+.tierInput {
+  background: var(--surface-container-low);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+  width: 100%;
+  text-align: center;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.tierInput:focus {
+  outline: none;
+  border-color: var(--accent-green);
+}
+
+/* ─── Tip ─── */
+.tip {
+  margin-top: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-green) 8%, transparent);
+  border-left: 3px solid var(--accent-green);
+  color: var(--accent-green);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+/* ─── Warning ─── */
+.warning {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, #ef4444 10%, transparent);
+  border: 1px solid color-mix(in srgb, #ef4444 30%, transparent);
+  color: #ef4444;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+/* ─── Checklist ─── */
+.checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0 0.5rem;
+}
+
+.checklist li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.25rem 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.checklist li svg {
+  color: var(--accent-green);
+  flex-shrink: 0;
+}
+
+/* ─── Loader ─── */
+.loaderWrap {
+  display: flex;
+  justify-content: center;
+  padding: 6rem 0;
+}
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 640px) {
+  .page {
+    padding: 0.75rem 0.5rem 3rem;
+  }
+
+  .topBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .grid2, .grid3, .grid3_2 {
+    grid-template-columns: 1fr;
+  }
+
+  .quoteTiers {
+    grid-template-columns: 1fr;
+  }
+
+  .conditionOptions {
+    grid-template-columns: repeat(2, auto);
+  }
+
+  .inline3 {
+    flex-direction: column;
+  }
+}

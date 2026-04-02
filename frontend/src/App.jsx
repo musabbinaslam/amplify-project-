@@ -22,7 +22,7 @@ const LicensedStatesPage = lazy(() => import('./pages/LicensedStatesPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
 
-const ScriptPage = lazy(() => Promise.resolve({ default: () => <PageTransition><div><h2 style={{color: 'white'}}>Agent Script</h2></div></PageTransition> }));
+const ScriptPage = lazy(() => import('./pages/ScriptPage'));
 const LeadsPage = lazy(() => Promise.resolve({ default: () => <PageTransition><div><h2 style={{color: 'white'}}>Leads (Beta)</h2></div></PageTransition> }));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
