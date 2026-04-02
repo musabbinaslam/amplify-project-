@@ -11,19 +11,19 @@ import {
 import classes from './Sidebar.module.css';
 
 const navItems = [
-  { path: '/', label: 'Welcome', icon: Play },
-  { path: '/take-calls', label: 'Take Calls', icon: Phone },
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/call-logs', label: 'Call Logs', icon: List },
-  { path: '/script', label: 'Script', icon: FileText },
-  { path: '/billing', label: 'Billing', icon: DollarSign },
-  { path: '/licensed-states', label: 'Licensed States', icon: MapPin },
-  { path: '/leads', label: 'Leads', icon: Box, badge: 'Beta' },
-  { path: '/profile', label: 'Profile', icon: User },
-  { path: '/ai-training', label: 'AI Training', icon: HeadphonesIcon, badge: 'Coming Soon', disabled: true },
-  { path: '/support', label: 'Support', icon: MessageSquare },
-  { path: '/referral-program', label: 'Referral Program', icon: Gift },
-  { path: '/settings', label: 'Settings', icon: Settings },
+  { path: '/app', label: 'Welcome', icon: Play, end: true },
+  { path: '/app/take-calls', label: 'Take Calls', icon: Phone },
+  { path: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/app/call-logs', label: 'Call Logs', icon: List },
+  { path: '/app/script', label: 'Script', icon: FileText },
+  { path: '/app/billing', label: 'Billing', icon: DollarSign },
+  { path: '/app/licensed-states', label: 'Licensed States', icon: MapPin },
+  { path: '/app/leads', label: 'Leads', icon: Box, badge: 'Beta' },
+  { path: '/app/profile', label: 'Profile', icon: User },
+  { path: '/app/ai-training', label: 'AI Training', icon: HeadphonesIcon, badge: 'Coming Soon', disabled: true },
+  { path: '/app/support', label: 'Support', icon: MessageSquare },
+  { path: '/app/referral-program', label: 'Referral Program', icon: Gift },
+  { path: '/app/settings', label: 'Settings', icon: Settings },
 ];
 
 const Sidebar = () => {
@@ -57,6 +57,7 @@ const Sidebar = () => {
            <NavLink
              key={item.path}
              to={item.disabled ? '#' : item.path}
+             end={item.end || false}
              className={({ isActive }) =>
                `${classes.navItem} ${isActive && !item.disabled ? classes.active : ''} ${item.disabled ? classes.disabled : ''}`
              }

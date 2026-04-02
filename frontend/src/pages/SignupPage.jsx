@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import classes from './SignupPage.module.css';
@@ -81,7 +82,7 @@ const SignupPage = () => {
     try {
       await signup(form);
       toast.success('Account created!');
-      navigate('/');
+      navigate('/app');
     } catch (err) {
       toast.error(getFirebaseErrorMessage(err));
     } finally {
@@ -93,7 +94,7 @@ const SignupPage = () => {
     try {
       await googleLogin();
       toast.success('Account created!');
-      navigate('/');
+      navigate('/app');
     } catch (err) {
       toast.error(getFirebaseErrorMessage(err));
     }
@@ -101,7 +102,12 @@ const SignupPage = () => {
 
   return (
     <div className={classes.page}>
-      <div className={classes.card}>
+      <motion.div
+        className={classes.card}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+      >
         <div className={classes.logoBlock}>
           <div className={classes.logoIcon}>
             <span className={classes.logoTriangle} />
@@ -280,7 +286,7 @@ const SignupPage = () => {
           Already have an account?{' '}
           <Link to="/login" className={classes.footerLink}>Sign in</Link>
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 };

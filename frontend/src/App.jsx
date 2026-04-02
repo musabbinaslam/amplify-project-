@@ -8,6 +8,7 @@ import ErrorFallback from './components/ui/ErrorFallback';
 import PageTransition from './components/ui/PageTransition';
 import useAuthStore from './store/authStore';
 
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 
@@ -33,7 +34,7 @@ const ProtectedRoute = () => {
 
 const GuestRoute = ({ children }) => {
   const token = useAuthStore((s) => s.token);
-  if (token) return <Navigate to="/" replace />;
+  if (token) return <Navigate to="/app" replace />;
   return children;
 };
 
@@ -45,6 +46,11 @@ const AnimatedRoutes = () => {
       <DialerOverlay />
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
+          {/* Public landing page */}
+          <Route path="/" element={
+            <Suspense fallback={<PageLoader />}><LandingPage /></Suspense>
+          } />
+
           <Route path="/signup" element={
             <GuestRoute>
               <Suspense fallback={<PageLoader />}><SignupPage /></Suspense>
@@ -56,7 +62,8 @@ const AnimatedRoutes = () => {
             </GuestRoute>
           } />
 
-          <Route path="/" element={<ProtectedRoute />}>
+          {/* Authenticated app under /app */}
+          <Route path="/app" element={<ProtectedRoute />}>
             <Route index element={
               <Suspense fallback={<PageLoader />}><PageTransition><WelcomePage /></PageTransition></Suspense>
             } />
