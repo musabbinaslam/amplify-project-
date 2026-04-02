@@ -7,7 +7,12 @@ const voiceController = require('../controllers/voiceController');
 router.post('/token', voiceController.generateToken);
 
 // Webhook for incoming Twilio calls
-// POST /api/voice/incoming
-router.post('/incoming', voiceController.handleIncomingCall);
+router.post('/incoming-call', voiceController.handleIncomingCall);
+
+// Handle call completion for billing
+router.post('/call-completed', voiceController.handleCallCompleted);
+
+// Fetch history
+router.get('/logs', voiceController.getLogs);
 
 module.exports = router;

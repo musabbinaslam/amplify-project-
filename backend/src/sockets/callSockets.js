@@ -15,13 +15,29 @@ exports.setupCallSockets = (io) => {
         console.log(`🔌 WebRTC Socket Connected: ${socket.id}`);
 
         socket.on('agent:go_live', async (payload) => {
-            await agentManager.registerAgent(socket.id, payload);
-            socket.emit('agent:live_confirmed', { status: 'AVAILABLE', socketId: socket.id });
+            const { agentId, campaign } = payload;
+            // Use the specific agentId provided by the frontend
+            const identity = agentId || socket.id;
+            await agentManager.registerAgent(identity, payload);
+            
+            // Store mapping on socket for cleanup
+            socket.agentId = identity;
+            
+            socket.emit('agent:live_confirmed', { status: 'AVAILABLE', identity });
             await broadcastAgentCount(io);
         });
 
+        socket.on('agent:release', async () => {
+            if (socket.agentId) {
+                await agentManager.releaseAgent(socket.agentId);
+                await broadcastAgentCount(io);
+            }
+        });
+
         socket.on('disconnect', async () => {
-            await agentManager.removeAgent(socket.id);
+            if (socket.agentId) {
+                await agentManager.removeAgent(socket.agentId);
+            }
             await broadcastAgentCount(io);
             console.log(`❌ WebRTC Socket Disconnected: ${socket.id}`);
         });

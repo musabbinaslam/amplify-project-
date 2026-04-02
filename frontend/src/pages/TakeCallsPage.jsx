@@ -1,7 +1,46 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Volume2, Shield, HeartPulse, Umbrella, AlertCircle, ChevronLeft, PhoneOff, Activity } from 'lucide-react';
+import {
+  Mic, Volume2, Shield, HeartPulse, Umbrella, AlertCircle,
+  ChevronLeft, PhoneOff, Activity, ShieldCheck, Users,
+  PhoneIncoming, DollarSign, Clock, Phone, CheckCircle2, MapPin
+} from 'lucide-react';
+import axios from 'axios';
 import classes from './TakeCallsPage.module.css';
+import { initializeTwilioDevice } from '../services/twilioService';
+import useDialerStore from '../store/useDialerStore';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+// All 50 US States
+const US_STATES = [
+  { code: 'AL', name: 'Alabama' }, { code: 'AK', name: 'Alaska' },
+  { code: 'AZ', name: 'Arizona' }, { code: 'AR', name: 'Arkansas' },
+  { code: 'CA', name: 'California' }, { code: 'CO', name: 'Colorado' },
+  { code: 'CT', name: 'Connecticut' }, { code: 'DE', name: 'Delaware' },
+  { code: 'FL', name: 'Florida' }, { code: 'GA', name: 'Georgia' },
+  { code: 'HI', name: 'Hawaii' }, { code: 'ID', name: 'Idaho' },
+  { code: 'IL', name: 'Illinois' }, { code: 'IN', name: 'Indiana' },
+  { code: 'IA', name: 'Iowa' }, { code: 'KS', name: 'Kansas' },
+  { code: 'KY', name: 'Kentucky' }, { code: 'LA', name: 'Louisiana' },
+  { code: 'ME', name: 'Maine' }, { code: 'MD', name: 'Maryland' },
+  { code: 'MA', name: 'Massachusetts' }, { code: 'MI', name: 'Michigan' },
+  { code: 'MN', name: 'Minnesota' }, { code: 'MS', name: 'Mississippi' },
+  { code: 'MO', name: 'Missouri' }, { code: 'MT', name: 'Montana' },
+  { code: 'NE', name: 'Nebraska' }, { code: 'NV', name: 'Nevada' },
+  { code: 'NH', name: 'New Hampshire' }, { code: 'NJ', name: 'New Jersey' },
+  { code: 'NM', name: 'New Mexico' }, { code: 'NY', name: 'New York' },
+  { code: 'NC', name: 'North Carolina' }, { code: 'ND', name: 'North Dakota' },
+  { code: 'OH', name: 'Ohio' }, { code: 'OK', name: 'Oklahoma' },
+  { code: 'OR', name: 'Oregon' }, { code: 'PA', name: 'Pennsylvania' },
+  { code: 'RI', name: 'Rhode Island' }, { code: 'SC', name: 'South Carolina' },
+  { code: 'SD', name: 'South Dakota' }, { code: 'TN', name: 'Tennessee' },
+  { code: 'TX', name: 'Texas' }, { code: 'UT', name: 'Utah' },
+  { code: 'VT', name: 'Vermont' }, { code: 'VA', name: 'Virginia' },
+  { code: 'WA', name: 'Washington' }, { code: 'WV', name: 'West Virginia' },
+  { code: 'WI', name: 'Wisconsin' }, { code: 'WY', name: 'Wyoming' },
+];
+
+// ─── Step 1: Mic & Speaker Test ─────────────────────────────────────────────
 const StepOne = ({ onNext }) => {
   const [micDevices, setMicDevices] = useState([]);
   const [speakerDevices, setSpeakerDevices] = useState([]);
@@ -11,7 +50,6 @@ const StepOne = ({ onNext }) => {
   const [micTested, setMicTested] = useState(false);
   const [speakerTested, setSpeakerTested] = useState(false);
   const [audioError, setAudioError] = useState('');
-
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const mediaStreamRef = useRef(null);
@@ -19,16 +57,12 @@ const StepOne = ({ onNext }) => {
 
   const getDevices = async () => {
     try {
-      // Prompt for permission to get real device labels
       await navigator.mediaDevices.getUserMedia({ audio: true });
       const devices = await navigator.mediaDevices.enumerateDevices();
-      
       const mics = devices.filter(d => d.kind === 'audioinput');
       const speakers = devices.filter(d => d.kind === 'audiooutput');
-      
       setMicDevices(mics);
       setSpeakerDevices(speakers);
-      
       if (mics.length > 0 && !selectedMic) setSelectedMic(mics[0].deviceId);
       if (speakers.length > 0 && !selectedSpeaker) setSelectedSpeaker(speakers[0].deviceId);
     } catch (err) {
@@ -36,413 +70,459 @@ const StepOne = ({ onNext }) => {
     }
   };
 
-  useEffect(() => {
-    getDevices();
-    return () => stopMic();
-  }, []);
-
-  useEffect(() => {
-    if (selectedMic) {
-      startMic(selectedMic);
-    }
-  }, [selectedMic]);
-
   const stopMic = () => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close().catch(() => {});
-      audioContextRef.current = null;
-    }
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
+    if (mediaStreamRef.current) mediaStreamRef.current.getTracks().forEach(t => t.stop());
+    if (audioContextRef.current) { audioContextRef.current.close().catch(() => {}); audioContextRef.current = null; }
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
   };
 
   const startMic = async (deviceId) => {
     stopMic();
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: { deviceId: deviceId ? { exact: deviceId } : undefined } 
-      });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: deviceId ? { exact: deviceId } : undefined } });
       mediaStreamRef.current = stream;
-      
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       audioContextRef.current = audioCtx;
-      
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
       analyserRef.current = analyser;
-      
-      const source = audioCtx.createMediaStreamSource(stream);
-      source.connect(analyser);
-      
+      audioCtx.createMediaStreamSource(stream).connect(analyser);
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      
       const updateLevel = () => {
         if (!analyserRef.current) return;
         analyserRef.current.getByteFrequencyData(dataArray);
-        
         let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
-        }
-        let average = sum / dataArray.length;
-        let percent = Math.min(100, Math.round((average / 128) * 100));
-        
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const percent = Math.min(100, Math.round((sum / dataArray.length / 128) * 100));
         setMicLevel(percent);
-        if (percent > 10) {
-           setMicTested(true);
-        }
-        
+        if (percent > 10) setMicTested(true);
         animationRef.current = requestAnimationFrame(updateLevel);
       };
-      
       updateLevel();
-    } catch (err) {
-      console.error('Mic start error:', err);
-    }
+    } catch (err) { console.error('Mic start error:', err); }
   };
 
   const playTestSound = () => {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const oscillator = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
-    
-    // Create a pleasant chirp
     oscillator.type = 'sine';
     oscillator.frequency.setValueAtTime(600, audioCtx.currentTime);
     oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.3);
-    
     gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-    
     oscillator.connect(gainNode);
     gainNode.connect(audioCtx.destination);
-    
-    // Route to specific speaker if browser supports it
-    if (selectedSpeaker && typeof audioCtx.setSinkId === 'function') {
-      audioCtx.setSinkId(selectedSpeaker).catch(console.error);
-    }
-
     oscillator.start(audioCtx.currentTime);
     oscillator.stop(audioCtx.currentTime + 0.3);
-    
     setSpeakerTested(true);
   };
+
+  useEffect(() => { getDevices(); return () => stopMic(); }, []);
+  useEffect(() => { if (selectedMic) startMic(selectedMic); }, [selectedMic]);
 
   const isReady = micTested && speakerTested;
 
   return (
     <div className={classes.stepCard}>
-      <div className={classes.micIconBig}>
-        <Mic size={32} />
-      </div>
+      <div className={classes.micIconBig}><Mic size={32} /></div>
       <h2>Test Your Microphone</h2>
       <p className={classes.subtitle}>Speak into your microphone to make sure it's working properly</p>
-      
-      {audioError && <p style={{color: 'var(--accent-red)', fontSize: '14px', marginBottom: '16px'}}>{audioError}</p>}
-
+      {audioError && <p style={{ color: 'var(--accent-red)', fontSize: '14px', marginBottom: '16px' }}>{audioError}</p>}
       <div className={classes.levelContainer}>
-        <div className={classes.levelHeader}>
-          <span>Input Level</span>
-          <span className={classes.levelPercent}>{micLevel}%</span>
-        </div>
+        <div className={classes.levelHeader}><span>Input Level</span><span className={classes.levelPercent}>{micLevel}%</span></div>
         <div className={classes.progressBar}>
-          <div className={classes.progressFill} style={{ width: `${micLevel}%` }}></div>
-          <div className={classes.progressMarker} style={{ left: '10%' }}></div>
+          <div className={classes.progressFill} style={{ width: `${micLevel}%` }} />
+          <div className={classes.progressMarker} style={{ left: '10%' }} />
         </div>
         <p className={classes.testLabel}>Say something to test your microphone</p>
       </div>
-
-      {micTested ? (
-         <div className={classes.successBox}>
-            <CheckCircle2 size={16} /> Microphone detected!
-         </div>
-      ) : (
-         <div className={classes.successBox} style={{ opacity: 0.5, borderColor: 'var(--border)', color: 'var(--text-secondary)', background: 'transparent' }}>
-            <Mic size={16} /> Waiting for audio input...
-         </div>
-      )}
-
+      {micTested
+        ? <div className={classes.successBox}><CheckCircle2 size={16} /> Microphone detected!</div>
+        : <div className={classes.successBox} style={{ opacity: 0.5, borderColor: 'var(--border)', color: 'var(--text-secondary)', background: 'transparent' }}><Mic size={16} /> Waiting for audio input...</div>
+      }
       <div className={classes.speakerTest}>
         <div className={classes.speakerHeader}>
-          <div style={{display:'flex', alignItems:'center', gap:'8px'}}><Volume2 size={16} /> Test Your Speaker</div>
-          <button className={classes.speakerBtn} onClick={playTestSound}>
-             <Volume2 size={14} /> Play Test Sound
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Volume2 size={16} /> Test Your Speaker</div>
+          <button className={classes.speakerBtn} onClick={playTestSound}><Volume2 size={14} /> Play Test Sound</button>
         </div>
-        {!speakerTested && (
-           <div className={classes.speakerWarning}>
-             <AlertCircle size={14} /> Click to test your speaker
-           </div>
-        )}
-        {speakerTested && (
-           <div className={classes.successBox} style={{marginTop: '12px', marginBottom: 0}}>
-              <CheckCircle2 size={16} /> Sound played successfully
-           </div>
-        )}
+        {!speakerTested && <div className={classes.speakerWarning}><AlertCircle size={14} /> Click to test your speaker</div>}
+        {speakerTested && <div className={classes.successBox} style={{ marginTop: '12px', marginBottom: 0 }}><CheckCircle2 size={16} /> Sound played successfully</div>}
       </div>
-
       <div className={classes.deviceSelects}>
         <div className={classes.selectGroup}>
           <label><Mic size={14} /> Microphone</label>
           <select value={selectedMic} onChange={e => setSelectedMic(e.target.value)}>
-            {micDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${d.deviceId.substr(0,5)}`}</option>)}
+            {micDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${d.deviceId.substr(0, 5)}`}</option>)}
             {micDevices.length === 0 && <option value="">No microphones found</option>}
           </select>
         </div>
         <div className={classes.selectGroup}>
           <label><Volume2 size={14} /> Speaker</label>
           <select value={selectedSpeaker} onChange={e => setSelectedSpeaker(e.target.value)}>
-            {speakerDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Speaker ${d.deviceId.substr(0,5)}`}</option>)}
+            {speakerDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Speaker ${d.deviceId.substr(0, 5)}`}</option>)}
             {speakerDevices.length === 0 && <option value="">Default Speaker</option>}
           </select>
         </div>
         <button className={classes.refreshBtn} onClick={getDevices}>Refresh Devices</button>
       </div>
-
-      <button 
-         className={classes.continueBtn} 
-         onClick={onNext}
-         disabled={!isReady}
-         style={{ opacity: isReady ? 1 : 0.5, cursor: isReady ? 'pointer' : 'not-allowed' }}
-      >
-         Continue →
+      <button className={classes.continueBtn} onClick={onNext} disabled={!isReady}
+        style={{ opacity: isReady ? 1 : 0.5, cursor: isReady ? 'pointer' : 'not-allowed' }}>
+        Continue →
       </button>
       {!isReady && <p className={classes.continueSub}>Test your microphone and speaker to continue</p>}
     </div>
   );
 };
 
-const CheckCircle2 = ({ size }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-    <polyline points="22 4 12 14.01 9 11.01"></polyline>
-  </svg>
-);
-
+// ─── Step 2: Campaign Selection ──────────────────────────────────────────────
 const StepTwo = ({ onNext, onBack }) => {
-  const [activeCategory, setActiveCategory] = useState(null);
   const [selectedCampaign, setSelectedCampaign] = useState('');
-
-  if (!activeCategory) {
-    return (
-      <div className={classes.stepCard}>
-        <h2>Select Category</h2>
-        <p className={classes.subtitle}>What type of insurance calls do you want to take?</p>
-        <div className={classes.categoryGrid}>
-          <div 
-             className={classes.categoryOption}
-             onClick={() => setActiveCategory('life')}
-          >
-            <div className={classes.catIconBox}><Umbrella size={24} /></div>
-            <h3>Life Insurance</h3>
-          </div>
-          <div 
-             className={classes.categoryOption}
-             onClick={() => setActiveCategory('health')}
-          >
-            <div className={classes.catIconBox}><HeartPulse size={24} /></div>
-            <h3>Health Insurance</h3>
-          </div>
-        </div>
-        <div className={classes.navBtnsRow}>
-           <button className={classes.backBtn} onClick={onBack}>← Back</button>
-           <button 
-             className={classes.continueBtn}
-             disabled={true}
-             style={{ opacity: 0.5, cursor: 'not-allowed', width: 'auto', marginBottom: 0, paddingLeft: '32px', paddingRight: '32px' }}
-           >
-             Continue →
-           </button>
-        </div>
-      </div>
-    );
-  }
-
-  const campaigns = activeCategory === 'life' 
-    ? [ { id: 'final_expense', title: 'Final Expense', subtitle: 'Final expense and burial insurance', price: '$60/call', buffer: '90s buffer', icon: Umbrella } ]
-    : [
-        { id: 'aca', title: 'ACA', subtitle: 'Affordable Care Act marketplace plans', price: '$50/call', buffer: '90s buffer', icon: Shield },
-        { id: 'medicare', title: 'Medicare', subtitle: 'Medicare Advantage & Supplement plans', price: '$35/call', buffer: '25s buffer', icon: HeartPulse }
-      ];
+  const campaigns = [
+    { id: 'fe_transfers', title: 'FE Transfers', subtitle: 'Live transfer Final Expense leads', price: '$35', buffer: '120s buffer', icon: Umbrella },
+    { id: 'fe_inbounds', title: 'FE Inbounds', subtitle: 'Direct inbound Final Expense calls', price: '$25', buffer: '30s buffer', icon: PhoneIncoming },
+    { id: 'medicare_transfers', title: 'Medicare Transfers', subtitle: 'Live transfer Medicare leads', price: '$25', buffer: '120s buffer', icon: HeartPulse },
+    { id: 'medicare_inbound_1', title: 'Medicare Inbounds (1)', subtitle: 'High-intent Medicare inbound calls', price: '$35', buffer: '90s buffer', icon: Shield },
+    { id: 'medicare_inbound_2', title: 'Medicare Inbounds (2)', subtitle: 'Standard Medicare inbound calls', price: '$18', buffer: '15s buffer', icon: ShieldCheck },
+    { id: 'aca_transfers', title: 'ACA Transfers', subtitle: 'Live transfer ACA health leads', price: '$30', buffer: '120s buffer', icon: Users },
+  ];
 
   return (
     <div className={classes.stepCard} style={{ maxWidth: '650px' }}>
       <h2>Choose Your Campaign</h2>
       <p className={classes.subtitle}>Select the campaign you'd like to receive calls from</p>
-      
-      <div className={classes.changeCatBtn} onClick={() => { setActiveCategory(null); setSelectedCampaign(''); }}>
-         <ChevronLeft size={16} /> Change Category
-      </div>
-
-      <div className={classes.campaignsList}>
-         {campaigns.map(c => (
-            <div 
-               key={c.id}
-               className={`${classes.campaignSelectCard} ${selectedCampaign === c.id ? classes.campaignSelectActive : ''}`}
-               onClick={() => setSelectedCampaign(c.id)}
-            >
-               <div className={classes.campaignIconCol}>
-                 <div className={classes.campIconWrapper}>
-                   <c.icon size={24} />
-                 </div>
-               </div>
-               <div className={classes.campaignInfoCol}>
-                  <h3>{c.title}</h3>
-                  <p className={classes.campaignDesc}>{c.subtitle}</p>
-                  <div className={classes.campaignMetrics}>
-                     <span className={classes.campaignPrice}>{c.price}</span>
-                     <span className={classes.campaignBuffer}>{c.buffer}</span>
-                  </div>
-                  <p className={classes.campaignDisclaimer}>Disclaimer: To maintain high-intent call quality, some calls may be pre-screened through our pre-screening line. All callers originate from paid advertising and have called in requesting information.</p>
-               </div>
-               <div className={classes.campaignRadio}>
-                  <div className={`${classes.radioCircle} ${selectedCampaign === c.id ? classes.radioActive : ''}`}>
-                    {selectedCampaign === c.id && <div className={classes.radioInner} />}
-                  </div>
-               </div>
+      <div className={classes.campaignsList} style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '10px', width: '100%' }}>
+        {campaigns.map(c => (
+          <div key={c.id}
+            className={`${classes.campaignSelectCard} ${selectedCampaign === c.id ? classes.campaignSelectActive : ''}`}
+            onClick={() => setSelectedCampaign(c.id)} style={{ marginBottom: '12px' }}>
+            <div className={classes.campaignIconCol}><div className={classes.campIconWrapper}><c.icon size={24} /></div></div>
+            <div className={classes.campaignInfoCol}>
+              <h3 style={{ margin: 0, fontSize: '18px' }}>{c.title}</h3>
+              <p className={classes.campaignDesc} style={{ fontSize: '13px', margin: '4px 0' }}>{c.subtitle}</p>
+              <div className={classes.campaignMetrics} style={{ display: 'flex', gap: '12px' }}>
+                <span className={classes.campaignPrice} style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>{c.price}</span>
+                <span className={classes.campaignBuffer} style={{ opacity: 0.7, fontSize: '13px' }}>{c.buffer}</span>
+              </div>
             </div>
-         ))}
+            <div className={classes.campaignRadio}>
+              <div className={`${classes.radioCircle} ${selectedCampaign === c.id ? classes.radioActive : ''}`}>
+                {selectedCampaign === c.id && <div className={classes.radioInner} />}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
-
-      <div className={classes.navBtnsRow} style={{ marginTop: '32px' }}>
-         <button className={classes.backBtnDark} onClick={onBack}>← Back</button>
-         <button 
-           className={classes.continueBtnGreen} 
-           onClick={() => onNext(selectedCampaign)}
-           disabled={!selectedCampaign}
-           style={{ opacity: selectedCampaign ? 1 : 0.5, cursor: selectedCampaign ? 'pointer' : 'not-allowed' }}
-         >
-           Continue →
-         </button>
+      <div className={classes.navBtnsRow} style={{ marginTop: '24px', width: '100%', display: 'flex', justifyContent: 'space-between' }}>
+        <button className={classes.backBtn} onClick={onBack}>← Back</button>
+        <button className={classes.continueBtn} onClick={() => onNext(selectedCampaign)} disabled={!selectedCampaign}
+          style={{ opacity: selectedCampaign ? 1 : 0.5, cursor: selectedCampaign ? 'pointer' : 'not-allowed', width: 'auto', marginBottom: 0, paddingLeft: '32px', paddingRight: '32px' }}>
+          Continue →
+        </button>
       </div>
     </div>
   );
 };
 
-const StepThree = ({ onBack, onGoLive, isConnecting }) => (
-  <div className={classes.stepCard}>
-    <div className={classes.micIconBig}>
-      <PhoneIcon size={32} />
-    </div>
-    <h2>Review Call Rules</h2>
-    <p className={classes.subtitle}>Please acknowledge the following rules before going live</p>
-    
-    <div className={classes.rulesList}>
-      <div className={classes.ruleItem}>
-        <div className={classes.ruleNum}>1</div>
-        <p>Follow the script to properly qualify the prospect.</p>
+// ─── Step 3: Licensed States ─────────────────────────────────────────────────
+const StepThree = ({ onNext, onBack }) => {
+  const [selectedStates, setSelectedStates] = useState([]);
+  const [search, setSearch] = useState('');
+
+  const toggleState = (code) => {
+    setSelectedStates(prev =>
+      prev.includes(code) ? prev.filter(s => s !== code) : [...prev, code]
+    );
+  };
+
+  const selectAll = () => setSelectedStates(US_STATES.map(s => s.code));
+  const clearAll = () => setSelectedStates([]);
+
+  const filtered = US_STATES.filter(s =>
+    s.name.toLowerCase().includes(search.toLowerCase()) ||
+    s.code.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className={classes.stepCard} style={{ maxWidth: '680px' }}>
+      <div className={classes.micIconBig}><MapPin size={32} /></div>
+      <h2>Licensed States</h2>
+      <p className={classes.subtitle}>Select every state you are licensed to sell insurance in. You'll only receive calls from these states.</p>
+
+      {/* Search + Quick Actions */}
+      <div className={classes.statesToolbar}>
+        <input
+          className={classes.stateSearch}
+          type="text"
+          placeholder="Search states..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <button className={classes.stateActionBtn} onClick={selectAll}>Select All</button>
+        <button className={classes.stateActionBtn} onClick={clearAll} style={{ opacity: 0.6 }}>Clear</button>
       </div>
-      <div className={classes.ruleItem}>
-        <div className={classes.ruleNum}>2</div>
-        <p>Do not quote any prices or plans within the campaign buffer time (90 seconds).</p>
+
+      {/* Selection Counter */}
+      <div className={classes.stateCounter}>
+        {selectedStates.length === 0
+          ? <span style={{ color: 'var(--accent-red)' }}>No states selected — you won't receive any calls!</span>
+          : <span><strong style={{ color: 'var(--accent-green)' }}>{selectedStates.length}</strong> state{selectedStates.length !== 1 ? 's' : ''} selected: {selectedStates.join(', ')}</span>
+        }
       </div>
-      <div className={classes.ruleItem}>
-        <div className={classes.ruleNum}>3</div>
-        <p>Do not ask for their callback number or give them your personal number within the campaign buffer time (90 seconds).</p>
+
+      {/* States Grid */}
+      <div className={classes.statesGrid}>
+        {filtered.map(state => {
+          const isSelected = selectedStates.includes(state.code);
+          return (
+            <button
+              key={state.code}
+              className={`${classes.stateChip} ${isSelected ? classes.stateChipActive : ''}`}
+              onClick={() => toggleState(state.code)}
+              title={state.name}
+            >
+              <span className={classes.stateCode}>{state.code}</span>
+              <span className={classes.stateName}>{state.name}</span>
+              {isSelected && <CheckCircle2 size={12} className={classes.stateCheck} />}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className={classes.navBtnsRow} style={{ marginTop: '24px', width: '100%', display: 'flex', justifyContent: 'space-between' }}>
+        <button className={classes.backBtn} onClick={onBack}>← Back</button>
+        <button className={classes.continueBtn} onClick={() => onNext(selectedStates)} disabled={selectedStates.length === 0}
+          style={{ opacity: selectedStates.length > 0 ? 1 : 0.5, cursor: selectedStates.length > 0 ? 'pointer' : 'not-allowed', width: 'auto', marginBottom: 0, paddingLeft: '32px', paddingRight: '32px' }}>
+          Continue →
+        </button>
       </div>
     </div>
+  );
+};
 
-    <div className={classes.warningBox}>
-      <AlertCircle size={18} />
-      <p>After the campaign buffer time (90 seconds), you're free to take control of the conversation however you see fit.</p>
+// ─── Step 4: Review Rules & Go Live ─────────────────────────────────────────
+const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates }) => {
+  const campaignLabels = {
+    fe_transfers: 'FE Transfers ($35 / 120s)',
+    fe_inbounds: 'FE Inbounds ($25 / 30s)',
+    medicare_transfers: 'Medicare Transfers ($25 / 120s)',
+    medicare_inbound_1: 'Medicare Inbounds 1 ($35 / 90s)',
+    medicare_inbound_2: 'Medicare Inbounds 2 ($18 / 15s)',
+    aca_transfers: 'ACA Transfers ($30 / 120s)',
+  };
+
+  return (
+    <div className={classes.stepCard}>
+      <div className={classes.micIconBig}><Phone size={32} /></div>
+      <h2>Review & Go Live</h2>
+      <p className={classes.subtitle}>Confirm your setup before going live</p>
+
+      {/* Summary Box */}
+      <div className={classes.summaryBox}>
+        <div className={classes.summaryRow}>
+          <span className={classes.summaryLabel}>Campaign</span>
+          <span className={classes.summaryValue}>{campaignLabels[campaign] || campaign}</span>
+        </div>
+        <div className={classes.summaryRow}>
+          <span className={classes.summaryLabel}>Licensed States</span>
+          <span className={classes.summaryValue} style={{ color: 'var(--accent-green)' }}>
+            {licensedStates.length} state{licensedStates.length !== 1 ? 's' : ''}: {licensedStates.join(', ')}
+          </span>
+        </div>
+      </div>
+
+      <div className={classes.rulesList}>
+        <div className={classes.ruleItem}><div className={classes.ruleNum}>1</div><p>Follow the script to properly qualify the prospect.</p></div>
+        <div className={classes.ruleItem}><div className={classes.ruleNum}>2</div><p>Do not quote prices or plans within the campaign buffer time.</p></div>
+        <div className={classes.ruleItem}><div className={classes.ruleNum}>3</div><p>Do not share personal contact information within the buffer time.</p></div>
+      </div>
+
+      <div className={classes.warningBox}>
+        <AlertCircle size={18} />
+        <p>You will ONLY receive calls from your {licensedStates.length} selected states. If you're missing a state, go back and add it.</p>
+      </div>
+
+      <div className={classes.navBtnsRow}>
+        <button className={classes.backBtn} onClick={onBack} disabled={isConnecting}>← Back</button>
+        <button className={classes.goLiveBtn} onClick={onGoLive} disabled={isConnecting}
+          style={{ opacity: isConnecting ? 0.7 : 1, cursor: isConnecting ? 'wait' : 'pointer' }}>
+          {isConnecting ? 'Connecting...' : 'I Agree, Go Live →'}
+        </button>
+      </div>
     </div>
+  );
+};
 
-    <div className={classes.navBtnsRow}>
-      <button className={classes.backBtn} onClick={onBack} disabled={isConnecting}>← Back</button>
-      <button 
-         className={classes.goLiveBtn} 
-         onClick={onGoLive}
-         disabled={isConnecting}
-         style={{ opacity: isConnecting ? 0.7 : 1, cursor: isConnecting ? 'wait' : 'pointer' }}
-      >
-        {isConnecting ? 'Connecting to Twilio...' : 'I Agree, Go Live →'}
-      </button>
+// ─── Call History Table ──────────────────────────────────────────────────────
+const CallHistory = ({ logs }) => {
+  if (!logs || logs.length === 0) {
+    return <div className={classes.emptyLogs}><p>No recent calls yet. Go live to start taking leads!</p></div>;
+  }
+  return (
+    <div className={classes.logsTableWrapper}>
+      <h3 className={classes.logsTitle}>Recent Activity</h3>
+      <div className={classes.logsHeader}>
+        <span className={classes.colCampaign}>Campaign</span>
+        <span className={classes.colCaller}>Caller</span>
+        <span className={classes.colDuration}>Duration</span>
+        <span className={classes.colStatus}>Status</span>
+      </div>
+      <div className={classes.logsList}>
+        {logs.map((log) => (
+          <div key={log.id} className={classes.logItem}>
+            <div className={classes.colCampaign}><span className={classes.campaignTag}>{log.campaignLabel}</span></div>
+            <div className={classes.colCaller}>{log.from}</div>
+            <div className={classes.colDuration}><Clock size={14} style={{ marginRight: '4px' }} />{Math.floor(log.duration / 60)}:{(log.duration % 60).toString().padStart(2, '0')}</div>
+            <div className={classes.colStatus}>
+              {log.isBillable
+                ? <span className={classes.badgeSale}><DollarSign size={12} /> SALE (${log.cost})</span>
+                : log.status === 'completed'
+                  ? <span className={classes.badgeAnswered}>Answered</span>
+                  : <span className={classes.badgeMissed}>Missed</span>
+              }
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
-const PhoneIcon = ({ size }) => (
-   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-   </svg>
-)
-
-import { initializeTwilioDevice } from '../services/twilioService';
-import useDialerStore from '../store/useDialerStore';
-import { useNavigate } from 'react-router-dom';
-
+// ─── Main Page Component ─────────────────────────────────────────────────────
 const TakeCallsPage = () => {
-  const { callState, activeCampaign, hangUp } = useDialerStore();
+  const { callState, activeCampaign, agentIdentity, licensedStates, hangUp } = useDialerStore();
   const [step, setStep] = useState(1);
   const [campaign, setCampaign] = useState('');
+  const [wizardStates, setWizardStates] = useState([]);
   const [isConnecting, setIsConnecting] = useState(false);
-  const titles = ['Microphone Test', 'Select Campaign', 'Review Rules'];
+  const [history, setHistory] = useState([]);
+
+  const titles = ['Microphone Test', 'Select Campaign', 'Licensed States', 'Review & Go Live'];
+
+  const fetchLogs = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/voice/logs`);
+      setHistory(res.data);
+    } catch (err) {
+      console.error('Error fetching logs:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleGoLive = async () => {
     try {
       setIsConnecting(true);
-      // Generate a mock identity for the agent for now. In a real app, this comes from an Auth Context or JWT
       const mockAgentId = `agent_${Math.floor(Math.random() * 10000)}`;
-      
-      await initializeTwilioDevice(mockAgentId, campaign);
-      
-      // Setup successful, the Zustand store will be updated and trigger the Active View
-
+      await initializeTwilioDevice(mockAgentId, campaign, wizardStates);
     } catch (err) {
       console.error('Failed to go live:', err);
-      // Give more visibility into the error
       const errorText = err.response ? err.response.data : err.message;
-      alert('Failed to connect to phone system. Error: ' + JSON.stringify(errorText));
+      alert('Failed to connect. Error: ' + JSON.stringify(errorText));
     } finally {
       setIsConnecting(false);
     }
   };
 
+  // ── Active Dialer View ──────────────────────────────────────────────────
   if (callState !== 'offline' && callState !== 'error') {
+    const isRinging = callState === 'ringing';
+
     return (
       <div className={classes.container}>
-        <div className={classes.activeDialerContainer}>
-          <div className={classes.pulsingGlow} />
-          <div className={classes.liveBadge}>
-            <div className={classes.liveDot} />
-            Dialer Active
+        {isRinging && (
+          <div className={classes.callOverlay}>
+            <div className={classes.callCard}>
+              <div className={classes.incomingBadge}>INCOMING CALL</div>
+              <div className={classes.callerIcon}><Activity size={48} className={classes.pulseIcon} /></div>
+              <h2>{activeCampaign?.replace(/_/g, ' ').toUpperCase() || 'Insurance'} Lead</h2>
+              <p>Someone is on the line waiting to speak with you.</p>
+              <div className={classes.callActions}>
+                <button className={classes.acceptBtn} onClick={() => useDialerStore.getState().acceptCall()}>Accept Call</button>
+                <button className={classes.declineBtn} onClick={() => useDialerStore.getState().rejectCall()}>Decline</button>
+              </div>
+            </div>
           </div>
-          <h1>Listening for {activeCampaign || 'Campaign'} Calls</h1>
+        )}
+
+        <div className={`${classes.activeDialerContainer} ${isRinging ? classes.blurred : ''}`}>
+          <div className={classes.topStatsRow}>
+            <div className={classes.statBox}>
+              <div className={classes.statLabel}>AGENT ID</div>
+              <div className={classes.statValue}>{agentIdentity || '---'}</div>
+            </div>
+            <div className={classes.statBox}>
+              <div className={classes.statLabel}>CAMPAIGN</div>
+              <div className={classes.statValue}>{activeCampaign?.replace(/_/g, ' ').toUpperCase() || '---'}</div>
+            </div>
+            <div className={classes.statBox}>
+              <div className={classes.statLabel}>REMAINING BUDGET</div>
+              <div className={`${classes.statValue} ${classes.budgetGreen}`}>$450.00</div>
+            </div>
+          </div>
+
+          {/* Licensed States Strip */}
+          {licensedStates && licensedStates.length > 0 && (
+            <div className={classes.liveStatesRow}>
+              <span className={classes.liveStatesLabel}><MapPin size={12} /> Licensed States:</span>
+              <div className={classes.liveStateChips}>
+                {licensedStates.map(s => (
+                  <span key={s} className={classes.liveStateChip}>{s}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className={classes.pulsingGlow} />
+          <div className={classes.liveBadge}><div className={classes.liveDot} />Dialer Active</div>
+
+          <h1>{callState === 'active' ? 'Currently On Call' : 'Listening for Leads'}</h1>
           <p>
-            You are successfully connected to the dialing engine. Keep this window open, 
-            and the system will route incoming Trackdrive calls directly to your headset as soon as they become available.
+            {callState === 'active'
+              ? 'Stay focused on the prospect. Follow your script.'
+              : 'You are connected to the AgentCalls engine. Stand by for inbound calls.'}
           </p>
-          <button className={classes.offlineBtn} onClick={hangUp}>
-            <PhoneOff size={20} /> Pause & Go Offline
-          </button>
+
+          <div className={classes.actionButtons}>
+            {callState === 'active'
+              ? <button className={`${classes.offlineBtn} ${classes.hangUpBtn}`} onClick={hangUp}><PhoneOff size={20} /> End Call</button>
+              : <button className={classes.offlineBtn} onClick={hangUp}><PhoneOff size={20} /> Pause & Go Offline</button>
+            }
+          </div>
+
+          <div className={classes.activeLogsSection}>
+            <CallHistory logs={history} />
+          </div>
         </div>
       </div>
     );
   }
 
+  // ── Setup Wizard View ────────────────────────────────────────────────────
   return (
     <div className={classes.container}>
       <div className={classes.wizardHeader}>
-        <span className={classes.stepCount}>Step {step} of 3: {titles[step - 1]}</span>
+        <span className={classes.stepCount}>Step {step} of 4: {titles[step - 1]}</span>
         <div className={classes.stepDots}>
-          <div className={`${classes.dot} ${step >= 1 ? classes.dotActive : ''}`} />
-          <div className={`${classes.dot} ${step >= 2 ? classes.dotActive : ''}`} />
-          <div className={`${classes.dot} ${step >= 3 ? classes.dotActive : ''}`} />
+          {[1, 2, 3, 4].map(n => (
+            <div key={n} className={`${classes.dot} ${step >= n ? classes.dotActive : ''}`} />
+          ))}
         </div>
       </div>
-      
+
       <div className={classes.mainProgress}>
-        <div className={classes.mainProgressFill} style={{ width: `${(step / 3) * 100}%` }}></div>
+        <div className={classes.mainProgressFill} style={{ width: `${(step / 4) * 100}%` }} />
       </div>
 
       <div className={classes.stepContent}>
         {step === 1 && <StepOne onNext={() => setStep(2)} />}
-        {step === 2 && <StepTwo onNext={(selected) => { setCampaign(selected); setStep(3); }} onBack={() => setStep(1)} />}
-        {step === 3 && <StepThree onBack={() => setStep(2)} onGoLive={handleGoLive} isConnecting={isConnecting} />}
+        {step === 2 && <StepTwo onNext={(sel) => { setCampaign(sel); setStep(3); }} onBack={() => setStep(1)} />}
+        {step === 3 && <StepThree onNext={(states) => { setWizardStates(states); setStep(4); }} onBack={() => setStep(2)} />}
+        {step === 4 && <StepFour onBack={() => setStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} />}
       </div>
     </div>
   );

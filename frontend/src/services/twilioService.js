@@ -2,10 +2,11 @@ import { Device } from '@twilio/voice-sdk';
 import useDialerStore from '../store/useDialerStore';
 import useAuthStore from '../store/authStore';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-export const initializeTwilioDevice = async (identity, campaign) => {
+export const initializeTwilioDevice = async (passedIdentity, campaign, licensedStates = []) => {
   const store = useDialerStore.getState();
   
   try {
@@ -17,19 +18,19 @@ export const initializeTwilioDevice = async (identity, campaign) => {
     );
     const { token } = response.data;
 
-    // 2. Initialize the Twilio Device
+    // 3. Initialize the Twilio Device
     const device = new Device(token, {
       codecPreferences: ['opus', 'pcmu'],
       fakeLocalDTMF: true,
       enableRingingState: true
     });
 
-    // 3. Register Event Listeners
+    // 4. Register Event Listeners
     device.on('registered', () => {
       console.log('Twilio Device registered successfully');
       store.setDevice(device);
       store.setCallState('idle');
-      store.setAgentContext(identity, campaign);
+      store.setAgentContext(agentIdentity, campaign, licensedStates);
     });
 
     device.on('error', (twilioError) => {
@@ -44,26 +45,18 @@ export const initializeTwilioDevice = async (identity, campaign) => {
       store.setIncomingCall(call, callerId);
       
       call.on('cancel', () => {
-        console.log('Call grabbed or missed');
+        socket.emit('agent:release');
         store.resetCallState();
       });
-      
-      call.on('disconnect', () => {
-        console.log('Call disconnected');
-        store.resetCallState();
-      });
-      
       call.on('reject', () => {
-        console.log('Call rejected');
+        socket.emit('agent:release');
         store.resetCallState();
       });
       
-      // When the agent actually answers the call (transitions from 'pending' to 'open')
       call.on('accept', () => {
          store.setCallState('active');
          store.setActiveCall(call);
          
-         // Setup duration tracking if preferred, simple counter
          let seconds = 0;
          const interval = setInterval(() => {
            useDialerStore.getState().setCallDuration(++seconds);
@@ -71,11 +64,13 @@ export const initializeTwilioDevice = async (identity, campaign) => {
          
          call.on('disconnect', () => {
            clearInterval(interval);
+           socket.emit('agent:release');
+           store.resetCallState();
          });
       });
     });
 
-    // 4. Register the device with Twilio
+    // 5. Register the device with Twilio
     await device.register();
     
     return true;

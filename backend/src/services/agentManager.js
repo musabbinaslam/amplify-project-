@@ -4,61 +4,145 @@ class AgentManager {
    /**
     * Registers an agent in the pool when they go live.
     */
-   async registerAgent(socketId, payload) {
+   async registerAgent(agentId, payload) {
+      // CLEAR ANY PREVIOUS STUCK STATE
+      await redisClient.sRem('agents:available', agentId);
+      await redisClient.sRem('agents:ringing', agentId);
+      await redisClient.sRem('agents:busy', agentId);
+
+      const campaign = payload.campaign || payload.campaignId || 'fe_transfers';
+      const licensedStates = payload.licensedStates || []; // e.g. ['TX', 'FL', 'CA']
+
       const agentData = {
-         socketId,
-         campaignId: payload.campaignId,
+         agentId,
+         campaignId: campaign,
+         licensedStates: JSON.stringify(licensedStates),
          status: 'AVAILABLE',
-         joinedAt: Date.now().toString()
+         joinedAt: Date.now().toString(),
+         lastCallAt: '0' // 0 = never had a call = highest priority (LRU)
       };
-      
+
       // Store full data in a hash map
-      await redisClient.hSet(`agent:${socketId}`, agentData);
-      
-      // Add instantly to an AVAILABLE bucket
-      await redisClient.sAdd('agents:available', socketId);
-      
-      console.log(`[Redis] Agent Registered: ${socketId} taking ${payload.campaignId}`);
+      await redisClient.hSet(`agent:${agentId}`, agentData);
+
+      // Add to AVAILABLE set
+      await redisClient.sAdd('agents:available', agentId);
+
+      console.log(`[Redis] ✅ Agent Registered: ${agentId} | Campaign: ${campaign} | States: ${licensedStates.join(', ') || 'ALL'}`);
    }
 
    /**
     * Clean up agent state upon disconnect.
     */
-   async removeAgent(socketId) {
-      await redisClient.del(`agent:${socketId}`);
-      await redisClient.sRem('agents:available', socketId);
-      await redisClient.sRem('agents:ringing', socketId);
-      await redisClient.sRem('agents:busy', socketId);
-      console.log(`[Redis] Agent Offline: ${socketId}`);
+   async removeAgent(agentId) {
+      await redisClient.del(`agent:${agentId}`);
+      await redisClient.sRem('agents:available', agentId);
+      await redisClient.sRem('agents:ringing', agentId);
+      await redisClient.sRem('agents:busy', agentId);
+      console.log(`[Redis] ❌ Agent Offline: ${agentId}`);
    }
 
    /**
-    * Atomic locking: Safely find exactly one matching agent and reserve them.
+    * LRU Routing: Find the agent who has been waiting longest,
+    * matches the campaign, and is licensed in the caller's state.
+    * Uses atomic Redis lock to prevent double-routing.
     */
-   async findAndLockAvailableAgent(campaignId) {
-       // 1. Fetch available agents
-       const availableAgents = await redisClient.sMembers('agents:available');
-       if (availableAgents.length === 0) return null;
+   async findAndLockAvailableAgent(campaignId, callerState = null) {
+      // 1. Fetch all available agent IDs
+      const availableIds = await redisClient.sMembers('agents:available');
+      if (availableIds.length === 0) return null;
 
-       // 2. Linear scan (For 10,000 agents we would use Redis indices, but for scale this is fast enough O(N))
-       for (let socketId of availableAgents) {
-           const agentData = await redisClient.hGetAll(`agent:${socketId}`);
-           
-           if (agentData && agentData.campaignId === campaignId) {
-               
-               // 3. ATOMIC LOCK: If another web request takes this agent on the same millisecond, sMove will fail (return 0).
-               const locked = await redisClient.sMove('agents:available', 'agents:ringing', socketId);
-               
-               if (locked === 1) {
-                  // We won the lock!
-                  await redisClient.hSet(`agent:${socketId}`, 'status', 'RINGING');
-                  console.log(`[Redis] 🔒 Locked agent ${socketId} for incoming call`);
-                  return { id: socketId, ...agentData };
-               }
-           }
-       }
-       
-       return null; 
+      // 2. Fetch full data for each available agent
+      const agentDataList = await Promise.all(
+         availableIds.map(async (id) => {
+            const data = await redisClient.hGetAll(`agent:${id}`);
+            return { id, ...data };
+         })
+      );
+
+      // 3. Filter by campaign match
+      const campaignMatches = agentDataList.filter(agent => {
+         if (!agent.campaignId) return false;
+         return agent.campaignId === campaignId || !campaignId || agent.campaignId === 'all';
+      });
+
+      if (campaignMatches.length === 0) {
+         console.log(`[Router] No agents found for campaign "${campaignId}"`);
+         return null;
+      }
+
+      // 4. Filter by licensed state (if a caller state is provided)
+      let stateMatches = campaignMatches;
+      if (callerState) {
+         stateMatches = campaignMatches.filter(agent => {
+            try {
+               const states = JSON.parse(agent.licensedStates || '[]');
+               // Empty array = licensed in all states
+               return states.length === 0 || states.includes(callerState.toUpperCase());
+            } catch {
+               return true; // If parse fails, don't block
+            }
+         });
+
+         if (stateMatches.length === 0) {
+            console.log(`[Router] No agents licensed in state "${callerState}" for campaign "${campaignId}"`);
+            return null;
+         }
+      }
+
+      // 5. SORT BY LRU — agent with smallest lastCallAt waited the longest
+      stateMatches.sort((a, b) => {
+         const aTime = parseInt(a.lastCallAt || '0');
+         const bTime = parseInt(b.lastCallAt || '0');
+         return aTime - bTime; // ascending: smallest time = waited longest = first priority
+      });
+
+      console.log(`[Router] ${stateMatches.length} eligible agents. LRU order: ${stateMatches.map(a => `${a.id}(${a.lastCallAt})`).join(', ')}`);
+
+      // 6. Try to atomically lock the highest-priority agent
+      for (const agent of stateMatches) {
+         const locked = await redisClient.sMove('agents:available', 'agents:ringing', agent.id);
+
+         if (locked === 1) {
+            // Won the lock — mark as ringing
+            await redisClient.hSet(`agent:${agent.id}`, 'status', 'RINGING');
+            console.log(`[Router] 🔒 Locked agent ${agent.id} (LRU: waited since ${agent.lastCallAt === '0' ? 'start' : new Date(parseInt(agent.lastCallAt)).toISOString()})`);
+            return agent;
+         }
+         // If lock failed, another request grabbed this agent — try next in LRU order
+      }
+
+      return null;
+   }
+
+   /**
+    * Moves an agent back to AVAILABLE after a call ends.
+    * Updates lastCallAt so they go to the BACK of the LRU queue.
+    */
+   async releaseAgent(agentId) {
+      await redisClient.sRem('agents:ringing', agentId);
+      await redisClient.sRem('agents:busy', agentId);
+      await redisClient.sAdd('agents:available', agentId);
+
+      // Update lastCallAt to NOW → they go to back of the queue
+      await redisClient.hSet(`agent:${agentId}`, {
+         status: 'AVAILABLE',
+         lastCallAt: Date.now().toString()
+      });
+
+      console.log(`[Router] 🔓 Agent ${agentId} released → back to AVAILABLE (moved to back of LRU queue)`);
+   }
+
+   /**
+    * Get a snapshot of the current agent pool for debugging.
+    */
+   async getPoolSnapshot() {
+      const [available, ringing, busy] = await Promise.all([
+         redisClient.sMembers('agents:available'),
+         redisClient.sMembers('agents:ringing'),
+         redisClient.sMembers('agents:busy'),
+      ]);
+      return { available, ringing, busy };
    }
 }
 
