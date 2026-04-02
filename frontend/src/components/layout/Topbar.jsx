@@ -13,7 +13,7 @@ const Topbar = () => {
   // Format pathname to Title Case for the header
   const getPageTitle = (pathname) => {
     const stripped = pathname.replace(/^\/app\/?/, '');
-    if (!stripped) return 'Welcome';
+    if (!stripped) return 'Lets get started';
     return stripped.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
@@ -21,7 +21,7 @@ const Topbar = () => {
     <header className={classes.topbar}>
       <div className={classes.pageInfo}>
         <h1 className={classes.title}>{getPageTitle(location.pathname)}</h1>
-        <span className={classes.subtitle}>{user?.name || 'Agent'}</span>
+        {/* <span className={classes.subtitle}>{user?.name || 'Agent'}</span> */}
       </div>
 
       <div className={classes.actions}>
