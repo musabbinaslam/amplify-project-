@@ -628,3 +628,474 @@
   background: rgba(255, 51, 102, 0.2);
   border-color: rgba(255, 51, 102, 0.4);
 }
+
+/* --- INCOMING CALL OVERLAY --- */
+.callOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 15, 30, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.callCard {
+  width: 100%;
+  max-width: 400px;
+  background: linear-gradient(145deg, #1e293b, #0f172a);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 24px;
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(16, 185, 129, 0.1);
+  animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.incomingBadge {
+  display: inline-block;
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--accent-green);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding: 6px 12px;
+  border-radius: 4px;
+  margin-bottom: 24px;
+}
+
+.callerIcon {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  position: relative;
+}
+
+.pulseIcon {
+  color: var(--accent-green);
+  animation: heartbeat 1.5s ease-in-out infinite;
+}
+
+@keyframes heartbeat {
+  0% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.7; }
+}
+
+.callCard h2 {
+  font-size: 24px;
+  color: white;
+  margin-bottom: 8px;
+}
+
+.callCard p {
+  color: var(--text-secondary);
+  font-size: 15px;
+  margin-bottom: 32px;
+}
+
+.callActions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.acceptBtn {
+  width: 100%;
+  background: var(--accent-green);
+  color: white;
+  padding: 16px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.acceptBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5);
+}
+
+.declineBtn {
+  width: 100%;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.declineBtn:hover {
+  color: var(--accent-red);
+}
+
+.blurred {
+  filter: blur(10px) brightness(0.6);
+  pointer-events: none;
+  transition: all 0.4s ease;
+}
+
+.hangUpBtn {
+  background: var(--accent-red) !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 4px 15px rgba(255, 51, 102, 0.3) !important;
+}
+
+.hangUpBtn:hover {
+  box-shadow: 0 6px 20px rgba(255, 51, 102, 0.5) !important;
+  transform: translateY(-1px);
+}
+
+.topStatsRow {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.statBox {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+  text-align: left;
+}
+
+.statLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.6;
+  margin-bottom: 4px;
+}
+
+.statValue {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.budgetGreen {
+  color: #00ff88;
+}
+
+/* CALL HISTORY TABLE */
+.activeLogsSection {
+  width: 100%;
+  margin-top: 32px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.logsTitle {
+  font-size: 14px;
+  margin-bottom: 16px;
+  opacity: 0.8;
+  font-weight: 600;
+  text-align: left;
+}
+
+.logsHeader {
+  display: flex;
+  font-size: 11px;
+  font-weight: bold;
+  opacity: 0.5;
+  padding: 0 12px 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: left;
+}
+
+.logItem {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  transition: background 0.2s;
+  text-align: left;
+}
+
+.logItem:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.colCampaign { flex: 2; padding-right: 10px; }
+.colCaller { flex: 2; }
+.colDuration { flex: 1.5; display: flex; align-items: center; opacity: 0.8; }
+.colStatus { flex: 2; display: flex; justify-content: flex-end; }
+
+.campaignTag {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.badgeSale {
+  background: rgba(0, 255, 136, 0.15);
+  color: #00ff88;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(0, 255, 136, 0.3);
+}
+
+.badgeAnswered {
+  color: #aaa;
+  font-size: 10px;
+}
+
+.badgeMissed {
+  color: #ff4d4d;
+  font-size: 10px;
+}
+
+.emptyLogs {
+  text-align: center;
+  padding: 40px;
+  opacity: 0.5;
+  font-size: 14px;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+/* ─── Licensed States Step ────────────────────── */
+.statesToolbar {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+.stateSearch {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 9px 14px;
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+  transition: border 0.2s;
+}
+
+.stateSearch:focus {
+  border-color: var(--accent-green);
+}
+
+.stateSearch::placeholder {
+  opacity: 0.4;
+}
+
+.stateActionBtn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: #fff;
+  padding: 8px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.stateActionBtn:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+.stateCounter {
+  width: 100%;
+  font-size: 12px;
+  padding: 10px 14px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 8px;
+  margin-bottom: 14px;
+  min-height: 36px;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.7);
+}
+
+.statesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+  width: 100%;
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-bottom: 8px;
+}
+
+.stateChip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  text-align: left;
+  color: #fff;
+}
+
+.stateChip:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.stateChipActive {
+  background: rgba(0, 255, 136, 0.1) !important;
+  border-color: rgba(0, 255, 136, 0.4) !important;
+}
+
+.stateCode {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.stateChipActive .stateCode {
+  color: #00ff88;
+}
+
+.stateName {
+  font-size: 10px;
+  opacity: 0.6;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.stateCheck {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: #00ff88;
+}
+
+/* ─── Summary Box (Step 4) ────────────────────── */
+.summaryBox {
+  width: 100%;
+  background: rgba(0, 255, 136, 0.04);
+  border: 1px solid rgba(0, 255, 136, 0.15);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  gap: 16px;
+}
+
+.summaryRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.summaryLabel {
+  font-size: 12px;
+  opacity: 0.5;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.summaryValue {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+  line-height: 1.5;
+}
+
+/* ─── Live States Strip (Active Dialer) ───────── */
+.liveStatesRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: rgba(0, 255, 136, 0.04);
+  border: 1px solid rgba(0, 255, 136, 0.12);
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.liveStatesLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  opacity: 0.5;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.liveStateChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.liveStateChip {
+  background: rgba(0, 255, 136, 0.12);
+  color: #00ff88;
+  border: 1px solid rgba(0, 255, 136, 0.25);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}

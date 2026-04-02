@@ -9,6 +9,7 @@ const useDialerStore = create((set, get) => ({
   // Agent Context
   agentIdentity: null,
   activeCampaign: null,
+  licensedStates: [],
 
   // UI State
   isMuted: false,
@@ -19,9 +20,10 @@ const useDialerStore = create((set, get) => ({
   setDevice: (device) => set({ device }),
   setCallState: (state) => set({ callState: state }),
   setActiveCall: (call) => set({ activeCall: call }),
-  setAgentContext: (identity, campaign) => set({ 
+  setAgentContext: (identity, campaign, states = []) => set({ 
     agentIdentity: identity, 
-    activeCampaign: campaign 
+    activeCampaign: campaign,
+    licensedStates: states
   }),
   setIncomingCall: (call, callerId) => set({ 
     activeCall: call, 
@@ -41,19 +43,34 @@ const useDialerStore = create((set, get) => ({
   }),
 
   // Actions for the Call
-  acceptCall: () => {
+  acceptCall: async () => {
     const { activeCall } = get();
-    if (activeCall && activeCall.status === 'pending') {
-      activeCall.accept();
-      set({ callState: 'active' });
+    console.log('DEBUG: Attempting to accept call. Call state is:', activeCall?.state);
+    
+    if (activeCall) {
+      try {
+        activeCall.accept();
+        set({ callState: 'active' });
+        console.log('DEBUG: Call accepted successfully.');
+      } catch (err) {
+        console.error('DEBUG: ERROR ACCEPTING CALL:', err);
+        alert('Could not answer call. Check your microphone permissions!');
+      }
+    } else {
+      console.warn('DEBUG: No active call found in store to accept.');
     }
   },
 
   rejectCall: () => {
     const { activeCall } = get();
-    if (activeCall && activeCall.status === 'pending') {
-      activeCall.reject();
-      get().resetCallState();
+    console.log('DEBUG: Rejecting incoming call.');
+    if (activeCall) {
+       try {
+         activeCall.reject();
+       } catch (err) {
+         console.error('DEBUG: Error rejecting call:', err);
+       }
+       get().resetCallState();
     }
   },
 

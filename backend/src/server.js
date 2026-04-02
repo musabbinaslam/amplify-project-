@@ -5,18 +5,16 @@ const { Server } = require('socket.io');
 require('dotenv').config();
 
 const { connectRedis } = require('./config/redis');
-const voiceController = require('./controllers/voiceController');
+const voiceRoutes = require('./routes/voiceRoutes');
 const { setupCallSockets } = require('./sockets/callSockets');
 
 const app = express();
 const server = http.createServer(app);
 
-// Allow all CORS for local development to prevent origin mismatch issues
-app.use(cors());
-
-// Twilio needs x-www-form-urlencoded to hit webhooks!
+// Twilio sends data as x-www-form-urlencoded, so we must have this!
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(cors());
 
 const io = new Server(server, {
   cors: {
@@ -31,12 +29,17 @@ const startEngine = async () => {
 
     // Init Socket events
     setupCallSockets(io);
-    
-    // Twilio Voice Routes
-    app.post('/api/voice/token', voiceController.generateToken);
-    app.post('/api/voice/incoming-call', voiceController.handleIncomingCall);
+
+    // Mount all voice routes (/token, /incoming-call, /call-completed, /logs)
+    app.use('/api/voice', voiceRoutes);
 
     app.get('/health', (req, res) => res.json({ status: 'Engine Active' }));
+
+    // Global Error Catcher
+    app.use((err, req, res, next) => {
+        console.error('SERVER CRASH PREVENTED:', err.stack);
+        res.status(500).send('Internal Server Error');
+    });
 
     const PORT = process.env.PORT || 3001;
     server.listen(PORT, () => {
