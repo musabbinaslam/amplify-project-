@@ -14,13 +14,15 @@
   background: var(--surface-container-low);
   border-radius: var(--radius-xl);
   padding: 24px;
-  border: none;
-  transition: transform 0.2s ease;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .statCard:hover {
   background: var(--surface-container);
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
 .statHeader {
@@ -58,9 +60,10 @@
 
 .campaignSection {
   background: var(--surface-container-low);
-  border: none;
+  border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   padding: 32px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .sectionHeader {
@@ -101,7 +104,7 @@
   background: var(--surface-container);
   border-radius: var(--radius-lg);
   padding: 24px;
-  border: none;
+  border: 1px solid var(--border);
   transition: background 0.2s ease;
 }
 
@@ -201,8 +204,9 @@
 .chartSection, .statesSection, .callsSection {
   background: var(--surface-container-low);
   border-radius: var(--radius-xl);
-  border: none;
+  border: 1px solid var(--border);
   padding: 32px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .chartHeader {

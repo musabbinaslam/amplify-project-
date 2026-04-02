@@ -18,10 +18,15 @@ body {
   font-family: 'Inter', -apple-system, sans-serif;
   background-color: var(--surface);
   color: var(--text-primary);
+  color-scheme: dark;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
-  /* Dark space, rejecting standard template look */
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+[data-theme="light"] body {
+  color-scheme: light;
 }
 
 a {
@@ -66,7 +71,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Base Utility / Glassmorphism Class */
 .glass-panel {
-  background: rgba(32, 32, 32, 0.6);
+  background: color-mix(in srgb, var(--surface-container-high) 60%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border);

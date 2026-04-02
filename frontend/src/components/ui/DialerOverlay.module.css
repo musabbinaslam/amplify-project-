@@ -11,7 +11,7 @@
 
 .glassCard {
   pointer-events: auto;
-  background: rgba(14, 14, 14, 0.75);
+  background: color-mix(in srgb, var(--surface) 75%, transparent);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--border);
@@ -204,7 +204,7 @@
 /* Idle Badge */
 .idleBadge {
   pointer-events: auto;
-  background: rgba(14, 14, 14, 0.85);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
   backdrop-filter: blur(20px);
   border: none;
   padding: 16px 32px;
