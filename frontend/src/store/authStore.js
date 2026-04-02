@@ -6,6 +6,11 @@ import {
   signOut,
   onAuthStateChanged,
   updateProfile,
+  updateEmail,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+  deleteUser,
   sendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase';
@@ -95,6 +100,35 @@ const useAuthStore = create((set, get) => ({
     set((state) => ({
       user: state.user ? { ...state.user, avatar: url } : null,
     }));
+  },
+
+  updateName: async (displayName) => {
+    await updateProfile(auth.currentUser, { displayName });
+    set((state) => ({
+      user: state.user ? { ...state.user, name: displayName } : null,
+    }));
+  },
+
+  updateEmailAddress: async (newEmail, currentPassword) => {
+    const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
+    await reauthenticateWithCredential(auth.currentUser, credential);
+    await updateEmail(auth.currentUser, newEmail);
+    set((state) => ({
+      user: state.user ? { ...state.user, email: newEmail } : null,
+    }));
+  },
+
+  changePassword: async (currentPassword, newPassword) => {
+    const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
+    await reauthenticateWithCredential(auth.currentUser, credential);
+    await updatePassword(auth.currentUser, newPassword);
+  },
+
+  deleteAccount: async (currentPassword) => {
+    const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
+    await reauthenticateWithCredential(auth.currentUser, credential);
+    await deleteUser(auth.currentUser);
+    set({ user: null, token: null });
   },
 }));
 
