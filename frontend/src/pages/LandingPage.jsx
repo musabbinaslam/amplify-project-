@@ -4,8 +4,9 @@ import { motion } from 'framer-motion';
 import {
   Phone, LayoutDashboard, Shield, DollarSign, Brain, MapPin,
   ChevronDown, ArrowRight, Zap, Users, BarChart3, Play,
-  Calendar, Clock, Video,
+  Calendar, Clock, Video, Sun, Moon,
 } from 'lucide-react';
+import { useUIStore } from '../store/uiStore';
 import classes from './LandingPage.module.css';
 
 const fadeUp = {
@@ -69,6 +70,7 @@ const FAQItem = ({ item, isOpen, onToggle }) => (
 
 const LandingPage = () => {
   const [openFaq, setOpenFaq] = useState(null);
+  const { theme, toggleTheme } = useUIStore();
 
   return (
     <div className={classes.page}>
@@ -91,6 +93,9 @@ const LandingPage = () => {
           </div>
 
           <div className={classes.navActions}>
+            <button className={classes.themeToggle} onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             <Link to="/login" className={classes.navBtnGhost}>Log In</Link>
             <Link to="/signup" className={classes.navBtnFilled}>Get Started</Link>
           </div>

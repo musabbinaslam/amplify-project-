@@ -4,8 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import App from './App.jsx';
 import useAuthStore from './store/authStore';
+import { useUIStore } from './store/uiStore';
 import PageLoader from './components/ui/PageLoader';
 import './index.css';
+
+useUIStore.getState().initTheme();
 
 const queryClient = new QueryClient();
 

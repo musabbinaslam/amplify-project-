@@ -13,7 +13,7 @@
   left: 0;
   right: 0;
   z-index: 100;
-  background: rgba(14, 14, 14, 0.85);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border);
@@ -101,6 +101,22 @@
   border-color: var(--text-tertiary);
   background: var(--surface-container);
   color: var(--text-primary);
+}
+
+.themeToggle {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  transition: color 0.2s, background 0.2s;
+}
+
+.themeToggle:hover {
+  color: var(--text-primary);
+  background: var(--surface-container);
 }
 
 .navBtnFilled {

@@ -4,7 +4,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 32px;
-  background-color: rgba(14, 14, 14, 0.50); /* surface */
+  background-color: color-mix(in srgb, var(--surface) 50%, transparent);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: none;
