@@ -1,16 +1,20 @@
 import { Device } from '@twilio/voice-sdk';
 import useDialerStore from '../store/useDialerStore';
+import useAuthStore from '../store/authStore';
 import axios from 'axios';
 
-// The base URL for the backend API
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export const initializeTwilioDevice = async (identity, campaign) => {
   const store = useDialerStore.getState();
   
   try {
-    // 1. Fetch Twilio access token from the backend
-    const response = await axios.post(`${API_URL}/api/voice/token`, { identity, campaign });
+    const idToken = await useAuthStore.getState().getIdToken();
+    const response = await axios.post(
+      `${API_URL}/api/voice/token`,
+      { identity, campaign },
+      { headers: { Authorization: `Bearer ${idToken}` } }
+    );
     const { token } = response.data;
 
     // 2. Initialize the Twilio Device

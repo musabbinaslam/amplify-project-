@@ -7,6 +7,7 @@ require('dotenv').config();
 const { connectRedis } = require('./config/redis');
 const voiceController = require('./controllers/voiceController');
 const { setupCallSockets } = require('./sockets/callSockets');
+const { verifyFirebaseToken } = require('./middleware/auth');
 
 const app = express();
 const server = http.createServer(app);
@@ -32,8 +33,8 @@ const startEngine = async () => {
     // Init Socket events
     setupCallSockets(io);
     
-    // Twilio Voice Routes
-    app.post('/api/voice/token', voiceController.generateToken);
+    // Twilio Voice Routes (token requires auth, incoming-call is a Twilio webhook)
+    app.post('/api/voice/token', verifyFirebaseToken, voiceController.generateToken);
     app.post('/api/voice/incoming-call', voiceController.handleIncomingCall);
 
     app.get('/health', (req, res) => res.json({ status: 'Engine Active' }));

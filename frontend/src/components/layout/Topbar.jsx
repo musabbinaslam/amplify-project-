@@ -1,10 +1,12 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { Wallet, Globe, Moon, Settings2 } from 'lucide-react';
+import useAuthStore from '../../store/authStore';
 import classes from './Topbar.module.css';
 
 const Topbar = () => {
   const location = useLocation();
+  const user = useAuthStore((s) => s.user);
   
   // Format pathname to Title Case for the header
   const getPageTitle = (pathname) => {
@@ -17,7 +19,7 @@ const Topbar = () => {
     <header className={classes.topbar}>
       <div className={classes.pageInfo}>
         <h1 className={classes.title}>{getPageTitle(location.pathname)}</h1>
-        <span className={classes.subtitle}>Basit</span>
+        <span className={classes.subtitle}>{user?.name || 'Agent'}</span>
       </div>
 
       <div className={classes.actions}>

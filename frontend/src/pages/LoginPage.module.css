@@ -9,11 +9,9 @@
 .card {
   width: 100%;
   max-width: 460px;
-  background: rgba(13, 21, 38, 0.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  background: var(--surface-container-low);
+  border-radius: var(--radius-xl);
+  border: none;
   padding: 40px 32px;
 }
 
@@ -28,11 +26,12 @@
 .logoIcon {
   width: 36px;
   height: 36px;
-  background: var(--accent-blue);
-  border-radius: 8px;
+  background: var(--accent-green);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 0 10px var(--accent-green-glow);
 }
 
 .logoTriangle {
@@ -40,22 +39,24 @@
   height: 0;
   border-left: 7px solid transparent;
   border-right: 7px solid transparent;
-  border-bottom: 12px solid white;
+  border-bottom: 12px solid var(--surface);
 }
 
 .logoText {
   font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--accent-blue);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  text-transform: uppercase;
 }
 
 .heading {
   text-align: center;
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--text-primary);
   margin-bottom: 4px;
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
@@ -63,6 +64,7 @@
   font-size: 14px;
   color: var(--text-secondary);
   margin-bottom: 28px;
+  font-weight: 500;
 }
 
 .form {
@@ -79,16 +81,16 @@
 
 .label {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
 .input {
   width: 100%;
   padding: 12px 14px;
-  background: var(--bg-secondary);
+  background: var(--surface-container);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 14px;
   font-family: inherit;
@@ -97,30 +99,32 @@
 }
 
 .input::placeholder {
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
 }
 
 .input:focus {
-  border-color: var(--accent-blue);
+  border-color: var(--accent-green);
 }
 
 .submitBtn {
   width: 100%;
-  padding: 14px;
-  background: var(--accent-blue);
-  color: white;
-  font-size: 16px;
-  font-weight: 600;
+  padding: 16px;
+  background: var(--accent-green);
+  color: var(--surface-container-highest);
+  font-size: 15px;
+  font-weight: 700;
   font-family: inherit;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: opacity 0.2s, transform 0.1s;
+  transition: all 0.2s ease;
   margin-top: 4px;
+  box-shadow: 0 4px 12px var(--accent-green-glow);
 }
 
 .submitBtn:hover {
-  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px var(--accent-green-glow);
 }
 
 .submitBtn:active {
@@ -130,12 +134,35 @@
 .submitBtn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
-.googleBtnWrapper {
+.googleBtn {
+  width: 100%;
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  background: var(--surface-container);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s;
   margin-bottom: 20px;
+}
+
+.googleBtn:hover {
+  background: var(--surface-container-high);
+}
+
+.googleIcon {
+  flex-shrink: 0;
 }
 
 .divider {
@@ -153,7 +180,7 @@
 
 .dividerText {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   text-transform: lowercase;
 }
 
@@ -165,12 +192,32 @@
 }
 
 .footerLink {
-  color: var(--accent-blue);
+  color: var(--accent-green);
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.2s;
 }
 
 .footerLink:hover {
+  color: var(--accent-green);
+  opacity: 0.8;
+}
+
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.forgotLink {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-green);
+  cursor: pointer;
+  padding: 0;
+  transition: opacity 0.2s;
+}
+
+.forgotLink:hover {
   opacity: 0.8;
 }

@@ -1,78 +1,94 @@
 import { create } from 'zustand';
-import { jwtDecode } from 'jwt-decode';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  updateProfile,
+  sendPasswordResetEmail,
+} from 'firebase/auth';
+import { auth, googleProvider } from '../config/firebase';
 
-const STORAGE_KEY = 'agentcalls_auth';
-
-const loadPersistedAuth = () => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const { user, token } = JSON.parse(raw);
-      if (user && token) return { user, token };
-    }
-  } catch { /* corrupted storage */ }
-  return { user: null, token: null };
-};
-
-const persist = (user, token) => {
-  if (user && token) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ user, token }));
-  } else {
-    localStorage.removeItem(STORAGE_KEY);
-  }
-};
-
-const initial = loadPersistedAuth();
+const mapFirebaseUser = (firebaseUser) => ({
+  uid: firebaseUser.uid,
+  name: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+  email: firebaseUser.email,
+  avatar: firebaseUser.photoURL,
+  authProvider: firebaseUser.providerData[0]?.providerId || 'password',
+});
 
 const useAuthStore = create((set, get) => ({
-  user: initial.user,
-  token: initial.token,
+  user: null,
+  token: null,
+  loading: true,
 
-  get isAuthenticated() {
-    return !!get().token;
+  initAuth: () => {
+    return new Promise((resolve) => {
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+          const token = await firebaseUser.getIdToken();
+          const existingMeta = get().user?.meta;
+          set({
+            user: { ...mapFirebaseUser(firebaseUser), meta: existingMeta || null },
+            token,
+            loading: false,
+          });
+        } else {
+          set({ user: null, token: null, loading: false });
+        }
+        resolve();
+      });
+      set({ _unsubscribe: unsubscribe });
+    });
   },
 
-  signup: (formData) => {
-    const user = {
-      id: `agent_${Date.now()}`,
-      name: formData.fullName,
-      email: formData.email,
-      phone: formData.phone,
-      verticals: formData.verticals,
-    };
-    const token = `mock_token_${Date.now()}`;
-    persist(user, token);
-    set({ user, token });
+  signup: async (formData) => {
+    const { email, password, fullName, ...meta } = formData;
+    const credential = await createUserWithEmailAndPassword(auth, email, password);
+    await updateProfile(credential.user, { displayName: fullName });
+    const token = await credential.user.getIdToken();
+    set({
+      user: {
+        ...mapFirebaseUser(credential.user),
+        name: fullName,
+        meta: {
+          phone: formData.phone,
+          verticals: formData.verticals,
+          weeklySpend: formData.weeklySpend,
+          usedInbound: formData.usedInbound,
+          hearAbout: formData.hearAbout,
+        },
+      },
+      token,
+    });
   },
 
-  login: (email, password) => {
-    const user = {
-      id: `agent_${Date.now()}`,
-      name: email.split('@')[0],
-      email,
-    };
-    const token = `mock_token_${Date.now()}`;
-    persist(user, token);
-    set({ user, token });
+  login: async (email, password) => {
+    const credential = await signInWithEmailAndPassword(auth, email, password);
+    const token = await credential.user.getIdToken();
+    set({ user: mapFirebaseUser(credential.user), token });
   },
 
-  googleLogin: (credential) => {
-    const decoded = jwtDecode(credential);
-    const user = {
-      id: decoded.sub,
-      name: decoded.name,
-      email: decoded.email,
-      avatar: decoded.picture,
-      authProvider: 'google',
-    };
-    const token = credential;
-    persist(user, token);
-    set({ user, token });
+  googleLogin: async () => {
+    const result = await signInWithPopup(auth, googleProvider);
+    const token = await result.user.getIdToken();
+    set({ user: mapFirebaseUser(result.user), token });
   },
 
-  logout: () => {
-    persist(null, null);
+  logout: async () => {
+    await signOut(auth);
     set({ user: null, token: null });
+  },
+
+  resetPassword: async (email) => {
+    await sendPasswordResetEmail(auth, email);
+  },
+
+  getIdToken: async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return null;
+    return currentUser.getIdToken();
   },
 }));
 
