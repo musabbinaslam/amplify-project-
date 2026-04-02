@@ -10,9 +10,9 @@ const Topbar = () => {
   
   // Format pathname to Title Case for the header
   const getPageTitle = (pathname) => {
-    if (pathname === '/') return 'Welcome';
-    const path = pathname.split('/')[1];
-    return path.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    const stripped = pathname.replace(/^\/app\/?/, '');
+    if (!stripped) return 'Welcome';
+    return stripped.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
   return (
