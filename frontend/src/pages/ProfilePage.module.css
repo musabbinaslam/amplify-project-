@@ -5,6 +5,24 @@
   max-width: 1000px;
 }
 
+.loaderWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+  color: var(--accent-green);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Header ── */
+
 .header {
   display: flex;
   align-items: center;
@@ -37,11 +55,14 @@
   font-weight: 500;
 }
 
+/* ── Main card ── */
+
 .mainBox {
   background: var(--surface-container-low);
-  border: none;
+  border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   padding: 40px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .mainBox h3 {
@@ -51,6 +72,8 @@
   margin-bottom: 32px;
 }
 
+/* ── Avatar ── */
+
 .avatarRow {
   display: flex;
   align-items: center;
@@ -58,18 +81,60 @@
   margin-bottom: 48px;
 }
 
-.avatar {
+.avatarBtn {
+  position: relative;
   width: 96px;
   height: 96px;
   border-radius: var(--radius-full);
+  border: 2px solid var(--accent-green);
   background: var(--surface-container-highest);
+  cursor: pointer;
+  overflow: hidden;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.avatarBtn:disabled {
+  cursor: wait;
+}
+
+.avatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatarInitial {
   color: var(--accent-green);
   font-size: 36px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: inset 0 0 0 2px var(--accent-green);
+  width: 100%;
+  height: 100%;
+}
+
+.avatarOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  border-radius: var(--radius-full);
+}
+
+.avatarBtn:hover .avatarOverlay {
+  opacity: 1;
+}
+
+.hiddenInput {
+  display: none;
 }
 
 .avatarRow h4 {
@@ -95,11 +160,21 @@
   background: var(--surface-container-highest);
   padding: 8px 16px;
   border-radius: var(--radius-full);
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
 }
 
 .uploadBtn:hover {
   background: var(--surface-container);
 }
+
+.uploadBtn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* ── Form fields ── */
 
 .formGroup {
   margin-bottom: 32px;
@@ -127,6 +202,7 @@
   color: var(--text-tertiary);
   font-size: 14px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .urlInput {
@@ -154,6 +230,7 @@
   resize: vertical;
   outline: none;
   min-height: 120px;
+  font-family: inherit;
 }
 
 .bioInput:focus {
@@ -170,7 +247,7 @@
 
 .saveBtn {
   background: var(--accent-green);
-  color: var(--surface-container-highest);
+  color: var(--surface);
   padding: 12px 32px;
   border-radius: var(--radius-full);
   font-size: 15px;
@@ -178,9 +255,107 @@
   margin-top: 16px;
   transition: all 0.2s ease;
   box-shadow: 0 4px 12px var(--accent-green-glow);
+  border: none;
+  cursor: pointer;
 }
 
 .saveBtn:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 16px var(--accent-green-glow);
+}
+
+.saveBtn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+
+/* ── Integration & Links card ── */
+
+.integrationBox {
+  background: var(--surface-container-low);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 40px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.integrationBox h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 32px;
+}
+
+.integrationRow {
+  margin-bottom: 28px;
+}
+
+.integrationRow:last-child {
+  margin-bottom: 0;
+}
+
+.integrationLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.integrationLabel svg {
+  color: var(--text-tertiary);
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--accent-green-dim);
+  color: var(--accent-green);
+}
+
+.integrationField {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface-container);
+}
+
+.readonlyInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 14px 20px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  outline: none;
+  min-width: 0;
+}
+
+.copyBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  background: var(--surface-container-high);
+  border: none;
+  border-left: 1px solid var(--border);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.copyBtn:hover {
+  background: var(--surface-container-highest);
+  color: var(--accent-green);
 }

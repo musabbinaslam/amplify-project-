@@ -90,6 +90,12 @@ const useAuthStore = create((set, get) => ({
     if (!currentUser) return null;
     return currentUser.getIdToken();
   },
+
+  updateAvatar: (url) => {
+    set((state) => ({
+      user: state.user ? { ...state.user, avatar: url } : null,
+    }));
+  },
 }));
 
 export default useAuthStore;
