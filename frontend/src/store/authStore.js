@@ -14,6 +14,7 @@ import {
   sendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase';
+import { saveOnboarding, getOnboarding } from '../services/onboardingService';
 
 const mapFirebaseUser = (firebaseUser) => ({
   uid: firebaseUser.uid,
@@ -49,22 +50,15 @@ const useAuthStore = create((set, get) => ({
   },
 
   signup: async (formData) => {
-    const { email, password, fullName, ...meta } = formData;
+    const { email, password, fullName } = formData;
     const credential = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(credential.user, { displayName: fullName });
     const token = await credential.user.getIdToken();
+
+    await saveOnboarding(credential.user.uid, formData);
+
     set({
-      user: {
-        ...mapFirebaseUser(credential.user),
-        name: fullName,
-        meta: {
-          phone: formData.phone,
-          verticals: formData.verticals,
-          weeklySpend: formData.weeklySpend,
-          usedInbound: formData.usedInbound,
-          hearAbout: formData.hearAbout,
-        },
-      },
+      user: { ...mapFirebaseUser(credential.user), name: fullName },
       token,
     });
   },
@@ -78,7 +72,18 @@ const useAuthStore = create((set, get) => ({
   googleLogin: async () => {
     const result = await signInWithPopup(auth, googleProvider);
     const token = await result.user.getIdToken();
+
+    const existing = await getOnboarding(result.user.uid);
+    const needsOnboarding = !existing?.completedAt;
+
     set({ user: mapFirebaseUser(result.user), token });
+    return { needsOnboarding, user: result.user };
+  },
+
+  saveGoogleOnboarding: async (formData) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error('No authenticated user');
+    await saveOnboarding(currentUser.uid, formData);
   },
 
   logout: async () => {
