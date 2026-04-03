@@ -68,18 +68,18 @@ const QAFeedbackPage = () => {
         <h3>Score Trend (Most Recent 12)</h3>
         <div className={classes.chartWrap}>
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={TREND_DATA} margin={{ top: 8, right: 16, left: -8, bottom: 0 }}>
+            <LineChart data={TREND_DATA} margin={{ top: 8, right: 24, left: -8, bottom: 12 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="call"
-                tick={{ fill: 'var(--text-tertiary)', fontSize: 12 }}
+                tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
                 axisLine={{ stroke: 'var(--border)' }}
                 tickLine={false}
-                label={{ value: 'Call #', position: 'insideBottomRight', offset: -4, fill: 'var(--text-tertiary)', fontSize: 12 }}
+                label={{ value: 'Call #', position: 'insideBottomRight', offset: -10, fill: 'var(--text-secondary)', fontSize: 12 }}
               />
               <YAxis
                 domain={[0, 100]}
-                tick={{ fill: 'var(--text-tertiary)', fontSize: 12 }}
+                tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
                 axisLine={{ stroke: 'var(--border)' }}
                 tickLine={false}
               />

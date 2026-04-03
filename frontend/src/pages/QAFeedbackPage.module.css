@@ -2,7 +2,8 @@
   display: flex;
   flex-direction: column;
   gap: 28px;
-  max-width: 1100px;
+  width: 100%;
+  padding-bottom: 32px;
 }
 
 /* ── Header ── */
@@ -116,6 +117,10 @@
 .chartWrap {
   width: 100%;
   overflow: hidden;
+}
+
+.chartWrap * {
+  outline: none !important;
 }
 
 /* ── Table ── */
