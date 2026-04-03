@@ -55,7 +55,16 @@ const useAuthStore = create((set, get) => ({
     await updateProfile(credential.user, { displayName: fullName });
     const token = await credential.user.getIdToken();
 
-    await saveOnboarding(credential.user.uid, formData);
+    await saveProfile(credential.user.uid, {
+      onboarding: {
+        phone: formData.phone || '',
+        weeklySpend: formData.weeklySpend || '',
+        usedInbound: formData.usedInbound || '',
+        verticals: formData.verticals || '',
+        hearAbout: formData.hearAbout || '',
+        completedAt: new Date().toISOString(),
+      },
+    });
 
     set({
       user: { ...mapFirebaseUser(credential.user), name: fullName },
@@ -73,8 +82,8 @@ const useAuthStore = create((set, get) => ({
     const result = await signInWithPopup(auth, googleProvider);
     const token = await result.user.getIdToken();
 
-    const existing = await getOnboarding(result.user.uid);
-    const needsOnboarding = !existing?.completedAt;
+    const existing = await getProfile(result.user.uid);
+    const needsOnboarding = !existing?.onboarding?.completedAt;
 
     set({ user: mapFirebaseUser(result.user), token });
     return { needsOnboarding, user: result.user };
@@ -83,7 +92,16 @@ const useAuthStore = create((set, get) => ({
   saveGoogleOnboarding: async (formData) => {
     const currentUser = auth.currentUser;
     if (!currentUser) throw new Error('No authenticated user');
-    await saveOnboarding(currentUser.uid, formData);
+    await saveProfile(currentUser.uid, {
+      onboarding: {
+        phone: formData.phone || '',
+        weeklySpend: formData.weeklySpend || '',
+        usedInbound: formData.usedInbound || '',
+        verticals: formData.verticals || '',
+        hearAbout: formData.hearAbout || '',
+        completedAt: new Date().toISOString(),
+      },
+    });
   },
 
   logout: async () => {
