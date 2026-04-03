@@ -14,7 +14,7 @@ import {
   sendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase';
-import { saveOnboarding, getOnboarding } from '../services/onboardingService';
+import { getProfile, saveProfile } from '../services/profileService';
 
 const mapFirebaseUser = (firebaseUser) => ({
   uid: firebaseUser.uid,
