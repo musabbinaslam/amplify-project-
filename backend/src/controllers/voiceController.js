@@ -2,6 +2,7 @@ const twilio = require('twilio');
 const { VoiceGrant, TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, TWILIO_TWIML_APP_SID } = require('../config/twilio');
 const { VoiceResponse } = twilio.twiml;
 const agentManager = require('../services/agentManager');
+const callLogService = require('../services/callLogService');
 
 exports.generateToken = (req, res) => {
   const { identity } = req.body;
@@ -32,27 +33,67 @@ exports.generateToken = (req, res) => {
 
 exports.handleIncomingCall = async (req, res) => {
   const twiml = new VoiceResponse();
-  const callerState = req.body.FromState || 'Unknown';
   
-  // Here we would use Trackdrive parameters passed via URL mapping, e.g., ?campaign=final_expense
-  const campaign = req.query.campaign; 
+  // Safe extraction to prevent crashes
+  const fromNumber = (req.body && req.body.From) || 'Unknown Caller';
+  const callerState = (req.body && req.body.FromState) || null; // e.g. "TX"
+  const queryCampaign = req.query && req.query.campaign;
+  const bodyCampaign = req.body && req.body.campaign;
+  const campaign = queryCampaign || bodyCampaign || 'fe_transfers';
 
-  console.log(`[Twilio Webhook] Incoming call routed for Campaign: ${campaign}, State: ${callerState}`);
+  console.log(`[Twilio Webhook] 🔔 Incoming call from: ${fromNumber} | State: ${callerState || 'Unknown'}`);
+  console.log(`[Twilio Webhook] 🎯 Target Campaign: ${campaign}`);
 
   try {
-     const assignedAgent = await agentManager.findAndLockAvailableAgent(campaign);
-
-     if (assignedAgent) {
+     const available = await agentManager.findAndLockAvailableAgent(campaign, callerState);
+     
+     if (available) {
         twiml.say('Connecting you to an agent.');
-        twiml.dial().client(assignedAgent.id);
+        twiml.dial({
+          action: `/api/voice/call-completed?campaign=${campaign}&agentId=${available.id}`,
+          method: 'POST',
+          timeout: 20
+        }).client(available.id);
      } else {
-        twiml.say('All agents are currently assisting other callers. Please hold or try again later.');
+        twiml.say('All agents are currently assisting other callers.');
      }
   } catch(error) {
      console.error('Routing Error:', error);
-     twiml.say('An application error occurred while routing your call.');
+     twiml.say('An error occurred in the routing logic.');
   }
 
-  res.type('text/xml');
+  res.set('Content-Type', 'text/xml');
   res.send(twiml.toString());
+};
+
+/**
+ * Handle call completion metadata from Twilio
+ */
+exports.handleCallCompleted = async (req, res) => {
+    const { campaign, agentId } = req.query;
+    const { From, To, DialCallDuration, DialCallStatus, CallSid } = req.body;
+
+    console.log(`[Twilio] Call Completed: ${CallSid}. Duration: ${DialCallDuration}s. Status: ${DialCallStatus}`);
+
+    await callLogService.logCall({
+        from: From,
+        to: To,
+        duration: DialCallDuration,
+        campaignId: campaign,
+        agentId: agentId,
+        status: DialCallStatus === 'answered' ? 'completed' : 'missed',
+        callSid: CallSid
+    });
+
+    const twiml = new VoiceResponse();
+    twiml.hangup();
+    res.set('Content-Type', 'text/xml');
+    res.send(twiml.toString());
+};
+
+/**
+ * Get call history logs
+ */
+exports.getLogs = async (req, res) => {
+    res.json(callLogService.getLogs());
 };

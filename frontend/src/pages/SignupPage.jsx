@@ -67,6 +67,7 @@ const SignupPage = () => {
 
   const [submitting, setSubmitting] = useState(false);
 
+  // Redirect authenticated users UNLESS Google onboarding is in progress
   if (token && step === 'credentials' && !googleFlowActive.current) {
     return <Navigate to="/app" replace />;
   }

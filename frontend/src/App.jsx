@@ -16,13 +16,15 @@ const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 const TakeCallsPage = lazy(() => import('./pages/TakeCallsPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const CallLogsPage = lazy(() => import('./pages/CallLogsPage'));
+const QAFeedbackPage = lazy(() => import('./pages/QAFeedbackPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
 const LicensedStatesPage = lazy(() => import('./pages/LicensedStatesPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const SupportPage = lazy(() => import('./pages/SupportPage'));
 
-const ScriptPage = lazy(() => Promise.resolve({ default: () => <PageTransition><div><h2 style={{color: 'white'}}>Agent Script</h2></div></PageTransition> }));
+const ScriptPage = lazy(() => import('./pages/ScriptPage'));
 const LeadsPage = lazy(() => Promise.resolve({ default: () => <PageTransition><div><h2 style={{color: 'white'}}>Leads (Beta)</h2></div></PageTransition> }));
-const SettingsPage = lazy(() => Promise.resolve({ default: () => <PageTransition><div><h2 style={{color: 'white'}}>Settings</h2></div></PageTransition> }));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 import DialerOverlay from './components/ui/DialerOverlay';
 
@@ -74,6 +76,9 @@ const AnimatedRoutes = () => {
             <Route path="call-logs" element={
               <Suspense fallback={<PageLoader />}><PageTransition><CallLogsPage /></PageTransition></Suspense>
             } />
+            <Route path="qa-feedback" element={
+              <Suspense fallback={<PageLoader />}><PageTransition><QAFeedbackPage /></PageTransition></Suspense>
+            } />
             <Route path="script" element={
               <Suspense fallback={<PageLoader />}><PageTransition><ScriptPage /></PageTransition></Suspense>
             } />
@@ -88,6 +93,9 @@ const AnimatedRoutes = () => {
             } />
             <Route path="profile" element={
               <Suspense fallback={<PageLoader />}><PageTransition><ProfilePage /></PageTransition></Suspense>
+            } />
+            <Route path="support" element={
+              <Suspense fallback={<PageLoader />}><PageTransition><SupportPage /></PageTransition></Suspense>
             } />
             <Route path="settings" element={
               <Suspense fallback={<PageLoader />}><PageTransition><SettingsPage /></PageTransition></Suspense>

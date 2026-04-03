@@ -259,20 +259,144 @@
   margin-top: 24px;
 }
 
-.statesBox, .callsBox {
-  text-align: center;
-  padding: 48px;
+/* ─── State pills ─── */
+.statesPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+.statePill {
+  display: inline-block;
+  padding: 0.35rem 0.85rem;
+  background: color-mix(in srgb, var(--accent-green) 12%, transparent);
+  color: var(--accent-green);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Calls table ─── */
+.callsTable {
+  overflow-x: auto;
+}
+
+.callsTable table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.callsTable thead {
+  background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
+}
+
+.callsTable th {
+  text-align: left;
+  padding: 0.6rem 1rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+}
+
+.callsTable td {
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
-  font-size: 15px;
-  font-weight: 500;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+
+.callsTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.callsTable tbody tr:hover {
+  background: color-mix(in srgb, var(--surface-container-high) 35%, transparent);
+}
+
+.callName {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.callPhone {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.82rem;
+}
+
+.callType {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.callInbound {
+  background: color-mix(in srgb, var(--accent-green) 14%, transparent);
+  color: var(--accent-green);
+}
+
+.callOutbound {
+  background: color-mix(in srgb, #3b82f6 14%, transparent);
+  color: #3b82f6;
+}
+
+.callDuration {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.callTime {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.callDisp {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.dispSold {
+  background: color-mix(in srgb, var(--accent-green) 14%, transparent);
+  color: var(--accent-green);
+}
+
+.dispCallback {
+  background: color-mix(in srgb, #f59e0b 14%, transparent);
+  color: #f59e0b;
+}
+
+.dispNotInterested {
+  background: color-mix(in srgb, #ef4444 12%, transparent);
+  color: #ef4444;
+}
+
+.dispNoAnswer {
+  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+  color: var(--text-muted);
 }
 
 .editBtn, .viewAllBtn {
   color: var(--accent-green);
   font-size: 14px;
   font-weight: 600;
+  cursor: pointer;
+  background: none;
+  border: none;
 }
 
 .editBtn:hover, .viewAllBtn:hover {
-  color: var(--accent-green-dim);
+  opacity: 0.8;
 }

@@ -5,19 +5,17 @@ const { Server } = require('socket.io');
 require('dotenv').config();
 
 const { connectRedis } = require('./config/redis');
-const voiceController = require('./controllers/voiceController');
+const voiceRoutes = require('./routes/voiceRoutes');
 const { setupCallSockets } = require('./sockets/callSockets');
 const { verifyFirebaseToken } = require('./middleware/auth');
 
 const app = express();
 const server = http.createServer(app);
 
-// Allow all CORS for local development to prevent origin mismatch issues
-app.use(cors());
-
-// Twilio needs x-www-form-urlencoded to hit webhooks!
+// Twilio sends data as x-www-form-urlencoded, so we must have this!
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(cors());
 
 const io = new Server(server, {
   cors: {
@@ -37,7 +35,26 @@ const startEngine = async () => {
     app.post('/api/voice/token', verifyFirebaseToken, voiceController.generateToken);
     app.post('/api/voice/incoming-call', voiceController.handleIncomingCall);
 
+    // Revoke all refresh tokens for the authenticated user
+    app.post('/api/auth/revoke', verifyFirebaseToken, async (req, res) => {
+      try {
+        const admin = require('./config/firebaseAdmin');
+        if (!admin) return res.status(503).json({ error: 'Auth service unavailable' });
+        await admin.auth().revokeRefreshTokens(req.user.uid);
+        res.json({ success: true });
+      } catch (err) {
+        console.error('[Auth] Failed to revoke tokens:', err.message);
+        res.status(500).json({ error: 'Failed to revoke sessions' });
+      }
+    });
+
     app.get('/health', (req, res) => res.json({ status: 'Engine Active' }));
+
+    // Global Error Catcher
+    app.use((err, req, res, next) => {
+        console.error('SERVER CRASH PREVENTED:', err.stack);
+        res.status(500).send('Internal Server Error');
+    });
 
     const PORT = process.env.PORT || 3001;
     server.listen(PORT, () => {
