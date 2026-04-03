@@ -38,7 +38,8 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
     const device = new Device(token, {
       codecPreferences: ['opus', 'pcmu'],
       fakeLocalDTMF: true,
-      enableRingingState: true
+      enableRingingState: true,
+      edge: ['ashburn', 'roaming']
     });
 
     // 4. Register Event Listeners

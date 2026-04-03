@@ -3,6 +3,7 @@ const { VoiceGrant, TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRE
 const { VoiceResponse } = twilio.twiml;
 const agentManager = require('../services/agentManager');
 const callLogService = require('../services/callLogService');
+const { redisClient } = require('../config/redis');
 
 exports.generateToken = (req, res) => {
   const { identity } = req.body;
@@ -47,13 +48,41 @@ exports.handleIncomingCall = async (req, res) => {
   try {
      const available = await agentManager.findAndLockAvailableAgent(campaign, callerState);
      
+     // Fetch Cached Lead Data from Trackdrive webhook
+     let leadData = {};
+     let normalizedCallerId = fromNumber;
+     if (normalizedCallerId && normalizedCallerId !== 'Unknown Caller') {
+         normalizedCallerId = normalizedCallerId.replace(/\D/g, '');
+         if (normalizedCallerId.length === 10) normalizedCallerId = '1' + normalizedCallerId;
+         if (!normalizedCallerId.startsWith('+')) normalizedCallerId = '+' + normalizedCallerId;
+         
+         const cachedData = await redisClient.get(`lead:trackdrive:${normalizedCallerId}`);
+         if (cachedData) {
+             try { leadData = JSON.parse(cachedData); } catch(e){}
+             console.log(`[Router] 🎯 Matched lead data for ${normalizedCallerId}:`, leadData);
+         }
+     }
+
      if (available) {
         twiml.say('Connecting you to an agent.');
-        twiml.dial({
+        const dial = twiml.dial({
           action: `/api/voice/call-completed?campaign=${campaign}&agentId=${available.id}`,
           method: 'POST',
-          timeout: 20
-        }).client(available.id);
+          timeout: 20,
+          answerOnBridge: true
+        });
+        
+        const clientNode = dial.client(available.id);
+        
+        // Pass Lead Data to React Frontend via Twilio Custom Parameters
+        if (Object.keys(leadData).length > 0) {
+            for (const [key, value] of Object.entries(leadData)) {
+                if (typeof value === 'string' || typeof value === 'number') {
+                    // prefix to prevent clashing with twilio defaults
+                    clientNode.parameter({ name: `lead_${key}`, value: String(value) });
+                }
+            }
+        }
      } else {
         twiml.say('All agents are currently assisting other callers.');
      }

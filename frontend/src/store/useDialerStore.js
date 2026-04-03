@@ -15,6 +15,7 @@ const useDialerStore = create((set, get) => ({
   isMuted: false,
   callDuration: 0,
   incomingCallerId: null,
+  leadData: null,
 
   // Actions
   setDevice: (device) => set({ device }),
@@ -25,11 +26,24 @@ const useDialerStore = create((set, get) => ({
     activeCampaign: campaign,
     licensedStates: states
   }),
-  setIncomingCall: (call, callerId) => set({ 
-    activeCall: call, 
-    callState: 'ringing',
-    incomingCallerId: callerId 
-  }),
+  setIncomingCall: (call, callerId) => {
+    // Extract lead custom parameters injected by our backend
+    const leadData = {};
+    if (call.customParameters) {
+        call.customParameters.forEach((val, key) => {
+            if (key.startsWith('lead_')) {
+                leadData[key.replace('lead_', '')] = val;
+            }
+        });
+    }
+
+    set({ 
+      activeCall: call, 
+      callState: 'ringing',
+      incomingCallerId: callerId,
+      leadData: Object.keys(leadData).length > 0 ? leadData : null
+    });
+  },
   setMuted: (muted) => set({ isMuted: muted }),
   setCallDuration: (duration) => set({ callDuration: duration }),
   
@@ -39,7 +53,8 @@ const useDialerStore = create((set, get) => ({
     activeCall: null, 
     isMuted: false, 
     callDuration: 0,
-    incomingCallerId: null
+    incomingCallerId: null,
+    leadData: null
   }),
 
   // Actions for the Call
