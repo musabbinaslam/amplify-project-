@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Camera, Copy, Check, Link2, Key, Loader2 } from 'lucide-react';
+import { User, Camera, Copy, Check, Link2, Key, Loader2, Phone, DollarSign, PhoneIncoming, Layers, Megaphone, CalendarDays, Pencil, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import {
@@ -9,6 +9,32 @@ import {
   getOrCreateApiKey,
 } from '../services/profileService';
 import classes from './ProfilePage.module.css';
+
+const SPENDING_OPTIONS = [
+  'Less than $500',
+  '$500 - $1,000',
+  '$1,000 - $2,500',
+  '$2,500 - $5,000',
+  '$5,000+',
+  'Not currently spending',
+];
+
+const HEAR_ABOUT_OPTIONS = [
+  'Google Search',
+  'Facebook / Instagram',
+  'YouTube',
+  'Referral',
+  'Discord',
+  'Other',
+];
+
+const VERTICALS = [
+  'Final Expense',
+  'Spanish Final Expense',
+  'ACA',
+  'Medicare',
+  'Leads',
+];
 
 const ProfilePage = () => {
   const user = useAuthStore((s) => s.user);
@@ -25,6 +51,16 @@ const ProfilePage = () => {
   const [slug, setSlug] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [copiedField, setCopiedField] = useState(null);
+  const [onboarding, setOnboarding] = useState(null);
+  const [editingAccount, setEditingAccount] = useState(false);
+  const [savingAccount, setSavingAccount] = useState(false);
+  const [editForm, setEditForm] = useState({
+    phone: '',
+    weeklySpend: '',
+    usedInbound: '',
+    verticals: '',
+    hearAbout: '',
+  });
 
   const webhookUrl = 'https://api.agentcalls.io/api/leads/webhook';
 
@@ -44,6 +80,7 @@ const ProfilePage = () => {
           setBio(profile.bio || '');
           setSlug(profile.landingPageSlug || user.name?.toLowerCase().replace(/\s+/g, '') || '');
           if (profile.avatarUrl) setAvatarPreview(profile.avatarUrl);
+          if (profile.onboarding) setOnboarding(profile.onboarding);
         } else {
           setSlug(user.name?.toLowerCase().replace(/\s+/g, '') || '');
         }
@@ -119,6 +156,41 @@ const ProfilePage = () => {
     }
   };
 
+  const startEditing = () => {
+    setEditForm({
+      phone: onboarding?.phone || '',
+      weeklySpend: onboarding?.weeklySpend || '',
+      usedInbound: onboarding?.usedInbound || '',
+      verticals: onboarding?.verticals || '',
+      hearAbout: onboarding?.hearAbout || '',
+    });
+    setEditingAccount(true);
+  };
+
+  const cancelEditing = () => setEditingAccount(false);
+
+  const updateField = (field, value) => setEditForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleSaveAccount = async () => {
+    if (!user?.uid) return;
+    setSavingAccount(true);
+    try {
+      const updated = {
+        ...onboarding,
+        ...editForm,
+      };
+      await saveProfile(user.uid, { onboarding: updated });
+      setOnboarding(updated);
+      setEditingAccount(false);
+      toast.success('Account details saved');
+    } catch (err) {
+      console.error('Save account failed:', err);
+      toast.error('Failed to save account details');
+    } finally {
+      setSavingAccount(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className={classes.profilePage}>
@@ -139,81 +211,231 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      <div className={classes.mainBox}>
-        <h3>Your Profile</h3>
-        <div className={classes.avatarRow}>
-          <button
-            type="button"
-            className={classes.avatarBtn}
-            onClick={handleAvatarClick}
-            disabled={uploading}
-          >
-            {avatarPreview ? (
-              <img src={avatarPreview} alt="Avatar" className={classes.avatarImg} />
-            ) : (
-              <span className={classes.avatarInitial}>
-                {user?.name?.charAt(0)?.toUpperCase() || 'A'}
-              </span>
-            )}
-            <div className={classes.avatarOverlay}>
-              {uploading ? <Loader2 size={20} className={classes.spinner} /> : <Camera size={20} />}
-            </div>
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className={classes.hiddenInput}
-            onChange={handleFileChange}
-          />
-          <div>
-            <h4>{user?.name || 'Agent'}</h4>
-            <p>{user?.email || ''}</p>
+      <div className={classes.twoCol}>
+        <div className={classes.mainBox}>
+          <h3>Your Profile</h3>
+          <div className={classes.avatarRow}>
             <button
               type="button"
-              className={classes.uploadBtn}
+              className={classes.avatarBtn}
               onClick={handleAvatarClick}
               disabled={uploading}
             >
-              {uploading ? 'Uploading...' : 'Click avatar to upload a photo'}
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="Avatar" className={classes.avatarImg} />
+              ) : (
+                <span className={classes.avatarInitial}>
+                  {user?.name?.charAt(0)?.toUpperCase() || 'A'}
+                </span>
+              )}
+              <div className={classes.avatarOverlay}>
+                {uploading ? <Loader2 size={20} className={classes.spinner} /> : <Camera size={20} />}
+              </div>
             </button>
-          </div>
-        </div>
-
-        <div className={classes.formGroup}>
-          <label>Landing Page URL</label>
-          <div className={classes.urlInputGroup}>
-            <span className={classes.urlPrefix}>https://agentcalls.io/a/</span>
             <input
-              type="text"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ''))}
-              className={classes.urlInput}
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className={classes.hiddenInput}
+              onChange={handleFileChange}
             />
+            <div>
+              <h4>{user?.name || 'Agent'}</h4>
+              <p>{user?.email || ''}</p>
+              <button
+                type="button"
+                className={classes.uploadBtn}
+                onClick={handleAvatarClick}
+                disabled={uploading}
+              >
+                {uploading ? 'Uploading...' : 'Click avatar to upload a photo'}
+              </button>
+            </div>
           </div>
+
+          <div className={classes.formGroup}>
+            <label>Landing Page URL</label>
+            <div className={classes.urlInputGroup}>
+              <span className={classes.urlPrefix}>https://agentcalls.io/a/</span>
+              <input
+                type="text"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ''))}
+                className={classes.urlInput}
+              />
+            </div>
+          </div>
+
+          <div className={classes.formGroup}>
+            <label>Bio</label>
+            <textarea
+              className={classes.bioInput}
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              maxLength={500}
+              rows={4}
+              placeholder="Licensed insurance agent specializing in..."
+            />
+            <div className={classes.charCount}>{bio.length}/500 characters</div>
+          </div>
+
+          <button
+            type="button"
+            className={classes.saveBtn}
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : 'Save Profile'}
+          </button>
         </div>
 
-        <div className={classes.formGroup}>
-          <label>Bio</label>
-          <textarea
-            className={classes.bioInput}
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            maxLength={500}
-            rows={4}
-            placeholder="Licensed insurance agent specializing in..."
-          />
-          <div className={classes.charCount}>{bio.length}/500 characters</div>
-        </div>
+        <div className={classes.accountBox}>
+          <div className={classes.accountHeader}>
+            <h3>Account Details</h3>
+            {onboarding && !editingAccount && (
+              <button type="button" className={classes.editBtn} onClick={startEditing}>
+                <Pencil size={14} />
+                Edit
+              </button>
+            )}
+            {editingAccount && (
+              <button type="button" className={classes.cancelBtn} onClick={cancelEditing}>
+                <X size={14} />
+                Cancel
+              </button>
+            )}
+          </div>
 
-        <button
-          type="button"
-          className={classes.saveBtn}
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? 'Saving...' : 'Save Profile'}
-        </button>
+          {editingAccount ? (
+            <div className={classes.editGrid}>
+              <div className={classes.editGroup}>
+                <label className={classes.editLabel}>Phone Number</label>
+                <input
+                  className={classes.editInput}
+                  type="tel"
+                  value={editForm.phone}
+                  onChange={(e) => updateField('phone', e.target.value)}
+                  placeholder="+1 (555) 123-4567"
+                />
+              </div>
+              <div className={classes.editGroup}>
+                <label className={classes.editLabel}>Weekly Lead Spend</label>
+                <select
+                  className={classes.editSelect}
+                  value={editForm.weeklySpend}
+                  onChange={(e) => updateField('weeklySpend', e.target.value)}
+                >
+                  <option value="" disabled>Select an option</option>
+                  {SPENDING_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </div>
+              <div className={classes.editGroup}>
+                <label className={classes.editLabel}>Used Inbound Before</label>
+                <div className={classes.editRadioRow}>
+                  {['Yes', 'No'].map((val) => (
+                    <label key={val} className={classes.editRadio}>
+                      <input
+                        type="radio"
+                        name="editInbound"
+                        value={val}
+                        checked={editForm.usedInbound === val}
+                        onChange={(e) => updateField('usedInbound', e.target.value)}
+                      />
+                      {val}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className={classes.editGroup}>
+                <label className={classes.editLabel}>Verticals</label>
+                <select
+                  className={classes.editSelect}
+                  value={editForm.verticals}
+                  onChange={(e) => updateField('verticals', e.target.value)}
+                >
+                  <option value="" disabled>Select a vertical</option>
+                  {VERTICALS.map((v) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </div>
+              <div className={classes.editGroup}>
+                <label className={classes.editLabel}>How Did You Hear About Us</label>
+                <select
+                  className={classes.editSelect}
+                  value={editForm.hearAbout}
+                  onChange={(e) => updateField('hearAbout', e.target.value)}
+                >
+                  <option value="" disabled>Select an option</option>
+                  {HEAR_ABOUT_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                className={classes.saveAccountBtn}
+                onClick={handleSaveAccount}
+                disabled={savingAccount}
+              >
+                {savingAccount ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          ) : onboarding ? (
+            <div className={classes.detailsGrid}>
+              <div className={classes.detailItem}>
+                <div className={classes.detailIcon}><Phone size={16} /></div>
+                <div>
+                  <span className={classes.detailLabel}>Phone Number</span>
+                  <span className={classes.detailValue}>{onboarding.phone || 'Not provided'}</span>
+                </div>
+              </div>
+              <div className={classes.detailItem}>
+                <div className={classes.detailIcon}><DollarSign size={16} /></div>
+                <div>
+                  <span className={classes.detailLabel}>Weekly Lead Spend</span>
+                  <span className={classes.detailValue}>{onboarding.weeklySpend || 'Not provided'}</span>
+                </div>
+              </div>
+              <div className={classes.detailItem}>
+                <div className={classes.detailIcon}><PhoneIncoming size={16} /></div>
+                <div>
+                  <span className={classes.detailLabel}>Used Inbound Before</span>
+                  <span className={classes.detailValue}>{onboarding.usedInbound || 'Not provided'}</span>
+                </div>
+              </div>
+              <div className={classes.detailItem}>
+                <div className={classes.detailIcon}><Layers size={16} /></div>
+                <div>
+                  <span className={classes.detailLabel}>Verticals</span>
+                  <span className={classes.detailValue}>{onboarding.verticals || 'Not provided'}</span>
+                </div>
+              </div>
+              <div className={classes.detailItem}>
+                <div className={classes.detailIcon}><Megaphone size={16} /></div>
+                <div>
+                  <span className={classes.detailLabel}>Heard About Us</span>
+                  <span className={classes.detailValue}>{onboarding.hearAbout || 'Not provided'}</span>
+                </div>
+              </div>
+              <div className={classes.detailItem}>
+                <div className={classes.detailIcon}><CalendarDays size={16} /></div>
+                <div>
+                  <span className={classes.detailLabel}>Member Since</span>
+                  <span className={classes.detailValue}>
+                    {onboarding.completedAt
+                      ? new Date(onboarding.completedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+                      : 'Unknown'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className={classes.noData}>No onboarding data available</p>
+          )}
+        </div>
       </div>
 
       <div className={classes.integrationBox}>

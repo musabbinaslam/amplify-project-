@@ -2,7 +2,13 @@
   display: flex;
   flex-direction: column;
   gap: 32px;
-  max-width: 1000px;
+}
+
+.twoCol {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 32px;
+  align-items: stretch;
 }
 
 .loaderWrap {
@@ -268,6 +274,224 @@
   opacity: 0.6;
   cursor: wait;
   transform: none;
+}
+
+/* ── Account Details card ── */
+
+.accountBox {
+  background: var(--surface-container-low);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.accountHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.accountHeader h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.editBtn,
+.cancelBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.editBtn {
+  background: var(--accent-green-dim);
+  color: var(--accent-green);
+}
+
+.editBtn:hover {
+  background: var(--accent-green);
+  color: var(--surface);
+}
+
+.cancelBtn {
+  background: var(--surface-container-highest);
+  color: var(--text-secondary);
+}
+
+.cancelBtn:hover {
+  color: var(--text-primary);
+}
+
+.detailsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.detailItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px;
+  background: var(--surface-container);
+  border-radius: var(--radius-lg);
+  transition: background 0.15s ease;
+}
+
+.detailItem:hover {
+  background: var(--surface-container-high);
+}
+
+.detailIcon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--accent-green-dim);
+  color: var(--accent-green);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.detailLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.detailValue {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.noData {
+  color: var(--text-tertiary);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 20px 0;
+}
+
+/* ── Edit mode ── */
+
+.editGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.editGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.editInput,
+.editSelect {
+  background: var(--surface-container);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.editInput:focus,
+.editSelect:focus {
+  border-color: var(--accent-green);
+  background: var(--surface-container-high);
+}
+
+.editRadioRow {
+  display: flex;
+  gap: 16px;
+}
+
+.editRadio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 10px 16px;
+  background: var(--surface-container);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: all 0.15s ease;
+  flex: 1;
+}
+
+.editRadio:has(input:checked) {
+  border-color: var(--accent-green);
+  background: var(--accent-green-dim);
+}
+
+.editRadio input {
+  accent-color: var(--accent-green);
+}
+
+.saveAccountBtn {
+  background: var(--accent-green);
+  color: var(--surface);
+  padding: 12px 24px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px var(--accent-green-glow);
+  margin-top: 4px;
+}
+
+.saveAccountBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px var(--accent-green-glow);
+}
+
+.saveAccountBtn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+
+@media (max-width: 768px) {
+  .twoCol {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Integration & Links card ── */

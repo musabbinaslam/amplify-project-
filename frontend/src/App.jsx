@@ -52,9 +52,7 @@ const AnimatedRoutes = () => {
           } />
 
           <Route path="/signup" element={
-            <GuestRoute>
-              <Suspense fallback={<PageLoader />}><SignupPage /></Suspense>
-            </GuestRoute>
+            <Suspense fallback={<PageLoader />}><SignupPage /></Suspense>
           } />
           <Route path="/login" element={
             <GuestRoute>
