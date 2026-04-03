@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useRef } from 'react';
+import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
@@ -45,8 +45,13 @@ const getFirebaseErrorMessage = (error) => {
 
 const SignupPage = () => {
   const navigate = useNavigate();
+  const token = useAuthStore((s) => s.token);
   const signup = useAuthStore((s) => s.signup);
   const googleLogin = useAuthStore((s) => s.googleLogin);
+  const saveGoogleOnboarding = useAuthStore((s) => s.saveGoogleOnboarding);
+
+  const [step, setStep] = useState('credentials');
+  const googleFlowActive = useRef(false);
 
   const [form, setForm] = useState({
     fullName: '',
@@ -62,19 +67,28 @@ const SignupPage = () => {
 
   const [submitting, setSubmitting] = useState(false);
 
+  // Redirect authenticated users UNLESS Google onboarding is in progress
+  if (token && step === 'credentials' && !googleFlowActive.current) {
+    return <Navigate to="/app" replace />;
+  }
+
   const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const validateOnboarding = () => {
+    if (!form.phone.trim()) { toast.error('Phone number is required'); return false; }
+    if (!form.weeklySpend) { toast.error('Select your weekly lead spend'); return false; }
+    if (!form.usedInbound) { toast.error('Select whether you have used inbound calls'); return false; }
+    if (!form.verticals) { toast.error('Select a vertical'); return false; }
+    if (!form.hearAbout) { toast.error('Select how you heard about us'); return false; }
+    return true;
+  };
 
+  const handleEmailSubmit = async (e) => {
+    e.preventDefault();
     if (!form.fullName.trim()) return toast.error('Full name is required');
     if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email))
       return toast.error('Enter a valid email address');
-    if (!form.phone.trim()) return toast.error('Phone number is required');
-    if (!form.weeklySpend) return toast.error('Select your weekly lead spend');
-    if (!form.usedInbound) return toast.error('Select whether you have used inbound calls');
-    if (!form.verticals) return toast.error('Select a vertical');
-    if (!form.hearAbout) return toast.error('Select how you heard about us');
+    if (!validateOnboarding()) return;
     if (form.password.length < 6) return toast.error('Password must be at least 6 characters');
     if (form.password !== form.confirmPassword) return toast.error('Passwords do not match');
 
@@ -91,14 +105,178 @@ const SignupPage = () => {
   };
 
   const handleGoogleSignup = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    googleFlowActive.current = true;
     try {
-      await googleLogin();
-      toast.success('Account created!');
-      navigate('/app');
+      const { needsOnboarding } = await googleLogin();
+      if (needsOnboarding) {
+        setStep('onboarding');
+      } else {
+        toast.success('Welcome back!');
+        googleFlowActive.current = false;
+        navigate('/app');
+      }
     } catch (err) {
-      toast.error(getFirebaseErrorMessage(err));
+      googleFlowActive.current = false;
+      const ignorable = ['auth/popup-closed-by-user', 'auth/cancelled-popup-request'];
+      if (!ignorable.includes(err?.code)) {
+        toast.error(getFirebaseErrorMessage(err));
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  const handleOnboardingSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateOnboarding()) return;
+
+    setSubmitting(true);
+    try {
+      await saveGoogleOnboarding(form);
+      toast.success('Account created!');
+      googleFlowActive.current = false;
+      navigate('/app');
+    } catch (err) {
+      toast.error(err?.message || 'Failed to save profile');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const renderOnboardingFields = () => (
+    <>
+      <div className={classes.fieldGroup}>
+        <label className={classes.label}>Phone</label>
+        <input
+          className={classes.input}
+          type="tel"
+          placeholder="+1 (555) 123-4567"
+          value={form.phone}
+          onChange={(e) => update('phone', e.target.value)}
+        />
+      </div>
+
+      <div className={classes.fieldGroup}>
+        <label className={classes.label}>
+          How much are you currently spending per week on leads?
+          <span className={classes.required}>*</span>
+        </label>
+        <select
+          className={classes.select}
+          value={form.weeklySpend}
+          onChange={(e) => update('weeklySpend', e.target.value)}
+        >
+          <option value="" disabled>Select an option</option>
+          {SPENDING_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className={classes.fieldGroup}>
+        <label className={classes.label}>
+          Have you ever used inbound calls before?
+          <span className={classes.required}>*</span>
+        </label>
+        <div className={classes.radioGroup}>
+          <label className={classes.radioLabel}>
+            <input
+              className={classes.radioInput}
+              type="radio"
+              name="usedInbound"
+              value="Yes"
+              checked={form.usedInbound === 'Yes'}
+              onChange={(e) => update('usedInbound', e.target.value)}
+            />
+            Yes
+          </label>
+          <label className={classes.radioLabel}>
+            <input
+              className={classes.radioInput}
+              type="radio"
+              name="usedInbound"
+              value="No"
+              checked={form.usedInbound === 'No'}
+              onChange={(e) => update('usedInbound', e.target.value)}
+            />
+            No
+          </label>
+        </div>
+      </div>
+
+      <div className={classes.fieldGroup}>
+        <label className={classes.label}>
+          Which verticals are you interested in?
+          <span className={classes.required}>*</span>
+        </label>
+        <div className={classes.verticalsList}>
+          {VERTICALS.map((v) => (
+            <label key={v} className={classes.radioLabel}>
+              <input
+                className={classes.radioInput}
+                type="radio"
+                name="verticals"
+                value={v}
+                checked={form.verticals === v}
+                onChange={(e) => update('verticals', e.target.value)}
+              />
+              {v}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className={classes.fieldGroup}>
+        <label className={classes.label}>
+          How did you hear about us?
+          <span className={classes.required}>*</span>
+        </label>
+        <select
+          className={classes.select}
+          value={form.hearAbout}
+          onChange={(e) => update('hearAbout', e.target.value)}
+        >
+          <option value="" disabled>Select an option</option>
+          {HEAR_ABOUT_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      </div>
+    </>
+  );
+
+  if (step === 'onboarding') {
+    return (
+      <div className={classes.page}>
+        <motion.div
+          className={classes.card}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+        >
+          <div className={classes.logoBlock}>
+            <div className={classes.logoIcon}>
+              <span className={classes.logoTriangle} />
+            </div>
+            <span className={classes.logoText}>AGENTCALLS</span>
+          </div>
+
+          <h1 className={classes.heading}>Complete Your Profile</h1>
+          <p className={classes.subtitle}>Just a few more details to get you started</p>
+
+          <form className={classes.form} onSubmit={handleOnboardingSubmit}>
+            {renderOnboardingFields()}
+
+            <button className={classes.submitBtn} type="submit" disabled={submitting}>
+              {submitting ? 'Saving...' : 'Complete Setup'}
+            </button>
+          </form>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className={classes.page}>
@@ -118,7 +296,7 @@ const SignupPage = () => {
         <h1 className={classes.heading}>Create Agent Account</h1>
         <p className={classes.subtitle}>Sign up to start receiving calls</p>
 
-        <button type="button" className={classes.googleBtn} onClick={handleGoogleSignup}>
+        <button type="button" className={classes.googleBtn} onClick={handleGoogleSignup} disabled={submitting}>
           <svg className={classes.googleIcon} viewBox="0 0 24 24" width="20" height="20">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -134,7 +312,7 @@ const SignupPage = () => {
           <span className={classes.dividerLine} />
         </div>
 
-        <form className={classes.form} onSubmit={handleSubmit}>
+        <form className={classes.form} onSubmit={handleEmailSubmit}>
           <div className={classes.fieldGroup}>
             <label className={classes.label}>Full Name</label>
             <input
@@ -157,103 +335,7 @@ const SignupPage = () => {
             />
           </div>
 
-          <div className={classes.fieldGroup}>
-            <label className={classes.label}>Phone</label>
-            <input
-              className={classes.input}
-              type="tel"
-              placeholder="+1 (555) 123-4567"
-              value={form.phone}
-              onChange={(e) => update('phone', e.target.value)}
-            />
-          </div>
-
-          <div className={classes.fieldGroup}>
-            <label className={classes.label}>
-              How much are you currently spending per week on leads?
-              <span className={classes.required}>*</span>
-            </label>
-            <select
-              className={classes.select}
-              value={form.weeklySpend}
-              onChange={(e) => update('weeklySpend', e.target.value)}
-            >
-              <option value="" disabled>Select an option</option>
-              {SPENDING_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className={classes.fieldGroup}>
-            <label className={classes.label}>
-              Have you ever used inbound calls before?
-              <span className={classes.required}>*</span>
-            </label>
-            <div className={classes.radioGroup}>
-              <label className={classes.radioLabel}>
-                <input
-                  className={classes.radioInput}
-                  type="radio"
-                  name="usedInbound"
-                  value="Yes"
-                  checked={form.usedInbound === 'Yes'}
-                  onChange={(e) => update('usedInbound', e.target.value)}
-                />
-                Yes
-              </label>
-              <label className={classes.radioLabel}>
-                <input
-                  className={classes.radioInput}
-                  type="radio"
-                  name="usedInbound"
-                  value="No"
-                  checked={form.usedInbound === 'No'}
-                  onChange={(e) => update('usedInbound', e.target.value)}
-                />
-                No
-              </label>
-            </div>
-          </div>
-
-          <div className={classes.fieldGroup}>
-            <label className={classes.label}>
-              Which verticals are you interested in?
-              <span className={classes.required}>*</span>
-            </label>
-            <div className={classes.verticalsList}>
-              {VERTICALS.map((v) => (
-                <label key={v} className={classes.radioLabel}>
-                  <input
-                    className={classes.radioInput}
-                    type="radio"
-                    name="verticals"
-                    value={v}
-                    checked={form.verticals === v}
-                    onChange={(e) => update('verticals', e.target.value)}
-                  />
-                  {v}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className={classes.fieldGroup}>
-            <label className={classes.label}>
-              How did you hear about us?
-              <span className={classes.required}>*</span>
-            </label>
-            <select
-              className={classes.select}
-              value={form.hearAbout}
-              onChange={(e) => update('hearAbout', e.target.value)}
-            >
-              <option value="" disabled>Select an option</option>
-              {HEAR_ABOUT_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-          </div>
+          {renderOnboardingFields()}
 
           <div className={classes.fieldGroup}>
             <label className={classes.label}>Password</label>
