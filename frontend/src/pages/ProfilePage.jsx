@@ -39,6 +39,7 @@ const VERTICALS = [
 const ProfilePage = () => {
   const user = useAuthStore((s) => s.user);
   const updateAvatar = useAuthStore((s) => s.updateAvatar);
+  const updateName = useAuthStore((s) => s.updateName);
 
   const fileInputRef = useRef(null);
 
@@ -47,6 +48,8 @@ const ProfilePage = () => {
   const [uploading, setUploading] = useState(false);
 
   const [avatarPreview, setAvatarPreview] = useState(null);
+  const [displayName, setDisplayName] = useState('');
+  const [savingName, setSavingName] = useState(false);
   const [bio, setBio] = useState('');
   const [slug, setSlug] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -76,6 +79,7 @@ const ProfilePage = () => {
         ]);
         if (cancelled) return;
 
+        setDisplayName(user.name || '');
         if (profile) {
           setBio(profile.bio || '');
           setSlug(profile.landingPageSlug || user.name?.toLowerCase().replace(/\s+/g, '') || '');
@@ -125,6 +129,19 @@ const ProfilePage = () => {
     } finally {
       setUploading(false);
       URL.revokeObjectURL(localPreview);
+    }
+  };
+
+  const handleSaveName = async () => {
+    if (!displayName.trim()) return;
+    setSavingName(true);
+    try {
+      await updateName(displayName.trim());
+      toast.success('Display name updated');
+    } catch (err) {
+      toast.error(err.message || 'Failed to update name');
+    } finally {
+      setSavingName(false);
     }
   };
 
@@ -249,6 +266,27 @@ const ProfilePage = () => {
                 disabled={uploading}
               >
                 {uploading ? 'Uploading...' : 'Click avatar to upload a photo'}
+              </button>
+            </div>
+          </div>
+
+          <div className={classes.formGroup}>
+            <label>Display Name</label>
+            <div className={classes.nameField}>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className={classes.nameInput}
+                placeholder="Your display name"
+              />
+              <button
+                type="button"
+                className={classes.nameSaveBtn}
+                onClick={handleSaveName}
+                disabled={savingName || displayName.trim() === user?.name}
+              >
+                {savingName ? <Loader2 size={14} className={classes.spinner} /> : 'Save'}
               </button>
             </div>
           </div>
