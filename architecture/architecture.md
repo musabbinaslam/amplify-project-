@@ -307,3 +307,4 @@ amplify-project/
        ↓
 [Dashboard Updates] → WebSocket balance:update + stats:update
 ```
+![alt text](image.png)

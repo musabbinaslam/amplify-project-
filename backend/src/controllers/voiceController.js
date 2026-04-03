@@ -81,7 +81,7 @@ exports.handleCallCompleted = async (req, res) => {
         duration: DialCallDuration,
         campaignId: campaign,
         agentId: agentId,
-        status: DialCallStatus === 'answered' ? 'completed' : 'missed',
+        status: DialCallStatus === 'completed' ? 'completed' : 'missed',
         callSid: CallSid
     });
 
