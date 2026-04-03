@@ -194,6 +194,53 @@
   margin-bottom: 12px;
 }
 
+.nameField {
+  display: flex;
+  gap: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface-container);
+}
+
+.nameInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 16px 20px;
+  color: var(--text-primary);
+  font-size: 15px;
+  outline: none;
+  font-family: inherit;
+}
+
+.nameInput:focus {
+  background: var(--surface-container-high);
+}
+
+.nameSaveBtn {
+  padding: 0 24px;
+  background: var(--accent-green);
+  color: var(--surface);
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.nameSaveBtn:hover {
+  opacity: 0.9;
+}
+
+.nameSaveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .urlInputGroup {
   display: flex;
   background: var(--surface-container);

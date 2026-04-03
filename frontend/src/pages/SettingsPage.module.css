@@ -2,7 +2,19 @@
   display: flex;
   flex-direction: column;
   gap: 32px;
-  max-width: 1000px;
+}
+
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: stretch;
+}
+
+@media (max-width: 768px) {
+  .twoCol {
+    grid-template-columns: 1fr;
+  }
 }
 
 .loaderWrap {
@@ -136,69 +148,7 @@
   color: var(--text-tertiary);
 }
 
-.inlineField {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.inlineField .input {
-  flex: 1;
-  margin-bottom: 0;
-}
-
-.passwordField {
-  position: relative;
-  margin-bottom: 8px;
-}
-
-.passwordField .input {
-  padding-right: 44px;
-  margin-bottom: 0;
-}
-
-.eyeBtn {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  padding: 4px;
-}
-
-.eyeBtn:hover {
-  color: var(--text-primary);
-}
-
 /* ── Buttons ── */
-
-.saveBtn {
-  padding: 10px 24px;
-  background: var(--accent-green);
-  color: var(--surface);
-  border: none;
-  border-radius: var(--radius-full);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-.saveBtn:hover:not(:disabled) {
-  box-shadow: 0 4px 12px var(--accent-green-glow);
-}
-
-.saveBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 .testBtn {
   padding: 8px 16px;
@@ -250,6 +200,68 @@
 .outlineBtn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ── Gain slider ── */
+
+.gainRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.gainLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.gainSlider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: var(--surface-container-high);
+  border-radius: var(--radius-full);
+  outline: none;
+  cursor: pointer;
+}
+
+.gainSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 6px var(--accent-green-glow);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.gainSlider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.gainSlider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 6px var(--accent-green-glow);
+  border: none;
+  cursor: pointer;
+}
+
+.gainValue {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  min-width: 42px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Volume meter ── */
@@ -330,12 +342,6 @@
   color: var(--text-secondary);
   font-size: 14px;
   margin-bottom: 4px;
-}
-
-.oauthNote {
-  color: var(--text-tertiary);
-  font-size: 14px;
-  font-style: italic;
 }
 
 /* ── Danger Zone ── */
