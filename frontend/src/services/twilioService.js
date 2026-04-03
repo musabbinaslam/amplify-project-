@@ -1,6 +1,5 @@
 import { Device } from '@twilio/voice-sdk';
 import useDialerStore from '../store/useDialerStore';
-import useAuthStore from '../store/authStore';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 
@@ -8,14 +7,31 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export const initializeTwilioDevice = async (passedIdentity, campaign, licensedStates = []) => {
   const store = useDialerStore.getState();
-  
+
   try {
-    const idToken = await useAuthStore.getState().getIdToken();
-    const response = await axios.post(
-      `${API_URL}/api/voice/token`,
-      { identity, campaign },
-      { headers: { Authorization: `Bearer ${idToken}` } }
-    );
+    // 1. Connect Socket.IO FIRST
+    const socket = io(API_URL);
+
+    await new Promise((resolve, reject) => {
+      socket.on('connect', () => {
+        console.log('Socket connected! Socket ID:', socket.id);
+        store.setSocket && store.setSocket(socket);
+        // Register with campaign AND licensed states for LRU routing
+        socket.emit('agent:go_live', {
+          campaign,
+          agentId: passedIdentity,
+          licensedStates
+        });
+        resolve();
+      });
+      socket.on('connect_error', (err) => reject(err));
+    });
+
+    // 2. Fetch Twilio access token from the backend
+    const response = await axios.post(`${API_URL}/api/voice/token`, {
+      identity: passedIdentity,
+      campaign
+    });
     const { token } = response.data;
 
     // 3. Initialize the Twilio Device
@@ -30,7 +46,7 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       console.log('Twilio Device registered successfully');
       store.setDevice(device);
       store.setCallState('idle');
-      store.setAgentContext(agentIdentity, campaign, licensedStates);
+      store.setAgentContext(passedIdentity, campaign, licensedStates);
     });
 
     device.on('error', (twilioError) => {
@@ -40,10 +56,10 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
 
     device.on('incoming', (call) => {
       console.log('Incoming call received!', call);
-      
+
       const callerId = call.parameters.From;
       store.setIncomingCall(call, callerId);
-      
+
       call.on('cancel', () => {
         socket.emit('agent:release');
         store.resetCallState();
@@ -52,27 +68,27 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
         socket.emit('agent:release');
         store.resetCallState();
       });
-      
+
       call.on('accept', () => {
-         store.setCallState('active');
-         store.setActiveCall(call);
-         
-         let seconds = 0;
-         const interval = setInterval(() => {
-           useDialerStore.getState().setCallDuration(++seconds);
-         }, 1000);
-         
-         call.on('disconnect', () => {
-           clearInterval(interval);
-           socket.emit('agent:release');
-           store.resetCallState();
-         });
+        store.setCallState('active');
+        store.setActiveCall(call);
+
+        let seconds = 0;
+        const interval = setInterval(() => {
+          useDialerStore.getState().setCallDuration(++seconds);
+        }, 1000);
+
+        call.on('disconnect', () => {
+          clearInterval(interval);
+          socket.emit('agent:release');
+          store.resetCallState();
+        });
       });
     });
 
     // 5. Register the device with Twilio
     await device.register();
-    
+
     return true;
   } catch (error) {
     console.error('Error initializing Twilio Device:', error);

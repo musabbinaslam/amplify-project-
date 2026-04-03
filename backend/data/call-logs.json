@@ -1,0 +1,32 @@
+[
+  {
+    "id": "1775158419651",
+    "callSid": "CAe249ac3f22d115826d7a059c1de23cb7",
+    "timestamp": "2026-04-02T19:33:39.651Z",
+    "from": "+15752437649",
+    "to": "+12295924989",
+    "duration": 7,
+    "campaign": "fe_inbounds",
+    "campaignLabel": "FE Inbounds",
+    "agentId": "agent_4768",
+    "status": "missed",
+    "isBillable": false,
+    "cost": 0,
+    "type": "Inbound"
+  },
+  {
+    "id": "1775154074324",
+    "callSid": "CA1234",
+    "timestamp": "2026-04-02T18:21:14.324Z",
+    "from": "+123",
+    "to": "+456",
+    "duration": 0,
+    "campaign": "fe_inbounds",
+    "campaignLabel": "FE Inbounds",
+    "agentId": "agent_123",
+    "status": "missed",
+    "isBillable": false,
+    "cost": 0,
+    "type": "Inbound"
+  }
+]

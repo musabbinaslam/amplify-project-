@@ -6,6 +6,7 @@ require('dotenv').config();
 
 const { connectRedis } = require('./config/redis');
 const voiceRoutes = require('./routes/voiceRoutes');
+const webhookRoutes = require('./routes/webhookRoutes');
 const { setupCallSockets } = require('./sockets/callSockets');
 const { verifyFirebaseToken } = require('./middleware/auth');
 
@@ -31,9 +32,11 @@ const startEngine = async () => {
     // Init Socket events
     setupCallSockets(io);
     
-    // Twilio Voice Routes (token requires auth, incoming-call is a Twilio webhook)
-    app.post('/api/voice/token', verifyFirebaseToken, voiceController.generateToken);
-    app.post('/api/voice/incoming-call', voiceController.handleIncomingCall);
+    // Mount all voice routes (/token, /incoming-call, /call-completed, /logs)
+    app.use('/api/voice', voiceRoutes);
+
+    // Mount webhook routes (/trackdrive)
+    app.use('/api/webhooks', webhookRoutes);
 
     // Revoke all refresh tokens for the authenticated user
     app.post('/api/auth/revoke', verifyFirebaseToken, async (req, res) => {

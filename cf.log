@@ -1,0 +1,7 @@
+npm error code EBUSY
+npm error syscall rename
+npm error path C:\Users\HP\AppData\Local\npm-cache\_npx\8a26fc3a61fe4212\node_modules\cloudflared
+npm error dest C:\Users\HP\AppData\Local\npm-cache\_npx\8a26fc3a61fe4212\node_modules\.cloudflared-FIt6IUzB
+npm error errno -4082
+npm error EBUSY: resource busy or locked, rename 'C:\Users\HP\AppData\Local\npm-cache\_npx\8a26fc3a61fe4212\node_modules\cloudflared' -> 'C:\Users\HP\AppData\Local\npm-cache\_npx\8a26fc3a61fe4212\node_modules\.cloudflared-FIt6IUzB'
+npm error A complete log of this run can be found in: C:\Users\HP\AppData\Local\npm-cache\_logs\2026-04-02T19_21_19_948Z-debug-0.log
