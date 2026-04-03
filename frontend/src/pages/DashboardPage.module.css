@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 32px;
+  padding-bottom: 32px;
 }
 
 .sectionStats {
@@ -96,7 +97,7 @@
 
 .campaignGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 24px;
 }
 
@@ -116,6 +117,13 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-bottom: 8px;
+}
+
+.campaignDesc {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
   margin-bottom: 20px;
 }
 
@@ -172,9 +180,15 @@
   font-size: 20px;
 }
 
-.periodSelect {
+/* Custom Dropdown Styling */
+.customDropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdownTrigger {
   background: var(--surface-container-highest);
-  border: none;
+  border: 1px solid var(--border);
   color: var(--text-primary);
   padding: 8px 16px;
   border-radius: var(--radius-full);
@@ -182,6 +196,66 @@
   font-weight: 600;
   outline: none;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.dropdownTrigger:hover {
+  background: var(--surface-container-high);
+  border-color: var(--accent-green);
+}
+
+.dropdownIcon {
+  transition: transform 0.2s ease;
+  color: var(--text-secondary);
+}
+
+.dropdownIcon.open {
+  transform: rotate(180deg);
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--surface-container-high);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 8px;
+  min-width: 160px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: dropdownFade 0.2s ease;
+}
+
+@keyframes dropdownFade {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdownItem {
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dropdownItem:hover {
+  background: var(--surface-container-highest);
+  color: var(--text-primary);
+}
+
+.activeItem {
+  background: color-mix(in srgb, var(--accent-green) 12%, transparent);
+  color: var(--accent-green);
 }
 
 .perfStatsGrid {
@@ -399,4 +473,260 @@
 
 .editBtn:hover, .viewAllBtn:hover {
   opacity: 0.8;
+}
+
+/* ─── Responsive: Tablet ≤ 1024px ─── */
+@media (max-width: 1024px) {
+  .dashboard {
+    gap: 24px;
+  }
+
+  .sectionStats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .campaignGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .perfStatsGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .campaignSection,
+  .chartSection,
+  .statesSection,
+  .callsSection {
+    padding: 24px;
+  }
+
+  .statValue {
+    font-size: 28px;
+  }
+
+  .chartValue {
+    font-size: 28px;
+  }
+
+  .priceLarge {
+    font-size: 24px;
+  }
+}
+
+/* ─── Responsive: Small Tablet ≤ 768px ─── */
+@media (max-width: 768px) {
+  .dashboard {
+    gap: 20px;
+  }
+
+  .sectionStats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .statCard {
+    padding: 16px;
+  }
+
+  .statHeader {
+    margin-bottom: 12px;
+  }
+
+  .statTitle {
+    font-size: 12px;
+  }
+
+  .statValue {
+    font-size: 24px;
+  }
+
+  .iconWrapper {
+    width: 32px;
+    height: 32px;
+  }
+
+  .campaignGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .campaignCard {
+    padding: 16px;
+  }
+
+  .campaignTitle {
+    font-size: 15px;
+  }
+
+  .campaignDesc {
+    font-size: 12px;
+    margin-bottom: 14px;
+  }
+
+  .priceLarge {
+    font-size: 22px;
+  }
+
+  .campaignSection,
+  .chartSection,
+  .statesSection,
+  .callsSection {
+    padding: 20px;
+  }
+
+  .sectionHeader h3 {
+    font-size: 17px;
+  }
+
+  .performanceHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .perfStatsGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .wideCard {
+    grid-column: span 1;
+  }
+
+  .chartHeader {
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .chartStats {
+    text-align: left;
+  }
+
+  .chartIcon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .chartValue {
+    font-size: 24px;
+  }
+
+  .callsTable table {
+    min-width: 600px;
+  }
+}
+
+/* ─── Responsive: Mobile ≤ 480px ─── */
+@media (max-width: 480px) {
+  .dashboard {
+    gap: 16px;
+  }
+
+  .sectionStats {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .statCard {
+    padding: 14px;
+  }
+
+  .statTitle {
+    font-size: 11px;
+  }
+
+  .statValue {
+    font-size: 20px;
+  }
+
+  .iconWrapper {
+    width: 28px;
+    height: 28px;
+  }
+
+  .iconWrapper svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .campaignGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .campaignCard {
+    padding: 16px;
+  }
+
+  .campaignTitle {
+    font-size: 16px;
+  }
+
+  .priceLarge {
+    font-size: 24px;
+  }
+
+  .campaignSection,
+  .chartSection,
+  .statesSection,
+  .callsSection {
+    padding: 16px;
+    border-radius: var(--radius-lg);
+  }
+
+  .sectionHeader h3 {
+    font-size: 16px;
+    gap: 8px;
+  }
+
+  .dollarBtn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .performanceHeader h3 {
+    font-size: 16px;
+  }
+
+  .chartIcon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .chartTitle {
+    font-size: 12px;
+  }
+
+  .chartValue {
+    font-size: 20px;
+  }
+
+  .callsTable table {
+    min-width: 520px;
+  }
+
+  .callsTable th,
+  .callsTable td {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .dropdownTrigger {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .dropdownMenu {
+    min-width: 140px;
+  }
+
+  .dropdownItem {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
 }

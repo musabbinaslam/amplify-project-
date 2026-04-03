@@ -1,5 +1,5 @@
-import React from 'react';
-import { Activity, MapPin, Phone, PhoneCall, Target, CheckCircle2, DollarSign, PiggyBank, Percent, PhoneIncoming, Clock } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Activity, MapPin, Phone, PhoneCall, Target, CheckCircle2, DollarSign, PiggyBank, Percent, PhoneIncoming, Clock, ChevronDown } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -48,29 +48,47 @@ const StatCard = ({ title, value, icon: Icon }) => (
   </motion.div>
 );
 
-const CampaignCard = ({ title, price, buffer, isTV }) => (
-  <motion.div
-    className={classes.campaignCard}
-    whileHover={{ scale: 1.02, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}
-    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-  >
-    <div className={classes.campaignHeader}>
-      <DollarSign size={16} className={isTV ? classes.tvIcon : classes.blueIcon} />
-      <span className={classes.campaignTitle}>{title}</span>
-    </div>
-    <div className={classes.campaignPrice}>
-      <span className={classes.priceLarge}>${price}</span>
-      <span className={classes.priceSub}>/call</span>
-    </div>
-    <div className={classes.campaignBuffer}>
-      <CheckCircle2 size={12} />
-      <span>{buffer}s buffer</span>
-    </div>
-  </motion.div>
-);
+const CampaignCard = ({ title, desc, price, buffer, isTV }) => {
+  const unit = title.includes('Transfers') ? 'lead' : 'call';
+  return (
+    <motion.div
+      className={classes.campaignCard}
+      whileHover={{ scale: 1.02, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}
+      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+    >
+      <div className={classes.campaignHeader}>
+        <DollarSign size={16} className={isTV ? classes.tvIcon : classes.blueIcon} />
+        <span className={classes.campaignTitle}>{title}</span>
+      </div>
+      <div className={classes.campaignDesc}>{desc}</div>
+      <div className={classes.campaignPrice}>
+        <span className={classes.priceLarge}>${price}</span>
+        <span className={classes.priceSub}>/{unit}</span>
+      </div>
+      <div className={classes.campaignBuffer}>
+        <Clock size={12} />
+        <span>{buffer}s buffer</span>
+      </div>
+    </motion.div>
+  );
+};
 
 const DashboardPage = () => {
   const navigate = useNavigate();
+  const [period, setPeriod] = useState('This Week');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const totalSales = performanceData.reduce((s, d) => s + d.sales, 0);
   const totalCalls = performanceData.reduce((s, d) => s + d.calls, 0);
   const closeRate = totalCalls ? Math.round((totalSales / totalCalls) * 100) : 0;
@@ -90,20 +108,43 @@ const DashboardPage = () => {
           <button className={classes.dollarBtn}><DollarSign size={16} /></button>
         </div>
         <div className={classes.campaignGrid}>
-          <CampaignCard title="ACA" price="50" buffer="90" />
-          <CampaignCard title="Final Expense" price="60" buffer="90" />
-          <CampaignCard title="Medicare" price="35" buffer="25" />
-          <CampaignCard title="TV Inbounds" price="85" buffer="10" isTV />
+          <CampaignCard title="FE Transfers" desc="Live transfer Final Expense leads" price="35" buffer="120" />
+          <CampaignCard title="FE Inbounds" desc="Direct inbound Final Expense calls" price="25" buffer="30" />
+          <CampaignCard title="Medicare Transfers" desc="Live transfer Medicare leads" price="25" buffer="120" />
+          <CampaignCard title="Medicare Inbounds (1)" desc="High-intent Medicare inbound calls" price="35" buffer="90" />
+          <CampaignCard title="Medicare Inbounds (2)" desc="Standard Medicare inbound calls" price="18" buffer="15" />
+          <CampaignCard title="ACA Transfers" desc="Live transfer ACA health leads" price="30" buffer="120" />
         </div>
       </div>
 
       <div className={classes.performanceHeader}>
         <h3><Activity size={18} /> Performance Stats</h3>
-        <select className={classes.periodSelect}>
-          <option>This Week</option>
-          <option>This Month</option>
-          <option>Last 30 Days</option>
-        </select>
+        <div className={classes.customDropdown} ref={dropdownRef}>
+          <button 
+            className={classes.dropdownTrigger} 
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          >
+            {period}
+            <ChevronDown size={16} className={`${classes.dropdownIcon} ${isDropdownOpen ? classes.open : ''}`} />
+          </button>
+          
+          {isDropdownOpen && (
+            <div className={classes.dropdownMenu}>
+              {['This Week', 'This Month', 'Last 30 Days'].map((opt) => (
+                <div 
+                  key={opt}
+                  className={`${classes.dropdownItem} ${period === opt ? classes.activeItem : ''}`}
+                  onClick={() => {
+                    setPeriod(opt);
+                    setIsDropdownOpen(false);
+                  }}
+                >
+                  {opt}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className={classes.perfStatsGrid}>
@@ -151,8 +192,8 @@ const DashboardPage = () => {
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={performanceData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} axisLine={false} tickLine={false} />
-              <YAxis stroke="var(--text-muted)" fontSize={12} axisLine={false} tickLine={false} />
+              <XAxis dataKey="name" stroke="var(--text-muted)" tick={{ fill: 'var(--text-secondary)' }} fontSize={12} axisLine={false} tickLine={false} />
+              <YAxis stroke="var(--text-muted)" tick={{ fill: 'var(--text-secondary)' }} fontSize={12} axisLine={false} tickLine={false} />
               <Tooltip
                 contentStyle={{ backgroundColor: 'var(--surface-container-high)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)' }}
                 itemStyle={{ color: 'var(--text-secondary)' }}
