@@ -272,8 +272,9 @@ VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
 VITE_API_URL=http://localhost:3001
-VITE_AI_API_KEY=your_gemini_api_key
 ```
+
+Support chat calls `POST /api/support/chat` on the backend; configure Gemini on the server (see Backend env vars), not in the frontend.
 
 Start the development server:
 
@@ -353,6 +354,8 @@ npm start         # Start production server
 | `TWILIO_API_KEY_SECRET` | Yes | Twilio API Key Secret |
 | `TWILIO_TWIML_APP_SID` | Yes | Twilio TwiML Application SID |
 | `CLIENT_URL` | No | Frontend origin for CORS (default: `*`) |
+| `GEMINI_API_KEY` | No | Google AI Studio / Gemini key for `POST /api/support/chat` (alias: `GOOGLE_AI_API_KEY`; keyword mock if unset) |
+| `GEMINI_MODEL` | No | Gemini model id (default: `gemini-2.5-flash`) |
 
 ### Frontend
 
@@ -364,8 +367,7 @@ npm start         # Start production server
 | `VITE_FIREBASE_STORAGE_BUCKET` | Yes | Firebase Storage Bucket |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | Yes | Firebase Messaging Sender ID |
 | `VITE_FIREBASE_APP_ID` | Yes | Firebase App ID |
-| `VITE_API_URL` | Yes | Backend API base URL |
-| `VITE_AI_API_KEY` | No | Google Gemini API key for support chat |
+| `VITE_API_URL` | Yes | Backend API base URL (used for Support chat and other APIs) |
 
 <br />
 
