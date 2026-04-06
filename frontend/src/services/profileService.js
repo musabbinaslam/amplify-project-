@@ -1,20 +1,17 @@
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { apiFetch } from './apiClient';
 
 const MAX_AVATAR_SIZE = 256;
 const AVATAR_QUALITY = 0.8;
 
+/** Document is resolved from the ID token; `uid` kept for call-site compatibility. */
 export async function getProfile(uid) {
-  const snap = await getDoc(doc(db, 'users', uid));
-  return snap.exists() ? snap.data() : null;
+  void uid;
+  return apiFetch('/api/users/me', { method: 'GET' });
 }
 
 export async function saveProfile(uid, data) {
-  await setDoc(
-    doc(db, 'users', uid),
-    { ...data, updatedAt: serverTimestamp() },
-    { merge: true },
-  );
+  void uid;
+  return apiFetch('/api/users/me', { method: 'PATCH', body: data });
 }
 
 export function compressAvatar(file) {
@@ -47,15 +44,10 @@ export function compressAvatar(file) {
 }
 
 export async function getOrCreateApiKey(uid) {
-  const snap = await getDoc(doc(db, 'users', uid));
-  const existing = snap.data()?.apiKey;
-  if (existing) return existing;
-
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-  const apiKey = `ak_${hex}`;
-
-  await setDoc(doc(db, 'users', uid), { apiKey, createdAt: serverTimestamp() }, { merge: true });
-  return apiKey;
+  void uid;
+  const data = await apiFetch('/api/users/me/api-key', { method: 'POST' });
+  if (typeof data?.apiKey !== 'string') {
+    throw new Error('Invalid API key response');
+  }
+  return data.apiKey;
 }

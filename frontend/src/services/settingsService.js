@@ -1,22 +1,22 @@
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { apiFetch } from './apiClient';
 
 export async function loadSettings(uid) {
-  const snap = await getDoc(doc(db, 'users', uid));
-  return snap.data()?.settings || {};
+  void uid;
+  const data = await apiFetch('/api/users/me', { method: 'GET' });
+  return data?.settings || {};
 }
 
-export async function saveSettings(uid, settings) {
-  await setDoc(
-    doc(db, 'users', uid),
-    { settings, updatedAt: serverTimestamp() },
-    { merge: true },
-  );
+export async function saveSettings(uid, partial) {
+  void uid;
+  const data = await apiFetch('/api/users/me/settings', {
+    method: 'PATCH',
+    body: partial,
+  });
+  return data?.settings || {};
 }
 
 export async function exportUserData(uid) {
-  const snap = await getDoc(doc(db, 'users', uid));
-  const data = snap.exists() ? snap.data() : {};
+  const data = await apiFetch('/api/users/me', { method: 'GET' });
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -30,7 +30,7 @@ export async function exportUserData(uid) {
 
 export async function revokeAllSessions(token) {
   const res = await fetch(
-    `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/auth/revoke`,
+    `${(import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '')}/api/auth/revoke`,
     {
       method: 'POST',
       headers: {
