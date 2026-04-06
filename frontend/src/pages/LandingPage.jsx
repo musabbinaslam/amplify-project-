@@ -394,7 +394,7 @@ const LandingPage = () => {
                 <Video size={20} className={classes.bookingCardIcon} />
                 <div>
                   <h3>10-Min Onboarding Call</h3>
-                  <p>Google Meet</p>
+                  <p>Book directly on our calendar</p>
                 </div>
               </div>
 
@@ -409,29 +409,25 @@ const LandingPage = () => {
                 </div>
               </div>
 
-              <div className={classes.bookingCalendar}>
-                <div className={classes.bookingCalendarHead}>
-                  <span className={classes.bookingCalendarMonth}>April 2026</span>
-                </div>
-                <div className={classes.bookingCalendarDays}>
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-                    <span key={d} className={classes.bookingDayLabel}>{d}</span>
-                  ))}
-                </div>
-                <div className={classes.bookingCalendarGrid}>
-                  {Array.from({ length: 30 }, (_, i) => (
-                    <span
-                      key={i}
-                      className={`${classes.bookingDay} ${i + 1 === 3 ? classes.bookingDayActive : ''}`}
-                    >
-                      {i + 1}
-                    </span>
-                  ))}
-                </div>
+              <div className={classes.bookingCalendarEmbed}>
+                <iframe
+                  title="AgentCalls Onboarding Calendar"
+                  src={import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com/'}
+                  className={classes.bookingIframe}
+                  frameBorder="0"
+                />
               </div>
 
               <p className={classes.bookingCardNote}>
-                Scheduling widget will be connected here
+                If the calendar does not load,{" "}
+                <a
+                  href={import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com/'}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  book your slot here
+                </a>
+                .
               </p>
             </motion.div>
           </div>

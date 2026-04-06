@@ -823,6 +823,19 @@
   margin-bottom: 16px;
 }
 
+.bookingCalendarEmbed {
+  background: var(--surface-container);
+  border-radius: var(--radius-lg);
+  padding: 8px;
+  margin-bottom: 12px;
+}
+
+.bookingIframe {
+  width: 100%;
+  min-height: 420px;
+  border-radius: var(--radius-md);
+}
+
 .bookingCalendarHead {
   text-align: center;
   margin-bottom: 12px;

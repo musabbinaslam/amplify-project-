@@ -8,6 +8,7 @@ const { connectRedis } = require('./config/redis');
 const voiceRoutes = require('./routes/voiceRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const supportRoutes = require('./routes/supportRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const userRoutes = require('./routes/userRoutes');
 const { setupCallSockets } = require('./sockets/callSockets');
@@ -49,6 +50,9 @@ const startEngine = async () => {
 
     // Support chat (Gemini); requires Firebase ID token
     app.use('/api/support', supportRoutes);
+
+    // Bookings (Calendly webhook + internal list)
+    app.use('/api/bookings', bookingRoutes);
 
     // Revoke all refresh tokens for the authenticated user
     app.post('/api/auth/revoke', verifyFirebaseToken, async (req, res) => {
