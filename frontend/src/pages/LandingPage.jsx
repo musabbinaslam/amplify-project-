@@ -24,10 +24,33 @@ const STATS = [
   { value: '5', label: 'Insurance Verticals' },
 ];
 
+const TRUST_ITEMS = [
+  'Licensed Agents Network',
+  'TCPA Aware Workflows',
+  'HIPAA-Ready Handling',
+  'Insurance Community',
+  'As Seen In',
+];
+
 const STEPS = [
   { icon: Users, title: 'Create Your Account', desc: 'Sign up in under two minutes. Select your licensed states and preferred verticals.' },
   { icon: Phone, title: 'Receive Inbound Calls', desc: 'Our routing engine matches you with high-intent leads in real time. No cold calling.' },
   { icon: DollarSign, title: 'Close & Earn', desc: 'Convert calls into policies and earn commissions. Track everything from your dashboard.' },
+];
+
+const LEAD_FLOW = [
+  {
+    title: 'Targeted Insurance Ads',
+    desc: 'We run intent-based campaigns to reach consumers actively searching for insurance help in your selected verticals.',
+  },
+  {
+    title: 'Consumer Click + Pre-Call Intent',
+    desc: 'Consumers click through and submit key intent details before requesting to speak with a licensed agent.',
+  },
+  {
+    title: 'Real-Time Inbound Transfer',
+    desc: 'Qualified callers are matched by state, vertical, and availability, then routed to online agents in real time.',
+  },
 ];
 
 const FEATURES = [
@@ -86,6 +109,7 @@ const LandingPage = () => {
 
           <div className={classes.navLinks}>
             <a href="#how-it-works" className={classes.navLink}>How It Works</a>
+            <a href="#lead-source" className={classes.navLink}>Lead Source</a>
             <a href="#features" className={classes.navLink}>Features</a>
             <a href="#verticals" className={classes.navLink}>Verticals</a>
             <a href="#faq" className={classes.navLink}>FAQ</a>
@@ -120,12 +144,15 @@ const LandingPage = () => {
           </motion.p>
           <motion.div className={classes.heroCtas} variants={fadeUp}>
             <Link to="/signup" className={classes.ctaPrimary}>
-              Get Started Free <ArrowRight size={18} />
+              Start Taking Calls Today <ArrowRight size={18} />
             </Link>
             <a href="#how-it-works" className={classes.ctaSecondary}>
               <Play size={16} /> See How It Works
             </a>
           </motion.div>
+          <motion.p className={classes.heroUrgency} variants={fadeUp}>
+            Limited onboarding spots this week.
+          </motion.p>
         </motion.div>
       </section>
 
@@ -145,6 +172,27 @@ const LandingPage = () => {
               <span className={classes.statLabel}>{stat.label}</span>
             </motion.div>
           ))}
+        </div>
+      </section>
+
+      {/* Trusted By */}
+      <section className={classes.trustSection}>
+        <div className={classes.trustInner}>
+          <p className={classes.trustHeading}>Trusted by industry professionals</p>
+          <div className={classes.trustGrid}>
+            {TRUST_ITEMS.map((item) => (
+              <motion.div
+                key={item}
+                className={classes.trustItem}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-50px' }}
+                variants={fadeUp}
+              >
+                {item}
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -171,6 +219,38 @@ const LandingPage = () => {
                 <div className={classes.stepNumber}>{i + 1}</div>
                 <div className={classes.stepIconWrap}>
                   <step.icon size={24} />
+                </div>
+                <h3>{step.title}</h3>
+                <p>{step.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </section>
+
+      {/* Lead Source */}
+      <section id="lead-source" className={classes.section}>
+        <motion.div
+          className={classes.sectionInner}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-80px' }}
+          variants={stagger}
+        >
+          <motion.div className={classes.sectionHeader} variants={fadeUp}>
+            <span className={classes.sectionTag}>Lead Source</span>
+            <h2 className={classes.sectionTitle}>How inbound calls are generated</h2>
+            <p className={classes.sectionSubtitle}>
+              You should know exactly where calls come from before you spend. Here is the end-to-end funnel.
+            </p>
+          </motion.div>
+
+          <div className={classes.leadFlowGrid}>
+            {LEAD_FLOW.map((step, i) => (
+              <motion.div key={step.title} className={classes.leadFlowCard} variants={fadeUp}>
+                <div className={classes.leadFlowTop}>
+                  <span className={classes.leadFlowIndex}>0{i + 1}</span>
+                  {i < LEAD_FLOW.length - 1 ? <ArrowRight size={16} className={classes.leadFlowArrow} /> : null}
                 </div>
                 <h3>{step.title}</h3>
                 <p>{step.desc}</p>
@@ -285,6 +365,9 @@ const LandingPage = () => {
                 Book a quick call with our team. We'll walk you through exactly
                 how it works and see if you're a good match for our network.
               </p>
+              <p className={classes.bookingUrgency}>
+                Spots fill fast each week. Next onboarding window closes soon.
+              </p>
 
               <div className={classes.bookingBullets}>
                 <div className={classes.bookingBullet}>
@@ -365,13 +448,13 @@ const LandingPage = () => {
           viewport={{ once: true, margin: '-80px' }}
           variants={stagger}
         >
-          <motion.h2 variants={fadeUp}>Ready to start closing?</motion.h2>
+          <motion.h2 variants={fadeUp}>Ready to start closing this week?</motion.h2>
           <motion.p variants={fadeUp}>
-            Join thousands of agents already earning with inbound insurance calls.
+            Do not wait on stale leads. Secure your onboarding spot and start taking inbound calls now.
           </motion.p>
           <motion.div variants={fadeUp}>
             <Link to="/signup" className={classes.ctaPrimary}>
-              Create Free Account <ArrowRight size={18} />
+              Claim My Spot <ArrowRight size={18} />
             </Link>
           </motion.div>
         </motion.div>
@@ -394,6 +477,7 @@ const LandingPage = () => {
             <div className={classes.footerCol}>
               <h4>Product</h4>
               <a href="#how-it-works">How It Works</a>
+              <a href="#lead-source">Lead Source</a>
               <a href="#features">Features</a>
               <a href="#verticals">Verticals</a>
               <a href="#faq">FAQ</a>

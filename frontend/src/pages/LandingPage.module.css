@@ -187,6 +187,18 @@
   flex-wrap: wrap;
 }
 
+.heroUrgency {
+  margin-top: 18px;
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-green);
+  background: var(--accent-green-dim);
+  border: 1px solid color-mix(in srgb, var(--accent-green) 30%, transparent);
+  padding: 8px 12px;
+  border-radius: var(--radius-full);
+}
+
 .ctaPrimary {
   display: inline-flex;
   align-items: center;
@@ -259,6 +271,47 @@
   font-weight: 500;
   color: var(--text-tertiary);
   margin-top: 4px;
+}
+
+/* ── Trust Strip ── */
+.trustSection {
+  padding: 0 24px 30px;
+}
+
+.trustInner {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.trustHeading {
+  text-align: center;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin-bottom: 18px;
+  font-weight: 700;
+}
+
+.trustGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.trustItem {
+  background: var(--surface-container-low);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
 }
 
 /* ── Sections (shared) ── */
@@ -348,6 +401,53 @@
   font-size: 14px;
   color: var(--text-secondary);
   line-height: 1.6;
+}
+
+/* ── Lead Source Flow ── */
+.leadFlowGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.leadFlowCard {
+  background: var(--surface-container-low);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  padding: 24px 22px;
+}
+
+.leadFlowTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.leadFlowIndex {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--accent-green);
+  background: var(--accent-green-dim);
+  border-radius: var(--radius-full);
+  padding: 5px 10px;
+}
+
+.leadFlowArrow {
+  color: var(--text-tertiary);
+}
+
+.leadFlowCard h3 {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.leadFlowCard p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.65;
 }
 
 /* ── Features ── */
@@ -622,6 +722,14 @@
   margin-bottom: 32px;
 }
 
+.bookingUrgency {
+  margin-top: -16px;
+  margin-bottom: 28px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-green);
+}
+
 .bookingBullets {
   display: flex;
   flex-direction: column;
@@ -793,6 +901,24 @@
     gap: 20px;
   }
 
+  .trustGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .leadFlowGrid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .leadFlowTop {
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .leadFlowArrow {
+    display: none;
+  }
+
   .featuresGrid {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -826,5 +952,9 @@
   .statsInner {
     flex-direction: column;
     gap: 24px;
+  }
+
+  .trustGrid {
+    grid-template-columns: 1fr;
   }
 }
