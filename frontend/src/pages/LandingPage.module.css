@@ -769,6 +769,7 @@
   border-radius: var(--radius-xl);
   padding: 28px;
   border: 1px solid var(--border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 }
 
 .bookingCardHeader {
@@ -824,16 +825,17 @@
 }
 
 .bookingCalendarEmbed {
-  background: var(--surface-container);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 8px;
-  margin-bottom: 12px;
+  overflow: hidden;
+  margin-bottom: 14px;
 }
 
 .bookingIframe {
   width: 100%;
-  min-height: 420px;
-  border-radius: var(--radius-md);
+  min-height: 560px;
+  display: block;
 }
 
 .bookingCalendarHead {
@@ -889,10 +891,20 @@
 }
 
 .bookingCardNote {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-tertiary);
   text-align: center;
-  font-style: italic;
+  line-height: 1.5;
+}
+
+.bookingCardNote a {
+  color: var(--accent-green);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.bookingCardNote a:hover {
+  text-decoration: underline;
 }
 
 /* ── Responsive ── */
@@ -946,6 +958,14 @@
     gap: 32px;
   }
 
+  .bookingCard {
+    padding: 22px;
+  }
+
+  .bookingIframe {
+    min-height: 520px;
+  }
+
   .footerInner {
     flex-direction: column;
   }
@@ -969,5 +989,9 @@
 
   .trustGrid {
     grid-template-columns: 1fr;
+  }
+
+  .bookingIframe {
+    min-height: 500px;
   }
 }

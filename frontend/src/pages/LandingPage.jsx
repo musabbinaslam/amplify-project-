@@ -94,6 +94,8 @@ const FAQItem = ({ item, isOpen, onToggle }) => (
 const LandingPage = () => {
   const [openFaq, setOpenFaq] = useState(null);
   const { theme, toggleTheme } = useUIStore();
+  const baseCalendlyUrl = import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com/';
+  const calendlyEmbedUrl = `${baseCalendlyUrl}${baseCalendlyUrl.includes('?') ? '&' : '?'}hide_event_type_details=1&hide_gdpr_banner=1`;
 
   return (
     <div className={classes.page}>
@@ -412,16 +414,17 @@ const LandingPage = () => {
               <div className={classes.bookingCalendarEmbed}>
                 <iframe
                   title="AgentCalls Onboarding Calendar"
-                  src={import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com/'}
+                  src={calendlyEmbedUrl}
                   className={classes.bookingIframe}
                   frameBorder="0"
+                  loading="lazy"
                 />
               </div>
 
               <p className={classes.bookingCardNote}>
                 If the calendar does not load,{" "}
                 <a
-                  href={import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com/'}
+                  href={baseCalendlyUrl}
                   target="_blank"
                   rel="noreferrer"
                 >
