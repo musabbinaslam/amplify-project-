@@ -10,6 +10,7 @@ const SPENDING_OPTIONS = ['Less than $500', '$500 - $1,000', '$1,000 - $2,500', 
 const HEAR_ABOUT_OPTIONS = ['Google Search', 'Facebook / Instagram', 'YouTube', 'Referral', 'Discord', 'Other'];
 const VERTICALS = ['Final Expense', 'Spanish Final Expense', 'ACA', 'Medicare', 'Leads'];
 const MAX_AVATAR_FILE_MB = 5;
+const MAX_AVATAR_OUTPUT_PX = 512;
 const MIN_SLUG_LEN = 3;
 
 function normalizeSlug(v) { return String(v || '').toLowerCase().replace(/[^a-z0-9-_]/g, ''); }
@@ -29,9 +30,13 @@ async function getCroppedImage(src, pixelCrop) {
   const image = await createImage(src);
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
-  canvas.width = pixelCrop.width;
-  canvas.height = pixelCrop.height;
-  ctx.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, pixelCrop.width, pixelCrop.height);
+  const longestSide = Math.max(pixelCrop.width, pixelCrop.height);
+  const scale = longestSide > MAX_AVATAR_OUTPUT_PX ? (MAX_AVATAR_OUTPUT_PX / longestSide) : 1;
+  const outW = Math.max(1, Math.round(pixelCrop.width * scale));
+  const outH = Math.max(1, Math.round(pixelCrop.height * scale));
+  canvas.width = outW;
+  canvas.height = outH;
+  ctx.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, outW, outH);
   return canvas.toDataURL('image/jpeg', 0.82);
 }
 
@@ -415,10 +420,15 @@ const ProfilePage = () => {
             </div>
             <div className={classes.sliderRow}><span>Zoom</span><input type="range" min={1} max={3} step={0.1} value={avatarZoom} onChange={(e) => setAvatarZoom(Number(e.target.value))} /></div>
             {uploadingAvatar && <div className={classes.uploadProgress}><div style={{ width: `${avatarUploadProgress}%` }} /></div>}
-            <div className={classes.modalActions}>
-              <button type="button" className={classes.cancelBtn} onClick={() => setShowAvatarModal(false)}>Cancel</button>
-              <button type="button" className={classes.cancelBtn} onClick={removeAvatar}><Trash2 size={14} /> Remove Photo</button>
-              <button type="button" className={classes.saveBtn} onClick={applyAvatar} disabled={uploadingAvatar}>{uploadingAvatar ? 'Uploading...' : 'Apply'}</button>
+            <div className={`${classes.modalActions} ${classes.avatarModalActions}`}>
+              <button type="button" className={classes.avatarActionGhost} onClick={() => setShowAvatarModal(false)}>Cancel</button>
+              <button type="button" className={classes.avatarActionDanger} onClick={removeAvatar}>
+                <Trash2 size={14} />
+                Remove Photo
+              </button>
+              <button type="button" className={classes.avatarActionPrimary} onClick={applyAvatar} disabled={uploadingAvatar}>
+                {uploadingAvatar ? 'Uploading...' : 'Apply'}
+              </button>
             </div>
           </div>
         </div>
