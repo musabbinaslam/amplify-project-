@@ -227,7 +227,9 @@
 
 /* ─── Disposition badge ─── */
 .dispBadge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
   font-size: 0.75rem;
@@ -254,6 +256,61 @@
   color: var(--text-muted);
 }
 
+.dispAnswered {
+  background: color-mix(in srgb, #3b82f6 15%, transparent);
+  color: #3b82f6;
+}
+
+.dispMissed {
+  background: color-mix(in srgb, #ef4444 12%, transparent);
+  color: #ef4444;
+}
+
+/* ─── Campaign tag ─── */
+.campaignTag {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--accent-green) 15%, transparent);
+  color: var(--accent-green);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* ─── Cost value ─── */
+.costValue {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--accent-green);
+}
+
+/* ─── Spinner ─── */
+.spinner {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
 /* ─── Duration ─── */
 .duration {
   display: inline-flex;
@@ -277,13 +334,8 @@
   color: var(--text-muted);
 }
 
-/* ─── Empty ─── */
-.emptyState {
-  color: var(--text-muted);
-  font-size: 0.88rem;
-  text-align: center;
-  padding: 3rem 1rem;
-}
+
+
 
 /* ─── Responsive ─── */
 @media (max-width: 768px) {

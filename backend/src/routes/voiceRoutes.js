@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const voiceController = require('../controllers/voiceController');
+const { verifyFirebaseToken } = require('../middleware/auth');
 
 // Ensure token generation routes correctly
 // POST /api/voice/token
@@ -12,7 +13,7 @@ router.post('/incoming-call', voiceController.handleIncomingCall);
 // Handle call completion for billing
 router.post('/call-completed', voiceController.handleCallCompleted);
 
-// Fetch history
-router.get('/logs', voiceController.getLogs);
+// Fetch history (authenticated — per-user from Firestore)
+router.get('/logs', verifyFirebaseToken, voiceController.getLogs);
 
 module.exports = router;
