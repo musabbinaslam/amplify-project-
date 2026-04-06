@@ -3,6 +3,11 @@ import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
+import {
+  COUNTRY_DIAL_CODES,
+  DEFAULT_PHONE_COUNTRY,
+  buildInternationalPhone,
+} from '../constants/countryDialCodes';
 import classes from './SignupPage.module.css';
 
 const SPENDING_OPTIONS = [
@@ -56,6 +61,7 @@ const SignupPage = () => {
   const [form, setForm] = useState({
     fullName: '',
     email: '',
+    phoneCountry: DEFAULT_PHONE_COUNTRY,
     phone: '',
     weeklySpend: '',
     usedInbound: '',
@@ -75,7 +81,11 @@ const SignupPage = () => {
   const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
   const validateOnboarding = () => {
-    if (!form.phone.trim()) { toast.error('Phone number is required'); return false; }
+    const digits = form.phone.replace(/\D/g, '');
+    if (!digits || digits.length < 6) {
+      toast.error('Enter a valid phone number (country + local digits)');
+      return false;
+    }
     if (!form.weeklySpend) { toast.error('Select your weekly lead spend'); return false; }
     if (!form.usedInbound) { toast.error('Select whether you have used inbound calls'); return false; }
     if (!form.verticals) { toast.error('Select a vertical'); return false; }
@@ -94,7 +104,10 @@ const SignupPage = () => {
 
     setSubmitting(true);
     try {
-      await signup(form);
+      await signup({
+        ...form,
+        phone: buildInternationalPhone(form.phoneCountry, form.phone),
+      });
       toast.success('Account created!');
       navigate('/app');
     } catch (err) {
@@ -134,7 +147,10 @@ const SignupPage = () => {
 
     setSubmitting(true);
     try {
-      await saveGoogleOnboarding(form);
+      await saveGoogleOnboarding({
+        ...form,
+        phone: buildInternationalPhone(form.phoneCountry, form.phone),
+      });
       toast.success('Account created!');
       googleFlowActive.current = false;
       navigate('/app');
@@ -149,13 +165,29 @@ const SignupPage = () => {
     <>
       <div className={classes.fieldGroup}>
         <label className={classes.label}>Phone</label>
-        <input
-          className={classes.input}
-          type="tel"
-          placeholder="+1 (555) 123-4567"
-          value={form.phone}
-          onChange={(e) => update('phone', e.target.value)}
-        />
+        <div className={classes.phoneRow}>
+          <select
+            className={classes.countrySelect}
+            value={form.phoneCountry}
+            onChange={(e) => update('phoneCountry', e.target.value)}
+            aria-label="Country"
+          >
+            {COUNTRY_DIAL_CODES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name} ({c.dial})
+              </option>
+            ))}
+          </select>
+          <input
+            className={classes.phoneInput}
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel-national"
+            placeholder="Mobile number (no country code)"
+            value={form.phone}
+            onChange={(e) => update('phone', e.target.value)}
+          />
+        </div>
       </div>
 
       <div className={classes.fieldGroup}>

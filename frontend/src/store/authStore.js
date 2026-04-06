@@ -12,6 +12,7 @@ import {
   EmailAuthProvider,
   deleteUser,
   sendPasswordResetEmail,
+  getAdditionalUserInfo,
 } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase';
 import { getProfile, saveProfile } from '../services/profileService';
@@ -82,6 +83,30 @@ const useAuthStore = create((set, get) => ({
     const result = await signInWithPopup(auth, googleProvider);
     const token = await result.user.getIdToken();
 
+    const existing = await getProfile(result.user.uid);
+    const needsOnboarding = !existing?.onboarding?.completedAt;
+
+    set({ user: mapFirebaseUser(result.user), token });
+    return { needsOnboarding, user: result.user };
+  },
+
+  /** Login page only: reject first-time Google users (must use Sign up first). */
+  googleSignIn: async () => {
+    const result = await signInWithPopup(auth, googleProvider);
+    const info = getAdditionalUserInfo(result);
+
+    if (info?.isNewUser) {
+      try {
+        await deleteUser(result.user);
+      } catch {
+        await signOut(auth);
+      }
+      const err = new Error('No account found for this Google account. Please sign up first.');
+      err.code = 'auth/no-account-yet';
+      throw err;
+    }
+
+    const token = await result.user.getIdToken();
     const existing = await getProfile(result.user.uid);
     const needsOnboarding = !existing?.onboarding?.completedAt;
 
