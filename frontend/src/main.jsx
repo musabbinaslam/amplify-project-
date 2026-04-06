@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import App from './App.jsx';
 import useAuthStore from './store/authStore';
 import { useUIStore } from './store/uiStore';
+import { initFirebase } from './config/firebase';
 import PageLoader from './components/ui/PageLoader';
 import './index.css';
 
@@ -17,7 +18,16 @@ const AuthInit = ({ children }) => {
   const initAuth = useAuthStore((s) => s.initAuth);
 
   useEffect(() => {
-    initAuth().then(() => setReady(true));
+    (async () => {
+      try {
+        await initFirebase();
+        await initAuth();
+      } catch (e) {
+        console.error('[Firebase]', e);
+      } finally {
+        setReady(true);
+      }
+    })();
   }, [initAuth]);
 
   if (!ready) return <PageLoader />;

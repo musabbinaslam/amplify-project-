@@ -8,6 +8,8 @@ const { connectRedis } = require('./config/redis');
 const voiceRoutes = require('./routes/voiceRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const supportRoutes = require('./routes/supportRoutes');
+const publicRoutes = require('./routes/publicRoutes');
+const userRoutes = require('./routes/userRoutes');
 const { setupCallSockets } = require('./sockets/callSockets');
 const { verifyFirebaseToken } = require('./middleware/auth');
 
@@ -32,6 +34,12 @@ const startEngine = async () => {
 
     // Init Socket events
     setupCallSockets(io);
+
+    // Public: Firebase web config for client Auth SDK (no VITE_FIREBASE_* in frontend)
+    app.use('/api/public', publicRoutes);
+
+    // Authenticated user document (Firestore via Admin)
+    app.use('/api/users', userRoutes);
     
     // Mount all voice routes (/token, /incoming-call, /call-completed, /logs)
     app.use('/api/voice', voiceRoutes);

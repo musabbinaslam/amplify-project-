@@ -194,6 +194,13 @@ agentcalls/
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
+| `GET` | `/api/public/firebase-config` | None | Firebase Web SDK config (for client Auth only) |
+| `GET` | `/api/users/me` | Firebase Bearer | Load current user’s Firestore `users/{uid}` document |
+| `PATCH` | `/api/users/me` | Firebase Bearer | Merge fields into `users/{uid}` |
+| `PATCH` | `/api/users/me/settings` | Firebase Bearer | Merge partial `settings` map |
+| `PATCH` | `/api/users/me/scripts/:scriptId` | Firebase Bearer | Save script field values for `scriptId` |
+| `POST` | `/api/users/me/api-key` | Firebase Bearer | Return or create `apiKey` for integrations |
+| `POST` | `/api/support/chat` | Firebase Bearer | Support chat (Gemini on server) |
 | `POST` | `/api/voice/token` | Firebase Bearer | Generate Twilio Voice access token for browser SDK |
 | `POST` | `/api/voice/incoming-call` | None (Twilio webhook) | Return TwiML for inbound call routing |
 | `POST` | `/api/auth/revoke` | Firebase Bearer | Revoke all refresh tokens for the authenticated user |
@@ -243,6 +250,15 @@ TWILIO_API_KEY_SID=your_api_key_sid
 TWILIO_API_KEY_SECRET=your_api_key_secret
 TWILIO_TWIML_APP_SID=your_twiml_app_sid
 CLIENT_URL=http://localhost:5173
+
+# Firebase Web app config (same values as Firebase console → Project settings → Your apps).
+# Used by GET /api/public/firebase-config so the frontend does not need VITE_FIREBASE_*.
+FIREBASE_API_KEY=your_web_api_key
+FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+FIREBASE_APP_ID=your_app_id
 ```
 
 Place your `firebase-service-account.json` in the `backend/` directory.
@@ -265,16 +281,10 @@ npm install
 Create a `.env` file in the `frontend/` directory:
 
 ```env
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
 VITE_API_URL=http://localhost:3001
 ```
 
-Support chat calls `POST /api/support/chat` on the backend; configure Gemini on the server (see Backend env vars), not in the frontend.
+The app loads Firebase web config from the backend (`GET /api/public/firebase-config`). User profile, scripts, and settings are stored via authenticated backend APIs (`/api/users/me`), not from the browser’s Firestore SDK.
 
 Start the development server:
 
@@ -356,18 +366,20 @@ npm start         # Start production server
 | `CLIENT_URL` | No | Frontend origin for CORS (default: `*`) |
 | `GEMINI_API_KEY` | No | Google AI Studio / Gemini key for `POST /api/support/chat` (alias: `GOOGLE_AI_API_KEY`; keyword mock if unset) |
 | `GEMINI_MODEL` | No | Gemini model id (default: `gemini-2.5-flash`) |
+| `FIREBASE_API_KEY` | Yes | Firebase Web API key (same as in Firebase console; served via `/api/public/firebase-config`) |
+| `FIREBASE_AUTH_DOMAIN` | Yes | Firebase Auth domain |
+| `FIREBASE_PROJECT_ID` | Yes | Firebase project ID |
+| `FIREBASE_STORAGE_BUCKET` | Yes | Firebase Storage bucket |
+| `FIREBASE_MESSAGING_SENDER_ID` | Yes | Firebase messaging sender ID |
+| `FIREBASE_APP_ID` | Yes | Firebase Web app ID |
 
 ### Frontend
 
 | Variable | Required | Description |
 |---|---|---|
-| `VITE_FIREBASE_API_KEY` | Yes | Firebase Web API Key |
-| `VITE_FIREBASE_AUTH_DOMAIN` | Yes | Firebase Auth Domain |
-| `VITE_FIREBASE_PROJECT_ID` | Yes | Firebase Project ID |
-| `VITE_FIREBASE_STORAGE_BUCKET` | Yes | Firebase Storage Bucket |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Yes | Firebase Messaging Sender ID |
-| `VITE_FIREBASE_APP_ID` | Yes | Firebase App ID |
-| `VITE_API_URL` | Yes | Backend API base URL (used for Support chat and other APIs) |
+| `VITE_API_URL` | Yes | Backend API base URL (Firebase config, user APIs, support chat) |
+
+After moving Firestore access to the backend, **tighten Firestore security rules** in the Firebase console so client SDKs cannot read or write `users/{uid}` directly (the app uses the Admin SDK on the server, which bypasses rules). Test rules in the console before shipping.
 
 <br />
 

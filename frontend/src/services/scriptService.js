@@ -1,15 +1,15 @@
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { apiFetch } from './apiClient';
 
 export async function loadScriptData(uid, scriptId) {
-  const snap = await getDoc(doc(db, 'users', uid));
-  return snap.data()?.scriptValues?.[scriptId] || {};
+  void uid;
+  const data = await apiFetch('/api/users/me', { method: 'GET' });
+  return data?.scriptValues?.[scriptId] || {};
 }
 
 export async function saveScriptData(uid, scriptId, values) {
-  await setDoc(
-    doc(db, 'users', uid),
-    { scriptValues: { [scriptId]: values }, updatedAt: serverTimestamp() },
-    { merge: true },
-  );
+  void uid;
+  return apiFetch(`/api/users/me/scripts/${encodeURIComponent(scriptId)}`, {
+    method: 'PATCH',
+    body: values,
+  });
 }
