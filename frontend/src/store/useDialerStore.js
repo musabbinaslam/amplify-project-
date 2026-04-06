@@ -105,12 +105,12 @@ const useDialerStore = create((set, get) => ({
     
     // Completely destroy Twilio device so we don't receive ghost calls
     if (device) {
-      device.destroy();
+      try { device.destroy(); } catch(e){}
     }
     
     // Kill the WebSocket connection to remove agent from backend Redis LRU pool
     if (socket) {
-      socket.disconnect();
+      try { socket.disconnect(); } catch(e){}
     }
     
     set({
@@ -128,8 +128,27 @@ const useDialerStore = create((set, get) => ({
   toggleMute: () => {
     const { activeCall, isMuted } = get();
     if (activeCall) {
-      activeCall.mute(!isMuted);
-      set({ isMuted: !isMuted });
+      const nextMute = !isMuted;
+      console.log('DEBUG: Muting microphone state:', nextMute);
+      
+      // Depending on the Twilio Voice SDK version, mute() takes a boolean
+      if (typeof activeCall.mute === 'function') {
+        activeCall.mute(nextMute);
+      }
+      
+      // Fallback: manually pause the browser's MediaStream tracks immediately
+      try {
+        const localStream = activeCall.getLocalStream ? activeCall.getLocalStream() : activeCall.mediaStream;
+        if (localStream && localStream.getAudioTracks) {
+          localStream.getAudioTracks().forEach(track => {
+            track.enabled = !nextMute;
+          });
+        }
+      } catch (err) {
+        console.warn('Fallback stream mute ignored:', err);
+      }
+
+      set({ isMuted: nextMute });
     }
   }
 }));

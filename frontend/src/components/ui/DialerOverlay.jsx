@@ -20,10 +20,12 @@ const DialerOverlay = () => {
     acceptCall,
     rejectCall,
     hangUp,
+    goOffline,
     toggleMute
   } = useDialerStore();
 
   const [ringer, setRinger] = useState(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     // Play a ringer sound when status is 'ringing'
@@ -55,12 +57,23 @@ const DialerOverlay = () => {
   if (callState === 'idle') {
     return (
       <div className={classes.overlayContainer}>
-        <div className={classes.idleBadge}>
-          <div className={classes.statusDot} />
-          <span className={classes.idleText}>Listening for {activeCampaign || 'Campaign'} Calls...</span>
-          <button className={classes.hangupBtnSmall} onClick={hangUp} title="Go Offline">
-            <PhoneOff size={16} />
-          </button>
+        <div 
+           className={`${classes.idleBadge} ${isCollapsed ? classes.idleBadgeCollapsed : ''}`} 
+           onClick={() => setIsCollapsed(!isCollapsed)}
+           style={{ cursor: 'pointer', padding: isCollapsed ? '12px' : '16px 32px' }}
+           title={isCollapsed ? "Click to expand" : "Click to collapse"}
+        >
+          <div className={classes.statusDot} style={{ margin: isCollapsed ? '0' : '' }} />
+          {!isCollapsed && <span className={classes.idleText}>Listening for {activeCampaign || 'Campaign'} Calls...</span>}
+          {!isCollapsed && (
+             <button 
+                className={classes.hangupBtnSmall} 
+                onClick={(e) => { e.stopPropagation(); goOffline(); }} 
+                title="Go Offline"
+             >
+               <PhoneOff size={16} />
+             </button>
+          )}
         </div>
       </div>
     );

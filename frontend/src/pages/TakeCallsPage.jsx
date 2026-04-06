@@ -72,7 +72,7 @@ const StepOne = ({ onNext }) => {
 
   const stopMic = () => {
     if (mediaStreamRef.current) mediaStreamRef.current.getTracks().forEach(t => t.stop());
-    if (audioContextRef.current) { audioContextRef.current.close().catch(() => {}); audioContextRef.current = null; }
+    if (audioContextRef.current) { audioContextRef.current.close().catch(() => { }); audioContextRef.current = null; }
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
   };
 
@@ -207,26 +207,26 @@ const StepTwo = ({ onNext, onBack }) => {
       <p className={classes.subtitle}>Select the campaign you'd like to receive calls from</p>
       <div className={classes.sectionCard}>
         <div className={classes.campaignsList}>
-        {campaigns.map(c => (
-          <div key={c.id}
-            className={`${classes.campaignSelectCard} ${selectedCampaign === c.id ? classes.campaignSelectActive : ''}`}
-            onClick={() => setSelectedCampaign(c.id)}>
-            <div className={classes.campaignIconCol}><div className={classes.campIconWrapper}><c.icon size={24} /></div></div>
-            <div className={classes.campaignInfoCol}>
-              <h3>{c.title}</h3>
-              <p className={classes.campaignDesc}>{c.subtitle}</p>
-              <div className={classes.campaignMetrics}>
-                <span className={classes.campaignPrice}>{c.price}</span>
-                <span className={classes.campaignBuffer}>{c.buffer}</span>
+          {campaigns.map(c => (
+            <div key={c.id}
+              className={`${classes.campaignSelectCard} ${selectedCampaign === c.id ? classes.campaignSelectActive : ''}`}
+              onClick={() => setSelectedCampaign(c.id)}>
+              <div className={classes.campaignIconCol}><div className={classes.campIconWrapper}><c.icon size={24} /></div></div>
+              <div className={classes.campaignInfoCol}>
+                <h3>{c.title}</h3>
+                <p className={classes.campaignDesc}>{c.subtitle}</p>
+                <div className={classes.campaignMetrics}>
+                  <span className={classes.campaignPrice}>{c.price}</span>
+                  <span className={classes.campaignBuffer}>{c.buffer}</span>
+                </div>
+              </div>
+              <div className={classes.campaignRadio}>
+                <div className={`${classes.radioCircle} ${selectedCampaign === c.id ? classes.radioActive : ''}`}>
+                  {selectedCampaign === c.id && <div className={classes.radioInner} />}
+                </div>
               </div>
             </div>
-            <div className={classes.campaignRadio}>
-              <div className={`${classes.radioCircle} ${selectedCampaign === c.id ? classes.radioActive : ''}`}>
-                {selectedCampaign === c.id && <div className={classes.radioInner} />}
-              </div>
-            </div>
-          </div>
-        ))}
+          ))}
         </div>
       </div>
 
@@ -389,7 +389,9 @@ const CallHistory = ({ logs }) => {
         {logs.map((log) => (
           <div key={log.id} className={classes.logItem}>
             <div className={classes.colCampaign}><span className={classes.campaignTag}>{log.campaignLabel}</span></div>
-            <div className={classes.colCaller}>{log.from}</div>
+            <div className={classes.colCaller}>
+              {log.isBillable ? log.from : (log.from ? log.from.slice(0, -4) + 'XXXX' : '—')}
+            </div>
             <div className={classes.colDuration}><Clock size={14} />{Math.floor(log.duration / 60)}:{(log.duration % 60).toString().padStart(2, '0')}</div>
             <div className={classes.colStatus}>
               {log.isBillable
@@ -408,7 +410,7 @@ const CallHistory = ({ logs }) => {
 
 // ─── Main Page Component ─────────────────────────────────────────────────────
 const TakeCallsPage = () => {
-  const { callState, activeCampaign, agentIdentity, licensedStates, leadData, hangUp, goOffline } = useDialerStore();
+  const { callState, activeCampaign, agentIdentity, licensedStates, leadData, hangUp } = useDialerStore();
   const [step, setStep] = useState(1);
   const [campaign, setCampaign] = useState('');
   const [wizardStates, setWizardStates] = useState([]);
@@ -449,7 +451,7 @@ const TakeCallsPage = () => {
   // ── Active Dialer View ──────────────────────────────────────────────────
   if (callState !== 'offline' && callState !== 'error') {
     const isRinging = callState === 'ringing';
-    
+
     // Dynamic Budget Calculation
     const STARTING_BUDGET = 500.00;
     const totalSpent = history.reduce((sum, log) => sum + (log.cost || 0), 0);
@@ -483,8 +485,8 @@ const TakeCallsPage = () => {
 
           <div className={classes.topStatsRow}>
             <div className={classes.statBox}>
-              <div className={classes.statLabel}>Agent ID</div>
-              <div className={classes.statValue}>{agentIdentity || '---'}</div>
+              <div className={classes.statLabel}>Agent Name</div>
+              <div className={classes.statValue}>{user?.name || agentIdentity || '---'}</div>
             </div>
             <div className={classes.statBox}>
               <div className={classes.statLabel}>Campaign</div>
