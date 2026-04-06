@@ -27,7 +27,7 @@ const WelcomePage = () => {
               </div>
            </div>
            {/* Mock thumbnail for UI */}
-           <img src="https://via.placeholder.com/800x450/0a0f1e/1e2d45?text=Video+Player" alt="Video thumbnail" className={classes.thumbnail} />
+           <img src="https://placehold.co/800x450/0a0f1e/1e2d45?text=Video+Player" alt="Video thumbnail" className={classes.thumbnail} />
         </div>
       </div>
     </div>

@@ -408,7 +408,7 @@ const CallHistory = ({ logs }) => {
 
 // ─── Main Page Component ─────────────────────────────────────────────────────
 const TakeCallsPage = () => {
-  const { callState, activeCampaign, agentIdentity, licensedStates, leadData, hangUp } = useDialerStore();
+  const { callState, activeCampaign, agentIdentity, licensedStates, leadData, hangUp, goOffline } = useDialerStore();
   const [step, setStep] = useState(1);
   const [campaign, setCampaign] = useState('');
   const [wizardStates, setWizardStates] = useState([]);
@@ -510,7 +510,7 @@ const TakeCallsPage = () => {
             <div className={classes.actionButtons}>
               {callState === 'active'
                 ? <button className={`${classes.dangerBtn} ${classes.hangUpBtn}`} onClick={hangUp}><PhoneOff size={18} /> End Call</button>
-                : <button className={classes.dangerBtn} onClick={hangUp}><PhoneOff size={18} /> Pause & Go Offline</button>
+                : <button className={classes.dangerBtn} onClick={goOffline}><PhoneOff size={18} /> Pause & Go Offline</button>
               }
             </div>
           </div>

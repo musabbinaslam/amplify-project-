@@ -1,5 +1,35 @@
 [
   {
+    "id": "1775489651523",
+    "callSid": "CA5b5ae9946aae4c54a3c4083528af34c0",
+    "timestamp": "2026-04-06T15:34:11.523Z",
+    "from": "+15752437649",
+    "to": "+12295924989",
+    "duration": 10,
+    "campaign": "fe_inbounds",
+    "campaignLabel": "FE Inbounds",
+    "agentId": "agent_7059",
+    "status": "completed",
+    "isBillable": false,
+    "cost": 0,
+    "type": "Inbound"
+  },
+  {
+    "id": "1775488923961",
+    "callSid": "CA92f9978fc9d17fbe205ba1a8690dc67e",
+    "timestamp": "2026-04-06T15:22:03.961Z",
+    "from": "+15752437649",
+    "to": "+12295924989",
+    "duration": 0,
+    "campaign": "fe_inbounds",
+    "campaignLabel": "FE Inbounds",
+    "agentId": "agent_6235",
+    "status": "missed",
+    "isBillable": false,
+    "cost": 0,
+    "type": "Inbound"
+  },
+  {
     "id": "1775242061324",
     "callSid": "CA0c4cdfab4bb7ca2fc27507f2690b1570",
     "timestamp": "2026-04-03T18:47:41.324Z",

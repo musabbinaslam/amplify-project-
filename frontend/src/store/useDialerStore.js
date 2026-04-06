@@ -3,6 +3,7 @@ import { create } from 'zustand';
 const useDialerStore = create((set, get) => ({
   // Core State
   device: null,
+  socket: null,
   callState: 'offline', // 'offline' | 'idle' (ready) | 'ringing' | 'active'
   activeCall: null,
   
@@ -19,6 +20,7 @@ const useDialerStore = create((set, get) => ({
 
   // Actions
   setDevice: (device) => set({ device }),
+  setSocket: (socket) => set({ socket }),
   setCallState: (state) => set({ callState: state }),
   setActiveCall: (call) => set({ activeCall: call }),
   setAgentContext: (identity, campaign, states = []) => set({ 
@@ -94,10 +96,33 @@ const useDialerStore = create((set, get) => ({
     if (activeCall) {
       activeCall.disconnect();
     }
-    if (device) {
-      device.disconnectAll();
-    }
     get().resetCallState();
+  },
+
+  goOffline: () => {
+    const { device, socket } = get();
+    console.log('DEBUG: Going offline & destroying connections');
+    
+    // Completely destroy Twilio device so we don't receive ghost calls
+    if (device) {
+      device.destroy();
+    }
+    
+    // Kill the WebSocket connection to remove agent from backend Redis LRU pool
+    if (socket) {
+      socket.disconnect();
+    }
+    
+    set({
+      device: null,
+      socket: null,
+      callState: 'offline',
+      activeCall: null,
+      isMuted: false,
+      callDuration: 0,
+      incomingCallerId: null,
+      leadData: null
+    });
   },
   
   toggleMute: () => {
