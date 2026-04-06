@@ -14,6 +14,7 @@ const CATEGORIES = ['Billing', 'Technical', 'Account', 'Other'];
 
 const SupportPage = () => {
   const user = useAuthStore((s) => s.user);
+  const getIdToken = useAuthStore((s) => s.getIdToken);
   const [messages, setMessages] = useState([WELCOME_MESSAGE]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
@@ -47,18 +48,19 @@ const SupportPage = () => {
     }
 
     try {
-      const reply = await sendMessage(updated);
+      const reply = await sendMessage(updated, getIdToken);
       setMessages((prev) => [
         ...prev,
         { id: (Date.now() + 1).toString(), role: 'assistant', text: reply },
       ]);
-    } catch {
+    } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          text: 'Sorry, something went wrong. Please try again.',
+          text:
+            err?.message?.trim() || 'Sorry, something went wrong. Please try again.',
         },
       ]);
     } finally {

@@ -7,6 +7,7 @@ require('dotenv').config();
 const { connectRedis } = require('./config/redis');
 const voiceRoutes = require('./routes/voiceRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
+const supportRoutes = require('./routes/supportRoutes');
 const { setupCallSockets } = require('./sockets/callSockets');
 const { verifyFirebaseToken } = require('./middleware/auth');
 
@@ -37,6 +38,9 @@ const startEngine = async () => {
 
     // Mount webhook routes (/trackdrive)
     app.use('/api/webhooks', webhookRoutes);
+
+    // Support chat (Gemini); requires Firebase ID token
+    app.use('/api/support', supportRoutes);
 
     // Revoke all refresh tokens for the authenticated user
     app.post('/api/auth/revoke', verifyFirebaseToken, async (req, res) => {
