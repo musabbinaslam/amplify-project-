@@ -390,7 +390,7 @@ const CallHistory = ({ logs }) => {
 
 // ─── Main Page Component ─────────────────────────────────────────────────────
 const TakeCallsPage = () => {
-  const { callState, activeCampaign, agentIdentity, licensedStates, hangUp } = useDialerStore();
+  const { callState, activeCampaign, agentIdentity, licensedStates, leadData, hangUp } = useDialerStore();
   const [step, setStep] = useState(1);
   const [campaign, setCampaign] = useState('');
   const [wizardStates, setWizardStates] = useState([]);
@@ -431,6 +431,11 @@ const TakeCallsPage = () => {
   // ── Active Dialer View ──────────────────────────────────────────────────
   if (callState !== 'offline' && callState !== 'error') {
     const isRinging = callState === 'ringing';
+    
+    // Dynamic Budget Calculation
+    const STARTING_BUDGET = 500.00;
+    const totalSpent = history.reduce((sum, log) => sum + (log.cost || 0), 0);
+    const remainingBudget = Math.max(0, STARTING_BUDGET - totalSpent);
 
     return (
       <div className={classes.container}>
@@ -441,6 +446,7 @@ const TakeCallsPage = () => {
               <div className={classes.callerIcon}><Activity size={48} className={classes.pulseIcon} /></div>
               <h2>{activeCampaign?.replace(/_/g, ' ').toUpperCase() || 'Insurance'} Lead</h2>
               <p>Someone is on the line waiting to speak with you.</p>
+
               <div className={classes.callActions}>
                 <button className={classes.acceptBtn} onClick={() => useDialerStore.getState().acceptCall()}>Accept Call</button>
                 <button className={classes.declineBtn} onClick={() => useDialerStore.getState().rejectCall()}>Decline</button>
@@ -461,7 +467,7 @@ const TakeCallsPage = () => {
             </div>
             <div className={classes.statBox}>
               <div className={classes.statLabel}>REMAINING BUDGET</div>
-              <div className={`${classes.statValue} ${classes.budgetGreen}`}>$450.00</div>
+              <div className={`${classes.statValue} ${classes.budgetGreen}`}>${remainingBudget.toFixed(2)}</div>
             </div>
           </div>
 
