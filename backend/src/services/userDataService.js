@@ -85,10 +85,68 @@ async function getOrCreateApiKey(uid) {
   return apiKey;
 }
 
+async function regenerateApiKey(uid) {
+  const ref = usersRef(uid);
+  if (!ref) throw new Error('Database unavailable');
+  const { FieldValue } = admin.firestore;
+
+  const bytes = crypto.randomBytes(32);
+  const apiKey = `ak_${bytes.toString('hex')}`;
+  await ref.set(
+    {
+      apiKey,
+      apiKeyRotatedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+  return apiKey;
+}
+
+async function isSlugAvailable(uid, slug) {
+  const db = getDb();
+  if (!db) throw new Error('Database unavailable');
+  const normalized = String(slug || '').trim().toLowerCase();
+  if (!normalized) return false;
+  const snap = await db.collection('users').where('landingPageSlug', '==', normalized).limit(1).get();
+  if (snap.empty) return true;
+  const takenBy = snap.docs[0].id;
+  return takenBy === uid;
+}
+
+function activityRef(uid) {
+  const ref = usersRef(uid);
+  if (!ref) return null;
+  return ref.collection('activity');
+}
+
+async function addActivity(uid, entry) {
+  const ref = activityRef(uid);
+  if (!ref) throw new Error('Database unavailable');
+  const { FieldValue } = admin.firestore;
+  await ref.add({
+    type: entry.type || 'profile.updated',
+    message: entry.message || 'Profile updated',
+    meta: entry.meta || {},
+    createdAt: FieldValue.serverTimestamp(),
+  });
+}
+
+async function listActivity(uid, limit = 20) {
+  const ref = activityRef(uid);
+  if (!ref) throw new Error('Database unavailable');
+  const snap = await ref.orderBy('createdAt', 'desc').limit(limit).get();
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 module.exports = {
   getUserDoc,
   mergeUserDoc,
   mergeSettings,
   mergeScriptValues,
   getOrCreateApiKey,
+  regenerateApiKey,
+  isSlugAvailable,
+  addActivity,
+  listActivity,
 };

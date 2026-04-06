@@ -4,6 +4,10 @@ const {
   mergeSettings,
   mergeScriptValues,
   getOrCreateApiKey,
+  regenerateApiKey,
+  isSlugAvailable,
+  addActivity,
+  listActivity,
 } = require('../services/userDataService');
 const admin = require('../config/firebaseAdmin');
 
@@ -33,7 +37,10 @@ async function getMe(req, res) {
   if (!ensureAdmin(req, res)) return;
   try {
     const data = await getUserDoc(req.user.uid);
-    res.json(serializeFirestoreData(data ?? {}));
+    const payload = serializeFirestoreData(data ?? {});
+    payload.memberSince = payload.createdAt || null;
+    payload.lastUpdated = payload.updatedAt || null;
+    res.json(payload);
   } catch (err) {
     console.error('[Users] getMe:', err.message);
     res.status(500).json({ error: err.message || 'Failed to load profile' });
@@ -48,6 +55,14 @@ async function patchMe(req, res) {
   try {
     await mergeUserDoc(req.user.uid, req.body);
     const data = await getUserDoc(req.user.uid);
+    const changed = Object.keys(req.body || {});
+    if (changed.length > 0) {
+      await addActivity(req.user.uid, {
+        type: 'profile.updated',
+        message: `Updated ${changed.join(', ')}`,
+        meta: { fields: changed },
+      });
+    }
     res.json(serializeFirestoreData(data ?? {}));
   } catch (err) {
     console.error('[Users] patchMe:', err.message);
@@ -64,6 +79,11 @@ async function patchSettings(req, res) {
   try {
     await mergeSettings(req.user.uid, partial);
     const data = await getUserDoc(req.user.uid);
+    await addActivity(req.user.uid, {
+      type: 'settings.updated',
+      message: 'Updated profile settings',
+      meta: { fields: Object.keys(partial) },
+    });
     res.json({ settings: data?.settings ?? {} });
   } catch (err) {
     console.error('[Users] patchSettings:', err.message);
@@ -102,10 +122,57 @@ async function postApiKey(req, res) {
   }
 }
 
+async function postRegenerateApiKey(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  try {
+    const apiKey = await regenerateApiKey(req.user.uid);
+    await addActivity(req.user.uid, {
+      type: 'apikey.regenerated',
+      message: 'Regenerated API key',
+    });
+    const data = await getUserDoc(req.user.uid);
+    res.json({
+      apiKey,
+      apiKeyRotatedAt: serializeFirestoreData(data?.apiKeyRotatedAt || null),
+    });
+  } catch (err) {
+    console.error('[Users] postRegenerateApiKey:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to regenerate API key' });
+  }
+}
+
+async function getSlugAvailability(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  const slug = String(req.query.slug || '').trim().toLowerCase();
+  if (!slug) return res.status(400).json({ error: 'slug query is required' });
+  try {
+    const available = await isSlugAvailable(req.user.uid, slug);
+    res.json({ available });
+  } catch (err) {
+    console.error('[Users] getSlugAvailability:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to validate slug' });
+  }
+}
+
+async function getActivity(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  const limit = Math.min(Number(req.query.limit || 20), 100);
+  try {
+    const items = await listActivity(req.user.uid, limit);
+    res.json({ activity: serializeFirestoreData(items) });
+  } catch (err) {
+    console.error('[Users] getActivity:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to load activity' });
+  }
+}
+
 module.exports = {
   getMe,
   patchMe,
   patchSettings,
   patchScript,
   postApiKey,
+  postRegenerateApiKey,
+  getSlugAvailability,
+  getActivity,
 };
