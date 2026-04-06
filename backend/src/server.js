@@ -17,9 +17,9 @@ const app = express();
 const server = http.createServer(app);
 
 // Twilio sends data as x-www-form-urlencoded, so we must have this!
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
 app.use(cors());
+app.use(express.urlencoded({ extended: true, limit: '6mb' }));
+app.use(express.json({ limit: '6mb' }));
 
 const io = new Server(server, {
   cors: {
@@ -67,8 +67,11 @@ const startEngine = async () => {
 
     // Global Error Catcher
     app.use((err, req, res, next) => {
+        if (err?.type === 'entity.too.large') {
+          return res.status(413).json({ error: 'Payload too large. Please upload a smaller image.' });
+        }
         console.error('SERVER CRASH PREVENTED:', err.stack);
-        res.status(500).send('Internal Server Error');
+        res.status(500).json({ error: 'Internal Server Error' });
     });
 
     const PORT = process.env.PORT || 3001;

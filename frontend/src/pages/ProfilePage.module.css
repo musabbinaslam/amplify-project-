@@ -960,6 +960,52 @@
   gap: 10px;
 }
 
+.avatarModalActions {
+  margin-top: 14px;
+  align-items: center;
+}
+
+.avatarActionGhost,
+.avatarActionDanger,
+.avatarActionPrimary {
+  height: 46px;
+  min-width: 140px;
+  padding: 0 20px;
+  border-radius: var(--radius-full);
+  font-size: 15px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.avatarActionGhost {
+  background: var(--surface-container-high);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.avatarActionDanger {
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.avatarActionPrimary {
+  background: var(--accent-green);
+  color: var(--surface);
+  box-shadow: 0 0 14px var(--accent-green-glow);
+}
+
+.avatarActionPrimary:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 .avatarModal {
   width: min(640px, 100%);
   background: var(--surface-container-low);
@@ -999,4 +1045,17 @@
 .uploadProgress > div {
   height: 100%;
   background: var(--accent-green);
+}
+
+@media (max-width: 700px) {
+  .avatarModalActions {
+    flex-wrap: wrap;
+  }
+
+  .avatarActionGhost,
+  .avatarActionDanger,
+  .avatarActionPrimary {
+    flex: 1;
+    min-width: 0;
+  }
 }
