@@ -174,6 +174,7 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
 .outlineBtn {
@@ -415,4 +416,246 @@
 .deleteActions {
   display: flex;
   gap: 12px;
+}
+
+.deleteChecklist {
+  background: rgba(255, 115, 81, 0.1);
+  border: 1px solid rgba(255, 115, 81, 0.3);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+}
+
+.deleteChecklist p {
+  margin: 0 0 6px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.deleteChecklist ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.toggleGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-container);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.switchCheckbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  flex: 0 0 14px;
+  border-radius: 4px;
+  border: 1px solid #3ae973;
+  background: rgba(58, 233, 115, 0.15);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.switchCheckbox::after {
+  content: '';
+  width: 4px;
+  height: 7px;
+  border: solid #081b0f;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0);
+  transform-origin: center;
+  transition: transform 120ms ease-in-out;
+}
+
+.switchCheckbox:checked {
+  background: #3ae973;
+}
+
+.switchCheckbox:checked::after {
+  transform: rotate(45deg) scale(1);
+}
+
+.switchCheckbox:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.switchText {
+  line-height: 1.15;
+  margin: 0;
+}
+
+.hintText {
+  margin-top: 8px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.deviceStateCard {
+  margin-top: 18px;
+  border: 1px solid var(--border);
+  background: var(--surface-container);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.deviceStateCard strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.deviceStateCard p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.groupMetaRow {
+  margin-top: -12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.savedPill,
+.unsavedPill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.savedPill {
+  color: #8cf4bd;
+  background: rgba(70, 215, 137, 0.12);
+  border: 1px solid rgba(70, 215, 137, 0.28);
+}
+
+.unsavedPill {
+  color: #ffd57f;
+  background: rgba(255, 188, 77, 0.14);
+  border: 1px solid rgba(255, 188, 77, 0.35);
+}
+
+.stickySaveBar {
+  position: sticky;
+  bottom: 14px;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: -8px;
+  padding: 12px 14px;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: linear-gradient(
+    120deg,
+    rgba(15, 23, 42, 0.62),
+    rgba(15, 23, 42, 0.44)
+  );
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.saveBarText {
+  color: #dce8ff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.saveBarActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.saveBarGhostBtn,
+.saveBarPrimaryBtn {
+  border-radius: var(--radius-lg);
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.saveBarGhostBtn {
+  color: #d5deee;
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.saveBarPrimaryBtn {
+  color: #061a13;
+  background: linear-gradient(135deg, #48d597, #66f6bb);
+  box-shadow: 0 8px 18px rgba(72, 213, 151, 0.28);
+}
+
+.saveBarPrimaryBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.savedLabel {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.savedLabelInline {
+  margin: 6px 0 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .toggleGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .stickySaveBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .saveBarActions {
+    width: 100%;
+  }
+
+  .saveBarGhostBtn,
+  .saveBarPrimaryBtn {
+    flex: 1;
+  }
 }
