@@ -121,8 +121,15 @@ exports.handleCallCompleted = async (req, res) => {
 };
 
 /**
- * Get call history logs
+ * Get call history logs for the authenticated user
  */
 exports.getLogs = async (req, res) => {
-    res.json(callLogService.getLogs());
+    try {
+        const limit = Math.min(Number(req.query.limit || 100), 500);
+        const logs = await callLogService.getLogsByUser(req.user.uid, limit);
+        res.json(logs);
+    } catch (err) {
+        console.error('[Voice] getLogs error:', err.message);
+        res.status(500).json({ error: 'Failed to load call logs' });
+    }
 };
