@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Settings, Mic, Volume2, Shield, Download, LogOut,
-  Trash2, Loader2,
+  Trash2, Loader2, RefreshCw, AlertTriangle, SlidersHorizontal,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -19,21 +19,44 @@ const SettingsPage = () => {
   const deleteAccount = useAuthStore((s) => s.deleteAccount);
 
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [savedLabel, setSavedLabel] = useState('');
 
   // Audio state
   const [inputDevices, setInputDevices] = useState([]);
   const [outputDevices, setOutputDevices] = useState([]);
-  const [selectedInput, setSelectedInput] = useState('');
-  const [selectedOutput, setSelectedOutput] = useState('');
+  const [staged, setStaged] = useState({
+    audioInputDeviceId: '',
+    audioOutputDeviceId: '',
+    micGain: 100,
+    speakerVolume: 15,
+    noiseSuppression: true,
+    echoCancellation: true,
+  });
+  const [saved, setSaved] = useState(null);
   const [micLevel, setMicLevel] = useState(0);
-  const [micGain, setMicGain] = useState(100);
   const [testingMic, setTestingMic] = useState(false);
   const micStreamRef = useRef(null);
   const micAnimRef = useRef(null);
   const gainNodeRef = useRef(null);
+  const micCtxRef = useRef(null);
+  const speakerCtxRef = useRef(null);
+  const [deviceState, setDeviceState] = useState('loading');
+  const [deviceMessage, setDeviceMessage] = useState('');
+  const [hasMediaApi, setHasMediaApi] = useState(true);
+  const sinkIdSupported =
+    typeof window !== 'undefined'
+      && typeof HTMLMediaElement !== 'undefined'
+      && 'setSinkId' in HTMLMediaElement.prototype;
+  const supportsConstraints = typeof navigator !== 'undefined' && navigator?.mediaDevices?.getSupportedConstraints
+    ? navigator.mediaDevices.getSupportedConstraints()
+    : {};
+  const supportsNoiseSuppression = !!supportsConstraints.noiseSuppression;
+  const supportsEchoCancellation = !!supportsConstraints.echoCancellation;
 
   // Danger zone state
   const [deletePw, setDeletePw] = useState('');
+  const [deletePhrase, setDeletePhrase] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -42,16 +65,34 @@ const SettingsPage = () => {
   const [exporting, setExporting] = useState(false);
 
   const isPasswordUser = user?.authProvider === 'password';
+  const canDelete = deletePw.trim().length > 0 && deletePhrase.trim().toUpperCase() === 'DELETE';
+  const isDirty = useMemo(() => {
+    if (!saved) return false;
+    return JSON.stringify(staged) !== JSON.stringify(saved);
+  }, [staged, saved]);
+
+  const updateStaged = (partial) => {
+    setStaged((prev) => ({ ...prev, ...partial }));
+    setSavedLabel('Unsaved changes');
+  };
 
   // Load saved settings & enumerate devices
   useEffect(() => {
     if (!user?.uid) return;
     (async () => {
       try {
-        const saved = await loadSettings(user.uid);
-        if (saved.audioInputDeviceId) setSelectedInput(saved.audioInputDeviceId);
-        if (saved.audioOutputDeviceId) setSelectedOutput(saved.audioOutputDeviceId);
-        if (saved.micGain != null) setMicGain(saved.micGain);
+        const loaded = await loadSettings(user.uid);
+        const next = {
+          audioInputDeviceId: loaded.audioInputDeviceId || '',
+          audioOutputDeviceId: loaded.audioOutputDeviceId || '',
+          micGain: loaded.micGain ?? 100,
+          speakerVolume: loaded.speakerVolume ?? 15,
+          noiseSuppression: loaded.noiseSuppression ?? true,
+          echoCancellation: loaded.echoCancellation ?? true,
+        };
+        setStaged(next);
+        setSaved(next);
+        setSavedLabel('Saved');
       } catch (err) {
         console.error('Failed to load settings:', err);
       }
@@ -61,42 +102,52 @@ const SettingsPage = () => {
   }, [user?.uid]);
 
   const enumerateDevices = async () => {
+    if (!navigator?.mediaDevices) {
+      setHasMediaApi(false);
+      setDeviceState('unsupported');
+      setDeviceMessage('Media devices are not supported in this browser.');
+      return;
+    }
+    setHasMediaApi(true);
+    setDeviceState('loading');
+    setDeviceMessage('Loading devices...');
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
       const devices = await navigator.mediaDevices.enumerateDevices();
-      setInputDevices(devices.filter((d) => d.kind === 'audioinput'));
-      setOutputDevices(devices.filter((d) => d.kind === 'audiooutput'));
-    } catch {
-      toast.error('Microphone permission denied');
+      const inputs = devices.filter((d) => d.kind === 'audioinput');
+      const outputs = devices.filter((d) => d.kind === 'audiooutput');
+      setInputDevices(inputs);
+      setOutputDevices(outputs);
+      if (inputs.length === 0) {
+        setDeviceState('no-input-devices');
+        setDeviceMessage('No microphone detected. Plug in a microphone and click refresh.');
+      } else if (outputs.length === 0) {
+        setDeviceState('no-output-devices');
+        setDeviceMessage('No speaker output detected. You can still use system default audio.');
+      } else {
+        setDeviceState('ready');
+        setDeviceMessage('');
+      }
+    } catch (err) {
+      setDeviceState('permission-blocked');
+      setDeviceMessage(
+        'Microphone permission is blocked. Enable microphone access in browser site settings, then refresh devices.',
+      );
+      if (err?.name !== 'NotAllowedError') {
+        toast.error('Could not enumerate audio devices');
+      }
     }
   };
 
-  const handleGainChange = async (value) => {
-    setMicGain(value);
+  const handleGainChange = (value) => {
+    updateStaged({ micGain: value });
     if (gainNodeRef.current) {
       gainNodeRef.current.gain.value = value / 100;
     }
-    try {
-      await saveSettings(user.uid, { micGain: value });
-    } catch (err) {
-      console.error('Failed to save mic gain:', err);
-    }
   };
 
-  const handleDeviceChange = async (type, deviceId) => {
-    if (type === 'input') setSelectedInput(deviceId);
-    else setSelectedOutput(deviceId);
-
-    const key = type === 'input' ? 'audioInputDeviceId' : 'audioOutputDeviceId';
-    try {
-      await saveSettings(user.uid, {
-        ...(type === 'input' ? { audioInputDeviceId: deviceId } : {}),
-        ...(type === 'output' ? { audioOutputDeviceId: deviceId } : {}),
-      });
-    } catch (err) {
-      console.error('Failed to save device:', err);
-      toast.error('Failed to save device preference');
-    }
+  const handleDeviceChange = (type, deviceId) => {
+    updateStaged(type === 'input' ? { audioInputDeviceId: deviceId } : { audioOutputDeviceId: deviceId });
   };
 
   const stopMicTest = useCallback(() => {
@@ -111,21 +162,42 @@ const SettingsPage = () => {
     setMicLevel(0);
     setTestingMic(false);
     gainNodeRef.current = null;
+    if (micCtxRef.current) {
+      micCtxRef.current.close().catch(() => {});
+      micCtxRef.current = null;
+    }
   }, []);
+
+  useEffect(() => () => {
+    stopMicTest();
+    if (speakerCtxRef.current) {
+      speakerCtxRef.current.close().catch(() => {});
+      speakerCtxRef.current = null;
+    }
+  }, [stopMicTest]);
 
   const startMicTest = async () => {
     if (testingMic) { stopMicTest(); return; }
+    if (!hasMediaApi) {
+      toast.error('Media API unsupported in this browser');
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: selectedInput ? { deviceId: { exact: selectedInput } } : true,
+        audio: {
+          ...(staged.audioInputDeviceId ? { deviceId: { exact: staged.audioInputDeviceId } } : {}),
+          noiseSuppression: staged.noiseSuppression,
+          echoCancellation: staged.echoCancellation,
+        },
       });
       micStreamRef.current = stream;
       setTestingMic(true);
 
       const ctx = new AudioContext();
+      micCtxRef.current = ctx;
       const source = ctx.createMediaStreamSource(stream);
       const gainNode = ctx.createGain();
-      gainNode.gain.value = micGain / 100;
+      gainNode.gain.value = staged.micGain / 100;
       gainNodeRef.current = gainNode;
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
@@ -139,26 +211,58 @@ const SettingsPage = () => {
         micAnimRef.current = requestAnimationFrame(tick);
       };
       tick();
-
-      setTimeout(() => stopMicTest(), 5000);
     } catch {
       toast.error('Could not access microphone');
     }
   };
 
+  const autoCalibrateMic = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const ctx = new AudioContext();
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      let samples = 0;
+      let total = 0;
+      const started = performance.now();
+      while (performance.now() - started < 1400) {
+        analyser.getByteFrequencyData(data);
+        total += data.reduce((a, b) => a + b, 0) / data.length;
+        samples += 1;
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, 80));
+      }
+      stream.getTracks().forEach((t) => t.stop());
+      await ctx.close();
+      const avg = samples ? total / samples : 45;
+      const suggested = avg < 28 ? 150 : avg < 45 ? 125 : avg < 65 ? 105 : 85;
+      updateStaged({ micGain: suggested });
+      toast.success(`Mic gain calibrated to ${suggested}%`);
+    } catch {
+      toast.error('Calibration failed. Check microphone permission.');
+    }
+  };
+
   const testSpeaker = async () => {
     try {
-      const ctx = new AudioContext();
-      if (selectedOutput && ctx.setSinkId) {
-        await ctx.setSinkId(selectedOutput);
+      if (speakerCtxRef.current) {
+        speakerCtxRef.current.close().catch(() => {});
       }
+      const ctx = new AudioContext();
+      speakerCtxRef.current = ctx;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.frequency.value = 440;
-      gain.gain.value = 0.15;
+      gain.gain.value = (staged.speakerVolume || 15) / 100;
       osc.connect(gain).connect(ctx.destination);
       osc.start();
-      setTimeout(() => { osc.stop(); ctx.close(); }, 300);
+      setTimeout(() => { osc.stop(); ctx.close(); }, 420);
+      if (staged.audioOutputDeviceId && !sinkIdSupported) {
+        toast('Speaker routing selection is not supported in this browser. Using system default.');
+      }
     } catch {
       toast.error('Could not play test tone');
     }
@@ -203,6 +307,27 @@ const SettingsPage = () => {
     }
   };
 
+  const handleSaveChanges = async () => {
+    if (!user?.uid || !isDirty) return;
+    setSaving(true);
+    try {
+      await saveSettings(user.uid, staged);
+      setSaved(staged);
+      setSavedLabel('Saved');
+      toast.success('Settings saved');
+    } catch (err) {
+      toast.error(err.message || 'Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    if (!saved) return;
+    setStaged(saved);
+    setSavedLabel('Changes discarded');
+  };
+
   if (loading) {
     return (
       <div className={classes.settingsPage}>
@@ -233,6 +358,7 @@ const SettingsPage = () => {
         <div>
           <h2>Settings</h2>
           <p>Manage your devices and privacy</p>
+          {!isDirty && savedLabel && <p className={classes.savedLabelInline}>{savedLabel}</p>}
         </div>
       </div>
 
@@ -240,11 +366,20 @@ const SettingsPage = () => {
         {/* ── Audio Devices (left) ── */}
         <div className={classes.card}>
           <h3><Mic size={18} /> Audio Devices</h3>
+          <div className={classes.groupMetaRow}>
+            <span className={isDirty ? classes.unsavedPill : classes.savedPill}>
+              {isDirty ? 'Unsaved' : 'Saved'}
+            </span>
+            <button type="button" className={classes.outlineBtn} onClick={enumerateDevices}>
+              <RefreshCw size={14} />
+              Refresh Devices
+            </button>
+          </div>
 
           <div className={classes.fieldGroup}>
             <label>Microphone</label>
             <select
-              value={selectedInput}
+              value={staged.audioInputDeviceId}
               onChange={(e) => handleDeviceChange('input', e.target.value)}
               className={classes.select}
             >
@@ -261,15 +396,19 @@ const SettingsPage = () => {
                 type="range"
                 min={0}
                 max={200}
-                value={micGain}
+                value={staged.micGain}
                 onChange={(e) => handleGainChange(Number(e.target.value))}
                 className={classes.gainSlider}
               />
-              <span className={classes.gainValue}>{micGain}%</span>
+              <span className={classes.gainValue}>{staged.micGain}%</span>
             </div>
             <div className={classes.testRow}>
               <button type="button" className={classes.testBtn} onClick={startMicTest}>
                 {testingMic ? 'Stop Test' : 'Test Microphone'}
+              </button>
+              <button type="button" className={classes.testBtn} onClick={autoCalibrateMic}>
+                <SlidersHorizontal size={14} />
+                Auto-Calibrate
               </button>
               {testingMic && (
                 <div className={classes.meterTrack}>
@@ -277,12 +416,39 @@ const SettingsPage = () => {
                 </div>
               )}
             </div>
+            <div className={classes.toggleGrid}>
+              <label className={classes.switchRow}>
+                <input
+                  type="checkbox"
+                  className={classes.switchCheckbox}
+                  checked={staged.noiseSuppression}
+                  disabled={!supportsNoiseSuppression}
+                  onChange={(e) => updateStaged({ noiseSuppression: e.target.checked })}
+                />
+                <span className={classes.switchText}>Noise suppression</span>
+              </label>
+              <label className={classes.switchRow}>
+                <input
+                  type="checkbox"
+                  className={classes.switchCheckbox}
+                  checked={staged.echoCancellation}
+                  disabled={!supportsEchoCancellation}
+                  onChange={(e) => updateStaged({ echoCancellation: e.target.checked })}
+                />
+                <span className={classes.switchText}>Echo cancellation</span>
+              </label>
+            </div>
+            {(!supportsNoiseSuppression || !supportsEchoCancellation) && (
+              <p className={classes.hintText}>
+                Some audio enhancement constraints are unsupported in this browser and will be gracefully skipped.
+              </p>
+            )}
           </div>
 
           <div className={classes.fieldGroup}>
             <label>Speaker</label>
             <select
-              value={selectedOutput}
+              value={staged.audioOutputDeviceId}
               onChange={(e) => handleDeviceChange('output', e.target.value)}
               className={classes.select}
             >
@@ -293,15 +459,48 @@ const SettingsPage = () => {
                 </option>
               ))}
             </select>
+            <div className={classes.gainRow}>
+              <label className={classes.gainLabel}>Speaker Volume</label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={staged.speakerVolume}
+                onChange={(e) => updateStaged({ speakerVolume: Number(e.target.value) })}
+                className={classes.gainSlider}
+              />
+              <span className={classes.gainValue}>{staged.speakerVolume}%</span>
+            </div>
             <button type="button" className={classes.testBtn} onClick={testSpeaker}>
               <Volume2 size={14} /> Test Speaker
             </button>
+            {!sinkIdSupported && (
+              <p className={classes.hintText}>Output device routing is unsupported in this browser. System default will be used.</p>
+            )}
           </div>
+          {deviceState !== 'ready' && (
+            <div className={classes.deviceStateCard}>
+              <AlertTriangle size={16} />
+              <div>
+                <strong>{deviceState === 'loading' ? 'Loading devices...' : 'Audio setup attention needed'}</strong>
+                <p>{deviceMessage}</p>
+              </div>
+              <button type="button" className={classes.outlineBtn} onClick={enumerateDevices}>
+                <RefreshCw size={14} />
+                Retry
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── Privacy & Security (right) ── */}
         <div className={classes.card}>
           <h3><Shield size={18} /> Privacy & Security</h3>
+          <div className={classes.groupMetaRow}>
+            <span className={isDirty ? classes.unsavedPill : classes.savedPill}>
+              {isDirty ? 'Unsaved' : 'Saved'}
+            </span>
+          </div>
 
           <div className={classes.fieldGroup}>
             <div className={classes.toggleRow}>
@@ -361,6 +560,21 @@ const SettingsPage = () => {
             </button>
           ) : (
             <div className={classes.deleteConfirm}>
+              <div className={classes.deleteChecklist}>
+                <p>Before deleting:</p>
+                <ul>
+                  <li>Your account and settings are permanently removed</li>
+                  <li>Profile, scripts, and integrations are deleted</li>
+                  <li>Process typically completes within a few minutes</li>
+                </ul>
+              </div>
+              <input
+                type="text"
+                value={deletePhrase}
+                onChange={(e) => setDeletePhrase(e.target.value)}
+                placeholder='Type "DELETE" to continue'
+                className={classes.input}
+              />
               <input
                 type="password"
                 value={deletePw}
@@ -373,20 +587,32 @@ const SettingsPage = () => {
                   type="button"
                   className={classes.dangerBtn}
                   onClick={handleDeleteAccount}
-                  disabled={deleting || !deletePw}
+                  disabled={deleting || !canDelete}
                 >
                   {deleting ? <Loader2 size={14} className={classes.spinner} /> : 'Confirm Delete'}
                 </button>
                 <button
                   type="button"
                   className={classes.cancelBtn}
-                  onClick={() => { setShowDeleteConfirm(false); setDeletePw(''); }}
+                  onClick={() => { setShowDeleteConfirm(false); setDeletePw(''); setDeletePhrase(''); }}
                 >
                   Cancel
                 </button>
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {isDirty && (
+        <div className={classes.stickySaveBar}>
+          <span className={classes.saveBarText}>You have unsaved changes</span>
+          <div className={classes.saveBarActions}>
+            <button type="button" onClick={handleDiscardChanges} className={classes.saveBarGhostBtn}>Discard</button>
+            <button type="button" onClick={handleSaveChanges} className={classes.saveBarPrimaryBtn} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
         </div>
       )}
     </div>
