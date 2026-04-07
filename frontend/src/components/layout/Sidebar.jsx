@@ -6,7 +6,7 @@ import {
   Play, Phone, LayoutDashboard, List, FileText,
   DollarSign, MapPin, Box, User, HeadphonesIcon,
   MessageSquare, Gift, Settings, LogOut,
-  ChevronLeft, ChevronRight, CheckCircle2
+  ChevronLeft, ChevronRight, CheckCircle2, Shield,
 } from 'lucide-react';
 import classes from './Sidebar.module.css';
 
@@ -30,7 +30,20 @@ const navItems = [
 const Sidebar = () => {
   const { isSidebarCollapsed, toggleSidebar } = useUIStore();
   const logout = useAuthStore((s) => s.logout);
+  const role = useAuthStore((s) => s.user?.role);
   const navigate = useNavigate();
+
+  const items = React.useMemo(() => {
+    const base = [...navItems];
+    if (role === 'admin') {
+      base.splice(base.length - 1, 0, {
+        path: '/app/admin',
+        label: 'Admin',
+        icon: Shield,
+      });
+    }
+    return base;
+  }, [role]);
 
   const handleLogout = async () => {
     await logout();
@@ -54,7 +67,7 @@ const Sidebar = () => {
       </div>
 
       <nav className={classes.nav}>
-        {navItems.map((item) => (
+        {items.map((item) => (
            <NavLink
              key={item.path}
              to={item.disabled ? '#' : item.path}

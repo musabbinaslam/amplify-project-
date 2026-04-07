@@ -10,6 +10,7 @@ const webhookRoutes = require('./routes/webhookRoutes');
 const supportRoutes = require('./routes/supportRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const userRoutes = require('./routes/userRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 const { setupCallSockets } = require('./sockets/callSockets');
 const { verifyFirebaseToken } = require('./middleware/auth');
 
@@ -40,6 +41,9 @@ const startEngine = async () => {
 
     // Authenticated user document (Firestore via Admin)
     app.use('/api/users', userRoutes);
+
+    // Admin dashboard (Firebase + Firestore role admin)
+    app.use('/api/admin', adminRoutes);
     
     // Mount all voice routes (/token, /incoming-call, /call-completed, /logs)
     app.use('/api/voice', voiceRoutes);

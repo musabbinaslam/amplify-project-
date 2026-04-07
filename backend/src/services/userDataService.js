@@ -28,9 +28,15 @@ async function mergeUserDoc(uid, data) {
   const ref = usersRef(uid);
   if (!ref) throw new Error('Database unavailable');
   const { FieldValue } = admin.firestore;
+  const snap = await ref.get();
+  const existing = snap.exists ? snap.data() : {};
+  const payload = { ...data };
+  if (!existing.role && !('role' in payload)) {
+    payload.role = 'agent';
+  }
   await ref.set(
     {
-      ...data,
+      ...payload,
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },
