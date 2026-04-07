@@ -409,7 +409,8 @@ const CallHistory = ({ logs }) => {
 
 // ─── Main Page Component ─────────────────────────────────────────────────────
 const TakeCallsPage = () => {
-  const { callState, activeCampaign, agentIdentity, licensedStates, leadData, hangUp } = useDialerStore();
+  const { callState, activeCampaign, agentIdentity, licensedStates, leadData, hangUp, goOffline } = useDialerStore();
+  const user = useAuthStore((s) => s.user);
   const [step, setStep] = useState(1);
   const [campaign, setCampaign] = useState('');
   const [wizardStates, setWizardStates] = useState([]);
