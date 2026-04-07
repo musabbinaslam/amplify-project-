@@ -3,7 +3,7 @@ import Cropper from 'react-easy-crop';
 import { User, Camera, Copy, Check, Link2, Key, Loader2, X, Eye, EyeOff, RefreshCw, Upload, Trash2, ShieldCheck, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
-import { getProfile, saveProfile, getOrCreateApiKey, regenerateApiKey, checkSlugAvailability, getProfileActivity } from '../services/profileService';
+import { getProfileBootstrap, saveProfile, regenerateApiKey, checkSlugAvailability, getProfileActivity } from '../services/profileService';
 import classes from './ProfilePage.module.css';
 
 const SPENDING_OPTIONS = ['Less than $500', '$500 - $1,000', '$1,000 - $2,500', '$2,500 - $5,000', '$5,000+', 'Not currently spending'];
@@ -70,6 +70,8 @@ const ProfilePage = () => {
   const [avatarCrop, setAvatarCrop] = useState({ x: 0, y: 0 });
   const [avatarZoom, setAvatarZoom] = useState(1);
   const [avatarCropPixels, setAvatarCropPixels] = useState(null);
+  const lastSlugCheckedRef = useRef('');
+  const lastSlugResultRef = useRef(null);
 
   const webhookUrl = 'https://api.agentcalls.io/api/leads/webhook';
   const bioValid = form.bio.trim().length >= 20 && form.bio.trim().length <= 500;
@@ -95,14 +97,10 @@ const ProfilePage = () => {
     let cancelled = false;
     (async () => {
       try {
-        const [profile, key, act] = await Promise.all([
-          getProfile(user.uid),
-          getOrCreateApiKey(user.uid),
-          getProfileActivity(20).catch((err) => {
-            console.error('Activity fetch failed:', err);
-            return { activity: [] };
-          }),
-        ]);
+        const boot = await getProfileBootstrap(user.uid);
+        const profile = boot?.profile || {};
+        const key = boot?.apiKey || '';
+        const act = { activity: Array.isArray(boot?.activity) ? boot.activity : [] };
         if (cancelled) return;
         const onboardingData = profile?.onboarding || {};
         const verticals = onboardingData.verticals ? (Array.isArray(onboardingData.verticals) ? onboardingData.verticals : String(onboardingData.verticals).split(',').map((v) => v.trim()).filter(Boolean)) : [];
@@ -140,15 +138,22 @@ const ProfilePage = () => {
       setSlugStatus(form.slug ? 'invalid' : 'idle');
       return;
     }
+    if (form.slug === lastSlugCheckedRef.current && lastSlugResultRef.current) {
+      setSlugStatus(lastSlugResultRef.current);
+      return;
+    }
     const t = setTimeout(async () => {
       setSlugStatus('checking');
       try {
         const res = await checkSlugAvailability(form.slug);
-        setSlugStatus(res.available ? 'available' : 'taken');
+        const next = res.available ? 'available' : 'taken';
+        lastSlugCheckedRef.current = form.slug;
+        lastSlugResultRef.current = next;
+        setSlugStatus(next);
       } catch {
         setSlugStatus('idle');
       }
-    }, 450);
+    }, 900);
     return () => clearTimeout(t);
   }, [form.slug, slugValid]);
 
@@ -163,7 +168,7 @@ const ProfilePage = () => {
         console.error('Autosave failed:', err);
       }
       setAutosaving(false);
-    }, 800);
+    }, 2000);
     return () => clearTimeout(autosaveTimerRef.current);
   }, [form.bio, form.phone, form.verticals, onboarding, initialForm, user?.uid]);
 
@@ -187,8 +192,7 @@ const ProfilePage = () => {
         onboarding: { ...(onboarding || {}), phone: form.phone, weeklySpend: form.weeklySpend, usedInbound: form.usedInbound, verticals: form.verticals, hearAbout: form.hearAbout },
       });
       setInitialForm(form);
-      const latest = await getProfile(user.uid);
-      setLastUpdated(latest?.lastUpdated || latest?.updatedAt || new Date().toISOString());
+      setLastUpdated(new Date().toISOString());
       const act = await getProfileActivity(20).catch(() => ({ activity: [] }));
       setActivity(act.activity || []);
       toast.success('Profile saved');
