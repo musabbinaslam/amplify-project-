@@ -40,6 +40,7 @@ async function getMe(req, res) {
     const payload = serializeFirestoreData(data ?? {});
     payload.memberSince = payload.createdAt || null;
     payload.lastUpdated = payload.updatedAt || null;
+    if (!payload.role) payload.role = 'agent';
     res.json(payload);
   } catch (err) {
     console.error('[Users] getMe:', err.message);
@@ -53,9 +54,11 @@ async function patchMe(req, res) {
     return res.status(400).json({ error: 'Body must be a JSON object' });
   }
   try {
-    await mergeUserDoc(req.user.uid, req.body);
+    const body = { ...req.body };
+    delete body.role;
+    await mergeUserDoc(req.user.uid, body);
     const data = await getUserDoc(req.user.uid);
-    const changed = Object.keys(req.body || {});
+    const changed = Object.keys(body || {});
     if (changed.length > 0) {
       await addActivity(req.user.uid, {
         type: 'profile.updated',
@@ -63,7 +66,9 @@ async function patchMe(req, res) {
         meta: { fields: changed },
       });
     }
-    res.json(serializeFirestoreData(data ?? {}));
+    const payload = serializeFirestoreData(data ?? {});
+    if (!payload.role) payload.role = 'agent';
+    res.json(payload);
   } catch (err) {
     console.error('[Users] patchMe:', err.message);
     res.status(500).json({ error: err.message || 'Failed to save profile' });

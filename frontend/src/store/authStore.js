@@ -25,6 +25,15 @@ const mapFirebaseUser = (firebaseUser) => ({
   authProvider: firebaseUser.providerData[0]?.providerId || 'password',
 });
 
+async function loadUserRole(uid) {
+  try {
+    const profile = await getProfile(uid);
+    return profile?.role === 'admin' ? 'admin' : 'agent';
+  } catch {
+    return 'agent';
+  }
+}
+
 const useAuthStore = create((set, get) => ({
   user: null,
   token: null,
@@ -36,8 +45,9 @@ const useAuthStore = create((set, get) => ({
         if (firebaseUser) {
           const token = await firebaseUser.getIdToken();
           const existingMeta = get().user?.meta;
+          const role = await loadUserRole(firebaseUser.uid);
           set({
-            user: { ...mapFirebaseUser(firebaseUser), meta: existingMeta || null },
+            user: { ...mapFirebaseUser(firebaseUser), meta: existingMeta || null, role },
             token,
             loading: false,
           });
@@ -56,7 +66,7 @@ const useAuthStore = create((set, get) => ({
     await updateProfile(credential.user, { displayName: fullName });
     const token = await credential.user.getIdToken();
 
-    await saveProfile(credential.user.uid, {
+    const saved = await saveProfile(credential.user.uid, {
       onboarding: {
         phone: formData.phone || '',
         weeklySpend: formData.weeklySpend || '',
@@ -66,9 +76,10 @@ const useAuthStore = create((set, get) => ({
         completedAt: new Date().toISOString(),
       },
     });
+    const role = saved?.role === 'admin' ? 'admin' : 'agent';
 
     set({
-      user: { ...mapFirebaseUser(credential.user), name: fullName },
+      user: { ...mapFirebaseUser(credential.user), name: fullName, role },
       token,
     });
   },
@@ -76,7 +87,8 @@ const useAuthStore = create((set, get) => ({
   login: async (email, password) => {
     const credential = await signInWithEmailAndPassword(auth, email, password);
     const token = await credential.user.getIdToken();
-    set({ user: mapFirebaseUser(credential.user), token });
+    const role = await loadUserRole(credential.user.uid);
+    set({ user: { ...mapFirebaseUser(credential.user), role }, token });
   },
 
   googleLogin: async () => {
@@ -86,7 +98,8 @@ const useAuthStore = create((set, get) => ({
     const existing = await getProfile(result.user.uid);
     const needsOnboarding = !existing?.onboarding?.completedAt;
 
-    set({ user: mapFirebaseUser(result.user), token });
+    const role = await loadUserRole(result.user.uid);
+    set({ user: { ...mapFirebaseUser(result.user), role }, token });
     return { needsOnboarding, user: result.user };
   },
 
@@ -109,8 +122,9 @@ const useAuthStore = create((set, get) => ({
     const token = await result.user.getIdToken();
     const existing = await getProfile(result.user.uid);
     const needsOnboarding = !existing?.onboarding?.completedAt;
+    const role = await loadUserRole(result.user.uid);
 
-    set({ user: mapFirebaseUser(result.user), token });
+    set({ user: { ...mapFirebaseUser(result.user), role }, token });
     return { needsOnboarding, user: result.user };
   },
 
@@ -142,6 +156,16 @@ const useAuthStore = create((set, get) => ({
     const currentUser = auth.currentUser;
     if (!currentUser) return null;
     return currentUser.getIdToken();
+  },
+
+  /** Re-fetch role from Firestore (e.g. after admin promotion in Console). */
+  refreshUserRole: async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    const role = await loadUserRole(currentUser.uid);
+    set((state) => ({
+      user: state.user ? { ...state.user, role } : null,
+    }));
   },
 
   updateAvatar: (url) => {
