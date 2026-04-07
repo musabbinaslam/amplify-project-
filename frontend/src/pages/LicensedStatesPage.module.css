@@ -1,19 +1,21 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  max-width: 1000px;
+  gap: 16px;
+  width: 100%;
+  max-width: none;
+  padding-bottom: 8px;
 }
 
 .header {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
 }
 
 .iconBox {
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   background: var(--surface-container-highest);
   color: var(--accent-green);
   display: flex;
@@ -24,7 +26,7 @@
 }
 
 .header h2 {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 800;
   color: var(--text-primary);
   margin-bottom: 4px;
@@ -39,104 +41,273 @@
 
 .mainBox {
   background: var(--surface-container-low);
-  border: none;
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
-  padding: 32px;
+  padding: 12px 16px 12px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(18px);
 }
 
-.boxHeader {
+.topRow {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 40px;
+  gap: 20px;
+  align-items: stretch;
+  margin-bottom: 12px;
+  flex-wrap: nowrap;
 }
 
-.boxHeader h3 {
+.summary {
+  flex: 2;
+  min-width: 0;
+}
+
+.summaryTitleRow {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.summary h3 {
   font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.summaryHint {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.countPill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.08);
+  color: var(--accent-green);
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 0;
+}
+
+.summaryChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.emptyChips {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.moreChips {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.summaryActions {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.statusRow {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.statusText {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.errorText {
+  font-size: 12px;
+  color: var(--accent-red);
+}
+
+.buttonRow {
+  display: flex;
+  gap: 8px;
+}
+
+.toolsRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 16px;
+  background: var(--surface-container);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 12px;
+}
+
+.searchWrap {
+  flex: 1;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-container-low);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.searchInput::placeholder {
+  color: rgba(148, 163, 184, 0.85);
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--accent-green);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.7);
 }
 
 .actions {
   display: flex;
-  gap: 16px;
+  align-items: center;
+  gap: 6px;
 }
 
-.actions button {
-  background: var(--surface-container-highest);
-  border: none;
+.ghostBtn {
+  background: var(--surface-container-low);
+  border: 1px solid var(--border-subtle);
   color: var(--text-primary);
-  padding: 10px 20px;
-  border-radius: var(--radius-full);
-  font-size: 14px;
-  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.16s ease-out;
 }
 
-.actions button:hover {
-  background: var(--surface-container);
+.ghostBtn:hover:not(:disabled) {
+  background: var(--surface-container-highest);
+  border-color: var(--border-strong);
+}
+
+.ghostBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 20px 24px;
-  margin-bottom: 48px;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
-.checkboxLabel {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
+.stateTile {
   position: relative;
-}
-
-.checkbox {
-  opacity: 0;
-  position: absolute;
-}
-
-.customCheckbox {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--surface-container-highest);
-  border-radius: 4px;
-  background: var(--surface-container);
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   justify-content: center;
-  transition: all 0.2s ease;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-container-highest);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.16s ease-out;
 }
 
-.checkbox:checked + .customCheckbox {
-  background: transparent;
-  border: 2px solid var(--accent-green);
-  box-shadow: inset 0 0 0 2px var(--surface-container-low);
+@media (max-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
 }
 
-.checkbox:checked + .customCheckbox::after {
-  content: '';
-  width: 10px;
-  height: 10px;
-  background: var(--accent-green);
-  border-radius: 2px;
-  box-shadow: 0 0 8px var(--accent-green-glow);
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
-.footer {
-  display: flex;
-  justify-content: flex-end;
-  border-top: 1px solid var(--border);
-  padding-top: 32px;
+.stateTile:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.35);
+  transform: translateY(-1px);
+}
+
+.stateTileSelected {
+  border-color: var(--accent-green);
+  box-shadow:
+    0 0 0 1px rgba(34, 197, 94, 0.6),
+    0 14px 35px rgba(22, 163, 74, 0.6);
+}
+
+.tileCode {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+}
+
+.tileName {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.stateTile:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 1px rgba(34, 197, 94, 0.7),
+    0 0 0 3px rgba(34, 197, 94, 0.25);
+}
+
+.stateChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-container-highest);
+  color: var(--text-primary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.stateCode {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.stateName {
+  color: var(--text-secondary);
+}
+
+.emptyState {
+  grid-column: 1 / -1;
+  padding: 16px 14px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px dashed rgba(148, 163, 184, 0.6);
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .saveBtn {
   background: var(--accent-green);
   color: var(--surface-container-highest);
-  padding: 12px 32px;
+  padding: 9px 22px;
   border-radius: var(--radius-full);
   font-size: 15px;
   font-weight: 700;
@@ -146,4 +317,73 @@
 .saveBtn:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 16px var(--accent-green-glow);
+}
+
+.saveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.discardBtn {
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-container-highest);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.discardBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.infoBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-top: 2px;
+  border-radius: 12px;
+  background: var(--surface-container);
+  border: 1px solid var(--border-subtle);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.infoIcon {
+  flex-shrink: 0;
+  color: var(--accent-green);
+  margin-top: 1px;
+}
+
+@media (max-width: 900px) {
+  .mainBox {
+    padding: 20px 16px 18px;
+  }
+
+  .topRow {
+    flex-direction: column;
+  }
+
+  .summaryActions {
+    align-items: flex-start;
+  }
+
+  .statusRow {
+    justify-content: flex-start;
+  }
+
+  .toolsRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
 }

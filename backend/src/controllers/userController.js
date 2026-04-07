@@ -56,6 +56,28 @@ async function patchMe(req, res) {
   try {
     const body = { ...req.body };
     delete body.role;
+    if ('licensedStates' in body) {
+      const raw = body.licensedStates;
+      if (!Array.isArray(raw)) {
+        return res.status(400).json({ error: 'licensedStates must be an array of state codes' });
+      }
+      const allowed = new Set([
+        'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',
+        'HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
+        'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
+        'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
+        'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
+      ]);
+      const cleaned = [];
+      for (const v of raw) {
+        const code = String(v || '').trim().toUpperCase();
+        if (!code) continue;
+        if (!allowed.has(code)) continue;
+        cleaned.push(code);
+        if (cleaned.length >= 60) break;
+      }
+      body.licensedStates = cleaned;
+    }
     await mergeUserDoc(req.user.uid, body);
     const data = await getUserDoc(req.user.uid);
     const changed = Object.keys(body || {});

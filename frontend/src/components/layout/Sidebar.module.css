@@ -11,7 +11,7 @@
   position: fixed;
   left: 0;
   top: 0;
-  transition: width 0.3s ease;
+  transition: width 0.28s ease;
   z-index: 100;
 }
 
