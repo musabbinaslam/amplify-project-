@@ -92,6 +92,29 @@ async function getMe(req, res) {
   }
 }
 
+async function getMeBootstrap(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  try {
+    const [data, apiKey, activity] = await Promise.all([
+      getUserDoc(req.user.uid),
+      getOrCreateApiKey(req.user.uid),
+      listActivity(req.user.uid, 20),
+    ]);
+    const payload = serializeFirestoreData(data ?? {});
+    payload.memberSince = payload.createdAt || null;
+    payload.lastUpdated = payload.updatedAt || null;
+    if (!payload.role) payload.role = 'agent';
+    res.json({
+      profile: payload,
+      apiKey,
+      activity: serializeFirestoreData(activity || []),
+    });
+  } catch (err) {
+    console.error('[Users] getMeBootstrap:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to load profile bootstrap' });
+  }
+}
+
 async function patchMe(req, res) {
   if (!ensureAdmin(req, res)) return;
   if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
@@ -396,6 +419,7 @@ async function getQaPatterns(req, res) {
 
 module.exports = {
   getMe,
+  getMeBootstrap,
   patchMe,
   patchSettings,
   patchScript,

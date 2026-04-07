@@ -2,6 +2,7 @@ const express = require('express');
 const { verifyFirebaseToken } = require('../middleware/auth');
 const {
   getMe,
+  getMeBootstrap,
   patchMe,
   patchSettings,
   patchScript,
@@ -20,6 +21,7 @@ const router = express.Router();
 router.use(verifyFirebaseToken);
 
 router.get('/me', getMe);
+router.get('/me/bootstrap', getMeBootstrap);
 router.patch('/me', patchMe);
 router.get('/me/slug-availability', getSlugAvailability);
 router.get('/me/activity', getActivity);
