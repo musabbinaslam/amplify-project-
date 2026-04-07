@@ -157,6 +157,9 @@ const LoginPage = () => {
           Don&apos;t have an account?{' '}
           <Link to="/signup" className={classes.footerLink}>Sign up</Link>
         </p>
+        <Link to="/" className={classes.backHomeLink}>
+          Back to Landing Page
+        </Link>
       </motion.div>
     </div>
   );

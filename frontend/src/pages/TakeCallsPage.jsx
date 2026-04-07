@@ -4,12 +4,11 @@ import {
   ChevronLeft, PhoneOff, Activity, ShieldCheck, Users,
   PhoneIncoming, DollarSign, Clock, Phone, CheckCircle2, MapPin
 } from 'lucide-react';
-import axios from 'axios';
 import classes from './TakeCallsPage.module.css';
 import { initializeTwilioDevice } from '../services/twilioService';
 import useDialerStore from '../store/useDialerStore';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import useAuthStore from '../store/authStore';
+import { apiFetch } from '../services/apiClient';
 
 // All 50 US States
 const US_STATES = [
@@ -421,8 +420,8 @@ const TakeCallsPage = () => {
 
   const fetchLogs = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/voice/logs`);
-      setHistory(res.data);
+      const data = await apiFetch('/api/voice/logs');
+      setHistory(data || []);
     } catch (err) {
       console.error('Error fetching logs:', err);
     }
@@ -437,8 +436,10 @@ const TakeCallsPage = () => {
   const handleGoLive = async () => {
     try {
       setIsConnecting(true);
-      const mockAgentId = `agent_${Math.floor(Math.random() * 10000)}`;
-      await initializeTwilioDevice(mockAgentId, campaign, wizardStates);
+      // Use Firebase UID as the Twilio identity so call logs are saved per-user
+      const { user } = useAuthStore.getState();
+      const agentId = user?.uid || `agent_${Math.floor(Math.random() * 10000)}`;
+      await initializeTwilioDevice(agentId, campaign, wizardStates);
     } catch (err) {
       console.error('Failed to go live:', err);
       const errorText = err.response ? err.response.data : err.message;

@@ -196,6 +196,22 @@
   color: var(--text-secondary);
 }
 
+.backHomeLink {
+  display: inline-flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-green);
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+.backHomeLink:hover {
+  opacity: 0.8;
+}
+
 .footerLink {
   color: var(--accent-green);
   font-weight: 600;

@@ -25,6 +25,7 @@ const SupportPage = lazy(() => import('./pages/SupportPage'));
 const ScriptPage = lazy(() => import('./pages/ScriptPage'));
 const LeadsPage = lazy(() => Promise.resolve({ default: () => <PageTransition><div><h2 style={{color: 'white'}}>Leads (Beta)</h2></div></PageTransition> }));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 
 import DialerOverlay from './components/ui/DialerOverlay';
 
@@ -37,6 +38,12 @@ const ProtectedRoute = () => {
 const GuestRoute = ({ children }) => {
   const token = useAuthStore((s) => s.token);
   if (token) return <Navigate to="/app" replace />;
+  return children;
+};
+
+const AdminOnly = ({ children }) => {
+  const role = useAuthStore((s) => s.user?.role);
+  if (role !== 'admin') return <Navigate to="/app" replace />;
   return children;
 };
 
@@ -99,6 +106,13 @@ const AnimatedRoutes = () => {
             } />
             <Route path="settings" element={
               <Suspense fallback={<PageLoader />}><PageTransition><SettingsPage /></PageTransition></Suspense>
+            } />
+            <Route path="admin" element={
+              <Suspense fallback={<PageLoader />}>
+                <AdminOnly>
+                  <PageTransition><AdminDashboardPage /></PageTransition>
+                </AdminOnly>
+              </Suspense>
             } />
             <Route path="*" element={<PageTransition><div><h2 style={{color: 'white'}}>404 Not Found</h2></div></PageTransition>} />
           </Route>

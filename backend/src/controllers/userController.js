@@ -40,6 +40,7 @@ async function getMe(req, res) {
     const payload = serializeFirestoreData(data ?? {});
     payload.memberSince = payload.createdAt || null;
     payload.lastUpdated = payload.updatedAt || null;
+    if (!payload.role) payload.role = 'agent';
     res.json(payload);
   } catch (err) {
     console.error('[Users] getMe:', err.message);
@@ -53,9 +54,33 @@ async function patchMe(req, res) {
     return res.status(400).json({ error: 'Body must be a JSON object' });
   }
   try {
-    await mergeUserDoc(req.user.uid, req.body);
+    const body = { ...req.body };
+    delete body.role;
+    if ('licensedStates' in body) {
+      const raw = body.licensedStates;
+      if (!Array.isArray(raw)) {
+        return res.status(400).json({ error: 'licensedStates must be an array of state codes' });
+      }
+      const allowed = new Set([
+        'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',
+        'HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
+        'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
+        'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
+        'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
+      ]);
+      const cleaned = [];
+      for (const v of raw) {
+        const code = String(v || '').trim().toUpperCase();
+        if (!code) continue;
+        if (!allowed.has(code)) continue;
+        cleaned.push(code);
+        if (cleaned.length >= 60) break;
+      }
+      body.licensedStates = cleaned;
+    }
+    await mergeUserDoc(req.user.uid, body);
     const data = await getUserDoc(req.user.uid);
-    const changed = Object.keys(req.body || {});
+    const changed = Object.keys(body || {});
     if (changed.length > 0) {
       await addActivity(req.user.uid, {
         type: 'profile.updated',
@@ -63,7 +88,9 @@ async function patchMe(req, res) {
         meta: { fields: changed },
       });
     }
-    res.json(serializeFirestoreData(data ?? {}));
+    const payload = serializeFirestoreData(data ?? {});
+    if (!payload.role) payload.role = 'agent';
+    res.json(payload);
   } catch (err) {
     console.error('[Users] patchMe:', err.message);
     res.status(500).json({ error: err.message || 'Failed to save profile' });
