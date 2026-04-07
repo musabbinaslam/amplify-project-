@@ -5,40 +5,46 @@ import classes from './BillingPage.module.css';
 const BillingPage = () => {
   return (
     <div className={classes.billingPage}>
-      <div className={classes.sectionBox}>
-        <div className={classes.sectionHeader}>
-          <h3><DollarSign size={20} className={classes.blueIcon} /> Account Balance</h3>
-          <p>Your current credit balance for taking calls</p>
+      <section className={classes.sectionBox}>
+        <div className={classes.sectionTop}>
+          <div className={classes.sectionHeader}>
+            <h3><DollarSign size={20} className={classes.blueIcon} /> Account Balance</h3>
+            <p>Your current credit balance for taking calls</p>
+          </div>
+          <button className={classes.addCreditsBtn}>+ Add Credits</button>
         </div>
-        
+
         <div className={classes.balanceRow}>
-          <div>
+          <div className={classes.balanceMeta}>
             <div className={classes.balanceAmount}>$0.00</div>
             <div className={classes.lowBalanceWarning}>
               <AlertCircle size={14} /> Low balance - add credits to continue taking calls
             </div>
           </div>
-          <button className={classes.addCreditsBtn}>+ Add Credits</button>
+          <div className={classes.balanceSubtleStat}>
+            <span>Current Mode</span>
+            <b>Pay-as-you-go</b>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div className={classes.sectionBox}>
-        <div className={classes.transHeader}>
+      <section className={classes.sectionBox}>
+        <div className={classes.sectionTop}>
           <div>
             <h3><Clock size={20} /> Transaction History</h3>
             <p>Credit additions, call deductions, and balance changes</p>
           </div>
           <button className={classes.refreshBtn}><RefreshCw size={14} /> Refresh</button>
         </div>
-        
+
         <div className={classes.emptyStateBox}>
-          <Clock size={48} className={classes.emptyIcon} />
+          <Clock size={34} className={classes.emptyIcon} />
           <p>No transactions yet</p>
           <span>Your credit history will appear here</span>
         </div>
-      </div>
+      </section>
 
-      <div className={classes.sectionBox}>
+      <section className={classes.sectionBox}>
          <div className={classes.sectionHeader}>
             <h3><Award size={20} className={classes.goldIcon} /> Subscription Plans</h3>
             <p>Subscribe for weekly credits and lower call rates</p>
@@ -46,8 +52,10 @@ const BillingPage = () => {
 
          <div className={classes.currentPlan}>
             <div className={classes.planBadge}></div>
-            <b>Current: Pay-as-you-go</b>
-            <span>$55 per call • No commitment</span>
+            <div className={classes.currentPlanMeta}>
+              <b>Current: Pay-as-you-go</b>
+              <span>$55 per call • No commitment</span>
+            </div>
          </div>
 
          <div className={classes.planList}>
@@ -69,7 +77,7 @@ const BillingPage = () => {
                </div>
             </div>
 
-            <div className={classes.planCard}>
+            <div className={`${classes.planCard} ${classes.bestValue}`}>
                <div className={classes.planTitleRow}>
                   <div className={classes.planNameGroup}>
                      <Award size={24} className={classes.goldIcon} />
@@ -87,7 +95,7 @@ const BillingPage = () => {
                </div>
             </div>
          </div>
-      </div>
+      </section>
     </div>
   );
 };
