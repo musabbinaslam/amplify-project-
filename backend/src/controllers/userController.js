@@ -33,6 +33,50 @@ function ensureAdmin(req, res) {
   return true;
 }
 
+function parseRange(query) {
+  const now = new Date();
+  const end = query.to ? new Date(`${query.to}T23:59:59.999Z`) : now;
+  const from = query.from
+    ? new Date(`${query.from}T00:00:00.000Z`)
+    : new Date(end.getTime() - (29 * 24 * 60 * 60 * 1000));
+  if (Number.isNaN(from.getTime()) || Number.isNaN(end.getTime()) || from > end) {
+    throw new Error('Invalid date range');
+  }
+  return { from, end };
+}
+
+function toMsFromLog(row) {
+  const ts = row?.createdAt || row?.timestamp;
+  if (!ts) return NaN;
+  if (typeof ts === 'string') return new Date(ts).getTime();
+  if (ts?.toDate) return ts.toDate().getTime();
+  return NaN;
+}
+
+function dayKeyFromMs(ms) {
+  if (Number.isNaN(ms)) return null;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+async function readUserLogsInRange(uid, from, end, limit = 500) {
+  const db = admin.firestore();
+  const snap = await db
+    .collection('users')
+    .doc(uid)
+    .collection('callLogs')
+    .orderBy('createdAt', 'desc')
+    .limit(limit)
+    .get();
+  const fromMs = from.getTime();
+  const endMs = end.getTime();
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((row) => {
+      const ms = toMsFromLog(row);
+      return !Number.isNaN(ms) && ms >= fromMs && ms <= endMs;
+    });
+}
+
 async function getMe(req, res) {
   if (!ensureAdmin(req, res)) return;
   try {
@@ -193,6 +237,163 @@ async function getActivity(req, res) {
   }
 }
 
+async function getQaSummary(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  try {
+    const { from, end } = parseRange(req.query || {});
+    const rows = await readUserLogsInRange(req.user.uid, from, end, 1000);
+    const reviewed = rows.filter((r) => r?.qaInsight?.score != null);
+    const scores = reviewed.map((r) => Number(r.qaInsight.score || 0));
+    const avgScore = scores.length
+      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+      : 0;
+    const needsImprovement = reviewed.filter((r) =>
+      Number(r.qaInsight.score || 0) < 70 || (Array.isArray(r.qaInsight.flags) && r.qaInsight.flags.length > 0)
+    ).length;
+    res.json({
+      summary: {
+        avgScore,
+        reviewedCalls: reviewed.length,
+        needsImprovement,
+      },
+      range: {
+        from: from.toISOString().slice(0, 10),
+        to: end.toISOString().slice(0, 10),
+      },
+    });
+  } catch (err) {
+    console.error('[Users] getQaSummary:', err.message);
+    const status = err.message === 'Invalid date range' ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to load QA summary' });
+  }
+}
+
+async function getQaTrend(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  try {
+    const { from, end } = parseRange(req.query || {});
+    const limit = Math.min(Number(req.query.limit || 12), 100);
+    const rows = await readUserLogsInRange(req.user.uid, from, end, 1000);
+    const reviewed = rows
+      .filter((r) => r?.qaInsight?.score != null)
+      .sort((a, b) => toMsFromLog(a) - toMsFromLog(b));
+    const points = reviewed.slice(-limit).map((r, idx) => ({
+      call: idx + 1,
+      score: Number(r.qaInsight.score || 0),
+      callId: r.id,
+      timestamp: serializeFirestoreData(r.createdAt || r.timestamp),
+    }));
+    res.json({ points });
+  } catch (err) {
+    console.error('[Users] getQaTrend:', err.message);
+    const status = err.message === 'Invalid date range' ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to load QA trend' });
+  }
+}
+
+async function getQaScorecards(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  try {
+    const { from, end } = parseRange(req.query || {});
+    const limit = Math.min(Number(req.query.limit || 50), 200);
+    const rows = await readUserLogsInRange(req.user.uid, from, end, 1200);
+    const out = rows
+      .filter((r) => r?.qaInsight?.score != null)
+      .sort((a, b) => toMsFromLog(b) - toMsFromLog(a))
+      .slice(0, limit)
+      .map((r) => {
+        const score = Number(r.qaInsight.score || 0);
+        return {
+          id: r.id,
+          date: new Date(toMsFromLog(r)).toISOString(),
+          caller: r.from || 'Unknown',
+          duration: Number(r.duration || 0),
+          score,
+          confidence: Number(r?.qaInsight?.confidence || 0),
+          flags: Array.isArray(r?.qaInsight?.flags) ? r.qaInsight.flags : [],
+          status: score >= 70 ? 'good' : 'needs-improvement',
+          summary: String(r?.qaInsight?.summary || ''),
+          pending: false,
+          campaign: r.campaignLabel || r.campaign || 'unknown',
+          state: r?.qaInsight?.signals?.state || null,
+        };
+      });
+    res.json({ rows: out });
+  } catch (err) {
+    console.error('[Users] getQaScorecards:', err.message);
+    const status = err.message === 'Invalid date range' ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to load QA scorecards' });
+  }
+}
+
+async function getQaPatterns(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  try {
+    const { from, end } = parseRange(req.query || {});
+    const rows = await readUserLogsInRange(req.user.uid, from, end, 1200);
+    const reviewed = rows.filter((r) => r?.qaInsight?.score != null);
+    const byCampaign = new Map();
+    const byState = new Map();
+    const dayScores = new Map();
+
+    reviewed.forEach((r) => {
+      const score = Number(r.qaInsight.score || 0);
+      const campaign = r.campaignLabel || r.campaign || 'unknown';
+      const state = r?.qaInsight?.signals?.state || 'unknown';
+      const dKey = dayKeyFromMs(toMsFromLog(r));
+      if (dKey) {
+        if (!dayScores.has(dKey)) dayScores.set(dKey, []);
+        dayScores.get(dKey).push(score);
+      }
+
+      if (!byCampaign.has(campaign)) byCampaign.set(campaign, { key: campaign, volume: 0, scoreSum: 0 });
+      if (!byState.has(state)) byState.set(state, { key: state, volume: 0, scoreSum: 0 });
+      const c = byCampaign.get(campaign);
+      c.volume += 1;
+      c.scoreSum += score;
+      const s = byState.get(state);
+      s.volume += 1;
+      s.scoreSum += score;
+    });
+
+    const campaignPatterns = [...byCampaign.values()]
+      .map((r) => ({ ...r, avgScore: r.volume ? Math.round(r.scoreSum / r.volume) : 0 }))
+      .sort((a, b) => b.volume - a.volume)
+      .slice(0, 8);
+    const statePatterns = [...byState.values()]
+      .map((r) => ({ ...r, avgScore: r.volume ? Math.round(r.scoreSum / r.volume) : 0 }))
+      .sort((a, b) => b.volume - a.volume)
+      .slice(0, 8);
+
+    const daily = [...dayScores.entries()]
+      .map(([day, list]) => ({ day, avg: list.reduce((a, b) => a + b, 0) / list.length }))
+      .sort((a, b) => a.day.localeCompare(b.day));
+    const baseline = daily.length ? daily.reduce((a, b) => a + b.avg, 0) / daily.length : 0;
+    const anomalies = daily
+      .filter((d) => Math.abs(d.avg - baseline) >= 10)
+      .map((d) => ({
+        day: d.day,
+        avgScore: Math.round(d.avg),
+        deltaFromBaseline: Math.round(d.avg - baseline),
+      }))
+      .slice(-6);
+
+    const summary = reviewed.length
+      ? `Reviewed ${reviewed.length} calls. Baseline score is ${Math.round(baseline)}/100 with ${
+        anomalies.length
+          ? `${anomalies.length} notable daily variance point${anomalies.length > 1 ? 's' : ''}`
+          : 'stable day-to-day performance'
+      }.`
+      : 'No reviewed calls in this range yet.';
+
+    res.json({ summary, campaignPatterns, statePatterns, anomalies });
+  } catch (err) {
+    console.error('[Users] getQaPatterns:', err.message);
+    const status = err.message === 'Invalid date range' ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to load QA patterns' });
+  }
+}
+
 module.exports = {
   getMe,
   patchMe,
@@ -202,4 +403,8 @@ module.exports = {
   postRegenerateApiKey,
   getSlugAvailability,
   getActivity,
+  getQaSummary,
+  getQaTrend,
+  getQaScorecards,
+  getQaPatterns,
 };

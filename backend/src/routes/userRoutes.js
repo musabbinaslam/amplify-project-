@@ -9,6 +9,10 @@ const {
   postRegenerateApiKey,
   getSlugAvailability,
   getActivity,
+  getQaSummary,
+  getQaTrend,
+  getQaScorecards,
+  getQaPatterns,
 } = require('../controllers/userController');
 
 const router = express.Router();
@@ -19,6 +23,10 @@ router.get('/me', getMe);
 router.patch('/me', patchMe);
 router.get('/me/slug-availability', getSlugAvailability);
 router.get('/me/activity', getActivity);
+router.get('/me/qa/summary', getQaSummary);
+router.get('/me/qa/trend', getQaTrend);
+router.get('/me/qa/scorecards', getQaScorecards);
+router.get('/me/qa/patterns', getQaPatterns);
 router.patch('/me/settings', patchSettings);
 router.patch('/me/scripts/:scriptId', patchScript);
 router.post('/me/api-key', postApiKey);
