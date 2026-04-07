@@ -160,6 +160,54 @@
   font-size: 14px;
 }
 
+.loadingHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 2px;
+}
+
+.loadingIcon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--surface-container) 82%, transparent),
+    color-mix(in srgb, var(--surface-container-highest) 72%, transparent),
+    color-mix(in srgb, var(--surface-container) 82%, transparent)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+.loadingTitle,
+.loadingSubtitle {
+  display: block;
+  border-radius: 10px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--surface-container) 82%, transparent),
+    color-mix(in srgb, var(--surface-container-highest) 72%, transparent),
+    color-mix(in srgb, var(--surface-container) 82%, transparent)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+.loadingTitle {
+  width: 200px;
+  height: 26px;
+  margin-bottom: 8px;
+}
+
+.loadingSubtitle {
+  width: 360px;
+  max-width: 60vw;
+  height: 14px;
+}
+
 .hint {
   font-size: 13px;
   color: var(--text-secondary);

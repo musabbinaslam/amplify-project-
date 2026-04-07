@@ -2,6 +2,9 @@ const agentManager = require('../services/agentManager');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const phoneRouteService = require('../services/phoneRouteService');
 const admin = require('../config/firebaseAdmin');
+const ANALYTICS_CACHE_TTL_MS = 30000;
+const READ_CONCURRENCY = 10;
+const analyticsCache = new Map();
 
 function getCampaigns() {
   return Object.entries(CAMPAIGN_CONFIG).map(([id, cfg]) => ({
@@ -60,62 +63,195 @@ async function readLogsInRange(from, end) {
   const endMs = end.getTime();
   const usersSnap = await db.collection('users').get();
   const out = [];
+  const docs = usersSnap.docs || [];
+  let cursor = 0;
 
-  // Iterate per user to avoid collectionGroup index requirements
-  // Assuming relatively small agent count, this is acceptable for admin analytics.
-  // If it ever grows large, we can revisit with a dedicated aggregate collection.
-  // eslint-disable-next-line no-restricted-syntax
-  for (const userDoc of usersSnap.docs) {
-    // eslint-disable-next-line no-await-in-loop
-    const callsSnap = await userDoc.ref
-      .collection('callLogs')
-      .orderBy('createdAt', 'desc')
-      .limit(500)
-      .get();
-    callsSnap.docs.forEach((doc) => {
-      const row = normalizeCall(doc);
-      if (!row.createdAt) return;
-      const t = new Date(row.createdAt).getTime();
-      if (Number.isNaN(t)) return;
-      if (t >= fromMs && t <= endMs) {
-        out.push(row);
-      }
-    });
+  async function worker() {
+    while (cursor < docs.length) {
+      const idx = cursor;
+      cursor += 1;
+      const userDoc = docs[idx];
+      // eslint-disable-next-line no-await-in-loop
+      const callsSnap = await userDoc.ref
+        .collection('callLogs')
+        .orderBy('createdAt', 'desc')
+        .limit(500)
+        .get();
+      callsSnap.docs.forEach((doc) => {
+        const row = normalizeCall(doc);
+        if (!row.createdAt) return;
+        const t = new Date(row.createdAt).getTime();
+        if (Number.isNaN(t)) return;
+        if (t >= fromMs && t <= endMs) out.push(row);
+      });
+    }
   }
+
+  const workers = Array.from(
+    { length: Math.min(READ_CONCURRENCY, Math.max(1, docs.length)) },
+    () => worker(),
+  );
+  await Promise.all(workers);
 
   return out;
 }
 
-async function getOverview(req, res) {
+function aggregateAnalytics(rows, from, end) {
+  const byDayMap = new Map();
+  const byCampaign = new Map();
+  const byAgent = new Map();
+  let totalCalls = 0;
+  let answeredCalls = 0;
+  let missedCalls = 0;
+  let billableCalls = 0;
+  let totalDuration = 0;
+  let totalCost = 0;
+
+  rows.forEach((r) => {
+    const dKey = dayKey(r.createdAt);
+    if (dKey) {
+      if (!byDayMap.has(dKey)) {
+        byDayMap.set(dKey, {
+          day: dKey,
+          totalCalls: 0,
+          answeredCalls: 0,
+          missedCalls: 0,
+          billableCalls: 0,
+          totalDuration: 0,
+          totalCost: 0,
+        });
+      }
+      const d = byDayMap.get(dKey);
+      d.totalCalls += 1;
+      if (r.status === 'completed') d.answeredCalls += 1;
+      else d.missedCalls += 1;
+      if (r.isBillable) d.billableCalls += 1;
+      d.totalDuration += r.duration;
+      d.totalCost += r.cost;
+    }
+
+    totalCalls += 1;
+    if (r.status === 'completed') answeredCalls += 1;
+    else missedCalls += 1;
+    if (r.isBillable) billableCalls += 1;
+    totalDuration += r.duration;
+    totalCost += r.cost;
+
+    const campaignId = r.campaign || 'unknown';
+    if (!byCampaign.has(campaignId)) {
+      byCampaign.set(campaignId, {
+        campaign: campaignId,
+        campaignLabel: r.campaignLabel || campaignId,
+        calls: 0,
+        answeredCalls: 0,
+        billableCalls: 0,
+        totalDuration: 0,
+        totalCost: 0,
+      });
+    }
+    const c = byCampaign.get(campaignId);
+    c.calls += 1;
+    if (r.status === 'completed') c.answeredCalls += 1;
+    if (r.isBillable) c.billableCalls += 1;
+    c.totalDuration += r.duration;
+    c.totalCost += r.cost;
+
+    const agentId = r.agentId || 'unknown';
+    if (!byAgent.has(agentId)) {
+      byAgent.set(agentId, {
+        agentId,
+        calls: 0,
+        answeredCalls: 0,
+        billableCalls: 0,
+        totalDuration: 0,
+        totalCost: 0,
+      });
+    }
+    const a = byAgent.get(agentId);
+    a.calls += 1;
+    if (r.status === 'completed') a.answeredCalls += 1;
+    if (r.isBillable) a.billableCalls += 1;
+    a.totalDuration += r.duration;
+    a.totalCost += r.cost;
+  });
+
+  const byDay = [...byDayMap.values()].sort((a, b) => a.day.localeCompare(b.day));
+  const campaigns = [...byCampaign.values()]
+    .map((r) => ({
+      ...r,
+      answerRate: r.calls ? Number((r.answeredCalls / r.calls).toFixed(4)) : 0,
+      billableRate: r.calls ? Number((r.billableCalls / r.calls).toFixed(4)) : 0,
+      avgHandleTime: r.calls ? Math.round(r.totalDuration / r.calls) : 0,
+    }))
+    .sort((a, b) => b.calls - a.calls);
+  const agents = [...byAgent.values()]
+    .map((r) => ({
+      ...r,
+      answerRate: r.calls ? Number((r.answeredCalls / r.calls).toFixed(4)) : 0,
+      billableRate: r.calls ? Number((r.billableCalls / r.calls).toFixed(4)) : 0,
+      avgHandleTime: r.calls ? Math.round(r.totalDuration / r.calls) : 0,
+    }))
+    .sort((a, b) => b.calls - a.calls);
+
+  return {
+    from: from.toISOString().slice(0, 10),
+    to: end.toISOString().slice(0, 10),
+    summary: {
+      totalCalls,
+      answeredCalls,
+      missedCalls,
+      billableCalls,
+      totalDuration,
+      totalCost,
+      answerRate: totalCalls ? Number((answeredCalls / totalCalls).toFixed(4)) : 0,
+      billableRate: totalCalls ? Number((billableCalls / totalCalls).toFixed(4)) : 0,
+    },
+    byDay,
+    campaigns,
+    agents,
+  };
+}
+
+function cacheKey(from, end) {
+  return `${from.toISOString().slice(0, 10)}|${end.toISOString().slice(0, 10)}`;
+}
+
+async function getAnalyticsBundle(req, res) {
+  try {
+    const { from, end } = parseRange(req.query || {});
+    const key = cacheKey(from, end);
+    const cached = analyticsCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      return res.json({ ...cached.payload, cached: true });
+    }
+
+    const rows = await readLogsInRange(from, end);
+    const payload = aggregateAnalytics(rows, from, end);
+    analyticsCache.set(key, {
+      payload,
+      expiresAt: Date.now() + ANALYTICS_CACHE_TTL_MS,
+    });
+    res.json({ ...payload, cached: false });
+  } catch (err) {
+    console.error('[Admin] getAnalyticsBundle:', err.message);
+    const status = err.message === 'Invalid date range' ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to load analytics bundle' });
+  }
+}
+
+async function getOverviewLite(req, res) {
   try {
     const overview = await agentManager.getOverview();
-    const campaigns = getCampaigns();
     res.json({
-      ...overview,
-      campaigns,
+      totalAgents: overview.totalAgents || 0,
+      agents: overview.agents || [],
+      pool: overview.pool || { available: [], ringing: [], busy: [] },
+      byCampaign: overview.byCampaign || {},
+      campaigns: getCampaigns(),
     });
   } catch (err) {
-    console.error('[Admin] getOverview:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to load overview' });
-  }
-}
-
-async function getAgents(req, res) {
-  try {
-    const { agents } = await agentManager.getOverview();
-    res.json({ agents });
-  } catch (err) {
-    console.error('[Admin] getAgents:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to load agents' });
-  }
-}
-
-async function getCampaignsList(req, res) {
-  try {
-    res.json({ campaigns: getCampaigns() });
-  } catch (err) {
-    console.error('[Admin] getCampaignsList:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to load campaigns' });
+    console.error('[Admin] getOverviewLite:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to load overview lite' });
   }
 }
 
@@ -169,152 +305,6 @@ async function deleteDid(req, res) {
   }
 }
 
-async function getCallStats(req, res) {
-  try {
-    const { from, end } = parseRange(req.query || {});
-    const rows = await readLogsInRange(from, end);
-    const byDayMap = new Map();
-    let totalCalls = 0;
-    let answeredCalls = 0;
-    let missedCalls = 0;
-    let billableCalls = 0;
-    let totalDuration = 0;
-    let totalCost = 0;
-
-    rows.forEach((r) => {
-      const key = dayKey(r.createdAt);
-      if (!key) return;
-      if (!byDayMap.has(key)) {
-        byDayMap.set(key, {
-          day: key,
-          totalCalls: 0,
-          answeredCalls: 0,
-          missedCalls: 0,
-          billableCalls: 0,
-          totalDuration: 0,
-          totalCost: 0,
-        });
-      }
-      const target = byDayMap.get(key);
-      target.totalCalls += 1;
-      totalCalls += 1;
-      if (r.status === 'completed') {
-        target.answeredCalls += 1;
-        answeredCalls += 1;
-      } else {
-        target.missedCalls += 1;
-        missedCalls += 1;
-      }
-      if (r.isBillable) {
-        target.billableCalls += 1;
-        billableCalls += 1;
-      }
-      target.totalDuration += r.duration;
-      totalDuration += r.duration;
-      target.totalCost += r.cost;
-      totalCost += r.cost;
-    });
-
-    const byDay = [...byDayMap.values()].sort((a, b) => a.day.localeCompare(b.day));
-    res.json({
-      from: from.toISOString().slice(0, 10),
-      to: end.toISOString().slice(0, 10),
-      summary: {
-        totalCalls,
-        answeredCalls,
-        missedCalls,
-        billableCalls,
-        totalDuration,
-        totalCost,
-        answerRate: totalCalls ? Number((answeredCalls / totalCalls).toFixed(4)) : 0,
-        billableRate: totalCalls ? Number((billableCalls / totalCalls).toFixed(4)) : 0,
-      },
-      byDay,
-    });
-  } catch (err) {
-    console.error('[Admin] getCallStats:', err.message);
-    const status = err.message === 'Invalid date range' ? 400 : 500;
-    res.status(status).json({ error: err.message || 'Failed to load call stats' });
-  }
-}
-
-async function getCampaignCallStats(req, res) {
-  try {
-    const { from, end } = parseRange(req.query || {});
-    const rows = await readLogsInRange(from, end);
-    const byCampaign = new Map();
-    rows.forEach((r) => {
-      const id = r.campaign || 'unknown';
-      if (!byCampaign.has(id)) {
-        byCampaign.set(id, {
-          campaign: id,
-          campaignLabel: r.campaignLabel || id,
-          calls: 0,
-          answeredCalls: 0,
-          billableCalls: 0,
-          totalDuration: 0,
-          totalCost: 0,
-        });
-      }
-      const target = byCampaign.get(id);
-      target.calls += 1;
-      if (r.status === 'completed') target.answeredCalls += 1;
-      if (r.isBillable) target.billableCalls += 1;
-      target.totalDuration += r.duration;
-      target.totalCost += r.cost;
-    });
-    const rowsOut = [...byCampaign.values()].map((r) => ({
-      ...r,
-      answerRate: r.calls ? Number((r.answeredCalls / r.calls).toFixed(4)) : 0,
-      billableRate: r.calls ? Number((r.billableCalls / r.calls).toFixed(4)) : 0,
-      avgHandleTime: r.calls ? Math.round(r.totalDuration / r.calls) : 0,
-    })).sort((a, b) => b.calls - a.calls);
-    res.json({ rows: rowsOut });
-  } catch (err) {
-    console.error('[Admin] getCampaignCallStats:', err.message);
-    const status = err.message === 'Invalid date range' ? 400 : 500;
-    res.status(status).json({ error: err.message || 'Failed to load campaign stats' });
-  }
-}
-
-async function getAgentCallStats(req, res) {
-  try {
-    const { from, end } = parseRange(req.query || {});
-    const rows = await readLogsInRange(from, end);
-    const byAgent = new Map();
-    rows.forEach((r) => {
-      const id = r.agentId || 'unknown';
-      if (!byAgent.has(id)) {
-        byAgent.set(id, {
-          agentId: id,
-          calls: 0,
-          answeredCalls: 0,
-          billableCalls: 0,
-          totalDuration: 0,
-          totalCost: 0,
-        });
-      }
-      const target = byAgent.get(id);
-      target.calls += 1;
-      if (r.status === 'completed') target.answeredCalls += 1;
-      if (r.isBillable) target.billableCalls += 1;
-      target.totalDuration += r.duration;
-      target.totalCost += r.cost;
-    });
-    const rowsOut = [...byAgent.values()].map((r) => ({
-      ...r,
-      answerRate: r.calls ? Number((r.answeredCalls / r.calls).toFixed(4)) : 0,
-      billableRate: r.calls ? Number((r.billableCalls / r.calls).toFixed(4)) : 0,
-      avgHandleTime: r.calls ? Math.round(r.totalDuration / r.calls) : 0,
-    })).sort((a, b) => b.calls - a.calls);
-    res.json({ rows: rowsOut });
-  } catch (err) {
-    console.error('[Admin] getAgentCallStats:', err.message);
-    const status = err.message === 'Invalid date range' ? 400 : 500;
-    res.status(status).json({ error: err.message || 'Failed to load agent stats' });
-  }
-}
-
 async function getLiveCalls(req, res) {
   try {
     const overview = await agentManager.getOverview();
@@ -334,12 +324,8 @@ async function getLiveCalls(req, res) {
 }
 
 module.exports = {
-  getOverview,
-  getAgents,
-  getCampaignsList,
-  getCallStats,
-  getCampaignCallStats,
-  getAgentCallStats,
+  getOverviewLite,
+  getAnalyticsBundle,
   getLiveCalls,
   listDids,
   createDid,
