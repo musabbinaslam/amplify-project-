@@ -5,6 +5,7 @@ const agentManager = require('../services/agentManager');
 const callLogService = require('../services/callLogService');
 const phoneRouteService = require('../services/phoneRouteService');
 const { redisClient } = require('../config/redis');
+const { generateQaInsight } = require('../services/qaInsightService');
 
 exports.generateToken = (req, res) => {
   const { identity } = req.body;
@@ -111,11 +112,11 @@ exports.handleIncomingCall = async (req, res) => {
  */
 exports.handleCallCompleted = async (req, res) => {
     const { campaign, agentId } = req.query;
-    const { From, To, DialCallDuration, DialCallStatus, CallSid } = req.body;
+    const { From, To, DialCallDuration, DialCallStatus, CallSid, FromState } = req.body;
 
     console.log(`[Twilio] Call Completed: ${CallSid}. Duration: ${DialCallDuration}s. Status: ${DialCallStatus}`);
 
-    await callLogService.logCall({
+    const savedLog = await callLogService.logCall({
         from: From,
         to: To,
         duration: DialCallDuration,
@@ -124,6 +125,21 @@ exports.handleCallCompleted = async (req, res) => {
         status: DialCallStatus === 'completed' ? 'completed' : 'missed',
         callSid: CallSid
     });
+
+    // Non-blocking QA insight generation (never block Twilio webhook response)
+    if (agentId && savedLog?.id) {
+        Promise.resolve()
+            .then(async () => {
+                const qaInsight = await generateQaInsight({
+                    ...savedLog,
+                    state: FromState || null,
+                });
+                await callLogService.attachQaInsight(agentId, savedLog.id, qaInsight);
+            })
+            .catch((err) => {
+                console.error('[QA] async insight generation failed:', err.message);
+            });
+    }
 
     const twiml = new VoiceResponse();
     twiml.hangup();
