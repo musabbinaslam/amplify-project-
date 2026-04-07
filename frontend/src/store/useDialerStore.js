@@ -3,6 +3,7 @@ import { create } from 'zustand';
 const useDialerStore = create((set, get) => ({
   // Core State
   device: null,
+  socket: null,
   callState: 'offline', // 'offline' | 'idle' (ready) | 'ringing' | 'active'
   activeCall: null,
   
@@ -19,6 +20,7 @@ const useDialerStore = create((set, get) => ({
 
   // Actions
   setDevice: (device) => set({ device }),
+  setSocket: (socket) => set({ socket }),
   setCallState: (state) => set({ callState: state }),
   setActiveCall: (call) => set({ activeCall: call }),
   setAgentContext: (identity, campaign, states = []) => set({ 
@@ -94,17 +96,59 @@ const useDialerStore = create((set, get) => ({
     if (activeCall) {
       activeCall.disconnect();
     }
-    if (device) {
-      device.disconnectAll();
-    }
     get().resetCallState();
+  },
+
+  goOffline: () => {
+    const { device, socket } = get();
+    console.log('DEBUG: Going offline & destroying connections');
+    
+    // Completely destroy Twilio device so we don't receive ghost calls
+    if (device) {
+      try { device.destroy(); } catch(e){}
+    }
+    
+    // Kill the WebSocket connection to remove agent from backend Redis LRU pool
+    if (socket) {
+      try { socket.disconnect(); } catch(e){}
+    }
+    
+    set({
+      device: null,
+      socket: null,
+      callState: 'offline',
+      activeCall: null,
+      isMuted: false,
+      callDuration: 0,
+      incomingCallerId: null,
+      leadData: null
+    });
   },
   
   toggleMute: () => {
     const { activeCall, isMuted } = get();
     if (activeCall) {
-      activeCall.mute(!isMuted);
-      set({ isMuted: !isMuted });
+      const nextMute = !isMuted;
+      console.log('DEBUG: Muting microphone state:', nextMute);
+      
+      // Depending on the Twilio Voice SDK version, mute() takes a boolean
+      if (typeof activeCall.mute === 'function') {
+        activeCall.mute(nextMute);
+      }
+      
+      // Fallback: manually pause the browser's MediaStream tracks immediately
+      try {
+        const localStream = activeCall.getLocalStream ? activeCall.getLocalStream() : activeCall.mediaStream;
+        if (localStream && localStream.getAudioTracks) {
+          localStream.getAudioTracks().forEach(track => {
+            track.enabled = !nextMute;
+          });
+        }
+      } catch (err) {
+        console.warn('Fallback stream mute ignored:', err);
+      }
+
+      set({ isMuted: nextMute });
     }
   }
 }));

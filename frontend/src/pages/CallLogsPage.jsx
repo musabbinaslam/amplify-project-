@@ -1,58 +1,104 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Calendar, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader } from 'lucide-react';
+import { apiFetch } from '../services/apiClient';
 import classes from './CallLogsPage.module.css';
 
-const MOCK_CALLS = [
-  { id: 1, name: 'Martha Johnson', phone: '(305) 555-0142', type: 'inbound', status: 'completed', duration: '12:34', date: '2026-04-02 2:15 PM', script: 'Final Expense', disposition: 'Sold', score: 92 },
-  { id: 2, name: 'Robert Williams', phone: '(713) 555-0198', type: 'outbound', status: 'completed', duration: '8:47', date: '2026-04-02 1:30 PM', script: 'Medicare', disposition: 'Callback', score: 78 },
-  { id: 3, name: 'Linda Davis', phone: '(469) 555-0233', type: 'inbound', status: 'missed', duration: '0:00', date: '2026-04-02 12:45 PM', script: '—', disposition: 'No Answer', score: null },
-  { id: 4, name: 'James Brown', phone: '(832) 555-0177', type: 'outbound', status: 'completed', duration: '18:22', date: '2026-04-01 4:10 PM', script: 'Final Expense', disposition: 'Sold', score: 95 },
-  { id: 5, name: 'Patricia Garcia', phone: '(214) 555-0321', type: 'inbound', status: 'completed', duration: '6:15', date: '2026-04-01 3:00 PM', script: 'ACA', disposition: 'Not Interested', score: 65 },
-  { id: 6, name: 'Michael Martinez', phone: '(972) 555-0456', type: 'outbound', status: 'completed', duration: '22:08', date: '2026-04-01 1:45 PM', script: 'Final Expense', disposition: 'Sold', score: 88 },
-  { id: 7, name: 'Elizabeth Wilson', phone: '(281) 555-0589', type: 'inbound', status: 'missed', duration: '0:00', date: '2026-04-01 11:20 AM', script: '—', disposition: 'No Answer', score: null },
-  { id: 8, name: 'David Anderson', phone: '(817) 555-0612', type: 'outbound', status: 'completed', duration: '14:55', date: '2026-03-31 3:30 PM', script: 'Medicare', disposition: 'Callback', score: 72 },
-  { id: 9, name: 'Barbara Thomas', phone: '(210) 555-0744', type: 'inbound', status: 'completed', duration: '9:30', date: '2026-03-31 2:00 PM', script: 'Final Expense', disposition: 'Sold', score: 90 },
-  { id: 10, name: 'Richard Taylor', phone: '(512) 555-0877', type: 'outbound', status: 'completed', duration: '3:12', date: '2026-03-31 11:15 AM', script: 'ACA', disposition: 'Not Interested', score: 58 },
-  { id: 11, name: 'Susan Jackson', phone: '(903) 555-0933', type: 'inbound', status: 'completed', duration: '16:40', date: '2026-03-30 4:45 PM', script: 'Final Expense', disposition: 'Sold', score: 94 },
-  { id: 12, name: 'Charles White', phone: '(254) 555-1001', type: 'outbound', status: 'missed', duration: '0:00', date: '2026-03-30 2:30 PM', script: '—', disposition: 'No Answer', score: null },
-];
-
-const TYPE_CONFIG = {
-  inbound: { icon: PhoneIncoming, label: 'Inbound', cls: 'typeInbound' },
-  outbound: { icon: PhoneOutgoing, label: 'Outbound', cls: 'typeOutbound' },
-};
-
-const DISPOSITION_CLS = {
-  'Sold': 'dispSold',
-  'Callback': 'dispCallback',
-  'Not Interested': 'dispNotInterested',
-  'No Answer': 'dispNoAnswer',
-};
-
-const FILTER_OPTIONS = ['All', 'Inbound', 'Outbound', 'Missed'];
+const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
 
 const CallLogsPage = () => {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
+  const [callLogs, setCallLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch real call logs from backend
+  const fetchLogs = async (showLoader = false) => {
+    try {
+      if (showLoader) setLoading(true);
+      const data = await apiFetch('/api/voice/logs');
+      setCallLogs(data || []);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching call logs:', err);
+      setError('Failed to load call logs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLogs(true);
+    const interval = setInterval(() => fetchLogs(false), 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Determine call type for display (inbound vs outbound vs transfer)
+  const getCallType = (log) => {
+    if (log.type === 'Transfer') return 'outbound';
+    return 'inbound';
+  };
+
+  // Determine status for filtering
+  const getCallStatus = (log) => {
+    if (log.status === 'missed') return 'missed';
+    return 'completed';
+  };
+
+  // Determine disposition for display
+  const getDisposition = (log) => {
+    if (log.isBillable) return 'Sold';
+    if (log.status === 'missed') return 'Missed';
+    if (log.status === 'completed' && log.duration > 0) return 'Answered';
+    return 'No Answer';
+  };
+
+  // Format duration from seconds to mm:ss
+  const formatDuration = (seconds) => {
+    const secs = parseInt(seconds) || 0;
+    const mins = Math.floor(secs / 60);
+    const remainSecs = secs % 60;
+    return `${mins}:${remainSecs.toString().padStart(2, '0')}`;
+  };
+
+  // Format timestamp to readable date
+  const formatDate = (timestamp) => {
+    if (!timestamp) return '—';
+    const date = new Date(timestamp);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
 
   const filtered = useMemo(() => {
-    return MOCK_CALLS.filter((c) => {
+    return callLogs.filter((log) => {
       const q = search.toLowerCase();
-      const matchesSearch = !q || c.name.toLowerCase().includes(q) || c.phone.includes(q);
+      const matchesSearch =
+        !q ||
+        (log.from || '').toLowerCase().includes(q) ||
+        (log.campaignLabel || '').toLowerCase().includes(q) ||
+        (log.campaign || '').toLowerCase().includes(q);
+      const callType = getCallType(log);
+      const callStatus = getCallStatus(log);
       const matchesType =
         typeFilter === 'All' ||
-        (typeFilter === 'Missed' ? c.status === 'missed' : c.type === typeFilter.toLowerCase());
+        (typeFilter === 'Missed' ? callStatus === 'missed' : callType === typeFilter.toLowerCase());
       return matchesSearch && matchesType;
     });
-  }, [search, typeFilter]);
+  }, [search, typeFilter, callLogs]);
 
   const stats = useMemo(() => {
-    const total = MOCK_CALLS.length;
-    const completed = MOCK_CALLS.filter((c) => c.status === 'completed').length;
-    const missed = MOCK_CALLS.filter((c) => c.status === 'missed').length;
-    const sold = MOCK_CALLS.filter((c) => c.disposition === 'Sold').length;
+    const total = callLogs.length;
+    const completed = callLogs.filter((c) => c.status === 'completed').length;
+    const missed = callLogs.filter((c) => c.status === 'missed').length;
+    const sold = callLogs.filter((c) => c.isBillable).length;
     return { total, completed, missed, sold };
-  }, []);
+  }, [callLogs]);
 
   return (
     <div className={classes.callLogs}>
@@ -65,7 +111,7 @@ const CallLogsPage = () => {
           <Search size={16} />
           <input
             type="text"
-            placeholder="Search by name or phone..."
+            placeholder="Search by caller or campaign..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -119,62 +165,85 @@ const CallLogsPage = () => {
       </div>
 
       <div className={classes.tableWrap}>
-        <table className={classes.table}>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Phone</th>
-              <th>Type</th>
-              <th>Script</th>
-              <th>Duration</th>
-              <th>Disposition</th>
-              <th>Score</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((call) => {
-              const typeCfg = TYPE_CONFIG[call.type];
-              const TypeIcon = typeCfg.icon;
-              return (
-                <tr key={call.id} className={call.status === 'missed' ? classes.rowMissed : ''}>
-                  <td className={classes.nameCell}>{call.name}</td>
-                  <td className={classes.phoneCell}>{call.phone}</td>
-                  <td>
-                    <span className={`${classes.typeBadge} ${classes[typeCfg.cls]}`}>
-                      <TypeIcon size={13} />
-                      {typeCfg.label}
-                    </span>
-                  </td>
-                  <td>{call.script}</td>
-                  <td>
-                    <span className={classes.duration}>
-                      <Clock size={13} />
-                      {call.duration}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`${classes.dispBadge} ${classes[DISPOSITION_CLS[call.disposition]] || ''}`}>
-                      {call.disposition}
-                    </span>
-                  </td>
-                  <td>
-                    {call.score !== null ? (
-                      <span className={`${classes.score} ${call.score >= 80 ? classes.scoreGood : call.score >= 60 ? classes.scoreOk : classes.scoreLow}`}>
-                        {call.score}
-                      </span>
-                    ) : (
-                      <span className={classes.scoreDash}>—</span>
-                    )}
-                  </td>
-                  <td className={classes.dateCell}>{call.date}</td>
+        {loading ? (
+          <div className={classes.emptyState}>
+            <Loader size={20} className={classes.spinner} />
+            Loading call logs...
+          </div>
+        ) : error ? (
+          <div className={classes.emptyState}>{error}</div>
+        ) : (
+          <>
+            <table className={classes.table}>
+              <thead>
+                <tr>
+                  <th>Campaign</th>
+                  <th>Caller</th>
+                  <th>Type</th>
+                  <th>Duration</th>
+                  <th>Status</th>
+                  <th>Cost</th>
+                  <th>Date</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {filtered.length === 0 && (
-          <div className={classes.emptyState}>No calls match your search</div>
+              </thead>
+              <tbody>
+                {filtered.map((log) => {
+                  const callType = getCallType(log);
+                  const disposition = getDisposition(log);
+                  const isInbound = callType === 'inbound';
+                  const TypeIcon = isInbound ? PhoneIncoming : PhoneOutgoing;
+                  const typeCls = isInbound ? 'typeInbound' : 'typeOutbound';
+
+                  return (
+                    <tr key={log.id} className={log.status === 'missed' ? classes.rowMissed : ''}>
+                      <td>
+                        <span className={classes.campaignTag}>{log.campaignLabel || log.campaign || '—'}</span>
+                      </td>
+                      <td className={classes.phoneCell}>{log.from || '—'}</td>
+                      <td>
+                        <span className={`${classes.typeBadge} ${classes[typeCls]}`}>
+                          <TypeIcon size={13} />
+                          {isInbound ? 'Inbound' : 'Transfer'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={classes.duration}>
+                          <Clock size={13} />
+                          {formatDuration(log.duration)}
+                        </span>
+                      </td>
+                      <td>
+                        {log.isBillable ? (
+                          <span className={`${classes.dispBadge} ${classes.dispSold}`}>
+                            <DollarSign size={12} /> SALE (${log.cost})
+                          </span>
+                        ) : log.status === 'missed' ? (
+                          <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Missed</span>
+                        ) : (
+                          <span className={`${classes.dispBadge} ${classes.dispAnswered}`}>{disposition}</span>
+                        )}
+                      </td>
+                      <td>
+                        {log.cost > 0 ? (
+                          <span className={classes.costValue}>${log.cost}</span>
+                        ) : (
+                          <span className={classes.scoreDash}>—</span>
+                        )}
+                      </td>
+                      <td className={classes.dateCell}>{formatDate(log.timestamp)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {filtered.length === 0 && (
+              <div className={classes.emptyState}>
+                {callLogs.length === 0
+                  ? 'No call logs yet. Start taking calls to see your activity here.'
+                  : 'No calls match your search'}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -182,3 +251,4 @@ const CallLogsPage = () => {
 };
 
 export default CallLogsPage;
+

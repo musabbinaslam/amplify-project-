@@ -6,7 +6,7 @@ import {
   Play, Phone, LayoutDashboard, List, FileText,
   DollarSign, MapPin, Box, User, HeadphonesIcon,
   MessageSquare, Gift, Settings, LogOut,
-  ChevronLeft, ChevronRight, CheckCircle2
+  ChevronLeft, ChevronRight, CheckCircle2, Shield,
 } from 'lucide-react';
 import classes from './Sidebar.module.css';
 
@@ -30,7 +30,20 @@ const navItems = [
 const Sidebar = () => {
   const { isSidebarCollapsed, toggleSidebar } = useUIStore();
   const logout = useAuthStore((s) => s.logout);
+  const role = useAuthStore((s) => s.user?.role);
   const navigate = useNavigate();
+
+  const items = React.useMemo(() => {
+    const base = [...navItems];
+    if (role === 'admin') {
+      base.splice(base.length - 1, 0, {
+        path: '/app/admin',
+        label: 'Admin',
+        icon: Shield,
+      });
+    }
+    return base;
+  }, [role]);
 
   const handleLogout = async () => {
     await logout();
@@ -53,18 +66,20 @@ const Sidebar = () => {
         </button>
       </div>
 
-      <nav className={classes.nav}>
-        {navItems.map((item) => (
+      <nav className={`${classes.nav} ${isSidebarCollapsed ? classes.navCollapsed : ''}`}>
+        {items.map((item) => (
            <NavLink
              key={item.path}
              to={item.disabled ? '#' : item.path}
              end={item.end || false}
              className={({ isActive }) =>
-               `${classes.navItem} ${isActive && !item.disabled ? classes.active : ''} ${item.disabled ? classes.disabled : ''}`
+               `${classes.navItem} ${isSidebarCollapsed ? classes.navItemCollapsed : ''} ${isActive && !item.disabled ? classes.active : ''} ${item.disabled ? classes.disabled : ''}`
              }
              onClick={(e) => item.disabled && e.preventDefault()}
            >
-             <item.icon size={20} className={classes.icon} />
+             <span className={`${classes.iconWrap} ${isSidebarCollapsed ? classes.iconWrapCollapsed : ''}`}>
+               <item.icon size={20} className={classes.icon} />
+             </span>
              {!isSidebarCollapsed && (
                <>
                  <span className={classes.label}>{item.label}</span>
@@ -80,8 +95,10 @@ const Sidebar = () => {
       </nav>
 
       <div className={classes.footer}>
-        <button className={classes.logoutBtn} onClick={handleLogout}>
-          <LogOut size={20} className={classes.icon} />
+        <button className={`${classes.logoutBtn} ${isSidebarCollapsed ? classes.logoutBtnCollapsed : ''}`} onClick={handleLogout}>
+          <span className={`${classes.iconWrap} ${isSidebarCollapsed ? classes.iconWrapCollapsed : ''}`}>
+            <LogOut size={20} className={classes.icon} />
+          </span>
           {!isSidebarCollapsed && <span className={classes.label}>Logout</span>}
         </button>
       </div>

@@ -3,7 +3,9 @@ const { VoiceGrant, TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRE
 const { VoiceResponse } = twilio.twiml;
 const agentManager = require('../services/agentManager');
 const callLogService = require('../services/callLogService');
+const phoneRouteService = require('../services/phoneRouteService');
 const { redisClient } = require('../config/redis');
+const { generateQaInsight } = require('../services/qaInsightService');
 
 exports.generateToken = (req, res) => {
   const { identity } = req.body;
@@ -40,7 +42,17 @@ exports.handleIncomingCall = async (req, res) => {
   const callerState = (req.body && req.body.FromState) || null; // e.g. "TX"
   const queryCampaign = req.query && req.query.campaign;
   const bodyCampaign = req.body && req.body.campaign;
-  const campaign = queryCampaign || bodyCampaign || 'fe_transfers';
+  let campaign = queryCampaign || bodyCampaign;
+  const toNumber = req.body && req.body.To;
+  if (!campaign && toNumber) {
+    try {
+      const mapped = await phoneRouteService.getCampaignByToNumber(toNumber);
+      if (mapped) campaign = mapped;
+    } catch (e) {
+      console.warn('[Twilio Webhook] phone route lookup failed:', e.message);
+    }
+  }
+  if (!campaign) campaign = 'fe_transfers';
 
   console.log(`[Twilio Webhook] 🔔 Incoming call from: ${fromNumber} | State: ${callerState || 'Unknown'}`);
   console.log(`[Twilio Webhook] 🎯 Target Campaign: ${campaign}`);
@@ -100,11 +112,11 @@ exports.handleIncomingCall = async (req, res) => {
  */
 exports.handleCallCompleted = async (req, res) => {
     const { campaign, agentId } = req.query;
-    const { From, To, DialCallDuration, DialCallStatus, CallSid } = req.body;
+    const { From, To, DialCallDuration, DialCallStatus, CallSid, FromState } = req.body;
 
     console.log(`[Twilio] Call Completed: ${CallSid}. Duration: ${DialCallDuration}s. Status: ${DialCallStatus}`);
 
-    await callLogService.logCall({
+    const savedLog = await callLogService.logCall({
         from: From,
         to: To,
         duration: DialCallDuration,
@@ -114,6 +126,21 @@ exports.handleCallCompleted = async (req, res) => {
         callSid: CallSid
     });
 
+    // Non-blocking QA insight generation (never block Twilio webhook response)
+    if (agentId && savedLog?.id) {
+        Promise.resolve()
+            .then(async () => {
+                const qaInsight = await generateQaInsight({
+                    ...savedLog,
+                    state: FromState || null,
+                });
+                await callLogService.attachQaInsight(agentId, savedLog.id, qaInsight);
+            })
+            .catch((err) => {
+                console.error('[QA] async insight generation failed:', err.message);
+            });
+    }
+
     const twiml = new VoiceResponse();
     twiml.hangup();
     res.set('Content-Type', 'text/xml');
@@ -121,8 +148,15 @@ exports.handleCallCompleted = async (req, res) => {
 };
 
 /**
- * Get call history logs
+ * Get call history logs for the authenticated user
  */
 exports.getLogs = async (req, res) => {
-    res.json(callLogService.getLogs());
+    try {
+        const limit = Math.min(Number(req.query.limit || 100), 500);
+        const logs = await callLogService.getLogsByUser(req.user.uid, limit);
+        res.json(logs);
+    } catch (err) {
+        console.error('[Voice] getLogs error:', err.message);
+        res.status(500).json({ error: 'Failed to load call logs' });
+    }
 };

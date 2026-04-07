@@ -4,6 +4,7 @@ import { Wallet, Globe, Moon, Sun, Settings2 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
 import classes from './Topbar.module.css';
+import useDialerStore from '../../store/useDialerStore';
 
 const Topbar = () => {
   const location = useLocation();
@@ -11,6 +12,9 @@ const Topbar = () => {
   const user = useAuthStore((s) => s.user);
   const { theme, toggleTheme } = useUIStore();
   const [balanceCents, setBalanceCents] = useState(null);
+  const { callState } = useDialerStore();
+  
+  const isOnline = callState !== 'offline' && callState !== 'error';
   
   useEffect(() => {
     const fetchBalance = async () => {
@@ -64,9 +68,9 @@ const Topbar = () => {
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
         
-        <div className={classes.statusBadge}>
+        <div className={`${classes.statusBadge} ${isOnline ? classes.statusOnline : ''}`}>
           <span className={classes.statusDot}></span>
-          Offline
+          {isOnline ? 'Online' : 'Offline'}
         </div>
       </div>
     </header>

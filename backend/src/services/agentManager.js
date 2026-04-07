@@ -144,6 +144,58 @@ class AgentManager {
       ]);
       return { available, ringing, busy };
    }
+
+   /**
+    * Collect unique agent ids across pool sets and return full agent hashes + counts by campaign.
+    */
+   async getOverview() {
+      const pool = await this.getPoolSnapshot();
+      const idSet = new Set([
+         ...pool.available,
+         ...pool.ringing,
+         ...pool.busy,
+      ]);
+      const agents = [];
+      const byCampaign = {};
+
+      for (const id of idSet) {
+         const raw = await redisClient.hGetAll(`agent:${id}`);
+         if (!raw || Object.keys(raw).length === 0) continue;
+
+         let licensedStates = [];
+         try {
+            licensedStates = JSON.parse(raw.licensedStates || '[]');
+            if (!Array.isArray(licensedStates)) licensedStates = [];
+         } catch {
+            licensedStates = [];
+         }
+
+         const campaignId = raw.campaignId || 'unknown';
+         const row = {
+            id,
+            agentId: raw.agentId || id,
+            campaignId,
+            status: raw.status || 'UNKNOWN',
+            licensedStates,
+            pool: pool.available.includes(id)
+               ? 'available'
+               : pool.ringing.includes(id)
+                  ? 'ringing'
+                  : pool.busy.includes(id)
+                     ? 'busy'
+                     : 'unknown',
+         };
+         agents.push(row);
+         byCampaign[campaignId] = (byCampaign[campaignId] || 0) + 1;
+      }
+
+      return {
+         pool,
+         totalAgents: agents.length,
+         agents,
+         byCampaign,
+      };
+   }
 }
 
 module.exports = new AgentManager();

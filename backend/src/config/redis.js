@@ -20,6 +20,17 @@ const clientMock = {
         return 1;
     },
     
+    get: async (key) => {
+        return storage.has(key) ? storage.get(key) : null;
+    },
+
+    setEx: async (key, seconds, value) => {
+        storage.set(key, value);
+        // Simple mock: we just delete it after X seconds for testing
+        setTimeout(() => storage.delete(key), seconds * 1000);
+        return 'OK';
+    },
+
     hGetAll: async (key) => {
         return storage.get(key) || null;
     },

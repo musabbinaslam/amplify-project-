@@ -104,14 +104,17 @@ const BillingPage = () => {
       {errorMsg && <div className={classes.errorBanner}><AlertCircle size={16}/> {errorMsg}</div>}
       {successMsg && <div className={classes.successBanner}><CheckCircle2 size={16}/> {successMsg}</div>}
 
-      <div className={classes.sectionBox}>
-        <div className={classes.sectionHeader}>
-          <h3><DollarSign size={20} className={classes.blueIcon} /> Account Balance</h3>
-          <p>Your current credit balance for taking calls</p>
+      <section className={classes.sectionBox}>
+        <div className={classes.sectionTop}>
+          <div className={classes.sectionHeader}>
+            <h3><DollarSign size={20} className={classes.blueIcon} /> Account Balance</h3>
+            <p>Your current credit balance for taking calls</p>
+          </div>
+          <button className={classes.addCreditsBtn} onClick={() => setShowTopupModal(true)}>+ Add Credits</button>
         </div>
-        
+
         <div className={classes.balanceRow}>
-          <div>
+          <div className={classes.balanceMeta}>
             <div className={classes.balanceAmount}>{formatMoney(balance)}</div>
             {balance < 5000 && (
               <div className={classes.lowBalanceWarning}>
@@ -119,22 +122,24 @@ const BillingPage = () => {
               </div>
             )}
           </div>
-          <button className={classes.addCreditsBtn} onClick={() => setShowTopupModal(true)}>+ Add Credits</button>
+          <div className={classes.balanceSubtleStat}>
+            <span>Current Mode</span>
+            <b>{plan === 'paygo' ? 'Pay-as-you-go' : plan === 'silver' ? 'Silver' : 'Gold'}</b>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div className={classes.sectionBox}>
-        <div className={classes.transHeader}>
+      <section className={classes.sectionBox}>
+        <div className={classes.sectionTop}>
           <div>
             <h3><Clock size={20} /> Transaction History</h3>
             <p>Credit additions, call deductions, and balance changes</p>
           </div>
           <button className={classes.refreshBtn} onClick={fetchWallet}><RefreshCw size={14} className={loading ? classes.spinner : ''} /> Refresh</button>
         </div>
-        
         {transactions.length === 0 ? (
           <div className={classes.emptyStateBox}>
-            <Clock size={48} className={classes.emptyIcon} />
+            <Clock size={34} className={classes.emptyIcon} />
             <p>No transactions yet</p>
             <span>Your credit history will appear here</span>
           </div>
@@ -164,9 +169,9 @@ const BillingPage = () => {
             </table>
           </div>
         )}
-      </div>
+      </section>
 
-      <div className={classes.sectionBox}>
+      <section className={classes.sectionBox}>
          <div className={classes.sectionHeader}>
             <h3><Award size={20} className={classes.goldIcon} /> Subscription Plans</h3>
             <p>Subscribe for weekly credits and lower call rates</p>
@@ -174,7 +179,7 @@ const BillingPage = () => {
 
          <div className={classes.currentPlan}>
             <div className={classes.planBadge}></div>
-            <div className={classes.currentPlanText}>
+            <div className={classes.currentPlanMeta}>
               <b>Current Plan: {plan === 'silver' ? 'Silver' : plan === 'gold' ? 'Gold' : 'Pay-as-you-go'}</b>
               <span>{plan === 'paygo' ? '$55 per call • No commitment' : plan === 'silver' ? '$500/week • $50/call' : '$1000/week • $45/call'}</span>
             </div>
@@ -203,7 +208,7 @@ const BillingPage = () => {
                </div>
             </div>
 
-            <div className={`${classes.planCard} ${plan === 'gold' ? classes.activePlanCard : ''}`}>
+            <div className={`${classes.planCard} ${classes.bestValue} ${plan === 'gold' ? classes.activePlanCard : ''}`}>
                <div className={classes.planTitleRow}>
                   <div className={classes.planNameGroup}>
                      <Award size={24} className={classes.goldIcon} />
@@ -222,7 +227,7 @@ const BillingPage = () => {
                </div>
             </div>
          </div>
-      </div>
+      </section>
 
       {showTopupModal && (
         <div className={classes.modalOverlay} onClick={() => setShowTopupModal(false)}>
