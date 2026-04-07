@@ -103,6 +103,19 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
+  background-color: var(--text-secondary);
+  opacity: 0.5;
+  transition: all 0.3s ease;
+}
+
+.statusOnline {
+  background: var(--accent-green-dim) !important;
+  color: var(--accent-green) !important;
+}
+
+.statusOnline .statusDot {
   background-color: var(--accent-green);
   box-shadow: 0 0 8px var(--accent-green-glow);
+  opacity: 1;
 }
+

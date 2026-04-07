@@ -244,3 +244,29 @@
   color: var(--text-primary);
   background: var(--accent-red);
 }
+
+.idleBadgeCollapsed {
+  width: 44px;
+  height: 44px;
+  padding: 0 !important;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--surface-container-high) !important;
+  border: 1px solid var(--border-bright) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.idleBadgeCollapsed:hover {
+  transform: scale(1.1);
+  background: var(--surface-container-highest) !important;
+  border-color: var(--accent-green);
+}
+
+.idleBadgeCollapsed .statusDot {
+  margin: 0 !important;
+  width: 10px;
+  height: 10px;
+}
+
