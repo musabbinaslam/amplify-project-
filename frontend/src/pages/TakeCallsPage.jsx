@@ -4,12 +4,12 @@ import {
   ChevronLeft, PhoneOff, Activity, ShieldCheck, Users,
   PhoneIncoming, DollarSign, Clock, Phone, CheckCircle2, MapPin
 } from 'lucide-react';
-import axios from 'axios';
 import classes from './TakeCallsPage.module.css';
 import { initializeTwilioDevice } from '../services/twilioService';
 import useDialerStore from '../store/useDialerStore';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import useAuthStore from '../store/authStore';
+import { apiFetch } from '../services/apiClient';
+import { stripeService } from '../services/stripeService';
 
 // All 50 US States
 const US_STATES = [
@@ -317,7 +317,8 @@ const StepThree = ({ onNext, onBack }) => {
 };
 
 // ─── Step 4: Review Rules & Go Live ─────────────────────────────────────────
-const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates }) => {
+const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, walletBalance }) => {
+  const hasBalance = walletBalance > 0;
   const campaignLabels = {
     fe_transfers: 'FE Transfers ($35 / 120s)',
     fe_inbounds: 'FE Inbounds ($25 / 30s)',
@@ -359,13 +360,28 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates }) 
           <AlertCircle size={18} />
           <p>You will ONLY receive calls from your {licensedStates.length} selected states. If you're missing a state, go back and add it.</p>
         </div>
+        {!hasBalance && (
+          <div style={{marginTop: '16px', background: 'rgba(255, 77, 79, 0.1)', border: '1px solid #ff4d4f', color: '#ff4d4f', padding: '16px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px', fontWeight: '600'}}>
+            <AlertCircle size={24} />
+            <div style={{flex: 1}}>
+               <p style={{margin: 0, padding: 0}}>Insufficient Credits</p>
+               <span style={{fontSize: '13px', fontWeight: '500'}}>Your wallet balance is empty or negative. You must add credits before you can go live.</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className={classes.stickyActionBar}>
         <button className={classes.ghostBtn} onClick={onBack} disabled={isConnecting}>Back</button>
-        <button className={classes.primaryBtn} onClick={onGoLive} disabled={isConnecting}>
-          {isConnecting ? 'Connecting...' : 'I Agree, Go Live'}
-        </button>
+        {hasBalance ? (
+          <button className={classes.primaryBtn} onClick={onGoLive} disabled={isConnecting}>
+            {isConnecting ? 'Connecting...' : 'I Agree, Go Live'}
+          </button>
+        ) : (
+          <button className={classes.primaryBtn} onClick={() => window.location.href = '/app/billing'} style={{background: '#ff4d4f', color: '#fff', boxShadow: 'none'}}>
+            Go Admin Top Up
+          </button>
+        )}
       </div>
     </div>
   );
@@ -414,29 +430,38 @@ const TakeCallsPage = () => {
   const [wizardStates, setWizardStates] = useState([]);
   const [isConnecting, setIsConnecting] = useState(false);
   const [history, setHistory] = useState([]);
+  const [walletBalance, setWalletBalance] = useState(0);
 
   const titles = ['Microphone Test', 'Select Campaign', 'Licensed States', 'Review & Go Live'];
 
-  const fetchLogs = async () => {
+  const fetchData = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/voice/logs`);
-      setHistory(res.data);
+      const logsData = await apiFetch('/api/voice/logs');
+      setHistory(logsData || []);
+      
+      const walletData = await stripeService.getWallet();
+      if (walletData) setWalletBalance(walletData.balance);
     } catch (err) {
-      console.error('Error fetching logs:', err);
+      console.error('Error fetching data:', err);
     }
   };
 
   useEffect(() => {
-    fetchLogs();
-    const interval = setInterval(fetchLogs, 10000);
+    fetchData();
+    const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, []);
 
   const handleGoLive = async () => {
+    if (walletBalance <= 0) {
+      alert("Insufficient credits. Please top up your wallet.");
+      return;
+    }
     try {
       setIsConnecting(true);
-      const mockAgentId = `agent_${Math.floor(Math.random() * 10000)}`;
-      await initializeTwilioDevice(mockAgentId, campaign, wizardStates);
+      const { user } = useAuthStore.getState();
+      const agentId = user?.uid || `agent_${Math.floor(Math.random() * 10000)}`;
+      await initializeTwilioDevice(agentId, campaign, wizardStates);
     } catch (err) {
       console.error('Failed to go live:', err);
       const errorText = err.response ? err.response.data : err.message;
@@ -450,10 +475,8 @@ const TakeCallsPage = () => {
   if (callState !== 'offline' && callState !== 'error') {
     const isRinging = callState === 'ringing';
     
-    // Dynamic Budget Calculation
-    const STARTING_BUDGET = 500.00;
-    const totalSpent = history.reduce((sum, log) => sum + (log.cost || 0), 0);
-    const remainingBudget = Math.max(0, STARTING_BUDGET - totalSpent);
+    // Live Wallet Budget Calculation
+    const remainingBudget = walletBalance / 100;
 
     return (
       <div className={classes.page}>
@@ -562,7 +585,7 @@ const TakeCallsPage = () => {
           {step === 1 && <StepOne onNext={() => setStep(2)} />}
           {step === 2 && <StepTwo onNext={(sel) => { setCampaign(sel); setStep(3); }} onBack={() => setStep(1)} />}
           {step === 3 && <StepThree onNext={(states) => { setWizardStates(states); setStep(4); }} onBack={() => setStep(2)} />}
-          {step === 4 && <StepFour onBack={() => setStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} />}
+          {step === 4 && <StepFour onBack={() => setStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} />}
         </div>
       </div>
     </div>

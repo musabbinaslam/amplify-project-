@@ -27,9 +27,23 @@ class CallLogService {
         const config = CAMPAIGN_CONFIG[campaignId] || { buffer: 0, price: 0 };
         const durationSec = parseInt(duration) || 0;
         
+        const walletService = require('./walletService');
+
         // AUTOMATED BILLING LOGIC
         const isBillable = durationSec >= config.buffer && status === 'completed';
         const cost = isBillable ? config.price : 0;
+
+        // Auto-deduct credits from wallet
+        if (isBillable && cost > 0 && agentId) {
+            try {
+                await walletService.deductCredits(agentId, cost * 100, {
+                   callSid, campaignId, campaignLabel: config.label || campaignId
+                });
+            } catch (err) {
+                console.error("[Billing] Failed to deduct credits:", err.message);
+                // Call will still be logged
+            }
+        }
 
         const newLog = {
             id: Date.now().toString(),
