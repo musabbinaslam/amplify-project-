@@ -13,10 +13,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import {
-  getAdminOverview,
-  getAdminCallStats,
-  getAdminCampaignCallStats,
-  getAdminAgentCallStats,
+  getAdminOverviewLite,
+  getAdminAnalyticsBundle,
   getAdminLiveCalls,
   listAdminDids,
   createAdminDid,
@@ -56,16 +54,14 @@ const AdminDashboardPage = () => {
   }, [rangePreset]);
 
   const loadShell = useCallback(async () => {
-    // Fast path: overview + dids + live calls
+    // Fast path: overview + live calls
     setLoading(true);
     try {
-      const [ov, didList, live] = await Promise.all([
-        getAdminOverview(),
-        listAdminDids(),
+      const [ov, live] = await Promise.all([
+        getAdminOverviewLite(),
         getAdminLiveCalls(),
       ]);
       setOverview(ov);
-      setDids(didList.dids || []);
       setLiveCalls(live.rows || []);
     } catch (e) {
       toast.error(e.message || 'Failed to load admin data');
@@ -78,14 +74,15 @@ const AdminDashboardPage = () => {
     setAnalyticsLoading(true);
     try {
       const range = getRange();
-      const [stats, campaigns, agents] = await Promise.all([
-        getAdminCallStats(range),
-        getAdminCampaignCallStats(range),
-        getAdminAgentCallStats(range),
-      ]);
-      setCallStats(stats);
-      setCampaignStats(campaigns.rows || []);
-      setAgentStats(agents.rows || []);
+      const bundle = await getAdminAnalyticsBundle(range);
+      setCallStats({
+        from: bundle.from,
+        to: bundle.to,
+        summary: bundle.summary,
+        byDay: bundle.byDay,
+      });
+      setCampaignStats(bundle.campaigns || []);
+      setAgentStats(bundle.agents || []);
     } catch (e) {
       toast.error(e.message || 'Failed to load analytics');
     } finally {
@@ -99,7 +96,11 @@ const AdminDashboardPage = () => {
 
   useEffect(() => {
     // Initial load: shell then analytics
-    loadShell().then(() => loadAnalytics());
+    Promise.all([
+      loadShell(),
+      loadAnalytics(),
+      listAdminDids().then((didList) => setDids(didList.dids || [])),
+    ]);
     // Poll only lightweight live data every 15s
     const interval = setInterval(() => {
       loadShell();
@@ -130,7 +131,8 @@ const AdminDashboardPage = () => {
       });
       toast.success('Route created');
       setDidForm({ phoneE164: '', campaignId: '', label: '', active: true });
-      loadShell();
+      const didList = await listAdminDids();
+      setDids(didList.dids || []);
     } catch (err) {
       toast.error(err.message || 'Failed to create');
     }
@@ -140,7 +142,8 @@ const AdminDashboardPage = () => {
     try {
       await patchAdminDid(row.id, { active: !row.active });
       toast.success('Updated');
-      loadShell();
+      const didList = await listAdminDids();
+      setDids(didList.dids || []);
     } catch (err) {
       toast.error(err.message || 'Failed to update');
     }
@@ -151,7 +154,8 @@ const AdminDashboardPage = () => {
     try {
       await deleteAdminDid(row.id);
       toast.success('Removed');
-      loadShell();
+      const didList = await listAdminDids();
+      setDids(didList.dids || []);
     } catch (err) {
       toast.error(err.message || 'Failed to delete');
     }
@@ -165,7 +169,39 @@ const AdminDashboardPage = () => {
   if (loading && !overview) {
     return (
       <div className={classes.page}>
-        <p className={classes.muted}>Loading admin dashboard…</p>
+        <div className={classes.loadingHeader}>
+          <span className={classes.loadingIcon} />
+          <div>
+            <span className={classes.loadingTitle} />
+            <span className={classes.loadingSubtitle} />
+          </div>
+        </div>
+
+        <section className={classes.card}>
+          <div className={classes.grid}>
+            <div className={classes.statCard}><span className={classes.skeletonNumWide} /></div>
+            <div className={classes.statCard}><span className={classes.skeletonNumWide} /></div>
+            <div className={classes.statCard}><span className={classes.skeletonNumWide} /></div>
+            <div className={classes.statCard}><span className={classes.skeletonNumWide} /></div>
+          </div>
+        </section>
+
+        <section className={classes.card}>
+          <div className={classes.skeletonList}>
+            <div className={classes.skeletonRow} />
+            <div className={classes.skeletonRow} />
+            <div className={classes.skeletonRow} />
+          </div>
+        </section>
+
+        <section className={classes.card}>
+          <div className={classes.skeletonList}>
+            <div className={classes.skeletonRow} />
+            <div className={classes.skeletonRow} />
+            <div className={classes.skeletonRow} />
+            <div className={classes.skeletonRow} />
+          </div>
+        </section>
       </div>
     );
   }
