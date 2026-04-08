@@ -21,8 +21,19 @@ function parseServiceAccountFromFields() {
   const privateKeyRaw = process.env.FIREBASE_PRIVATE_KEY;
   if (!projectId || !clientEmail || !privateKeyRaw) return null;
 
-  // Hosting panels usually store \n as text; convert to real newlines.
-  const privateKey = privateKeyRaw.replace(/\\n/g, '\n');
+  // Hosting panels may:
+  // - keep literal "\n" sequences
+  // - store actual newlines
+  // - wrap value in surrounding quotes
+  let privateKey = privateKeyRaw.trim();
+  if (
+    (privateKey.startsWith('"') && privateKey.endsWith('"')) ||
+    (privateKey.startsWith("'") && privateKey.endsWith("'"))
+  ) {
+    privateKey = privateKey.slice(1, -1);
+  }
+  privateKey = privateKey.replace(/\\n/g, '\n');
+
   return {
     project_id: projectId,
     client_email: clientEmail,
