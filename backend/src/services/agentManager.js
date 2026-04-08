@@ -50,6 +50,7 @@ class AgentManager {
    async findAndLockAvailableAgent(campaignId, callerState = null) {
       // 1. Fetch all available agent IDs
       const availableIds = await redisClient.sMembers('agents:available');
+      console.log(`[Router] 🔍 Checking available agents in Redis. Found: ${availableIds.length} agents (${availableIds.join(', ')})`);
       if (availableIds.length === 0) return null;
 
       // 2. Fetch full data for each available agent
