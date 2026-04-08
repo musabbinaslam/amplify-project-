@@ -15,9 +15,26 @@ function parseServiceAccountFromEnv() {
   }
 }
 
+function parseServiceAccountFromFields() {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKeyRaw = process.env.FIREBASE_PRIVATE_KEY;
+  if (!projectId || !clientEmail || !privateKeyRaw) return null;
+
+  // Hosting panels usually store \n as text; convert to real newlines.
+  const privateKey = privateKeyRaw.replace(/\\n/g, '\n');
+  return {
+    project_id: projectId,
+    client_email: clientEmail,
+    private_key: privateKey,
+  };
+}
+
 function loadServiceAccount() {
   const fromEnv = parseServiceAccountFromEnv();
   if (fromEnv) return fromEnv;
+  const fromFields = parseServiceAccountFromFields();
+  if (fromFields) return fromFields;
   if (fs.existsSync(serviceAccountPath)) return require(serviceAccountPath);
   return null;
 }
