@@ -18,21 +18,32 @@ function parseServiceAccountFromEnv() {
 function parseServiceAccountFromFields() {
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKeyB64 = process.env.FIREBASE_PRIVATE_KEY_BASE64;
   const privateKeyRaw = process.env.FIREBASE_PRIVATE_KEY;
-  if (!projectId || !clientEmail || !privateKeyRaw) return null;
+  if (!projectId || !clientEmail || (!privateKeyRaw && !privateKeyB64)) return null;
 
   // Hosting panels may:
   // - keep literal "\n" sequences
   // - store actual newlines
   // - wrap value in surrounding quotes
-  let privateKey = privateKeyRaw.trim();
-  if (
-    (privateKey.startsWith('"') && privateKey.endsWith('"')) ||
-    (privateKey.startsWith("'") && privateKey.endsWith("'"))
-  ) {
-    privateKey = privateKey.slice(1, -1);
+  let privateKey = '';
+  if (privateKeyB64) {
+    try {
+      privateKey = Buffer.from(privateKeyB64, 'base64').toString('utf8').trim();
+    } catch (err) {
+      console.error('[Firebase Admin] Invalid FIREBASE_PRIVATE_KEY_BASE64:', err.message);
+      return null;
+    }
+  } else {
+    privateKey = privateKeyRaw.trim();
+    if (
+      (privateKey.startsWith('"') && privateKey.endsWith('"')) ||
+      (privateKey.startsWith("'") && privateKey.endsWith("'"))
+    ) {
+      privateKey = privateKey.slice(1, -1);
+    }
+    privateKey = privateKey.replace(/\\n/g, '\n');
   }
-  privateKey = privateKey.replace(/\\n/g, '\n');
 
   return {
     project_id: projectId,
