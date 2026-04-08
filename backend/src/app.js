@@ -3,6 +3,7 @@ const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
 require('dotenv').config();
+const agentManager = require('./services/agentManager');
 
 const app = express();
 const server = http.createServer(app);
@@ -21,15 +22,33 @@ app.use(express.json());
 
 // Socket.IO
 io.on('connection', (socket) => {
-  console.log(`Agent connected: ${socket.id}`);
+  console.log(`[Socket] 🔗 Connection: ${socket.id}`);
 
-  socket.on('agent:go_live', (data) => {
-    console.log(`Agent went live:`, data);
-    // Broadcast status update
+  socket.on('agent:go_live', async (data) => {
+    const { agentId } = data;
+    if (!agentId) return;
+
+    // Attach agentId to the socket for cleanup on disconnect
+    socket.agentId = agentId;
+    
+    await agentManager.registerAgent(agentId, data);
+    console.log(`[Socket] 🟢 Agent Go Live: ${agentId} (${socket.id})`);
   });
 
-  socket.on('disconnect', () => {
-    console.log(`Agent disconnected: ${socket.id}`);
+  socket.on('agent:release', async () => {
+    if (socket.agentId) {
+      await agentManager.releaseAgent(socket.agentId);
+      console.log(`[Socket] 🟡 Agent Released: ${socket.agentId}`);
+    }
+  });
+
+  socket.on('disconnect', async () => {
+    if (socket.agentId) {
+      await agentManager.removeAgent(socket.agentId);
+      console.log(`[Socket] 🔴 Agent Offline: ${socket.agentId} (Disconnected)`);
+    } else {
+      console.log(`[Socket] ⚪ Anonymous Disconnected: ${socket.id}`);
+    }
   });
 });
 
