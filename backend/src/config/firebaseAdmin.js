@@ -4,13 +4,32 @@ const fs = require('fs');
 
 const serviceAccountPath = path.resolve(__dirname, '../../firebase-service-account.json');
 
-if (!fs.existsSync(serviceAccountPath)) {
+function parseServiceAccountFromEnv() {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('[Firebase Admin] Invalid FIREBASE_SERVICE_ACCOUNT_JSON:', err.message);
+    return null;
+  }
+}
+
+function loadServiceAccount() {
+  const fromEnv = parseServiceAccountFromEnv();
+  if (fromEnv) return fromEnv;
+  if (fs.existsSync(serviceAccountPath)) return require(serviceAccountPath);
+  return null;
+}
+
+const serviceAccount = loadServiceAccount();
+
+if (!serviceAccount) {
   console.warn(
-    '[Firebase Admin] firebase-service-account.json not found. Auth middleware will reject all requests.'
+    '[Firebase Admin] Missing service account. Set FIREBASE_SERVICE_ACCOUNT_JSON or add backend/firebase-service-account.json.'
   );
   module.exports = null;
 } else {
-  const serviceAccount = require(serviceAccountPath);
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
   });
