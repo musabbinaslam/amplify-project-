@@ -100,3 +100,11 @@ const startEngine = async () => {
 startEngine().catch(err => {
     console.error('Fatal failure booting engine:', err);
 });
+
+// Prevent Redis ECONNRESET or any other unhandled error from crashing the server
+process.on('uncaughtException', (err) => {
+    console.error('[Process] Uncaught Exception (server kept alive):', err.message);
+});
+process.on('unhandledRejection', (reason) => {
+    console.error('[Process] Unhandled Rejection (server kept alive):', reason);
+});

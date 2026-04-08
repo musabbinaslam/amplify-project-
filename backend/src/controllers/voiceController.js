@@ -76,7 +76,6 @@ exports.handleIncomingCall = async (req, res) => {
      }
 
      if (available) {
-        twiml.say('Connecting you to an agent.');
         const dial = twiml.dial({
           action: `/api/voice/call-completed?campaign=${campaign}&agentId=${available.id}`,
           method: 'POST',
