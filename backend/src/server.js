@@ -42,7 +42,7 @@ const io = new Server(server, {
 });
 
 const startEngine = async () => {
-    console.log('Starting AgentCalls System...');
+    console.log('Starting CallsFlow System...');
     await connectRedis();
 
     // Init Socket events

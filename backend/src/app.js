@@ -35,7 +35,7 @@ io.on('connection', (socket) => {
 
 // Basic Route
 app.get('/', (req, res) => {
-  res.json({ message: 'AgentCalls API is running' });
+  res.json({ message: 'CallsFlow API is running' });
 });
 
 // Mount API Routes

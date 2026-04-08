@@ -508,7 +508,7 @@ const TakeCallsPage = () => {
             <p>
               {callState === 'active'
                 ? 'Stay focused on the prospect. Follow your script.'
-                : 'You are connected to the AgentCalls engine. Stand by for inbound calls.'}
+                : 'You are connected to the CallsFlow engine. Stand by for inbound calls.'}
             </p>
 
             <div className={classes.actionButtons}>

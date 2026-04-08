@@ -1,10 +1,10 @@
-const { AGENTCALLS_KNOWLEDGE } = require('../support/knowledgeBase');
+const { CALLSFLOW_KNOWLEDGE } = require('../support/knowledgeBase');
 
 const MOCK_RESPONSES = [
   {
     keywords: ['billing', 'charge', 'payment', 'invoice', 'cost', 'price', 'plan', 'subscription'],
     response:
-      'For billing questions, you can view your current plan and invoices in the **Billing** tab. If you need to update your payment method or have a charge dispute, please email billing@agentcalls.io and we\'ll get back to you within 24 hours.',
+      'For billing questions, you can view your current plan and invoices in the **Billing** tab. If you need to update your payment method or have a charge dispute, please email billing@callsflow.io and we\'ll get back to you within 24 hours.',
   },
   {
     keywords: ['call', 'phone', 'dial', 'inbound', 'outbound', 'ring', 'voip'],
@@ -44,23 +44,23 @@ const MOCK_RESPONSES = [
 ];
 
 const FALLBACK =
-  "I'm not sure I have the answer to that right now. Could you try rephrasing your question? For complex issues, you can also reach our team at support@agentcalls.io.";
+  "I'm not sure I have the answer to that right now. Could you try rephrasing your question? For complex issues, you can also reach our team at support@callsflow.io.";
 
 const MAX_HISTORY_MESSAGES = 24;
 
-const SYSTEM_INSTRUCTION = `You are the AgentCalls in-app support assistant. You help licensed insurance agents use the AgentCalls web portal only.
+const SYSTEM_INSTRUCTION = `You are the CallsFlow in-app support assistant. You help licensed insurance agents use the CallsFlow web portal only.
 
-Use the knowledge below for factual details. If something is not in the knowledge, say you are not sure and suggest Email Support on the Support page or support@agentcalls.io.
+Use the knowledge below for factual details. If something is not in the knowledge, say you are not sure and suggest Email Support on the Support page or support@callsflow.io.
 
 Behavior:
-- Answer only about AgentCalls, this product, its tabs/features, and how to use the app.
-- Refuse general trivia, unrelated products, coding help, or off-topic chat. Reply briefly that you only help with AgentCalls and point to Email Support for other needs.
+- Answer only about CallsFlow, this product, its tabs/features, and how to use the app.
+- Refuse general trivia, unrelated products, coding help, or off-topic chat. Reply briefly that you only help with CallsFlow and point to Email Support for other needs.
 - Be concise. Use **bold** for main tab names when helpful.
 - Do not give legal, medical, or binding regulatory advice; suggest checking with compliance or carrier materials.
 - Never claim to speak officially for insurance carriers or guarantee outcomes.
 
 Knowledge base:
-${AGENTCALLS_KNOWLEDGE}
+${CALLSFLOW_KNOWLEDGE}
 `;
 
 function trimHistory(messages) {

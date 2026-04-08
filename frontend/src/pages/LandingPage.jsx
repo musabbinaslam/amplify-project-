@@ -104,7 +104,7 @@ const LandingPage = () => {
             <div className={classes.logoIcon}>
               <span className={classes.logoTriangle} />
             </div>
-            <span className={classes.logoText}>AGENTCALLS</span>
+            <span className={classes.logoText}>CALLSFLOW</span>
           </Link>
 
           <div className={classes.navLinks}>
@@ -139,7 +139,7 @@ const LandingPage = () => {
             Turn Inbound Calls<br />Into Commission
           </motion.h1>
           <motion.p className={classes.heroSubtitle} variants={fadeUp}>
-            Stop cold calling. Start closing. AgentCalls routes high-intent insurance
+            Stop cold calling. Start closing. CallsFlow routes high-intent insurance
             leads directly to your browser — so you can focus on what you do best.
           </motion.p>
           <motion.div className={classes.heroCtas} variants={fadeUp}>
@@ -468,7 +468,7 @@ const LandingPage = () => {
               <div className={classes.logoIcon}>
                 <span className={classes.logoTriangle} />
               </div>
-              <span className={classes.logoText}>AGENTCALLS</span>
+              <span className={classes.logoText}>CALLSFLOW</span>
             </div>
             <p className={classes.footerTagline}>Inbound insurance calls for agents.</p>
           </div>
@@ -497,7 +497,7 @@ const LandingPage = () => {
         </div>
 
         <div className={classes.footerBottom}>
-          <p>&copy; {new Date().getFullYear()} AgentCalls. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} CallsFlow. All rights reserved.</p>
         </div>
       </footer>
     </div>
