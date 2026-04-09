@@ -30,4 +30,32 @@ router.get('/firebase-config', (req, res) => {
   });
 });
 
+/**
+ * Universal Vendor Ping API
+ * Format: /api/public/ping/:campaignId?state=TX
+ * Returns: { "status": 1 } if agent available, else { "status": 0 }
+ */
+const agentManager = require('../services/agentManager');
+
+router.get('/ping/:campaignId', async (req, res) => {
+    try {
+        const campaignId = req.params.campaignId;
+        const state = req.query.state || null; // Optional physical state query param
+        
+        // Execute the fast snapshot (Soft Ping)
+        const isAvailable = await agentManager.checkAvailableAgent(campaignId, state);
+        
+        console.log(`[Public API] 📡 Ping from Buyer for '${campaignId}' | State: ${state || 'ANY'} -> ${isAvailable ? 'AVAILABLE (1)' : 'BUSY (0)'}`);
+        
+        return res.json({
+            status: isAvailable ? 1 : 0,
+            campaign: campaignId,
+            state: state || 'any'
+        });
+    } catch (err) {
+        console.error('[Public API] 📡 Ping Error:', err.message);
+        return res.status(500).json({ status: 0, error: 'Internal Server Error' });
+    }
+});
+
 module.exports = router;
