@@ -89,7 +89,7 @@ const LoginPage = () => {
           <div className={classes.logoIcon}>
             <span className={classes.logoTriangle} />
           </div>
-          <span className={classes.logoText}>AGENTCALLS</span>
+          <span className={classes.logoText}>CALLSFLOW</span>
         </div>
 
         <h1 className={classes.heading}>Agent Portal</h1>

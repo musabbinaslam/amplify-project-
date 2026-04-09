@@ -73,7 +73,7 @@ const ProfilePage = () => {
   const lastSlugCheckedRef = useRef('');
   const lastSlugResultRef = useRef(null);
 
-  const webhookUrl = 'https://api.agentcalls.io/api/leads/webhook';
+  const webhookUrl = 'https://api.callsflow.io/api/leads/webhook';
   const bioValid = form.bio.trim().length >= 20 && form.bio.trim().length <= 500;
   const phoneValid = !form.phone || isValidPhone(form.phone);
   const slugValid = form.slug.length >= MIN_SLUG_LEN && /^[a-z0-9-_]+$/.test(form.slug);
@@ -303,7 +303,7 @@ const ProfilePage = () => {
           </div>
           <div className={classes.formGroup}>
             <label>Landing Page URL</label>
-            <div className={classes.urlInputGroup}><span className={classes.urlPrefix}>https://agentcalls.io/a/</span><input type="text" value={form.slug} onChange={(e) => setField('slug', normalizeSlug(e.target.value))} className={classes.urlInput} /></div>
+            <div className={classes.urlInputGroup}><span className={classes.urlPrefix}>https://callsflow.io/a/</span><input type="text" value={form.slug} onChange={(e) => setField('slug', normalizeSlug(e.target.value))} className={classes.urlInput} /></div>
             <div className={classes.validationText}>
               {slugStatus === 'checking' && <span>Checking availability…</span>}
               {slugStatus === 'available' && <span className={classes.valid}>Slug is available.</span>}

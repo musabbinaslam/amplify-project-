@@ -54,8 +54,8 @@ exports.handleIncomingCall = async (req, res) => {
   }
   if (!campaign) campaign = 'fe_transfers';
 
-  console.log(`[Twilio Webhook] 🔔 Incoming call from: ${fromNumber} | State: ${callerState || 'Unknown'}`);
-  console.log(`[Twilio Webhook] 🎯 Target Campaign: ${campaign}`);
+  console.log(`[Twilio Webhook] 🔔 Incoming call from: ${fromNumber} | State: ${callerState || 'Unknown'} | To: ${toNumber}`);
+  console.log(`[Twilio Webhook] 🎯 Resolved Campaign: ${campaign}`);
 
   try {
      const available = await agentManager.findAndLockAvailableAgent(campaign, callerState);
@@ -76,7 +76,6 @@ exports.handleIncomingCall = async (req, res) => {
      }
 
      if (available) {
-        twiml.say('Connecting you to an agent.');
         const dial = twiml.dial({
           action: `/api/voice/call-completed?campaign=${campaign}&agentId=${available.id}`,
           method: 'POST',

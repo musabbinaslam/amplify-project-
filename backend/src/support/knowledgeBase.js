@@ -1,12 +1,12 @@
 /**
- * Static AgentCalls product context for the Support chatbot (prompt context, not model training).
+ * Static CallsFlow product context for the Support chatbot (prompt context, not model training).
  * Keep aligned with app navigation and README.
  */
-const AGENTCALLS_KNOWLEDGE = `
-# AgentCalls — in-app reference (support bot)
+const CALLSFLOW_KNOWLEDGE = `
+# CallsFlow — in-app reference (support bot)
 
-## What AgentCalls is
-AgentCalls connects licensed insurance agents with inbound phone calls in the browser (WebRTC via Twilio Voice). Agents go online, receive transfers, and manage leads and performance in one portal. Marketing site: agentcalls.io.
+## What CallsFlow is
+CallsFlow connects licensed insurance agents with inbound phone calls in the browser (WebRTC via Twilio Voice). Agents go online, receive transfers, and manage leads and performance in one portal. Marketing site: callsflow.io.
 
 ## Public vs app
 - Public **Landing** (/) — hero, features, FAQ, sign in / sign up.
@@ -44,7 +44,7 @@ AgentCalls connects licensed insurance agents with inbound phone calls in the br
 
 ## Support boundaries
 - Do not invent pricing, legal guarantees, or carrier-specific rules; direct users to Billing or licensed states screens and to human support for account-specific disputes.
-- For anything not covered here, suggest **Email Support** on the Support page or support@agentcalls.io.
+- For anything not covered here, suggest **Email Support** on the Support page or support@callsflow.io.
 `.trim();
 
-module.exports = { AGENTCALLS_KNOWLEDGE };
+module.exports = { CALLSFLOW_KNOWLEDGE };

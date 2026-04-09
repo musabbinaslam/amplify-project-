@@ -21,7 +21,7 @@ export async function exportUserData(uid) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `agentcalls-data-${uid}.json`;
+  a.download = `callsflow-data-${uid}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

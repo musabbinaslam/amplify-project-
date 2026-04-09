@@ -15,7 +15,7 @@ const WelcomePage = () => {
         <div className={classes.videoHeader}>
           <Play size={24} className={classes.playIcon} />
           <div>
-            <h2>How to Use AgentCalls</h2>
+            <h2>How to Use CallsFlow</h2>
             <p>Watch this quick video to learn how to take calls, earn commissions, and maximize your success.</p>
           </div>
         </div>

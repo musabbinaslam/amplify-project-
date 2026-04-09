@@ -292,7 +292,7 @@ const SignupPage = () => {
             <div className={classes.logoIcon}>
               <span className={classes.logoTriangle} />
             </div>
-            <span className={classes.logoText}>AGENTCALLS</span>
+            <span className={classes.logoText}>CALLSFLOW</span>
           </div>
 
           <h1 className={classes.heading}>Complete Your Profile</h1>
@@ -322,7 +322,7 @@ const SignupPage = () => {
           <div className={classes.logoIcon}>
             <span className={classes.logoTriangle} />
           </div>
-          <span className={classes.logoText}>AGENTCALLS</span>
+          <span className={classes.logoText}>CALLSFLOW</span>
         </div>
 
         <h1 className={classes.heading}>Create Agent Account</h1>

@@ -58,7 +58,7 @@ const Sidebar = () => {
             <div className={classes.logoIcon}>
                <span className={classes.logoTriangle}></span>
             </div>
-            <h2>AGENTCALLS</h2>
+            <h2>CALLSFLOW</h2>
           </div>
         )}
         <button className={classes.toggleBtn} onClick={toggleSidebar}>
