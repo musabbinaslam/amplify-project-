@@ -5,7 +5,7 @@ const agentManager = require('../services/agentManager');
 const callLogService = require('../services/callLogService');
 const phoneRouteService = require('../services/phoneRouteService');
 const { redisClient } = require('../config/redis');
-const { generateQaInsight } = require('../services/qaInsightService');
+const { qaInsightQueue } = require('../queues/qaQueue');
 
 exports.generateToken = (req, res) => {
   const { identity } = req.body;
@@ -39,11 +39,12 @@ exports.handleIncomingCall = async (req, res) => {
   
   // Safe extraction to prevent crashes
   const fromNumber = (req.body && req.body.From) || 'Unknown Caller';
-  const callerState = (req.body && req.body.FromState) || null; // e.g. "TX"
+  let callerState = (req.body && req.body.FromState) || null; // fallback to Twilio Area Code State
   const queryCampaign = req.query && req.query.campaign;
   const bodyCampaign = req.body && req.body.campaign;
   let campaign = queryCampaign || bodyCampaign;
   const toNumber = req.body && req.body.To;
+  
   if (!campaign && toNumber) {
     try {
       const mapped = await phoneRouteService.getCampaignByToNumber(toNumber);
@@ -54,26 +55,11 @@ exports.handleIncomingCall = async (req, res) => {
   }
   if (!campaign) campaign = 'fe_transfers';
 
-  console.log(`[Twilio Webhook] 🔔 Incoming call from: ${fromNumber} | State: ${callerState || 'Unknown'} | To: ${toNumber}`);
+  console.log(`[Twilio Webhook] 🔔 Incoming call from: ${fromNumber} | Guaranteed Area Code State Lookup: ${callerState || 'Unknown'} | To: ${toNumber}`);
   console.log(`[Twilio Webhook] 🎯 Resolved Campaign: ${campaign}`);
 
   try {
      const available = await agentManager.findAndLockAvailableAgent(campaign, callerState);
-     
-     // Fetch Cached Lead Data from Trackdrive webhook
-     let leadData = {};
-     let normalizedCallerId = fromNumber;
-     if (normalizedCallerId && normalizedCallerId !== 'Unknown Caller') {
-         normalizedCallerId = normalizedCallerId.replace(/\D/g, '');
-         if (normalizedCallerId.length === 10) normalizedCallerId = '1' + normalizedCallerId;
-         if (!normalizedCallerId.startsWith('+')) normalizedCallerId = '+' + normalizedCallerId;
-         
-         const cachedData = await redisClient.get(`lead:trackdrive:${normalizedCallerId}`);
-         if (cachedData) {
-             try { leadData = JSON.parse(cachedData); } catch(e){}
-             console.log(`[Router] 🎯 Matched lead data for ${normalizedCallerId}:`, leadData);
-         }
-     }
 
      if (available) {
         const dial = twiml.dial({
@@ -84,16 +70,7 @@ exports.handleIncomingCall = async (req, res) => {
         });
         
         const clientNode = dial.client(available.id);
-        
-        // Pass Lead Data to React Frontend via Twilio Custom Parameters
-        if (Object.keys(leadData).length > 0) {
-            for (const [key, value] of Object.entries(leadData)) {
-                if (typeof value === 'string' || typeof value === 'number') {
-                    // prefix to prevent clashing with twilio defaults
-                    clientNode.parameter({ name: `lead_${key}`, value: String(value) });
-                }
-            }
-        }
+        // Trackdrive Lead Data has been deliberately removed — dialing purely via Twilio
      } else {
         twiml.say('All agents are currently assisting other callers.');
      }
@@ -125,19 +102,23 @@ exports.handleCallCompleted = async (req, res) => {
         callSid: CallSid
     });
 
-    // Non-blocking QA insight generation (never block Twilio webhook response)
+    // Non-blocking QA insight generation dispatched cleanly via BullMQ
     if (agentId && savedLog?.id) {
-        Promise.resolve()
-            .then(async () => {
-                const qaInsight = await generateQaInsight({
-                    ...savedLog,
-                    state: FromState || null,
-                });
-                await callLogService.attachQaInsight(agentId, savedLog.id, qaInsight);
-            })
-            .catch((err) => {
-                console.error('[QA] async insight generation failed:', err.message);
+        try {
+            await qaInsightQueue.add('generate-qa-insight', {
+                savedLog,
+                agentId,
+                FromState: FromState || null
+            }, {
+                attempts: 3,
+                backoff: { type: 'exponential', delay: 1000 },
+                removeOnComplete: true,
+                removeOnFail: false
             });
+            console.log(`[Twilio] Queued QA Insight generation for Call ${savedLog.id}`);
+        } catch (err) {
+            console.error('[QA] Failed to dispatch QA job to queue:', err.message);
+        }
     }
 
     const twiml = new VoiceResponse();
