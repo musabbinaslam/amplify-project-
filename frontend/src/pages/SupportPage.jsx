@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, Bot, Mail } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { sendMessage } from '../services/chatService';
+import CustomSelect from '../components/ui/CustomSelect';
 import classes from './SupportPage.module.css';
 
 const WELCOME_MESSAGE = {
@@ -177,16 +178,12 @@ const SupportPage = () => {
 
             <div className={classes.emailGroup}>
               <label>Category</label>
-              <select
-                className={classes.emailSelect}
+              <CustomSelect
+                options={CATEGORIES.map((c) => ({ value: c, label: c }))}
                 value={emailCategory}
-                onChange={(e) => setEmailCategory(e.target.value)}
-              >
-                <option value="" disabled>Select a category</option>
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
+                onChange={setEmailCategory}
+                placeholder="Select a category"
+              />
             </div>
 
             <div className={classes.emailGroup}>
