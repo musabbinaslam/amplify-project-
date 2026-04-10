@@ -30,7 +30,15 @@ const AuthInit = ({ children }) => {
     })();
   }, [initAuth]);
 
-  if (!ready) return <PageLoader />;
+  if (!ready) return <PageLoader fullScreen />;
+
+  // Dismiss the instant HTML splash once React is ready
+  const splash = document.getElementById('splash');
+  if (splash) {
+    splash.classList.add('hidden');
+    setTimeout(() => splash.remove(), 400);
+  }
+
   return children;
 };
 

@@ -117,6 +117,43 @@ class AgentManager {
    }
 
    /**
+    * CAPACITY PING: Checks if an agent is available without locking them.
+    * Used by Ringba/Trackdrive to ping before dialing.
+    */
+   async checkAvailableAgent(campaignId, callerState = null) {
+      const availableIds = await redisClient.sMembers('agents:available');
+      if (availableIds.length === 0) return false;
+
+      const agentDataList = await Promise.all(
+         availableIds.map(async (id) => {
+            const data = await redisClient.hGetAll(`agent:${id}`);
+            return { id, ...data };
+         })
+      );
+
+      const campaignMatches = agentDataList.filter(agent => {
+         if (!agent.campaignId) return false;
+         return agent.campaignId === campaignId || !campaignId || agent.campaignId === 'all';
+      });
+
+      if (campaignMatches.length === 0) return false;
+
+      if (callerState) {
+         const stateMatches = campaignMatches.filter(agent => {
+            try {
+               const states = JSON.parse(agent.licensedStates || '[]');
+               return states.length === 0 || states.includes(callerState.toUpperCase());
+            } catch {
+               return true;
+            }
+         });
+         if (stateMatches.length === 0) return false;
+      }
+
+      return true;
+   }
+
+   /**
     * Moves an agent back to AVAILABLE after a call ends.
     * Updates lastCallAt so they go to the BACK of the LRU queue.
     */
