@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   FileText, Phone, User, Heart, DollarSign, CheckCircle2,
-  Circle, AlertTriangle, Loader2, Save, ChevronDown,
+  Circle, AlertTriangle, Loader2, Save,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import { SCRIPTS, SCRIPT_OPTIONS } from '../data/scriptData';
 import { loadScriptData, saveScriptData } from '../services/scriptService';
+import CustomSelect from '../components/ui/CustomSelect';
 import classes from './ScriptPage.module.css';
 
 const ICON_MAP = {
@@ -82,12 +83,12 @@ const ScriptPage = () => {
     }
   };
 
-  const handleScriptChange = (e) => {
+  const handleScriptChange = (newValue) => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
       if (user?.uid) saveScriptData(user.uid, selectedScript, values).catch(() => {});
     }
-    setSelectedScript(e.target.value);
+    setSelectedScript(newValue);
   };
 
   const renderField = (field) => {
@@ -270,18 +271,11 @@ const ScriptPage = () => {
       <div className={classes.topBar}>
         <div className={classes.selectorWrap}>
           <span className={classes.selectorLabel}>Script:</span>
-          <div className={classes.selectContainer}>
-            <select
-              value={selectedScript}
-              onChange={handleScriptChange}
-              className={classes.scriptSelect}
-            >
-              {SCRIPT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-            <ChevronDown size={16} className={classes.selectArrow} />
-          </div>
+          <CustomSelect
+            options={SCRIPT_OPTIONS}
+            value={selectedScript}
+            onChange={handleScriptChange}
+          />
         </div>
         <button type="button" className={classes.saveBtn} onClick={handleSave} disabled={saving}>
           {saving ? <Loader2 size={16} className={classes.spinner} /> : <Save size={16} />}

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 @import './variables.css';
 
 *,
@@ -15,7 +15,7 @@ html {
 }
 
 body {
-  font-family: 'Inter', -apple-system, sans-serif;
+  font-family: 'Outfit', -apple-system, sans-serif;
   background-color: var(--surface);
   color: var(--text-primary);
   color-scheme: dark;
@@ -45,6 +45,61 @@ button {
   background: none;
   font-family: inherit;
   transition: all 0.2s ease;
+}
+
+/* ── Global form element reset ─────────────────────────────────────────────
+   Browsers do NOT inherit font-family for inputs/selects/textareas by
+   default. This forces every native form element to use Outfit and match
+   the app's design system colours.
+   ──────────────────────────────────────────────────────────────────────── */
+input,
+textarea,
+select,
+option {
+  font-family: 'Outfit', -apple-system, sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+/* Select element theming */
+select {
+  background-color: var(--surface-container);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  /* Make the native dropdown arrow themed in modern browsers */
+  color-scheme: inherit;
+}
+
+select:focus {
+  border-color: var(--accent-green);
+  background-color: var(--surface-container-high);
+}
+
+/* Input & textarea theming */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+textarea {
+  background-color: var(--surface-container);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+textarea:focus {
+  border-color: var(--accent-green);
+  background-color: var(--surface-container-high);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-tertiary);
+  font-family: 'Outfit', -apple-system, sans-serif;
 }
 
 h1, h2, h3, h4, h5, h6 {
