@@ -13,6 +13,10 @@ const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const { setupCallSockets } = require('./sockets/callSockets');
 const { verifyFirebaseToken } = require('./middleware/auth');
+const { globalRateLimiter } = require('./middleware/security');
+
+// Auto-start queues on boot
+require('./queues/qaQueue');
 
 const app = express();
 const server = http.createServer(app);
@@ -47,6 +51,9 @@ const startEngine = async () => {
 
     // Init Socket events
     setupCallSockets(io);
+
+    // Apply global rate limiting to all /api routes
+    app.use('/api/', globalRateLimiter);
 
     // Public: Firebase web config for client Auth SDK (no VITE_FIREBASE_* in frontend)
     app.use('/api/public', publicRoutes);

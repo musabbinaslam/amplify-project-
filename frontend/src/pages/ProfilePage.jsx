@@ -4,6 +4,7 @@ import { User, Camera, Copy, Check, Link2, Key, Loader2, X, Eye, EyeOff, Refresh
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import { getProfileBootstrap, saveProfile, regenerateApiKey, checkSlugAvailability, getProfileActivity } from '../services/profileService';
+import CustomSelect from '../components/ui/CustomSelect';
 import classes from './ProfilePage.module.css';
 
 const SPENDING_OPTIONS = ['Less than $500', '$500 - $1,000', '$1,000 - $2,500', '$2,500 - $5,000', '$5,000+', 'Not currently spending'];
@@ -329,7 +330,12 @@ const ProfilePage = () => {
             </div>
             <div className={classes.editGroup}>
               <label className={classes.editLabel}>Weekly Lead Spend</label>
-              <select className={classes.editSelect} value={form.weeklySpend} onChange={(e) => setField('weeklySpend', e.target.value)}>{['', ...SPENDING_OPTIONS].map((o) => <option key={o} value={o}>{o || 'Select an option'}</option>)}</select>
+              <CustomSelect
+                options={['', ...SPENDING_OPTIONS].map((o) => ({ value: o, label: o || 'Select an option' }))}
+                value={form.weeklySpend}
+                onChange={(v) => setField('weeklySpend', v)}
+                placeholder="Select an option"
+              />
             </div>
             <div className={classes.editGroup}>
               <label className={classes.editLabel}>Used Inbound Before</label>
@@ -341,7 +347,12 @@ const ProfilePage = () => {
             </div>
             <div className={classes.editGroup}>
               <label className={classes.editLabel}>How Did You Hear About Us</label>
-              <select className={classes.editSelect} value={form.hearAbout} onChange={(e) => setField('hearAbout', e.target.value)}>{['', ...HEAR_ABOUT_OPTIONS].map((o) => <option key={o} value={o}>{o || 'Select an option'}</option>)}</select>
+              <CustomSelect
+                options={['', ...HEAR_ABOUT_OPTIONS].map((o) => ({ value: o, label: o || 'Select an option' }))}
+                value={form.hearAbout}
+                onChange={(v) => setField('hearAbout', v)}
+                placeholder="Select an option"
+              />
             </div>
           </div>
         </div>

@@ -9,6 +9,7 @@ import useAuthStore from '../store/authStore';
 import {
   loadSettings, saveSettings, exportUserData, revokeAllSessions,
 } from '../services/settingsService';
+import CustomSelect from '../components/ui/CustomSelect';
 import classes from './SettingsPage.module.css';
 
 const SettingsPage = () => {
@@ -378,18 +379,15 @@ const SettingsPage = () => {
 
           <div className={classes.fieldGroup}>
             <label>Microphone</label>
-            <select
+            <CustomSelect
+              options={[
+                { value: '', label: 'System Default' },
+                ...inputDevices.map((d) => ({ value: d.deviceId, label: d.label || `Microphone ${d.deviceId.slice(0, 8)}` }))
+              ]}
               value={staged.audioInputDeviceId}
-              onChange={(e) => handleDeviceChange('input', e.target.value)}
-              className={classes.select}
-            >
-              <option value="">System Default</option>
-              {inputDevices.map((d) => (
-                <option key={d.deviceId} value={d.deviceId}>
-                  {d.label || `Microphone ${d.deviceId.slice(0, 8)}`}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => handleDeviceChange('input', v)}
+              placeholder="System Default"
+            />
             <div className={classes.gainRow}>
               <label className={classes.gainLabel}>Gain</label>
               <input
@@ -447,18 +445,15 @@ const SettingsPage = () => {
 
           <div className={classes.fieldGroup}>
             <label>Speaker</label>
-            <select
+            <CustomSelect
+              options={[
+                { value: '', label: 'System Default' },
+                ...outputDevices.map((d) => ({ value: d.deviceId, label: d.label || `Speaker ${d.deviceId.slice(0, 8)}` }))
+              ]}
               value={staged.audioOutputDeviceId}
-              onChange={(e) => handleDeviceChange('output', e.target.value)}
-              className={classes.select}
-            >
-              <option value="">System Default</option>
-              {outputDevices.map((d) => (
-                <option key={d.deviceId} value={d.deviceId}>
-                  {d.label || `Speaker ${d.deviceId.slice(0, 8)}`}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => handleDeviceChange('output', v)}
+              placeholder="System Default"
+            />
             <div className={classes.gainRow}>
               <label className={classes.gainLabel}>Speaker Volume</label>
               <input

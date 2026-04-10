@@ -4,9 +4,88 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
+    <title>AgentCalls — Inbound Lead Platform</title>
+    <meta name="description" content="AgentCalls is a SaaS CRM dialer platform for insurance agents to receive and manage inbound leads in real time." />
+<script>
+      (function() {
+        var theme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
+    <style>
+      :root {
+        --sp-bg: #0e0e0e;
+        --sp-logo: #25f425;
+        --sp-triangle: #0e0e0e;
+        --sp-shadow: rgba(37, 244, 37, 0.3);
+        --sp-track: rgba(255,255,255,0.06);
+      }
+      [data-theme="light"] {
+        --sp-bg: #fafafa;
+        --sp-logo: #18a818;
+        --sp-triangle: #fafafa;
+        --sp-shadow: rgba(24, 168, 24, 0.25);
+        --sp-track: rgba(0,0,0,0.08);
+      }
+
+      /* Instant splash — renders before React JS even loads */
+      body { margin: 0; background: var(--sp-bg); }
+      #splash {
+        position: fixed; inset: 0; z-index: 99999;
+        display: flex; align-items: center; justify-content: center;
+        flex-direction: column; gap: 28px;
+        background: var(--sp-bg);
+        transition: opacity 0.35s ease-out;
+      }
+      #splash.hidden { opacity: 0; pointer-events: none; }
+      
+      .splash-logo-wrap { animation: sp-pulse 2s ease-in-out infinite; }
+      .splash-logo-icon {
+        width: 48px; height: 48px;
+        background: var(--sp-logo);
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 0 16px var(--sp-shadow);
+      }
+      .splash-logo-triangle {
+        width: 0; height: 0;
+        border-left: 9px solid transparent;
+        border-right: 9px solid transparent;
+        border-bottom: 15px solid var(--sp-triangle);
+      }
+
+      @keyframes sp-pulse {
+        0%,100% { opacity:.7; transform:scale(1); }
+        50% { opacity:1; transform:scale(1.08); }
+      }
+      
+      #splash .bar-track {
+        width: 160px; height: 3px;
+        background: var(--sp-track);
+        border-radius: 4px; overflow: hidden;
+      }
+      #splash .bar-fill {
+        width: 40%; height: 100%; border-radius: 4px;
+        background: var(--sp-logo);
+        box-shadow: 0 0 8px var(--sp-shadow);
+        animation: sp-slide 1.4s ease-in-out infinite;
+      }
+      @keyframes sp-slide {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(400%); }
+      }
+    </style>
   </head>
   <body>
+    <!-- Instant splash shown before any JS loads -->
+    <div id="splash">
+      <div class="splash-logo-wrap">
+        <div class="splash-logo-icon">
+          <span class="splash-logo-triangle"></span>
+        </div>
+      </div>
+      <div class="bar-track"><div class="bar-fill"></div></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
