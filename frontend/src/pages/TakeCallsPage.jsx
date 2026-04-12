@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Mic, Volume2, Shield, HeartPulse, Umbrella, AlertCircle,
   ChevronLeft, PhoneOff, Activity, ShieldCheck, Users,
   PhoneIncoming, DollarSign, Clock, Phone, CheckCircle2, MapPin
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import classes from './TakeCallsPage.module.css';
 import { initializeTwilioDevice } from '../services/twilioService';
 import useDialerStore from '../store/useDialerStore';
 import useAuthStore from '../store/authStore';
+import { useAudioSettingsStore } from '../store/audioSettingsStore';
 import { apiFetch } from '../services/apiClient';
 
 // All 50 US States
@@ -41,10 +43,19 @@ const US_STATES = [
 
 // ─── Step 1: Mic & Speaker Test ─────────────────────────────────────────────
 const StepOne = ({ onNext }) => {
+  const user = useAuthStore((s) => s.user);
+  const audioInputDeviceId = useAudioSettingsStore((s) => s.audio.audioInputDeviceId);
+  const audioOutputDeviceId = useAudioSettingsStore((s) => s.audio.audioOutputDeviceId);
+  const micGain = useAudioSettingsStore((s) => s.audio.micGain);
+  const speakerVolume = useAudioSettingsStore((s) => s.audio.speakerVolume);
+  const noiseSuppression = useAudioSettingsStore((s) => s.audio.noiseSuppression);
+  const echoCancellation = useAudioSettingsStore((s) => s.audio.echoCancellation);
+  const hydrate = useAudioSettingsStore((s) => s.hydrate);
+  const saveAudioDebounced = useAudioSettingsStore((s) => s.saveAudioDebounced);
+  const flushDebouncedSave = useAudioSettingsStore((s) => s.flushDebouncedSave);
+
   const [micDevices, setMicDevices] = useState([]);
   const [speakerDevices, setSpeakerDevices] = useState([]);
-  const [selectedMic, setSelectedMic] = useState('');
-  const [selectedSpeaker, setSelectedSpeaker] = useState('');
   const [micLevel, setMicLevel] = useState(0);
   const [micTested, setMicTested] = useState(false);
   const [speakerTested, setSpeakerTested] = useState(false);
@@ -53,72 +64,161 @@ const StepOne = ({ onNext }) => {
   const analyserRef = useRef(null);
   const mediaStreamRef = useRef(null);
   const animationRef = useRef(null);
+  const gainNodeRef = useRef(null);
 
-  const getDevices = async () => {
+  const stopMic = useCallback(() => {
+    if (mediaStreamRef.current) mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    gainNodeRef.current = null;
+    analyserRef.current = null;
+  }, []);
+
+  const enumerateAndValidate = useCallback(async (uid) => {
+    setAudioError('');
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
       const devices = await navigator.mediaDevices.enumerateDevices();
-      const mics = devices.filter(d => d.kind === 'audioinput');
-      const speakers = devices.filter(d => d.kind === 'audiooutput');
+      const mics = devices.filter((d) => d.kind === 'audioinput');
+      const speakers = devices.filter((d) => d.kind === 'audiooutput');
       setMicDevices(mics);
       setSpeakerDevices(speakers);
-      if (mics.length > 0 && !selectedMic) setSelectedMic(mics[0].deviceId);
-      if (speakers.length > 0 && !selectedSpeaker) setSelectedSpeaker(speakers[0].deviceId);
+
+      const st = useAudioSettingsStore.getState().audio;
+      const patch = {};
+      if (st.audioInputDeviceId && !mics.some((d) => d.deviceId === st.audioInputDeviceId)) {
+        patch.audioInputDeviceId = '';
+        toast('Saved microphone is unavailable. Using System Default.');
+      }
+      if (st.audioOutputDeviceId && !speakers.some((d) => d.deviceId === st.audioOutputDeviceId)) {
+        patch.audioOutputDeviceId = '';
+        toast('Saved speaker is unavailable. Using System Default.');
+      }
+      if (Object.keys(patch).length && uid) {
+        useAudioSettingsStore.getState().saveAudioDebounced(uid, patch);
+      }
     } catch (err) {
       setAudioError('Microphone permission denied or no devices found.');
+      if (err?.name !== 'NotAllowedError') {
+        console.error('enumerateAndValidate:', err);
+      }
     }
-  };
+  }, []);
 
-  const stopMic = () => {
-    if (mediaStreamRef.current) mediaStreamRef.current.getTracks().forEach(t => t.stop());
-    if (audioContextRef.current) { audioContextRef.current.close().catch(() => { }); audioContextRef.current = null; }
-    if (animationRef.current) cancelAnimationFrame(animationRef.current);
-  };
+  useEffect(() => {
+    if (!user?.uid) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        await hydrate(user.uid);
+      } catch (e) {
+        console.error('StepOne hydrate failed:', e);
+      }
+      if (cancelled) return;
+      await enumerateAndValidate(user.uid);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, hydrate, enumerateAndValidate]);
 
-  const startMic = async (deviceId) => {
+  useEffect(() => () => {
+    const uid = user?.uid;
+    if (uid) flushDebouncedSave(uid);
+  }, [user?.uid, flushDebouncedSave]);
+
+  const startMicPipeline = useCallback(async () => {
     stopMic();
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: deviceId ? { exact: deviceId } : undefined } });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          ...(audioInputDeviceId ? { deviceId: { exact: audioInputDeviceId } } : {}),
+          noiseSuppression,
+          echoCancellation,
+        },
+      });
       mediaStreamRef.current = stream;
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       audioContextRef.current = audioCtx;
+      const source = audioCtx.createMediaStreamSource(stream);
+      const gainNode = audioCtx.createGain();
+      const gainPct = useAudioSettingsStore.getState().audio.micGain ?? 100;
+      gainNode.gain.value = gainPct / 100;
+      gainNodeRef.current = gainNode;
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
       analyserRef.current = analyser;
-      audioCtx.createMediaStreamSource(stream).connect(analyser);
+      source.connect(gainNode).connect(analyser);
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
       const updateLevel = () => {
         if (!analyserRef.current) return;
         analyserRef.current.getByteFrequencyData(dataArray);
         let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        for (let i = 0; i < dataArray.length; i += 1) sum += dataArray[i];
         const percent = Math.min(100, Math.round((sum / dataArray.length / 128) * 100));
         setMicLevel(percent);
         if (percent > 10) setMicTested(true);
         animationRef.current = requestAnimationFrame(updateLevel);
       };
       updateLevel();
-    } catch (err) { console.error('Mic start error:', err); }
+    } catch (err) {
+      console.error('Mic start error:', err);
+    }
+  }, [stopMic, audioInputDeviceId, noiseSuppression, echoCancellation]);
+
+  useEffect(() => {
+    startMicPipeline();
+    return () => stopMic();
+  }, [startMicPipeline, stopMic]);
+
+  useEffect(() => {
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = (micGain ?? 100) / 100;
+    }
+  }, [micGain]);
+
+  const handleMicSelect = (e) => {
+    const v = e.target.value;
+    if (!user?.uid) return;
+    saveAudioDebounced(user.uid, { audioInputDeviceId: v });
+  };
+
+  const handleSpeakerSelect = (e) => {
+    const v = e.target.value;
+    if (!user?.uid) return;
+    saveAudioDebounced(user.uid, { audioOutputDeviceId: v });
   };
 
   const playTestSound = () => {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(600, audioCtx.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.3);
-    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-    oscillator.start(audioCtx.currentTime);
-    oscillator.stop(audioCtx.currentTime + 0.3);
-    setSpeakerTested(true);
+    try {
+      const vol = (speakerVolume || 15) / 100;
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(600, audioCtx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.3);
+      gainNode.gain.setValueAtTime(0.1 * vol, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01 * vol, audioCtx.currentTime + 0.3);
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      if (audioOutputDeviceId && typeof audioCtx.setSinkId === 'function') {
+        audioCtx.setSinkId(audioOutputDeviceId).catch(() => {});
+      }
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.3);
+      setSpeakerTested(true);
+    } catch (err) {
+      console.error('Speaker test error:', err);
+    }
   };
 
-  useEffect(() => { getDevices(); return () => stopMic(); }, []);
-  useEffect(() => { if (selectedMic) startMic(selectedMic); }, [selectedMic]);
+  const refreshDevices = () => {
+    if (user?.uid) enumerateAndValidate(user.uid);
+  };
 
   const isReady = micTested && speakerTested;
 
@@ -160,19 +260,21 @@ const StepOne = ({ onNext }) => {
         <div className={classes.deviceSelects}>
           <div className={classes.selectGroup}>
             <label><Mic size={14} /> Microphone</label>
-            <select value={selectedMic} onChange={e => setSelectedMic(e.target.value)}>
-              {micDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${d.deviceId.substr(0, 5)}`}</option>)}
-              {micDevices.length === 0 && <option value="">No microphones found</option>}
+            <select value={audioInputDeviceId} onChange={handleMicSelect}>
+              <option value="">System Default</option>
+              {micDevices.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${d.deviceId.substr(0, 5)}`}</option>)}
+              {micDevices.length === 0 && <option value="" disabled>No microphones found</option>}
             </select>
           </div>
           <div className={classes.selectGroup}>
             <label><Volume2 size={14} /> Speaker</label>
-            <select value={selectedSpeaker} onChange={e => setSelectedSpeaker(e.target.value)}>
-              {speakerDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Speaker ${d.deviceId.substr(0, 5)}`}</option>)}
-              {speakerDevices.length === 0 && <option value="">Default Speaker</option>}
+            <select value={audioOutputDeviceId} onChange={handleSpeakerSelect}>
+              <option value="">System Default</option>
+              {speakerDevices.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || `Speaker ${d.deviceId.substr(0, 5)}`}</option>)}
+              {speakerDevices.length === 0 && <option value="" disabled>Default Speaker</option>}
             </select>
           </div>
-          <button className={classes.outlineBtn} onClick={getDevices}>Refresh Devices</button>
+          <button type="button" className={classes.outlineBtn} onClick={refreshDevices}>Refresh Devices</button>
         </div>
       </div>
 
@@ -180,7 +282,7 @@ const StepOne = ({ onNext }) => {
         <p className={classes.continueSub}>
           {isReady ? 'Ready to continue.' : 'Test your microphone and speaker to continue.'}
         </p>
-        <button className={classes.primaryBtn} onClick={onNext} disabled={!isReady}>Continue</button>
+        <button type="button" className={classes.primaryBtn} onClick={onNext} disabled={!isReady}>Continue</button>
       </div>
     </div>
   );
