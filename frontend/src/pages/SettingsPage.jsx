@@ -6,9 +6,8 @@ import {
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import {
-  loadSettings, saveSettings, exportUserData, revokeAllSessions,
-} from '../services/settingsService';
+import { exportUserData, revokeAllSessions } from '../services/settingsService';
+import { usePersistedAudioSettings } from '../hooks/usePersistedAudioSettings';
 import CustomSelect from '../components/ui/CustomSelect';
 import classes from './SettingsPage.module.css';
 
@@ -19,6 +18,15 @@ const SettingsPage = () => {
   const logout = useAuthStore((s) => s.logout);
   const deleteAccount = useAuthStore((s) => s.deleteAccount);
 
+  const {
+    audio: staged,
+    savedAudio: saved,
+    hydrate,
+    setAudioPartial: updateStaged,
+    resetAudioToSaved,
+    saveAudioNow,
+  } = usePersistedAudioSettings();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedLabel, setSavedLabel] = useState('');
@@ -26,15 +34,6 @@ const SettingsPage = () => {
   // Audio state
   const [inputDevices, setInputDevices] = useState([]);
   const [outputDevices, setOutputDevices] = useState([]);
-  const [staged, setStaged] = useState({
-    audioInputDeviceId: '',
-    audioOutputDeviceId: '',
-    micGain: 100,
-    speakerVolume: 15,
-    noiseSuppression: true,
-    echoCancellation: true,
-  });
-  const [saved, setSaved] = useState(null);
   const [micLevel, setMicLevel] = useState(0);
   const [testingMic, setTestingMic] = useState(false);
   const micStreamRef = useRef(null);
@@ -72,8 +71,8 @@ const SettingsPage = () => {
     return JSON.stringify(staged) !== JSON.stringify(saved);
   }, [staged, saved]);
 
-  const updateStaged = (partial) => {
-    setStaged((prev) => ({ ...prev, ...partial }));
+  const patchStaged = (partial) => {
+    updateStaged(partial);
     setSavedLabel('Unsaved changes');
   };
 
@@ -82,17 +81,7 @@ const SettingsPage = () => {
     if (!user?.uid) return;
     (async () => {
       try {
-        const loaded = await loadSettings(user.uid);
-        const next = {
-          audioInputDeviceId: loaded.audioInputDeviceId || '',
-          audioOutputDeviceId: loaded.audioOutputDeviceId || '',
-          micGain: loaded.micGain ?? 100,
-          speakerVolume: loaded.speakerVolume ?? 15,
-          noiseSuppression: loaded.noiseSuppression ?? true,
-          echoCancellation: loaded.echoCancellation ?? true,
-        };
-        setStaged(next);
-        setSaved(next);
+        await hydrate(user.uid);
         setSavedLabel('Saved');
       } catch (err) {
         console.error('Failed to load settings:', err);
@@ -100,7 +89,7 @@ const SettingsPage = () => {
       await enumerateDevices();
       setLoading(false);
     })();
-  }, [user?.uid]);
+  }, [user?.uid, hydrate]);
 
   const enumerateDevices = async () => {
     if (!navigator?.mediaDevices) {
@@ -141,14 +130,14 @@ const SettingsPage = () => {
   };
 
   const handleGainChange = (value) => {
-    updateStaged({ micGain: value });
+    patchStaged({ micGain: value });
     if (gainNodeRef.current) {
       gainNodeRef.current.gain.value = value / 100;
     }
   };
 
   const handleDeviceChange = (type, deviceId) => {
-    updateStaged(type === 'input' ? { audioInputDeviceId: deviceId } : { audioOutputDeviceId: deviceId });
+    patchStaged(type === 'input' ? { audioInputDeviceId: deviceId } : { audioOutputDeviceId: deviceId });
   };
 
   const stopMicTest = useCallback(() => {
@@ -240,7 +229,7 @@ const SettingsPage = () => {
       await ctx.close();
       const avg = samples ? total / samples : 45;
       const suggested = avg < 28 ? 150 : avg < 45 ? 125 : avg < 65 ? 105 : 85;
-      updateStaged({ micGain: suggested });
+      patchStaged({ micGain: suggested });
       toast.success(`Mic gain calibrated to ${suggested}%`);
     } catch {
       toast.error('Calibration failed. Check microphone permission.');
@@ -301,7 +290,7 @@ const SettingsPage = () => {
     try {
       await exportUserData(user.uid);
       toast.success('Data exported');
-    } catch (err) {
+    } catch {
       toast.error('Export failed');
     } finally {
       setExporting(false);
@@ -312,8 +301,7 @@ const SettingsPage = () => {
     if (!user?.uid || !isDirty) return;
     setSaving(true);
     try {
-      await saveSettings(user.uid, staged);
-      setSaved(staged);
+      await saveAudioNow(user.uid);
       setSavedLabel('Saved');
       toast.success('Settings saved');
     } catch (err) {
@@ -325,7 +313,7 @@ const SettingsPage = () => {
 
   const handleDiscardChanges = () => {
     if (!saved) return;
-    setStaged(saved);
+    resetAudioToSaved();
     setSavedLabel('Changes discarded');
   };
 
@@ -421,7 +409,7 @@ const SettingsPage = () => {
                   className={classes.switchCheckbox}
                   checked={staged.noiseSuppression}
                   disabled={!supportsNoiseSuppression}
-                  onChange={(e) => updateStaged({ noiseSuppression: e.target.checked })}
+                  onChange={(e) => patchStaged({ noiseSuppression: e.target.checked })}
                 />
                 <span className={classes.switchText}>Noise suppression</span>
               </label>
@@ -431,7 +419,7 @@ const SettingsPage = () => {
                   className={classes.switchCheckbox}
                   checked={staged.echoCancellation}
                   disabled={!supportsEchoCancellation}
-                  onChange={(e) => updateStaged({ echoCancellation: e.target.checked })}
+                  onChange={(e) => patchStaged({ echoCancellation: e.target.checked })}
                 />
                 <span className={classes.switchText}>Echo cancellation</span>
               </label>
@@ -461,7 +449,7 @@ const SettingsPage = () => {
                 min={0}
                 max={100}
                 value={staged.speakerVolume}
-                onChange={(e) => updateStaged({ speakerVolume: Number(e.target.value) })}
+                onChange={(e) => patchStaged({ speakerVolume: Number(e.target.value) })}
                 className={classes.gainSlider}
               />
               <span className={classes.gainValue}>{staged.speakerVolume}%</span>
