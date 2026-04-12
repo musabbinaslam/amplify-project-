@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from '../config/apiBase';
 import { apiFetch } from './apiClient';
 
 export async function loadSettings(uid) {
@@ -30,7 +31,7 @@ export async function exportUserData(uid) {
 
 export async function revokeAllSessions(token) {
   const res = await fetch(
-    `${(import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '')}/api/auth/revoke`,
+    `${getApiBaseUrl()}/api/auth/revoke`,
     {
       method: 'POST',
       headers: {
