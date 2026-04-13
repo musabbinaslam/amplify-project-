@@ -281,7 +281,7 @@ const CallLogsPage = () => {
                       </td>
                       <td className={classes.audioCell}>
                         {log.recordingUrl ? (
-                          <audio className={classes.audioPlayer} controls src={log.recordingUrl} />
+                          <RecordingPlayer recordingUrl={log.recordingUrl} />
                         ) : (
                           <span className={classes.scoreDash}>—</span>
                         )}
