@@ -73,7 +73,8 @@ exports.handleIncomingCall = async (req, res) => {
           action: `/api/voice/call-completed?campaign=${campaign}&agentId=${available.id}`,
           method: 'POST',
           timeout: 20,
-          answerOnBridge: true
+          answerOnBridge: true,
+          record: 'record-from-answer'
         });
         
         const clientNode = dial.client(available.id);
@@ -95,9 +96,9 @@ exports.handleIncomingCall = async (req, res) => {
  */
 exports.handleCallCompleted = async (req, res) => {
     const { campaign, agentId } = req.query;
-    const { From, To, DialCallDuration, DialCallStatus, CallSid, FromState } = req.body;
+    const { From, To, DialCallDuration, DialCallStatus, CallSid, FromState, RecordingUrl } = req.body;
 
-    console.log(`[Twilio] Call Completed: ${CallSid}. Duration: ${DialCallDuration}s. Status: ${DialCallStatus}`);
+    console.log(`[Twilio] Call Completed: ${CallSid}. Duration: ${DialCallDuration}s. Status: ${DialCallStatus}. Recording: ${RecordingUrl ? 'Yes' : 'No'}`);
 
     const savedLog = await callLogService.logCall({
         from: From,
@@ -106,7 +107,8 @@ exports.handleCallCompleted = async (req, res) => {
         campaignId: campaign,
         agentId: agentId,
         status: DialCallStatus === 'completed' ? 'completed' : 'missed',
-        callSid: CallSid
+        callSid: CallSid,
+        recordingUrl: RecordingUrl || null
     });
 
     // Non-blocking QA insight generation dispatched cleanly via BullMQ

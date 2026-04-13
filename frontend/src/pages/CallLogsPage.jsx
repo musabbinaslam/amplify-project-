@@ -183,6 +183,7 @@ const CallLogsPage = () => {
                   <th>Duration</th>
                   <th>Status</th>
                   <th>Cost</th>
+                  <th>Recording</th>
                   <th>Date</th>
                 </tr>
               </thead>
@@ -199,7 +200,9 @@ const CallLogsPage = () => {
                       <td>
                         <span className={classes.campaignTag}>{log.campaignLabel || log.campaign || '—'}</span>
                       </td>
-                      <td className={classes.phoneCell}>{log.from || '—'}</td>
+                      <td className={classes.phoneCell}>
+                        {log.isBillable ? log.from : <span className={classes.hiddenPhone}>Hidden</span>}
+                      </td>
                       <td>
                         <span className={`${classes.typeBadge} ${classes[typeCls]}`}>
                           <TypeIcon size={13} />
@@ -226,6 +229,13 @@ const CallLogsPage = () => {
                       <td>
                         {log.cost > 0 ? (
                           <span className={classes.costValue}>${log.cost}</span>
+                        ) : (
+                          <span className={classes.scoreDash}>—</span>
+                        )}
+                      </td>
+                      <td className={classes.audioCell}>
+                        {log.recordingUrl ? (
+                          <audio className={classes.audioPlayer} controls src={log.recordingUrl} />
                         ) : (
                           <span className={classes.scoreDash}>—</span>
                         )}

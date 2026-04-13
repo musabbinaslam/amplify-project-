@@ -335,6 +335,25 @@
   color: var(--text-muted);
 }
 
+/* ─── Hidden Phone ─── */
+.hiddenPhone {
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.8;
+}
+
+/* ─── Audio Player ─── */
+.audioCell {
+  min-width: 240px;
+}
+
+.audioPlayer {
+  width: 100%;
+  max-width: 250px;
+  outline: none;
+  border-radius: 20px;
+}
+
 
 
 
