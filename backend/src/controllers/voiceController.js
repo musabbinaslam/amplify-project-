@@ -142,3 +142,43 @@ exports.getLogs = async (req, res) => {
         res.status(500).json({ error: 'Failed to load call logs' });
     }
 };
+/**
+ * Proxy a Twilio recording so the browser doesn't need to authenticate directly.
+ */
+exports.proxyRecording = async (req, res) => {
+    const { recordingSid } = req.params;
+    const { twilioClient, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN } = require('../config/twilio');
+
+    if (!recordingSid) {
+        return res.status(400).json({ error: 'Recording SID is required' });
+    }
+
+    try {
+        console.log(`[Proxy] Streaming recording: ${recordingSid}`);
+        
+        // Construct the Twilio recording URL
+        const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Recordings/${recordingSid}.mp3`;
+
+        const authHeader = 'Basic ' + Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
+
+        const response = await fetch(twilioUrl, {
+            headers: {
+                'Authorization': authHeader
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Twilio returned ${response.status}`);
+        }
+
+        // Set the correct content type
+        res.set('Content-Type', 'audio/mpeg');
+        
+        // Pipe the stream to the response
+        const { Readable } = require('stream');
+        Readable.fromWeb(response.body).pipe(res);
+    } catch (err) {
+        console.error(`[Proxy] Failed to stream recording ${recordingSid}:`, err.message);
+        res.status(500).json({ error: 'Failed to load recording' });
+    }
+};

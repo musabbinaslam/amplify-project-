@@ -1,9 +1,55 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader } from 'lucide-react';
+import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play } from 'lucide-react';
 import { apiFetch } from '../services/apiClient';
+import { auth } from '../config/firebase';
 import classes from './CallLogsPage.module.css';
 
 const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
+
+const RecordingPlayer = ({ recordingUrl }) => {
+  const [audioUrl, setAudioUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const loadAudio = async () => {
+    if (audioUrl) return;
+    try {
+      setLoading(true);
+      const recordingSid = recordingUrl.split('/').pop();
+      const token = await auth?.currentUser?.getIdToken();
+      
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const cleanApiUrl = API_URL.replace(/\/$/, '');
+      
+      const response = await fetch(`${cleanApiUrl}/api/voice/recording/${recordingSid}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to load recording');
+      
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      setAudioUrl(url);
+    } catch (err) {
+      console.error('Error loading audio proxy:', err);
+      alert('Failed to load recording. It might still be processing on Twilio.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!audioUrl) {
+    return (
+      <button className={classes.loadAudioBtn} onClick={loadAudio} disabled={loading}>
+        {loading ? <Loader size={14} className={classes.spinner} /> : <Play size={14} />}
+        {loading ? 'Loading...' : 'Play'}
+      </button>
+    );
+  }
+
+  return <audio className={classes.audioPlayer} controls autoPlay src={audioUrl} />;
+};
 
 const CallLogsPage = () => {
   const [search, setSearch] = useState('');

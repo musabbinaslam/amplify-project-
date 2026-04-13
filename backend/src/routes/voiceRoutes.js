@@ -17,4 +17,7 @@ router.post('/call-completed', validateTwilioWebhook, voiceController.handleCall
 // Fetch history (authenticated — per-user from Firestore)
 router.get('/logs', verifyFirebaseToken, voiceController.getLogs);
 
+// Proxy a Twilio recording so the browser doesn't need to auth directly with Twilio
+router.get('/recording/:recordingSid', verifyFirebaseToken, voiceController.proxyRecording);
+
 module.exports = router;
