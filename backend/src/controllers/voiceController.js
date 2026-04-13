@@ -13,13 +13,20 @@ exports.generateToken = (req, res) => {
   if (!identity) {
     return res.status(400).json({ error: 'identity is required' });
   }
+  const normalizedIdentity = String(identity).trim();
+  if (!/^[a-zA-Z0-9:_-]{3,128}$/.test(normalizedIdentity)) {
+    return res.status(400).json({ error: 'identity format is invalid' });
+  }
+  if (req.user?.uid && normalizedIdentity !== req.user.uid) {
+    return res.status(403).json({ error: 'identity must match authenticated user' });
+  }
 
   // Create an access token
   const token = new twilio.jwt.AccessToken(
     TWILIO_ACCOUNT_SID,
     TWILIO_API_KEY_SID,
     TWILIO_API_KEY_SECRET,
-    { identity }
+    { identity: normalizedIdentity }
   );
 
   // Grant access to Voice using our TwiML App
@@ -31,7 +38,7 @@ exports.generateToken = (req, res) => {
   token.addGrant(voiceGrant);
 
   // Serialize the token to a JWT string
-  res.json({ token: token.toJwt(), identity });
+  res.json({ token: token.toJwt(), identity: normalizedIdentity });
 };
 
 exports.handleIncomingCall = async (req, res) => {

@@ -5,6 +5,7 @@ const admin = require('../config/firebaseAdmin');
 const ANALYTICS_CACHE_TTL_MS = 30000;
 const READ_CONCURRENCY = 10;
 const analyticsCache = new Map();
+const coachingCache = new Map();
 
 function getCampaigns() {
   return Object.entries(CAMPAIGN_CONFIG).map(([id, cfg]) => ({
@@ -216,6 +217,92 @@ function cacheKey(from, end) {
   return `${from.toISOString().slice(0, 10)}|${end.toISOString().slice(0, 10)}`;
 }
 
+function coachingCacheKey(scope, query = {}) {
+  const normalized = {};
+  Object.keys(query || {}).sort().forEach((k) => {
+    normalized[k] = String(query[k]);
+  });
+  return `${scope}|${JSON.stringify(normalized)}`;
+}
+
+function readCoachingCache(key) {
+  const hit = coachingCache.get(key);
+  if (!hit) return null;
+  if (hit.expiresAt <= Date.now()) {
+    coachingCache.delete(key);
+    return null;
+  }
+  return hit.payload;
+}
+
+function writeCoachingCache(key, payload) {
+  coachingCache.set(key, {
+    payload,
+    expiresAt: Date.now() + ANALYTICS_CACHE_TTL_MS,
+  });
+}
+
+function normalizeQaScore(row) {
+  const score = Number(row?.qaInsight?.score || 0);
+  return Number.isFinite(score) ? score : 0;
+}
+
+async function readCoachingRows(query = {}) {
+  if (!admin) throw new Error('Database service unavailable');
+  const db = admin.firestore();
+  const usersSnap = await db.collection('users').get();
+  const rows = [];
+  for (const userDoc of usersSnap.docs) {
+    // eslint-disable-next-line no-await-in-loop
+    const [planSnap, tasksSnap, logsSnap] = await Promise.all([
+      userDoc.ref.collection('aiCoachingPlan').doc('current').get(),
+      userDoc.ref.collection('aiCoachingPlan').doc('current').collection('tasks').get(),
+      userDoc.ref.collection('callLogs').orderBy('createdAt', 'desc').limit(200).get(),
+    ]);
+    if (!planSnap.exists) continue;
+    const userData = userDoc.data() || {};
+    const plan = planSnap.data() || {};
+    const tasks = tasksSnap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter((t) => t.status === 'completed').length;
+    const completionRate = totalTasks ? completedTasks / totalTasks : 0;
+    const scores = logsSnap.docs
+      .map((d) => d.data() || {})
+      .filter((r) => r?.qaInsight?.score != null)
+      .map(normalizeQaScore);
+    const recent = scores.slice(0, 7);
+    const prior = scores.slice(7, 14);
+    const recentAvg = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : 0;
+    const priorAvg = prior.length ? prior.reduce((a, b) => a + b, 0) / prior.length : recentAvg;
+    const scoreDelta = Math.round(recentAvg - priorAvg);
+    const risk = completionRate < 0.4 && recentAvg < 70 ? 'high' : completionRate < 0.65 ? 'medium' : 'low';
+    rows.push({
+      uid: userDoc.id,
+      name: userData.fullName || userData.name || userData.email || userDoc.id,
+      email: userData.email || '',
+      status: plan.status || 'active',
+      focusAreas: Array.isArray(plan.focusAreas) ? plan.focusAreas : [],
+      totalTasks,
+      completedTasks,
+      completionRate: Number(completionRate.toFixed(4)),
+      recentScoreAvg: Math.round(recentAvg),
+      scoreDelta,
+      risk,
+      updatedAt: plan.updatedAt?.toDate ? plan.updatedAt.toDate().toISOString() : null,
+    });
+  }
+
+  const qStatus = String(query.status || '').trim().toLowerCase();
+  const qRisk = String(query.risk || '').trim().toLowerCase();
+  const qSearch = String(query.search || '').trim().toLowerCase();
+  return rows.filter((row) => {
+    if (qStatus && qStatus !== 'all' && String(row.status || '').toLowerCase() !== qStatus) return false;
+    if (qRisk && qRisk !== 'all' && String(row.risk || '').toLowerCase() !== qRisk) return false;
+    if (qSearch && !(`${row.name} ${row.email}`.toLowerCase().includes(qSearch))) return false;
+    return true;
+  });
+}
+
 async function getAnalyticsBundle(req, res) {
   try {
     const { from, end } = parseRange(req.query || {});
@@ -323,10 +410,80 @@ async function getLiveCalls(req, res) {
   }
 }
 
+async function getAiCoachingOverview(req, res) {
+  try {
+    const key = coachingCacheKey('overview', req.query || {});
+    const cached = readCoachingCache(key);
+    if (cached) return res.json({ ...cached, cached: true });
+    const rows = await readCoachingRows(req.query || {});
+    const statusDistribution = rows.reduce((acc, row) => ({
+      ...acc,
+      [row.status || 'unknown']: (acc[row.status || 'unknown'] || 0) + 1,
+    }), {});
+    const competencyTotals = new Map();
+    rows.forEach((row) => {
+      row.focusAreas.forEach((area) => {
+        const keyName = area.competency || area.competencyKey || 'Unknown';
+        if (!competencyTotals.has(keyName)) competencyTotals.set(keyName, { competency: keyName, total: 0, completed: 0 });
+        const entry = competencyTotals.get(keyName);
+        entry.total += 1;
+        if (row.completionRate >= 0.7) entry.completed += 1;
+      });
+    });
+    const completionByCompetency = [...competencyTotals.values()].map((row) => ({
+      competency: row.competency,
+      completionRate: row.total ? Number((row.completed / row.total).toFixed(4)) : 0,
+      totalPlans: row.total,
+    }));
+    const payload = {
+      summary: {
+        totalAgents: rows.length,
+        highRiskAgents: rows.filter((r) => r.risk === 'high').length,
+        avgCompletionRate: rows.length
+          ? Number((rows.reduce((acc, row) => acc + row.completionRate, 0) / rows.length).toFixed(4))
+          : 0,
+      },
+      statusDistribution,
+      completionByCompetency,
+      highRiskAgents: rows
+        .filter((r) => r.risk === 'high')
+        .sort((a, b) => a.recentScoreAvg - b.recentScoreAvg)
+        .slice(0, 10),
+    };
+    writeCoachingCache(key, payload);
+    res.json({ ...payload, cached: false });
+  } catch (err) {
+    console.error('[Admin] getAiCoachingOverview:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to load coaching overview' });
+  }
+}
+
+async function getAiCoachingAgentPlans(req, res) {
+  try {
+    const key = coachingCacheKey('agent-plans', req.query || {});
+    const cached = readCoachingCache(key);
+    if (cached) return res.json({ ...cached, cached: true });
+    const rows = await readCoachingRows(req.query || {});
+    const payload = {
+      rows: rows.sort((a, b) => {
+        if (a.risk !== b.risk) return a.risk.localeCompare(b.risk);
+        return b.completionRate - a.completionRate;
+      }),
+    };
+    writeCoachingCache(key, payload);
+    res.json({ ...payload, cached: false });
+  } catch (err) {
+    console.error('[Admin] getAiCoachingAgentPlans:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to load coaching agent plans' });
+  }
+}
+
 module.exports = {
   getOverviewLite,
   getAnalyticsBundle,
   getLiveCalls,
+  getAiCoachingOverview,
+  getAiCoachingAgentPlans,
   listDids,
   createDid,
   patchDid,

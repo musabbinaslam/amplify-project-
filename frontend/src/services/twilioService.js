@@ -1,5 +1,6 @@
 import { Device } from '@twilio/voice-sdk';
 import useDialerStore from '../store/useDialerStore';
+import useAuthStore from '../store/authStore';
 import { getAudioSettingsSnapshot, useAudioSettingsStore } from '../store/audioSettingsStore';
 import { getApiBaseUrl } from '../config/apiBase';
 import axios from 'axios';
@@ -79,10 +80,11 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
     });
 
     // 2. Fetch Twilio access token from the backend
+    const authToken = useAuthStore.getState().token;
     const response = await axios.post(`${API_URL()}/api/voice/token`, {
       identity: passedIdentity,
       campaign
-    });
+    }, authToken ? { headers: { Authorization: `Bearer ${authToken}` } } : undefined);
     const { token } = response.data;
 
     // 3. Initialize the Twilio Device

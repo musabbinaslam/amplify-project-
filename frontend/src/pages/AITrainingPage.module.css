@@ -1,0 +1,575 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  width: 100%;
+  padding-bottom: 32px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.iconBox {
+  width: 58px;
+  height: 58px;
+  border-radius: var(--radius-full);
+  background: var(--surface-container-highest);
+  color: var(--accent-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 16px var(--accent-green-glow);
+}
+
+.header h2 {
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.header p {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.topActions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.rangePills {
+  display: flex;
+  gap: 8px;
+}
+
+.pillBtn {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface-container);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pillBtnActive {
+  color: var(--accent-green);
+  border-color: var(--accent-green);
+  background: var(--accent-green-dim);
+}
+
+.refreshBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-container);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.errorBar {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 207, 51, 0.35);
+  border-radius: 12px;
+  background: rgba(255, 207, 51, 0.08);
+}
+
+.retryBtn {
+  border: 1px solid var(--border);
+  background: var(--surface-container-high);
+  color: var(--text-primary);
+  border-radius: var(--radius-full);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.statCard {
+  background: var(--surface-container-low);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.statIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: var(--accent-green-dim);
+  color: var(--accent-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.statValue {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.statMax {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.card {
+  background: var(--surface-container-low);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+}
+
+.cardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cardHead h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chartWrap {
+  width: 100%;
+  overflow: hidden;
+}
+
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+}
+
+.filters select {
+  min-width: 130px;
+  padding: 8px 10px;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.listItem {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-container);
+}
+
+.listItem strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 3px;
+}
+
+.listItem span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.listItemActive {
+  border-color: var(--accent-green);
+  background: var(--accent-green-dim);
+}
+
+.scorePill {
+  border: 1px solid var(--border);
+  background: var(--surface-container-high);
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.detailMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.rubric {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.rubricRow {
+  display: grid;
+  gap: 5px;
+}
+
+.rubricHead {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.rubricTrack {
+  width: 100%;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--surface-container-high);
+  overflow: hidden;
+}
+
+.rubricFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+}
+
+.feedbackBlocks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.feedbackBlocks h4 {
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.feedbackBlocks ul {
+  padding-left: 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  display: grid;
+  gap: 5px;
+}
+
+.drillGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.drillCard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-container);
+  padding: 12px;
+}
+
+.drillTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.drillTop h4 {
+  font-size: 14px;
+}
+
+.drillStatus {
+  font-size: 11px;
+  border-radius: var(--radius-full);
+  padding: 3px 8px;
+  text-transform: capitalize;
+  font-weight: 700;
+}
+
+.statusnew {
+  background: rgba(0, 227, 253, 0.15);
+  color: var(--accent-cyan);
+}
+
+.statusinprogress {
+  background: rgba(255, 207, 51, 0.15);
+  color: var(--accent-yellow);
+}
+
+.statuscompleted {
+  background: var(--accent-green-dim);
+  color: var(--accent-green);
+}
+
+.statussnoozed {
+  background: rgba(255, 115, 81, 0.15);
+  color: var(--accent-red);
+}
+
+.drillReason {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.drillScript {
+  font-size: 12px;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.drillActions {
+  display: flex;
+  gap: 7px;
+}
+
+.drillActions button {
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-container-high);
+  font-size: 11px;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.skeletonList {
+  display: grid;
+  gap: 8px;
+}
+
+.skeletonRow {
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-container-high) 20%,
+    var(--surface-container-highest) 50%,
+    var(--surface-container-high) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite linear;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.empty {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.guidedList {
+  display: grid;
+  gap: 10px;
+}
+
+.guidedCard {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-container);
+  padding: 12px;
+}
+
+.guidedHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.guidedCard p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.guidedCard ul {
+  padding-left: 18px;
+  margin-bottom: 8px;
+  display: grid;
+  gap: 4px;
+}
+
+.scriptLine {
+  font-size: 12px;
+  color: var(--text-primary) !important;
+  background: var(--surface-container-high);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.impactGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.impactRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-container);
+  padding: 10px 12px;
+}
+
+.deltaUp {
+  color: var(--accent-green);
+}
+
+.deltaDown {
+  color: var(--accent-red);
+}
+
+.taskList {
+  display: grid;
+  gap: 10px;
+}
+
+.taskRow {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-container);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.taskMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.taskMeta span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.taskNote {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-container-high);
+  color: var(--text-primary);
+  padding: 8px 10px;
+}
+
+.taskActions {
+  display: flex;
+  gap: 8px;
+}
+
+.taskActions button {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-container-high);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 1200px) {
+  .drillGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .statsGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .twoCol {
+    grid-template-columns: 1fr;
+  }
+
+  .feedbackBlocks {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .drillGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .filters {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .filters select {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+}
