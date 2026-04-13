@@ -343,13 +343,35 @@
 }
 
 /* ─── Audio Player ─── */
-.audioCell {
-  min-width: 240px;
+.loadAudioBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  background: var(--surface-container-high);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.loadAudioBtn:hover {
+  background: var(--surface-container-highest);
+  border-color: var(--accent-green);
+}
+
+.loadAudioBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .audioPlayer {
   width: 100%;
   max-width: 250px;
+  height: 32px;
   outline: none;
   border-radius: 20px;
 }
