@@ -21,7 +21,7 @@ const navItems = [
   { path: '/app/licensed-states', label: 'Licensed States', icon: MapPin },
   { path: '/app/leads', label: 'Leads', icon: Box, badge: 'Beta' },
   { path: '/app/profile', label: 'Profile', icon: User },
-  { path: '/app/ai-training', label: 'AI Training', icon: HeadphonesIcon, badge: 'Coming Soon', disabled: true },
+  { path: '/app/ai-training', label: 'AI Training', icon: HeadphonesIcon },
   { path: '/app/support', label: 'Support', icon: MessageSquare },
   { path: '/app/referral-program', label: 'Referral Program', icon: Gift },
   { path: '/app/settings', label: 'Settings', icon: Settings },
@@ -39,6 +39,11 @@ const Sidebar = () => {
       base.splice(base.length - 1, 0, {
         path: '/app/admin',
         label: 'Admin',
+        icon: Shield,
+      });
+      base.splice(base.length - 1, 0, {
+        path: '/app/admin/ai-training',
+        label: 'Admin AI Training',
         icon: Shield,
       });
     }

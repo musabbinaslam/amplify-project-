@@ -15,6 +15,21 @@ export function getAdminLiveCalls() {
   return apiFetch('/api/admin/live-calls', { method: 'GET' });
 }
 
+export function getAdminAiCoachingOverview(params = {}) {
+  const qs = new URLSearchParams();
+  if (params.from) qs.set('from', params.from);
+  if (params.to) qs.set('to', params.to);
+  return apiFetch(`/api/admin/ai-training/coaching-overview${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
+}
+
+export function getAdminAiAgentPlans(params = {}) {
+  const qs = new URLSearchParams();
+  if (params.status) qs.set('status', params.status);
+  if (params.risk) qs.set('risk', params.risk);
+  if (params.search) qs.set('search', params.search);
+  return apiFetch(`/api/admin/ai-training/agent-plans${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
+}
+
 export function listAdminDids() {
   return apiFetch('/api/admin/dids', { method: 'GET' });
 }

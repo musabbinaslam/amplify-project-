@@ -17,6 +17,7 @@ const TakeCallsPage = lazy(() => import('./pages/TakeCallsPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const CallLogsPage = lazy(() => import('./pages/CallLogsPage'));
 const QAFeedbackPage = lazy(() => import('./pages/QAFeedbackPage'));
+const AITrainingPage = lazy(() => import('./pages/AITrainingPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
 const LicensedStatesPage = lazy(() => import('./pages/LicensedStatesPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
@@ -26,6 +27,7 @@ const ScriptPage = lazy(() => import('./pages/ScriptPage'));
 const LeadsPage = lazy(() => Promise.resolve({ default: () => <PageTransition><div><h2 style={{color: 'white'}}>Leads (Beta)</h2></div></PageTransition> }));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
+const AdminAITrainingPage = lazy(() => import('./pages/AdminAITrainingPage'));
 
 import DialerOverlay from './components/ui/DialerOverlay';
 
@@ -86,6 +88,9 @@ const AnimatedRoutes = () => {
             <Route path="qa-feedback" element={
               <Suspense fallback={<PageLoader />}><PageTransition><QAFeedbackPage /></PageTransition></Suspense>
             } />
+            <Route path="ai-training" element={
+              <Suspense fallback={<PageLoader />}><PageTransition><AITrainingPage /></PageTransition></Suspense>
+            } />
             <Route path="script" element={
               <Suspense fallback={<PageLoader />}><PageTransition><ScriptPage /></PageTransition></Suspense>
             } />
@@ -111,6 +116,13 @@ const AnimatedRoutes = () => {
               <Suspense fallback={<PageLoader />}>
                 <AdminOnly>
                   <PageTransition><AdminDashboardPage /></PageTransition>
+                </AdminOnly>
+              </Suspense>
+            } />
+            <Route path="admin/ai-training" element={
+              <Suspense fallback={<PageLoader />}>
+                <AdminOnly>
+                  <PageTransition><AdminAITrainingPage /></PageTransition>
                 </AdminOnly>
               </Suspense>
             } />
