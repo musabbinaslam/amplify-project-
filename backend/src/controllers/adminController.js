@@ -242,55 +242,81 @@ function writeCoachingCache(key, payload) {
   });
 }
 
-function normalizeQaScore(row) {
-  const score = Number(row?.qaInsight?.score || 0);
-  return Number.isFinite(score) ? score : 0;
-}
-
 async function readCoachingRows(query = {}) {
   if (!admin) throw new Error('Database service unavailable');
   const db = admin.firestore();
   const usersSnap = await db.collection('users').get();
+  const docs = usersSnap.docs || [];
   const rows = [];
-  for (const userDoc of usersSnap.docs) {
-    // eslint-disable-next-line no-await-in-loop
-    const [planSnap, tasksSnap, logsSnap] = await Promise.all([
-      userDoc.ref.collection('aiCoachingPlan').doc('current').get(),
-      userDoc.ref.collection('aiCoachingPlan').doc('current').collection('tasks').get(),
-      userDoc.ref.collection('callLogs').orderBy('createdAt', 'desc').limit(200).get(),
-    ]);
-    if (!planSnap.exists) continue;
-    const userData = userDoc.data() || {};
-    const plan = planSnap.data() || {};
-    const tasks = tasksSnap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
-    const totalTasks = tasks.length;
-    const completedTasks = tasks.filter((t) => t.status === 'completed').length;
-    const completionRate = totalTasks ? completedTasks / totalTasks : 0;
-    const scores = logsSnap.docs
-      .map((d) => d.data() || {})
-      .filter((r) => r?.qaInsight?.score != null)
-      .map(normalizeQaScore);
-    const recent = scores.slice(0, 7);
-    const prior = scores.slice(7, 14);
-    const recentAvg = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : 0;
-    const priorAvg = prior.length ? prior.reduce((a, b) => a + b, 0) / prior.length : recentAvg;
-    const scoreDelta = Math.round(recentAvg - priorAvg);
-    const risk = completionRate < 0.4 && recentAvg < 70 ? 'high' : completionRate < 0.65 ? 'medium' : 'low';
-    rows.push({
-      uid: userDoc.id,
-      name: userData.fullName || userData.name || userData.email || userDoc.id,
-      email: userData.email || '',
-      status: plan.status || 'active',
-      focusAreas: Array.isArray(plan.focusAreas) ? plan.focusAreas : [],
-      totalTasks,
-      completedTasks,
-      completionRate: Number(completionRate.toFixed(4)),
-      recentScoreAvg: Math.round(recentAvg),
-      scoreDelta,
-      risk,
-      updatedAt: plan.updatedAt?.toDate ? plan.updatedAt.toDate().toISOString() : null,
-    });
+  let cursor = 0;
+
+  function metricTs(data = {}) {
+    if (data.updatedAt?.toDate) return data.updatedAt.toDate().getTime();
+    if (typeof data.dayKey === 'string') return new Date(`${data.dayKey}T23:59:59.999Z`).getTime();
+    return 0;
   }
+
+  async function worker() {
+    while (cursor < docs.length) {
+      const idx = cursor;
+      cursor += 1;
+      const userDoc = docs[idx];
+      // eslint-disable-next-line no-await-in-loop
+      const planSnap = await userDoc.ref.collection('aiCoachingPlan').doc('current').get();
+      if (!planSnap.exists) continue;
+      // eslint-disable-next-line no-await-in-loop
+      const [tasksSnap, metricsSnap] = await Promise.all([
+        userDoc.ref.collection('aiCoachingPlan').doc('current').collection('tasks').get(),
+        userDoc.ref.collection('aiCoachingPlan').doc('current').collection('metrics').limit(14).get(),
+      ]);
+      const userData = userDoc.data() || {};
+      const plan = planSnap.data() || {};
+      const tasks = tasksSnap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+      const totalTasks = tasks.length;
+      const completedTasks = tasks.filter((t) => t.status === 'completed').length;
+      const completionRate = totalTasks ? completedTasks / totalTasks : 0;
+      const metrics = metricsSnap.docs
+        .map((d) => ({ id: d.id, ...(d.data() || {}) }))
+        .sort((a, b) => metricTs(b) - metricTs(a));
+      const recent = metrics.slice(0, 7).map((m) => Number(m.overallScore || 0));
+      const prior = metrics.slice(7, 14).map((m) => Number(m.overallScore || 0));
+      const recentAvg = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : 0;
+      const priorAvg = prior.length ? prior.reduce((a, b) => a + b, 0) / prior.length : recentAvg;
+      const scoreDelta = Math.round(recentAvg - priorAvg);
+      const risk = completionRate < 0.4 && recentAvg < 70 ? 'high' : completionRate < 0.65 ? 'medium' : 'low';
+      const riskReasons = [];
+      if (completionRate < 0.4) riskReasons.push('Low task completion');
+      if (recentAvg < 70) riskReasons.push('Low recent coaching score');
+      if (scoreDelta < 0) riskReasons.push('Negative trend vs prior period');
+      if (!riskReasons.length) riskReasons.push('No acute blockers detected');
+      const trendPoints = metrics
+        .slice(0, 14)
+        .map((m) => ({
+          day: String(m.dayKey || '').slice(5),
+          score: Number(m.overallScore || 0),
+          callCount: Number(m.callCount || 0),
+        }))
+        .filter((p) => p.day)
+        .reverse();
+      rows.push({
+        uid: userDoc.id,
+        name: userData.fullName || userData.name || userData.email || userDoc.id,
+        email: userData.email || '',
+        status: plan.status || 'active',
+        focusAreas: Array.isArray(plan.focusAreas) ? plan.focusAreas : [],
+        totalTasks,
+        completedTasks,
+        completionRate: Number(completionRate.toFixed(4)),
+        recentScoreAvg: Math.round(recentAvg),
+        scoreDelta,
+        risk,
+        riskReasons,
+        trendPoints,
+        updatedAt: plan.updatedAt?.toDate ? plan.updatedAt.toDate().toISOString() : null,
+      });
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(READ_CONCURRENCY, Math.max(1, docs.length)) }, () => worker()));
 
   const qStatus = String(query.status || '').trim().toLowerCase();
   const qRisk = String(query.risk || '').trim().toLowerCase();
