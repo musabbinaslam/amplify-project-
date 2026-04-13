@@ -3,8 +3,8 @@ import useDialerStore from '../store/useDialerStore';
 import useAuthStore from '../store/authStore';
 import { getAudioSettingsSnapshot, useAudioSettingsStore } from '../store/audioSettingsStore';
 import { getApiBaseUrl } from '../config/apiBase';
-import axios from 'axios';
 import { io } from 'socket.io-client';
+import { apiFetch } from './apiClient';
 
 const API_URL = () => getApiBaseUrl();
 
@@ -79,13 +79,14 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       socket.on('connect_error', (err) => reject(err));
     });
 
-    // 2. Fetch Twilio access token from the backend
-    const authToken = useAuthStore.getState().token;
-    const response = await axios.post(`${API_URL()}/api/voice/token`, {
-      identity: passedIdentity,
-      campaign
-    }, authToken ? { headers: { Authorization: `Bearer ${authToken}` } } : undefined);
-    const { token } = response.data;
+    // 2. Fetch Twilio access token from the backend (using apiFetch instead of axios to pass Auth header properly)
+    const { token } = await apiFetch('/api/voice/token', {
+      method: 'POST',
+      body: {
+        identity: passedIdentity,
+        campaign
+      }
+    });
 
     // 3. Initialize the Twilio Device
     const device = new Device(token, {
