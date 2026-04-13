@@ -21,6 +21,10 @@ require('./queues/qaQueue');
 const app = express();
 const server = http.createServer(app);
 
+// Trust reverse proxy headers (required for Hostinger / any proxy-hosted environment)
+// Without this, express-rate-limit throws a ValidationError on X-Forwarded-For
+app.set('trust proxy', 1);
+
 // Twilio sends data as x-www-form-urlencoded, so we must have this!
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 app.use(cors({ origin: FRONTEND_URL, credentials: true }));
@@ -35,7 +39,7 @@ const io = new Server(server, {
 });
 
 const startEngine = async () => {
-    console.log('Starting AgentCalls System...');
+    console.log('Starting CallsFlow System...');
     await connectRedis();
 
     // Init Socket events
