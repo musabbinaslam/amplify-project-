@@ -21,6 +21,10 @@ require('./queues/qaQueue');
 const app = express();
 const server = http.createServer(app);
 
+// Trust reverse proxy headers (required for Hostinger / any proxy-hosted environment)
+// Without this, express-rate-limit throws a ValidationError on X-Forwarded-For
+app.set('trust proxy', 1);
+
 const allowedOrigins = (process.env.CLIENT_URLS || process.env.CLIENT_URL || 'http://localhost:5173')
   .split(',')
   .map((origin) => origin.trim())
