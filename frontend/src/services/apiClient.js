@@ -1,6 +1,7 @@
 import { auth } from '../config/firebase';
+import { getApiBaseUrl } from '../config/apiBase';
 
-const baseUrl = () => (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const baseUrl = () => getApiBaseUrl();
 
 async function getBearerToken(getIdToken) {
   if (getIdToken) {

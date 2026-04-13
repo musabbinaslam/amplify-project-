@@ -1,16 +1,67 @@
 import { Device } from '@twilio/voice-sdk';
 import useDialerStore from '../store/useDialerStore';
+import { getAudioSettingsSnapshot, useAudioSettingsStore } from '../store/audioSettingsStore';
+import { getApiBaseUrl } from '../config/apiBase';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = () => getApiBaseUrl();
+
+/**
+ * Apply persisted mic/speaker + DSP prefs from Firestore-backed store to Twilio AudioHelper.
+ */
+async function applyTwilioDeviceAudio(device) {
+  const audio = getAudioSettingsSnapshot();
+  const helper = device.audio;
+  if (!helper) return;
+
+  try {
+    if (typeof helper.setAudioConstraints === 'function') {
+      await helper.setAudioConstraints({
+        echoCancellation: audio.echoCancellation,
+        noiseSuppression: audio.noiseSuppression,
+      });
+    }
+  } catch (e) {
+    console.warn('[Twilio] setAudioConstraints', e?.message || e);
+  }
+
+  try {
+    if (typeof helper.setInputDevice === 'function') {
+      const id = audio.audioInputDeviceId || 'default';
+      await helper.setInputDevice(id);
+    }
+  } catch (e) {
+    console.warn('[Twilio] setInputDevice', e?.message || e);
+  }
+
+  try {
+    const out = audio.audioOutputDeviceId || 'default';
+    if (helper.speakerDevices && typeof helper.speakerDevices.set === 'function') {
+      await helper.speakerDevices.set(out);
+    }
+    if (helper.ringtoneDevices && typeof helper.ringtoneDevices.set === 'function') {
+      await helper.ringtoneDevices.set(out);
+    }
+  } catch (e) {
+    console.warn('[Twilio] output devices', e?.message || e);
+  }
+}
 
 export const initializeTwilioDevice = async (passedIdentity, campaign, licensedStates = []) => {
   const store = useDialerStore.getState();
 
   try {
+    if (passedIdentity) {
+      try {
+        await useAudioSettingsStore.getState().hydrate(passedIdentity);
+      } catch (e) {
+        console.warn('[Twilio] Could not hydrate audio settings:', e?.message || e);
+      }
+    }
+
     // 1. Connect Socket.IO FIRST
-    const socket = io(API_URL);
+    const socket = io(API_URL());
 
     await new Promise((resolve, reject) => {
       socket.on('connect', () => {
@@ -28,7 +79,7 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
     });
 
     // 2. Fetch Twilio access token from the backend
-    const response = await axios.post(`${API_URL}/api/voice/token`, {
+    const response = await axios.post(`${API_URL()}/api/voice/token`, {
       identity: passedIdentity,
       campaign
     });
@@ -89,6 +140,7 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
 
     // 5. Register the device with Twilio
     await device.register();
+    await applyTwilioDeviceAudio(device);
 
     return true;
   } catch (error) {

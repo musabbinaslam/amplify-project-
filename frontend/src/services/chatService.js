@@ -1,4 +1,4 @@
-const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+import { getApiBaseUrl } from '../config/apiBase';
 
 /**
  * Send conversation history to the backend and return the assistant reply.
@@ -10,7 +10,7 @@ export async function sendMessage(messages, getIdToken) {
     throw new Error('Not signed in');
   }
 
-  const url = `${API_URL}/api/support/chat`;
+  const url = `${getApiBaseUrl()}/api/support/chat`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
