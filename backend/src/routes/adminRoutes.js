@@ -10,6 +10,7 @@ router.use(requireAdmin);
 
 router.get('/overview-lite', adminController.getOverviewLite);
 router.get('/analytics-bundle', adminController.getAnalyticsBundle);
+router.get('/analytics-drilldown', adminController.getAnalyticsDrilldown);
 router.get('/live-calls', adminController.getLiveCalls);
 router.get('/ai-training/coaching-overview', adminController.getAiCoachingOverview);
 router.get('/ai-training/agent-plans', adminController.getAiCoachingAgentPlans);
