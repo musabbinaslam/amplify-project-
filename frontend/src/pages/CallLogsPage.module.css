@@ -42,12 +42,16 @@
 }
 
 .searchBox input {
-  background: transparent;
-  border: none;
+  background: transparent !important;
+  border: none !important;
   color: var(--text-primary);
-  outline: none;
+  outline: none !important;
   width: 220px;
   font-size: 0.85rem;
+  padding: 0 !important;
+  margin: 0;
+  box-shadow: none !important;
+  border-radius: 0 !important;
 }
 
 .searchBox input::placeholder {
@@ -378,6 +382,48 @@
 
 
 
+
+/* ─── Pagination ─── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-container-low) 50%, transparent);
+}
+
+.pageBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-container-high);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.pageBtn:not(:disabled):hover {
+  background: var(--surface-container-highest);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.pageBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pageInfo {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
 
 /* ─── Responsive ─── */
 @media (max-width: 768px) {

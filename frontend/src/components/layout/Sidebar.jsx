@@ -15,7 +15,6 @@ const navItems = [
   { path: '/app/take-calls', label: 'Take Calls', icon: Phone },
   { path: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/app/call-logs', label: 'Call Logs', icon: List },
-  { path: '/app/qa-feedback', label: 'QA Feedback', icon: CheckCircle2 },
   { path: '/app/script', label: 'Script', icon: FileText },
   { path: '/app/billing', label: 'Billing', icon: DollarSign },
   { path: '/app/licensed-states', label: 'Licensed States', icon: MapPin },
