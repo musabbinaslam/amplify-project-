@@ -2,6 +2,46 @@ const admin = require('../config/firebaseAdmin');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 
 class CallLogService {
+    async upsertAdminDailyMetrics(log) {
+        if (!admin) return;
+        const db = admin.firestore();
+        const day = new Date().toISOString().slice(0, 10);
+        const { FieldValue } = admin.firestore;
+        const campaignId = log.campaign || 'unknown';
+        const agentId = log.agentId || 'unknown';
+        const payload = {
+            day,
+            updatedAt: FieldValue.serverTimestamp(),
+            summary: {
+                totalCalls: FieldValue.increment(1),
+                answeredCalls: FieldValue.increment(log.status === 'completed' ? 1 : 0),
+                missedCalls: FieldValue.increment(log.status === 'completed' ? 0 : 1),
+                billableCalls: FieldValue.increment(log.isBillable ? 1 : 0),
+                totalDuration: FieldValue.increment(Number(log.duration || 0)),
+                totalCost: FieldValue.increment(Number(log.cost || 0)),
+            },
+            campaigns: {
+                [campaignId]: {
+                    calls: FieldValue.increment(1),
+                    answeredCalls: FieldValue.increment(log.status === 'completed' ? 1 : 0),
+                    billableCalls: FieldValue.increment(log.isBillable ? 1 : 0),
+                    totalDuration: FieldValue.increment(Number(log.duration || 0)),
+                    totalCost: FieldValue.increment(Number(log.cost || 0)),
+                    campaignLabel: log.campaignLabel || campaignId,
+                },
+            },
+            agents: {
+                [agentId]: {
+                    calls: FieldValue.increment(1),
+                    answeredCalls: FieldValue.increment(log.status === 'completed' ? 1 : 0),
+                    billableCalls: FieldValue.increment(log.isBillable ? 1 : 0),
+                    totalDuration: FieldValue.increment(Number(log.duration || 0)),
+                    totalCost: FieldValue.increment(Number(log.cost || 0)),
+                },
+            },
+        };
+        await db.collection('adminMetrics').doc('daily').collection('days').doc(day).set(payload, { merge: true });
+    }
     /**
      * Records a completed call and saves it to Firestore under the agent's user document.
      */
@@ -67,6 +107,7 @@ class CallLogService {
                 });
                 newLog.id = docRef.id;
                 console.log(`[Firestore] ✅ Call log saved for user ${agentId}: ${docRef.id}`);
+                await this.upsertAdminDailyMetrics(newLog);
             } catch (err) {
                 console.error(`[Firestore] ❌ Failed to save call log for user ${agentId}:`, err.message);
                 // Assign a fallback ID

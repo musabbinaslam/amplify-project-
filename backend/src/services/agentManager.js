@@ -1,6 +1,12 @@
 const { redisClient } = require('../config/redis');
 
 class AgentManager {
+   activeCallKey(agentId) {
+      return `activecall:${agentId}`;
+   }
+   activeCallPattern() {
+      return 'activecall:*';
+   }
    /**
     * Registers an agent in the pool when they go live.
     */
@@ -169,6 +175,84 @@ class AgentManager {
       });
 
       console.log(`[Router] 🔓 Agent ${agentId} released → back to AVAILABLE (moved to back of LRU queue)`);
+   }
+
+   async upsertActiveCall(agentId, payload = {}) {
+      if (!agentId) return;
+      await redisClient.sRem('agents:available', agentId);
+      await redisClient.sRem('agents:ringing', agentId);
+      await redisClient.sAdd('agents:busy', agentId);
+      await redisClient.hSet(`agent:${agentId}`, {
+         status: 'IN_CALL',
+         lastCallAt: Date.now().toString(),
+      });
+      await redisClient.hSet(this.activeCallKey(agentId), {
+         agentId,
+         callSid: String(payload.callSid || ''),
+         from: String(payload.from || ''),
+         to: String(payload.to || ''),
+         campaignId: String(payload.campaignId || ''),
+         startedAt: String(payload.startedAt || new Date().toISOString()),
+         state: String(payload.state || 'in_call'),
+         updatedAt: new Date().toISOString(),
+      });
+   }
+
+   async clearActiveCall(agentId) {
+      if (!agentId) return;
+      await redisClient.del(this.activeCallKey(agentId));
+   }
+
+   async listActiveCallAgentIds() {
+      const ids = new Set();
+      for await (const key of redisClient.scanIterator({ MATCH: this.activeCallPattern(), COUNT: 200 })) {
+         const raw = String(key || '');
+         if (!raw.startsWith('activecall:')) continue;
+         const agentId = raw.slice('activecall:'.length);
+         if (agentId) ids.add(agentId);
+      }
+      return [...ids];
+   }
+
+   async findAgentIdByCallSid(callSid) {
+      const target = String(callSid || '').trim();
+      if (!target) return null;
+      const ids = await this.listActiveCallAgentIds();
+      for (const agentId of ids) {
+         // eslint-disable-next-line no-await-in-loop
+         const row = await redisClient.hGetAll(this.activeCallKey(agentId));
+         if (row?.callSid && String(row.callSid).trim() === target) return agentId;
+      }
+      return null;
+   }
+
+   async listActiveCalls() {
+      const [busyIds, keyedIds] = await Promise.all([
+         redisClient.sMembers('agents:busy'),
+         this.listActiveCallAgentIds(),
+      ]);
+      const agentIds = [...new Set([...(busyIds || []), ...(keyedIds || [])])];
+      if (!agentIds.length) return [];
+      const rows = await Promise.all(
+         agentIds.map(async (id) => {
+            const row = await redisClient.hGetAll(this.activeCallKey(id));
+            const agent = await redisClient.hGetAll(`agent:${id}`);
+            if (!row || Object.keys(row).length === 0) return null;
+            const startedAtMs = row.startedAt ? new Date(row.startedAt).getTime() : NaN;
+            return {
+               agentId: id,
+               callSid: row.callSid || null,
+               from: row.from || null,
+               to: row.to || null,
+               campaignId: row.campaignId || agent.campaignId || null,
+               startedAt: row.startedAt || null,
+               durationSec: Number.isNaN(startedAtMs) ? 0 : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000)),
+               status: agent.status || 'IN_CALL',
+               state: row.state || 'in_call',
+            };
+         }),
+      );
+      return rows.filter(Boolean);
    }
 
    /**

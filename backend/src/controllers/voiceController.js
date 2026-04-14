@@ -69,6 +69,14 @@ exports.handleIncomingCall = async (req, res) => {
      const available = await agentManager.findAndLockAvailableAgent(campaign, callerState);
 
      if (available) {
+        await agentManager.upsertActiveCall(available.id, {
+          callSid: req.body?.CallSid || req.body?.CallSidInbound || '',
+          from: fromNumber,
+          to: toNumber,
+          campaignId: campaign,
+          startedAt: new Date().toISOString(),
+          state: 'bridging',
+        });
         const dial = twiml.dial({
           action: `/api/voice/call-completed?campaign=${campaign}&agentId=${available.id}`,
           method: 'POST',
@@ -100,23 +108,41 @@ exports.handleCallCompleted = async (req, res) => {
 
     console.log(`[Twilio] Call Completed: ${CallSid}. Duration: ${DialCallDuration}s. Status: ${DialCallStatus}. Recording: ${RecordingUrl ? 'Yes' : 'No'}`);
 
-    const savedLog = await callLogService.logCall({
-        from: From,
-        to: To,
-        duration: DialCallDuration,
-        campaignId: campaign,
-        agentId: agentId,
-        status: DialCallStatus === 'completed' ? 'completed' : 'missed',
-        callSid: CallSid,
-        recordingUrl: RecordingUrl || null
-    });
+    let savedLog = null;
+    let resolvedAgentId = agentId || null;
+    try {
+        if (!resolvedAgentId && CallSid) {
+            resolvedAgentId = await agentManager.findAgentIdByCallSid(CallSid);
+        }
+        savedLog = await callLogService.logCall({
+            from: From,
+            to: To,
+            duration: DialCallDuration,
+            campaignId: campaign,
+            agentId: resolvedAgentId,
+            status: DialCallStatus === 'completed' ? 'completed' : 'missed',
+            callSid: CallSid,
+            recordingUrl: RecordingUrl || null
+        });
+    } catch (err) {
+        console.error('[Twilio] Failed to persist call log:', err.message);
+    } finally {
+      if (resolvedAgentId) {
+        try {
+            await agentManager.clearActiveCall(resolvedAgentId);
+            await agentManager.releaseAgent(resolvedAgentId);
+        } catch (e) {
+            console.warn('[Router] release after completion failed:', e.message);
+        }
+      }
+    }
 
     // Non-blocking QA insight generation dispatched cleanly via BullMQ
-    if (agentId && savedLog?.id) {
+    if (resolvedAgentId && savedLog?.id) {
         try {
             await qaInsightQueue.add('generate-qa-insight', {
                 savedLog,
-                agentId,
+                agentId: resolvedAgentId,
                 FromState: FromState || null
             }, {
                 attempts: 3,

@@ -15,6 +15,7 @@ import {
 import {
   getAdminOverviewLite,
   getAdminAnalyticsBundle,
+  getAdminAnalyticsDrilldown,
   getAdminLiveCalls,
   listAdminDids,
   createAdminDid,
@@ -35,6 +36,11 @@ const AdminDashboardPage = () => {
   const [agentStats, setAgentStats] = useState([]);
   const [liveCalls, setLiveCalls] = useState([]);
   const [dids, setDids] = useState([]);
+  const [analyticsMeta, setAnalyticsMeta] = useState(null);
+  const [selectedCampaign, setSelectedCampaign] = useState('');
+  const [selectedAgent, setSelectedAgent] = useState('');
+  const [drilldownLoading, setDrilldownLoading] = useState(false);
+  const [drilldown, setDrilldown] = useState(null);
   const [agentSearch, setAgentSearch] = useState('');
   const [didForm, setDidForm] = useState({
     phoneE164: '',
@@ -54,16 +60,20 @@ const AdminDashboardPage = () => {
   }, [rangePreset]);
 
   const loadShell = useCallback(async () => {
-    // Fast path: overview + live calls
+    // Canonical fast path: overview-lite includes live calls payload.
     setLoading(true);
     try {
-      const [ov, live] = await Promise.all([
-        getAdminOverviewLite(),
-        getAdminLiveCalls(),
-      ]);
+      const ov = await getAdminOverviewLite();
       setOverview(ov);
-      setLiveCalls(live.rows || []);
+      setLiveCalls(Array.isArray(ov?.liveCalls) ? ov.liveCalls : []);
     } catch (e) {
+      // Recovery path only: if overview-lite fails, try standalone live endpoint.
+      try {
+        const live = await getAdminLiveCalls();
+        setLiveCalls(Array.isArray(live?.rows) ? live.rows : []);
+      } catch {
+        // no-op: preserve shell failure message below
+      }
       toast.error(e.message || 'Failed to load admin data');
     } finally {
       setLoading(false);
@@ -83,6 +93,7 @@ const AdminDashboardPage = () => {
       });
       setCampaignStats(bundle.campaigns || []);
       setAgentStats(bundle.agents || []);
+      setAnalyticsMeta(bundle.meta || null);
     } catch (e) {
       toast.error(e.message || 'Failed to load analytics');
     } finally {
@@ -90,23 +101,85 @@ const AdminDashboardPage = () => {
     }
   }, [getRange]);
 
+  const loadDrilldown = useCallback(async (type, id) => {
+    if (!type || !id) {
+      setDrilldown(null);
+      return;
+    }
+    setDrilldownLoading(true);
+    try {
+      const range = getRange();
+      const out = await getAdminAnalyticsDrilldown({ type, id, ...range });
+      setDrilldown(out);
+    } catch (e) {
+      toast.error(e.message || 'Failed to load drilldown');
+    } finally {
+      setDrilldownLoading(false);
+    }
+  }, [getRange]);
+
+  useEffect(() => {
+    if (selectedCampaign) {
+      loadDrilldown('campaign', selectedCampaign);
+      return;
+    }
+    if (selectedAgent) {
+      loadDrilldown('agent', selectedAgent);
+      return;
+    }
+    setDrilldown(null);
+  }, [selectedCampaign, selectedAgent, rangePreset, loadDrilldown]);
+
   useEffect(() => {
     refreshUserRole?.();
   }, [refreshUserRole]);
+
+  const refreshDids = useCallback(async () => {
+    const didList = await listAdminDids();
+    setDids(didList.dids || []);
+  }, []);
 
   useEffect(() => {
     // Initial load: shell then analytics
     Promise.all([
       loadShell(),
       loadAnalytics(),
-      listAdminDids().then((didList) => setDids(didList.dids || [])),
+      refreshDids(),
     ]);
-    // Poll only lightweight live data every 15s
-    const interval = setInterval(() => {
+  }, [loadShell]);
+
+  useEffect(() => {
+    // Smarter live refresh:
+    // - Fast when tab is visible
+    // - Slow when tab is hidden
+    // - Immediate on focus/visibility regain
+    let timerId = null;
+    const VISIBLE_MS = 30000;
+    const HIDDEN_MS = 120000;
+
+    const schedule = () => {
+      if (timerId) window.clearTimeout(timerId);
+      const ms = document.visibilityState === 'visible' ? VISIBLE_MS : HIDDEN_MS;
+      timerId = window.setTimeout(async () => {
+        await loadShell();
+        schedule();
+      }, ms);
+    };
+
+    const handleWake = () => {
       loadShell();
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [loadShell, loadAnalytics]);
+      schedule();
+    };
+
+    schedule();
+    document.addEventListener('visibilitychange', handleWake);
+    window.addEventListener('focus', handleWake);
+    return () => {
+      if (timerId) window.clearTimeout(timerId);
+      document.removeEventListener('visibilitychange', handleWake);
+      window.removeEventListener('focus', handleWake);
+    };
+  }, [loadShell, loadAnalytics, refreshDids]);
 
   const campaigns = overview?.campaigns || [];
   const statsSummary = callStats?.summary || {
@@ -131,8 +204,7 @@ const AdminDashboardPage = () => {
       });
       toast.success('Route created');
       setDidForm({ phoneE164: '', campaignId: '', label: '', active: true });
-      const didList = await listAdminDids();
-      setDids(didList.dids || []);
+      await refreshDids();
     } catch (err) {
       toast.error(err.message || 'Failed to create');
     }
@@ -142,8 +214,7 @@ const AdminDashboardPage = () => {
     try {
       await patchAdminDid(row.id, { active: !row.active });
       toast.success('Updated');
-      const didList = await listAdminDids();
-      setDids(didList.dids || []);
+      await refreshDids();
     } catch (err) {
       toast.error(err.message || 'Failed to update');
     }
@@ -154,17 +225,29 @@ const AdminDashboardPage = () => {
     try {
       await deleteAdminDid(row.id);
       toast.success('Removed');
-      const didList = await listAdminDids();
-      setDids(didList.dids || []);
+      await refreshDids();
     } catch (err) {
       toast.error(err.message || 'Failed to delete');
     }
   };
 
+  const getAgentName = useCallback((row) => (
+    row?.agentName || row?.displayName || row?.name || row?.agentId || row?.id || 'Unknown'
+  ), []);
+
+  const getAgentId = useCallback((row) => (
+    row?.agentId || row?.id || ''
+  ), []);
+
   const filteredAgentStats = useMemo(() => {
-    if (!agentSearch.trim()) return agentStats;
-    return agentStats.filter((row) => row.agentId.toLowerCase().includes(agentSearch.toLowerCase()));
-  }, [agentStats, agentSearch]);
+    const query = agentSearch.trim().toLowerCase();
+    if (!query) return agentStats;
+    return agentStats.filter((row) => {
+      const name = getAgentName(row).toLowerCase();
+      const id = getAgentId(row).toLowerCase();
+      return name.includes(query) || id.includes(query);
+    });
+  }, [agentStats, agentSearch, getAgentId, getAgentName]);
 
   if (loading && !overview) {
     return (
@@ -264,6 +347,14 @@ const AdminDashboardPage = () => {
             <span className={classes.statValue}>{analyticsLoading ? <span className={classes.skeletonNumWide} /> : `$${(statsSummary.totalCost || 0).toFixed(2)}`}</span>
           </div>
         </div>
+        <div className={classes.metaRow}>
+          <span className={classes.muted}>
+            Source: {analyticsMeta?.source || 'n/a'}
+          </span>
+          <span className={classes.muted}>
+            Updated: {analyticsMeta?.generatedAt ? new Date(analyticsMeta.generatedAt).toLocaleTimeString() : '—'}
+          </span>
+        </div>
       </section>
 
       <div className={classes.grid}>
@@ -305,13 +396,27 @@ const AdminDashboardPage = () => {
             <div className={classes.liveCallList}>
               {liveCalls.map((row, idx) => (
                 <div key={`${row.agentId}-${idx}`} className={classes.liveCallRow}>
-                  <span className={classes.mono}>{row.agentId}</span>
+                  <span className={classes.agentCell}>
+                    <strong>{getAgentName(row)}</strong>
+                    {getAgentName(row) !== getAgentId(row) ? (
+                      <span className={classes.agentSubId}>{getAgentId(row)}</span>
+                    ) : null}
+                  </span>
+                  <span className={classes.mono}>{row.callSid || '—'}</span>
                   <span>{row.campaignId}</span>
+                  <span>{row.durationSec || 0}s</span>
                   <span className={classes.statusPill}>{row.status}</span>
                 </div>
               ))}
             </div>
           )}
+          <div className={classes.metaRow}>
+            <span className={classes.muted}>Source: {overview?.live?.source || 'n/a'}</span>
+            <span className={classes.muted}>Rows: {overview?.live?.rowCount ?? liveCalls.length}</span>
+            <span className={classes.muted}>
+              Updated: {overview?.live?.generatedAt ? new Date(overview.live.generatedAt).toLocaleTimeString() : '—'}
+            </span>
+          </div>
         </div>
         <h3 className={classes.subTitle}>Agents by campaign</h3>
         <div className={classes.chipRow}>
@@ -355,7 +460,7 @@ const AdminDashboardPage = () => {
           <table className={classes.table}>
             <thead>
               <tr>
-                <th>Agent ID</th>
+                <th>Agent</th>
                 <th>Campaign</th>
                 <th>Pool</th>
                 <th>Status</th>
@@ -378,7 +483,12 @@ const AdminDashboardPage = () => {
               ) : (
                 overview.agents.map((a) => (
                   <tr key={a.id}>
-                    <td className={classes.mono}>{a.id}</td>
+                    <td className={classes.agentCell}>
+                      <strong>{getAgentName(a)}</strong>
+                      {getAgentName(a) !== getAgentId(a) ? (
+                        <span className={classes.agentSubId}>{getAgentId(a)}</span>
+                      ) : null}
+                    </td>
                     <td>{a.campaignId}</td>
                     <td><span className={classes.statusPill}>{a.pool}</span></td>
                     <td><span className={classes.statusPill}>{a.status}</span></td>
@@ -412,7 +522,14 @@ const AdminDashboardPage = () => {
                 <tr><td colSpan={6} className={classes.muted}>No campaign stats in selected range</td></tr>
               ) : (
                 campaignStats.map((row) => (
-                  <tr key={row.campaign}>
+                  <tr
+                    key={row.campaign}
+                    className={`${classes.clickableRow} ${selectedCampaign === row.campaign ? classes.rowActive : ''}`}
+                    onClick={() => {
+                    setSelectedCampaign(row.campaign);
+                    setSelectedAgent('');
+                    }}
+                  >
                     <td>{row.campaignLabel || row.campaign}</td>
                     <td>{row.calls}</td>
                     <td>{Math.round((row.answerRate || 0) * 100)}%</td>
@@ -432,7 +549,7 @@ const AdminDashboardPage = () => {
           <h2 className={classes.cardTitle}>Agent performance</h2>
           <input
             className={classes.searchInput}
-            placeholder="Search by agent id"
+            placeholder="Search by agent name or ID"
             value={agentSearch}
             onChange={(e) => setAgentSearch(e.target.value)}
           />
@@ -456,8 +573,20 @@ const AdminDashboardPage = () => {
                 <tr><td colSpan={6} className={classes.muted}>No agent stats match this filter</td></tr>
               ) : (
                 filteredAgentStats.map((row) => (
-                  <tr key={row.agentId}>
-                    <td className={classes.mono}>{row.agentId}</td>
+                  <tr
+                    key={row.agentId}
+                    className={`${classes.clickableRow} ${selectedAgent === row.agentId ? classes.rowActive : ''}`}
+                    onClick={() => {
+                    setSelectedAgent(row.agentId);
+                    setSelectedCampaign('');
+                    }}
+                  >
+                    <td className={classes.agentCell}>
+                      <strong>{getAgentName(row)}</strong>
+                      {getAgentName(row) !== getAgentId(row) ? (
+                        <span className={classes.agentSubId}>{getAgentId(row)}</span>
+                      ) : null}
+                    </td>
                     <td>{row.calls}</td>
                     <td>{Math.round((row.answerRate || 0) * 100)}%</td>
                     <td>{Math.round((row.billableRate || 0) * 100)}%</td>
@@ -469,6 +598,78 @@ const AdminDashboardPage = () => {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className={classes.card}>
+        <div className={classes.cardTopRow}>
+          <h2 className={classes.cardTitle}>Drilldown</h2>
+          {(selectedCampaign || selectedAgent) ? (
+            <div className={classes.filterRow}>
+              <span className={classes.statusPill}>
+                {selectedCampaign ? `Campaign: ${selectedCampaign}` : `Agent: ${selectedAgent}`}
+              </span>
+              <button
+                type="button"
+                className={classes.filterBtn}
+                onClick={() => {
+                  setSelectedCampaign('');
+                  setSelectedAgent('');
+                }}
+              >
+                Reset selection
+              </button>
+            </div>
+          ) : null}
+        </div>
+        {(!selectedCampaign && !selectedAgent) ? (
+          <p className={classes.muted}>Click a campaign or agent row to open detailed trend and outcomes.</p>
+        ) : drilldownLoading ? (
+          <div className={classes.skeletonList}>
+            <div className={classes.skeletonRow} />
+            <div className={classes.skeletonRow} />
+          </div>
+        ) : !drilldown ? (
+          <p className={classes.muted}>No drilldown data available.</p>
+        ) : (
+          <>
+            <div className={classes.grid}>
+              <div className={classes.statCard}>
+                <span className={classes.statLabel}>Calls</span>
+                <span className={classes.statValue}>{drilldown.summary?.calls ?? 0}</span>
+              </div>
+              <div className={classes.statCard}>
+                <span className={classes.statLabel}>Answer Rate</span>
+                <span className={classes.statValue}>{Math.round((drilldown.summary?.answerRate || 0) * 100)}%</span>
+              </div>
+              <div className={classes.statCard}>
+                <span className={classes.statLabel}>Billable Rate</span>
+                <span className={classes.statValue}>{Math.round((drilldown.summary?.billableRate || 0) * 100)}%</span>
+              </div>
+            </div>
+            <div className={classes.metaRow}>
+              <span className={classes.muted}>Source: {drilldown.meta?.source || 'n/a'}</span>
+              <span className={classes.muted}>Rows: {drilldown.meta?.rowCount ?? 0}</span>
+              <span className={classes.muted}>
+                Updated: {drilldown.meta?.generatedAt ? new Date(drilldown.meta.generatedAt).toLocaleTimeString() : '—'}
+              </span>
+            </div>
+            <div className={classes.chartWrap}>
+              {!drilldown.trend?.length ? (
+                <p className={classes.muted}>No trend data in selected range.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <AreaChart data={drilldown.trend}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="day" />
+                    <YAxis />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="calls" stroke="#34d399" fill="#34d39933" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </>
+        )}
       </section>
 
       <section className={classes.card}>
