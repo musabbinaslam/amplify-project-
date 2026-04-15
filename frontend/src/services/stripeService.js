@@ -41,6 +41,18 @@ export const stripeService = {
     }
     return parseJsonOrThrow(res, 'Checkout API returned invalid JSON');
   },
+  verifyCheckout: async (sessionId) => {
+    const res = await fetch(`${API_URL}/api/stripe/verify-checkout`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ sessionId })
+    });
+    if (!res.ok) {
+      const message = await safeErrorMessage(res, 'Failed to verify payment');
+      throw new Error(message);
+    }
+    return parseJsonOrThrow(res, 'Verify checkout API returned invalid JSON');
+  },
   createSubscription: async (planId) => {
     const res = await fetch(`${API_URL}/api/stripe/create-subscription`, {
       method: 'POST',
