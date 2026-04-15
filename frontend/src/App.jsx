@@ -16,7 +16,6 @@ const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 const TakeCallsPage = lazy(() => import('./pages/TakeCallsPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const CallLogsPage = lazy(() => import('./pages/CallLogsPage'));
-const QAFeedbackPage = lazy(() => import('./pages/QAFeedbackPage'));
 const AITrainingPage = lazy(() => import('./pages/AITrainingPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
 const LicensedStatesPage = lazy(() => import('./pages/LicensedStatesPage'));
@@ -84,9 +83,6 @@ const AnimatedRoutes = () => {
             } />
             <Route path="call-logs" element={
               <Suspense fallback={<PageLoader />}><PageTransition><CallLogsPage /></PageTransition></Suspense>
-            } />
-            <Route path="qa-feedback" element={
-              <Suspense fallback={<PageLoader />}><PageTransition><QAFeedbackPage /></PageTransition></Suspense>
             } />
             <Route path="ai-training" element={
               <Suspense fallback={<PageLoader />}><PageTransition><AITrainingPage /></PageTransition></Suspense>

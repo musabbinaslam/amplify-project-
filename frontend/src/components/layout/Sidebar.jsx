@@ -15,7 +15,6 @@ const navItems = [
   { path: '/app/take-calls', label: 'Take Calls', icon: Phone },
   { path: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/app/call-logs', label: 'Call Logs', icon: List },
-  { path: '/app/qa-feedback', label: 'QA Feedback', icon: CheckCircle2 },
   { path: '/app/script', label: 'Script', icon: FileText },
   { path: '/app/billing', label: 'Billing', icon: DollarSign },
   { path: '/app/licensed-states', label: 'Licensed States', icon: MapPin },
@@ -61,7 +60,7 @@ const Sidebar = () => {
         {!isSidebarCollapsed && (
           <div className={classes.logo}>
             <div className={classes.logoIcon}>
-               <span className={classes.logoTriangle}></span>
+              <span className={classes.logoTriangle}></span>
             </div>
             <h2>CALLSFLOW</h2>
           </div>
@@ -73,29 +72,29 @@ const Sidebar = () => {
 
       <nav className={`${classes.nav} ${isSidebarCollapsed ? classes.navCollapsed : ''}`}>
         {items.map((item) => (
-           <NavLink
-             key={item.path}
-             to={item.disabled ? '#' : item.path}
-             end={item.end || false}
-             className={({ isActive }) =>
-               `${classes.navItem} ${isSidebarCollapsed ? classes.navItemCollapsed : ''} ${isActive && !item.disabled ? classes.active : ''} ${item.disabled ? classes.disabled : ''}`
-             }
-             onClick={(e) => item.disabled && e.preventDefault()}
-           >
-             <span className={`${classes.iconWrap} ${isSidebarCollapsed ? classes.iconWrapCollapsed : ''}`}>
-               <item.icon size={20} className={classes.icon} />
-             </span>
-             {!isSidebarCollapsed && (
-               <>
-                 <span className={classes.label}>{item.label}</span>
-                 {item.badge && (
-                   <span className={`${classes.badge} ${item.badge === 'Beta' ? classes.beta : classes.comingSoon}`}>
-                     {item.badge}
-                   </span>
-                 )}
-               </>
-             )}
-           </NavLink>
+          <NavLink
+            key={item.path}
+            to={item.disabled ? '#' : item.path}
+            end={item.end || false}
+            className={({ isActive }) =>
+              `${classes.navItem} ${isSidebarCollapsed ? classes.navItemCollapsed : ''} ${isActive && !item.disabled ? classes.active : ''} ${item.disabled ? classes.disabled : ''}`
+            }
+            onClick={(e) => item.disabled && e.preventDefault()}
+          >
+            <span className={`${classes.iconWrap} ${isSidebarCollapsed ? classes.iconWrapCollapsed : ''}`}>
+              <item.icon size={20} className={classes.icon} />
+            </span>
+            {!isSidebarCollapsed && (
+              <>
+                <span className={classes.label}>{item.label}</span>
+                {item.badge && (
+                  <span className={`${classes.badge} ${item.badge === 'Beta' ? classes.beta : classes.comingSoon}`}>
+                    {item.badge}
+                  </span>
+                )}
+              </>
+            )}
+          </NavLink>
         ))}
       </nav>
 

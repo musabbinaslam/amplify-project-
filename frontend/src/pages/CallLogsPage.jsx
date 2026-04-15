@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play } from 'lucide-react';
+import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play, ChevronLeft, ChevronRight } from 'lucide-react';
 import { apiFetch } from '../services/apiClient';
 import { auth } from '../config/firebase';
 import classes from './CallLogsPage.module.css';
@@ -57,6 +57,12 @@ const CallLogsPage = () => {
   const [callLogs, setCallLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, typeFilter]);
 
   // Fetch real call logs from backend
   const fetchLogs = async (showLoader = false) => {
@@ -137,6 +143,12 @@ const CallLogsPage = () => {
       return matchesSearch && matchesType;
     });
   }, [search, typeFilter, callLogs]);
+
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filtered.slice(start, start + ITEMS_PER_PAGE);
+  }, [filtered, currentPage]);
 
   const stats = useMemo(() => {
     const total = callLogs.length;
@@ -234,7 +246,7 @@ const CallLogsPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((log) => {
+                {paginatedLogs.map((log) => {
                   const callType = getCallType(log);
                   const disposition = getDisposition(log);
                   const isInbound = callType === 'inbound';
@@ -297,6 +309,27 @@ const CallLogsPage = () => {
                 {callLogs.length === 0
                   ? 'No call logs yet. Start taking calls to see your activity here.'
                   : 'No calls match your search'}
+              </div>
+            )}
+            {totalPages > 1 && (
+              <div className={classes.pagination}>
+                <button
+                  className={classes.pageBtn}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft size={16} /> Previous
+                </button>
+                <div className={classes.pageInfo}>
+                  Page {currentPage} of {totalPages}
+                </div>
+                <button
+                  className={classes.pageBtn}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next <ChevronRight size={16} />
+                </button>
               </div>
             )}
           </>

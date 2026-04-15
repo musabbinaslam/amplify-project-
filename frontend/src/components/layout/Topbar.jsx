@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Wallet, Globe, Moon, Sun, Settings2 } from 'lucide-react';
+import { Wallet, Moon, Sun, Settings2 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
 import classes from './Topbar.module.css';
@@ -61,9 +61,7 @@ const Topbar = () => {
           )}
         </div>
 
-        <button className={classes.iconBtn}>
-          <Globe size={18} />
-        </button>
+
         <button className={classes.iconBtn} onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
