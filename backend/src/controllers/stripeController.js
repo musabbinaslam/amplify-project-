@@ -156,6 +156,12 @@ exports.getWalletInfo = async (req, res) => {
 /**
  * POST /api/stripe/webhook
  * Handles Stripe webhook events. Must receive raw body.
+ *
+ * Two modes:
+ * - PRODUCTION: Set STRIPE_WEBHOOK_SECRET in .env (get it from Stripe Dashboard → Webhooks → Signing secret).
+ *               The secret is permanent and never changes.
+ * - DEV/TEST:   Leave STRIPE_WEBHOOK_SECRET empty. Signature verification is skipped.
+ *               Works with `stripe listen --forward-to ...` without needing to copy the whsec_ key.
  */
 exports.handleWebhook = async (req, res) => {
   if (!stripe) return res.status(503).send('Stripe not configured');
@@ -166,11 +172,12 @@ exports.handleWebhook = async (req, res) => {
   let event;
   try {
     if (webhookSecret) {
+      // PRODUCTION mode: verify the signature using the Dashboard signing secret
       event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
     } else {
-      // For development without webhook signing
+      // DEV mode: skip signature verification so any `stripe listen` session works
       event = JSON.parse(req.body.toString());
-      console.warn('[Stripe] ⚠️  Webhook signature not verified (no STRIPE_WEBHOOK_SECRET set)');
+      console.warn('[Stripe] ⚠️  DEV MODE — Webhook signature not verified (STRIPE_WEBHOOK_SECRET is empty)');
     }
   } catch (err) {
     console.error('[Stripe] Webhook signature verification failed:', err.message);
