@@ -6,11 +6,18 @@ const verifyFirebaseToken = async (req, res, next) => {
   }
 
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  // Also accept token as query param — needed for native <audio> streaming
+  // which cannot send custom headers for Range requests.
+  const queryToken = req.query.token;
+
+  let idToken = null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    idToken = authHeader.split('Bearer ')[1];
+  } else if (queryToken) {
+    idToken = queryToken;
+  } else {
     return res.status(401).json({ error: 'Missing or malformed Authorization header' });
   }
-
-  const idToken = authHeader.split('Bearer ')[1];
 
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);

@@ -7,39 +7,32 @@ import classes from './CallLogsPage.module.css';
 const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
 
 const RecordingPlayer = ({ recordingUrl }) => {
-  const [audioUrl, setAudioUrl] = useState(null);
+  const [streamUrl, setStreamUrl] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const loadAudio = async () => {
-    if (audioUrl) return;
+    if (streamUrl) return;
     try {
       setLoading(true);
       const recordingSid = recordingUrl.split('/').pop();
       const token = await auth?.currentUser?.getIdToken();
-      
       const API_URL = import.meta.env.VITE_API_URL || '';
       const cleanApiUrl = API_URL.replace(/\/$/, '');
-      
-      const response = await fetch(`${cleanApiUrl}/api/voice/recording/${recordingSid}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) throw new Error('Failed to load recording');
-      
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      setAudioUrl(url);
+
+      // Build a URL with the token as a query param so the <audio> tag can
+      // stream directly — the browser handles Range requests automatically,
+      // giving instant playback and full scrubbing support.
+      const url = `${cleanApiUrl}/api/voice/recording/${recordingSid}?token=${encodeURIComponent(token)}`;
+      setStreamUrl(url);
     } catch (err) {
-      console.error('Error loading audio proxy:', err);
+      console.error('Error loading audio:', err);
       alert('Failed to load recording. It might still be processing on Twilio.');
     } finally {
       setLoading(false);
     }
   };
 
-  if (!audioUrl) {
+  if (!streamUrl) {
     return (
       <button className={classes.loadAudioBtn} onClick={loadAudio} disabled={loading}>
         {loading ? <Loader size={14} className={classes.spinner} /> : <Play size={14} />}
@@ -48,7 +41,7 @@ const RecordingPlayer = ({ recordingUrl }) => {
     );
   }
 
-  return <audio className={classes.audioPlayer} controls autoPlay src={audioUrl} />;
+  return <audio className={classes.audioPlayer} controls autoPlay src={streamUrl} />;
 };
 
 const CallLogsPage = () => {
