@@ -6,41 +6,51 @@ import classes from './CallLogsPage.module.css';
 
 const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
 
-const RecordingPlayer = ({ recordingUrl }) => {
+const RecordingModal = ({ recordingUrl, onClose }) => {
   const [streamUrl, setStreamUrl] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const loadAudio = async () => {
-    if (streamUrl) return;
-    try {
-      setLoading(true);
-      const recordingSid = recordingUrl.split('/').pop();
-      const token = await auth?.currentUser?.getIdToken();
-      const API_URL = import.meta.env.VITE_API_URL || '';
-      const cleanApiUrl = API_URL.replace(/\/$/, '');
+  useEffect(() => {
+    let isMounted = true;
+    const loadAudio = async () => {
+      try {
+        setLoading(true);
+        const recordingSid = recordingUrl.split('/').pop();
+        const token = await auth?.currentUser?.getIdToken();
+        const API_URL = import.meta.env.VITE_API_URL || '';
+        const cleanApiUrl = API_URL.replace(/\/$/, '');
+        const url = `${cleanApiUrl}/api/voice/recording/${recordingSid}?token=${encodeURIComponent(token)}`;
+        if (isMounted) setStreamUrl(url);
+      } catch (err) {
+        console.error('Error loading audio:', err);
+        if (isMounted) alert('Failed to load recording. It might still be processing on Twilio.');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    loadAudio();
+    return () => { isMounted = false; };
+  }, [recordingUrl]);
 
-      // Pass token as query param — browser's <audio> tag can't send headers
-      // but it CAN stream byte-ranges, enabling instant play + scrubbing
-      const url = `${cleanApiUrl}/api/voice/recording/${recordingSid}?token=${encodeURIComponent(token)}`;
-      setStreamUrl(url);
-    } catch (err) {
-      console.error('Error loading audio:', err);
-      alert('Failed to load recording. It might still be processing on Twilio.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!streamUrl) {
-    return (
-      <button className={classes.loadAudioBtn} onClick={loadAudio} disabled={loading}>
-        {loading ? <Loader size={14} className={classes.spinner} /> : <Play size={14} />}
-        {loading ? 'Loading...' : 'Play'}
-      </button>
-    );
-  }
-
-  return <audio className={classes.audioPlayer} controls autoPlay src={streamUrl} />;
+  return (
+    <div className={classes.modalOverlay} onClick={onClose}>
+      <div className={classes.modalContent} onClick={e => e.stopPropagation()}>
+        <div className={classes.modalHeader}>
+          <h3>Call Recording</h3>
+          <button className={classes.closeBtn} onClick={onClose}>&times;</button>
+        </div>
+        <div className={classes.modalBody}>
+          {loading ? (
+             <div className={classes.loadingState}><Loader size={18} className={classes.spinner} /> Loading recording...</div>
+          ) : streamUrl ? (
+             <audio className={classes.modalAudioPlayer} controls autoPlay src={streamUrl} />
+          ) : (
+             <div className={classes.errorState}>Could not load playback.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const CallLogsPage = () => {
@@ -49,6 +59,7 @@ const CallLogsPage = () => {
   const [callLogs, setCallLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeRecordingUrl, setActiveRecordingUrl] = useState(null);
 
   // Fetch real call logs from backend
   const fetchLogs = async (showLoader = false) => {
@@ -273,7 +284,12 @@ const CallLogsPage = () => {
                       </td>
                       <td className={classes.audioCell}>
                         {log.recordingUrl ? (
-                          <the recordingUrl={log.recordingUrl} />
+                          <button 
+                            className={classes.loadAudioBtn} 
+                            onClick={() => setActiveRecordingUrl(log.recordingUrl)}
+                          >
+                            <Play size={14} /> Play
+                          </button>
                         ) : (
                           <span className={classes.scoreDash}>—</span>
                         )}
@@ -294,6 +310,13 @@ const CallLogsPage = () => {
           </>
         )}
       </div>
+
+      {activeRecordingUrl && (
+        <RecordingModal 
+          recordingUrl={activeRecordingUrl} 
+          onClose={() => setActiveRecordingUrl(null)} 
+        />
+      )}
     </div>
   );
 };

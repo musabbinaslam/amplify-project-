@@ -99,7 +99,9 @@ const DialerOverlay = () => {
           <div className={`${classes.callerAvatar} ${callState === 'ringing' ? classes.avatarRinging : ''}`}>
              <User size={32} />
           </div>
-          <h2 className={classes.callerName}>{incomingCallerId || 'Trackdrive Lead'}</h2>
+          <h2 className={classes.callerName}>
+            {callState === 'active' ? 'Connected Caller' : 'Trackdrive Lead'}
+          </h2>
           <span className={classes.campaignBadge}>Campaign: {activeCampaign || 'Standard'}</span>
         </div>
 
