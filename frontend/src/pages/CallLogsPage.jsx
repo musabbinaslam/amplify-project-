@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play } from 'lucide-react';
 import { apiFetch } from '../services/apiClient';
 import { auth } from '../config/firebase';
 import classes from './CallLogsPage.module.css';
@@ -7,39 +7,31 @@ import classes from './CallLogsPage.module.css';
 const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
 
 const RecordingPlayer = ({ recordingUrl }) => {
-  const [audioUrl, setAudioUrl] = useState(null);
+  const [streamUrl, setStreamUrl] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const loadAudio = async () => {
-    if (audioUrl) return;
+    if (streamUrl) return;
     try {
       setLoading(true);
       const recordingSid = recordingUrl.split('/').pop();
       const token = await auth?.currentUser?.getIdToken();
-      
       const API_URL = import.meta.env.VITE_API_URL || '';
       const cleanApiUrl = API_URL.replace(/\/$/, '');
-      
-      const response = await fetch(`${cleanApiUrl}/api/voice/recording/${recordingSid}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) throw new Error('Failed to load recording');
-      
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      setAudioUrl(url);
+
+      // Pass token as query param — browser's <audio> tag can't send headers
+      // but it CAN stream byte-ranges, enabling instant play + scrubbing
+      const url = `${cleanApiUrl}/api/voice/recording/${recordingSid}?token=${encodeURIComponent(token)}`;
+      setStreamUrl(url);
     } catch (err) {
-      console.error('Error loading audio proxy:', err);
+      console.error('Error loading audio:', err);
       alert('Failed to load recording. It might still be processing on Twilio.');
     } finally {
       setLoading(false);
     }
   };
 
-  if (!audioUrl) {
+  if (!streamUrl) {
     return (
       <button className={classes.loadAudioBtn} onClick={loadAudio} disabled={loading}>
         {loading ? <Loader size={14} className={classes.spinner} /> : <Play size={14} />}
@@ -48,7 +40,7 @@ const RecordingPlayer = ({ recordingUrl }) => {
     );
   }
 
-  return <audio className={classes.audioPlayer} controls autoPlay src={audioUrl} />;
+  return <audio className={classes.audioPlayer} controls autoPlay src={streamUrl} />;
 };
 
 const CallLogsPage = () => {
@@ -57,12 +49,6 @@ const CallLogsPage = () => {
   const [callLogs, setCallLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 20;
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, typeFilter]);
 
   // Fetch real call logs from backend
   const fetchLogs = async (showLoader = false) => {
@@ -143,12 +129,6 @@ const CallLogsPage = () => {
       return matchesSearch && matchesType;
     });
   }, [search, typeFilter, callLogs]);
-
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
-  const paginatedLogs = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filtered.slice(start, start + ITEMS_PER_PAGE);
-  }, [filtered, currentPage]);
 
   const stats = useMemo(() => {
     const total = callLogs.length;
@@ -246,7 +226,7 @@ const CallLogsPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {paginatedLogs.map((log) => {
+                {filtered.map((log) => {
                   const callType = getCallType(log);
                   const disposition = getDisposition(log);
                   const isInbound = callType === 'inbound';
@@ -293,7 +273,7 @@ const CallLogsPage = () => {
                       </td>
                       <td className={classes.audioCell}>
                         {log.recordingUrl ? (
-                          <RecordingPlayer recordingUrl={log.recordingUrl} />
+                          <the recordingUrl={log.recordingUrl} />
                         ) : (
                           <span className={classes.scoreDash}>—</span>
                         )}
@@ -309,27 +289,6 @@ const CallLogsPage = () => {
                 {callLogs.length === 0
                   ? 'No call logs yet. Start taking calls to see your activity here.'
                   : 'No calls match your search'}
-              </div>
-            )}
-            {totalPages > 1 && (
-              <div className={classes.pagination}>
-                <button
-                  className={classes.pageBtn}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft size={16} /> Previous
-                </button>
-                <div className={classes.pageInfo}>
-                  Page {currentPage} of {totalPages}
-                </div>
-                <button
-                  className={classes.pageBtn}
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next <ChevronRight size={16} />
-                </button>
               </div>
             )}
           </>

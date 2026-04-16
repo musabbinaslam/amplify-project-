@@ -177,10 +177,10 @@ exports.getLogs = async (req, res) => {
 };
 /**
  * Proxy a Twilio recording so the browser doesn't need to authenticate directly.
+ * Supports HTTP Range requests for instant playback and audio scrubbing.
  */
 exports.proxyRecording = async (req, res) => {
     const { recordingSid } = req.params;
-    const { twilioClient, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN } = require('../config/twilio');
 
     if (!recordingSid) {
         return res.status(400).json({ error: 'Recording SID is required' });
@@ -189,29 +189,47 @@ exports.proxyRecording = async (req, res) => {
     try {
         console.log(`[Proxy] Streaming recording: ${recordingSid}`);
         
-        // Construct the Twilio recording URL
         const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Recordings/${recordingSid}.mp3`;
-
         const authHeader = 'Basic ' + Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
 
-        const response = await fetch(twilioUrl, {
-            headers: {
-                'Authorization': authHeader
-            }
-        });
+        // Forward Range header from browser if present (enables scrubbing)
+        const rangeHeader = req.headers['range'];
+        const upstreamHeaders = { 'Authorization': authHeader };
+        if (rangeHeader) {
+            upstreamHeaders['Range'] = rangeHeader;
+        }
 
-        if (!response.ok) {
+        const response = await fetch(twilioUrl, { headers: upstreamHeaders });
+
+        if (!response.ok && response.status !== 206) {
             throw new Error(`Twilio returned ${response.status}`);
         }
 
-        // Set the correct content type
-        res.set('Content-Type', 'audio/mpeg');
-        
-        // Pipe the stream to the response
+        // Pass Content-Length so the browser knows how big the file is
+        const contentLength = response.headers.get('content-length');
+        const contentRange = response.headers.get('content-range');
+
+        // If browser requested a range, return 206 Partial Content
+        const statusCode = rangeHeader ? 206 : 200;
+
+        const resHeaders = {
+            'Content-Type': 'audio/mpeg',
+            'Accept-Ranges': 'bytes',
+            'Cache-Control': 'private, max-age=3600',
+        };
+        if (contentLength) resHeaders['Content-Length'] = contentLength;
+        if (contentRange)  resHeaders['Content-Range']  = contentRange;
+
+        res.writeHead(statusCode, resHeaders);
+
+        // Pipe the stream directly — no buffering, instant playback
         const { Readable } = require('stream');
         Readable.fromWeb(response.body).pipe(res);
+
     } catch (err) {
         console.error(`[Proxy] Failed to stream recording ${recordingSid}:`, err.message);
-        res.status(500).json({ error: 'Failed to load recording' });
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to load recording' });
+        }
     }
 };
