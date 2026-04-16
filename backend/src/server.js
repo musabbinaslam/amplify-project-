@@ -15,7 +15,7 @@ const { setupCallSockets } = require('./sockets/callSockets');
 const { verifyFirebaseToken } = require('./middleware/auth');
 const { globalRateLimiter } = require('./middleware/security');
 
-// Auto-start queues on boot
+// QA insight runner — in-process async, no Redis queue needed
 require('./queues/qaQueue');
 
 const app = express();

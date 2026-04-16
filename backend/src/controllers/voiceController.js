@@ -4,8 +4,7 @@ const { VoiceResponse } = twilio.twiml;
 const agentManager = require('../services/agentManager');
 const callLogService = require('../services/callLogService');
 const phoneRouteService = require('../services/phoneRouteService');
-const { redisClient } = require('../config/redis');
-const { qaInsightQueue } = require('../queues/qaQueue');
+const { dispatchQaInsightJob } = require('../queues/qaQueue');
 
 exports.generateToken = (req, res) => {
   const { identity } = req.body;
@@ -137,23 +136,15 @@ exports.handleCallCompleted = async (req, res) => {
       }
     }
 
-    // Non-blocking QA insight generation dispatched cleanly via BullMQ
+    // Non-blocking QA insight generation — runs in-process with exponential backoff retries.
+    // Dispatched AFTER the HTTP response is already sent, so call handling is never delayed.
     if (resolvedAgentId && savedLog?.id) {
-        try {
-            await qaInsightQueue.add('generate-qa-insight', {
-                savedLog,
-                agentId: resolvedAgentId,
-                FromState: FromState || null
-            }, {
-                attempts: 3,
-                backoff: { type: 'exponential', delay: 1000 },
-                removeOnComplete: true,
-                removeOnFail: false
-            });
-            console.log(`[Twilio] Queued QA Insight generation for Call ${savedLog.id}`);
-        } catch (err) {
-            console.error('[QA] Failed to dispatch QA job to queue:', err.message);
-        }
+        dispatchQaInsightJob({
+            savedLog,
+            agentId: resolvedAgentId,
+            FromState: FromState || null,
+        });
+        console.log(`[Twilio] QA Insight dispatched (async) for Call ${savedLog.id}`);
     }
 
     const twiml = new VoiceResponse();
