@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play } from 'lucide-react';
 import { apiFetch } from '../services/apiClient';
 import { auth } from '../config/firebase';
+import CustomSelect from '../components/ui/CustomSelect';
 import classes from './CallLogsPage.module.css';
 
 const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
@@ -60,6 +61,11 @@ const CallLogsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeRecordingUrl, setActiveRecordingUrl] = useState(null);
+  
+  // Date Filters
+  const [dateFilter, setDateFilter] = useState('all_time');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   // Fetch real call logs from backend
   const fetchLogs = async (showLoader = false) => {
@@ -126,20 +132,54 @@ const CallLogsPage = () => {
 
   const filtered = useMemo(() => {
     return callLogs.filter((log) => {
+      // 1. Search filter
       const q = search.toLowerCase();
       const matchesSearch =
         !q ||
         (log.from || '').toLowerCase().includes(q) ||
         (log.campaignLabel || '').toLowerCase().includes(q) ||
         (log.campaign || '').toLowerCase().includes(q);
+        
+      // 2. Type/Status filter
       const callType = getCallType(log);
       const callStatus = getCallStatus(log);
       const matchesType =
         typeFilter === 'All' ||
         (typeFilter === 'Missed' ? callStatus === 'missed' : callType === typeFilter.toLowerCase());
-      return matchesSearch && matchesType;
+
+      // 3. Date filter
+      let matchesDate = true;
+      if (log.timestamp) {
+        const logDate = new Date(log.timestamp);
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        if (dateFilter === 'today') {
+          matchesDate = logDate >= startOfToday;
+        } else if (dateFilter === 'last_7') {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(now.getDate() - 7);
+          matchesDate = logDate >= sevenDaysAgo;
+        } else if (dateFilter === 'last_30') {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(now.getDate() - 30);
+          matchesDate = logDate >= thirtyDaysAgo;
+        } else if (dateFilter === 'custom') {
+          if (startDate) {
+             const startObj = new Date(startDate);
+             if (logDate < startObj) matchesDate = false;
+          }
+          if (endDate) {
+             const endObj = new Date(endDate);
+             endObj.setDate(endObj.getDate() + 1); // include the end date day fully
+             if (logDate >= endObj) matchesDate = false;
+          }
+        }
+      }
+
+      return matchesSearch && matchesType && matchesDate;
     });
-  }, [search, typeFilter, callLogs]);
+  }, [search, typeFilter, dateFilter, startDate, endDate, callLogs]);
 
   const stats = useMemo(() => {
     const total = callLogs.length;
@@ -199,17 +239,42 @@ const CallLogsPage = () => {
       </div>
 
       <div className={classes.filters}>
-        <div className={classes.filterTabs}>
-          {FILTER_OPTIONS.map((opt) => (
-            <button
-              key={opt}
-              className={`${classes.filterTab} ${typeFilter === opt ? classes.filterActive : ''}`}
-              onClick={() => setTypeFilter(opt)}
-            >
-              {opt}
-            </button>
-          ))}
+        <div className={classes.filterGroup}>
+          <div className={classes.filterTabs}>
+            {FILTER_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                className={`${classes.filterTab} ${typeFilter === opt ? classes.filterActive : ''}`}
+                onClick={() => setTypeFilter(opt)}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+
+          <div className={classes.dateSwitch}>
+            <CustomSelect
+              options={[
+                { value: 'all_time', label: 'All Time' },
+                { value: 'today', label: 'Today' },
+                { value: 'last_7', label: 'Last 7 Days' },
+                { value: 'last_30', label: 'Last 30 Days' },
+                { value: 'custom', label: 'Custom Range' }
+              ]}
+              value={dateFilter}
+              onChange={setDateFilter}
+            />
+            
+            {dateFilter === 'custom' && (
+              <div className={classes.customDateInputs}>
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                <span>-</span>
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+              </div>
+            )}
+          </div>
         </div>
+
         <span className={classes.totalCalls}>{filtered.length} calls</span>
       </div>
 

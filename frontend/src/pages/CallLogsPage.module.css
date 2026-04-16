@@ -106,6 +106,63 @@
   align-items: center;
 }
 
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.dateSwitch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dateSelect {
+  background: var(--surface-container-low);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.dateSelect:focus, .dateSelect:hover {
+  border-color: var(--accent-green);
+}
+
+.dateSelect option {
+  background: var(--surface-container-high);
+  color: var(--text-primary);
+}
+
+.customDateInputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surface-container-low);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.2rem 0.6rem;
+}
+
+.customDateInputs input[type="date"] {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  outline: none;
+  cursor: pointer;
+}
+
+.customDateInputs span {
+  color: var(--text-muted);
+}
+
 .filterTabs {
   display: flex;
   gap: 0.35rem;
