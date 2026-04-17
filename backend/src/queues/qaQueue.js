@@ -1,46 +1,55 @@
-const { Queue, Worker } = require('bullmq');
-const { ioredisConnection } = require('../config/bullmq');
 const { generateQaInsight } = require('../services/qaInsightService');
 const callLogService = require('../services/callLogService');
 
-const QUEUE_NAME = 'qaInsightQueue';
+/**
+ * Runs QA insight generation fully in-process with exponential backoff retries.
+ * No Redis / BullMQ required — the job runs as a detached async task after call completion.
+ *
+ * @param {object} savedLog   - The persisted call log object (must have .id)
+ * @param {string} agentId    - Firebase UID of the agent
+ * @param {string|null} FromState - Caller state derived from Twilio (e.g. 'TX')
+ * @param {number} maxAttempts - Max retry attempts (default: 3)
+ */
+async function runQaInsightJob({ savedLog, agentId, FromState = null }, maxAttempts = 3) {
+    const callId = savedLog?.id || 'unknown';
 
-// Instantiating the queue
-const qaInsightQueue = new Queue(QUEUE_NAME, {
-    connection: ioredisConnection,
-});
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            console.log(`[QA] ⚙️  Attempt ${attempt}/${maxAttempts} — generating insight for Call ${callId} (Agent: ${agentId})`);
 
-// Instantiating the worker
-const qaInsightWorker = new Worker(QUEUE_NAME, async (job) => {
-    const { savedLog, agentId, FromState = null } = job.data;
+            const qaInsight = await generateQaInsight({
+                ...savedLog,
+                state: FromState,
+            });
 
-    console.log(`[BullMQ] ⚙️ Processing QA Insight for Agent ${agentId} - Call ${savedLog.id}...`);
+            await callLogService.attachQaInsight(agentId, callId, qaInsight);
+            console.log(`[QA] ✅ Insight attached to Call ${callId} on attempt ${attempt}`);
+            return; // success — stop retrying
 
-    try {
-        const qaInsight = await generateQaInsight({
-            ...savedLog,
-            state: FromState,
-        });
+        } catch (err) {
+            const isLastAttempt = attempt === maxAttempts;
+            if (isLastAttempt) {
+                console.error(`[QA] ❌ All ${maxAttempts} attempts failed for Call ${callId}:`, err.message);
+                return;
+            }
 
-        await callLogService.attachQaInsight(agentId, savedLog.id, qaInsight);
-        
-        console.log(`[BullMQ] ✅ QA Insight successfully attached to Call ${savedLog.id}`);
-        return qaInsight;
-
-    } catch (err) {
-         console.error(`[BullMQ] ❌ QA Insight failure for Call ${savedLog.id}:`, err.message);
-         throw err; // Trigger retry
+            // Exponential backoff: 1s, 2s, 4s ...
+            const delayMs = Math.pow(2, attempt - 1) * 1000;
+            console.warn(`[QA] ⚠️  Attempt ${attempt} failed (${err.message}). Retrying in ${delayMs}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
     }
-}, {
-    connection: ioredisConnection,
-    concurrency: 5, // Process up to 5 QA insights concurrently
-});
+}
 
-qaInsightWorker.on('failed', (job, err) => {
-    console.error(`[BullMQ] Job ${job.id} has definitively failed: ${err.message}`);
-});
+/**
+ * Dispatches a QA insight job in the background.
+ * Returns immediately — never blocks the HTTP response.
+ */
+function dispatchQaInsightJob(jobData) {
+    // Fire-and-forget: deliberately NOT awaited
+    runQaInsightJob(jobData).catch((err) => {
+        console.error('[QA] Unhandled error in QA insight runner:', err.message);
+    });
+}
 
-module.exports = {
-    qaInsightQueue,
-    qaInsightWorker
-};
+module.exports = { dispatchQaInsightJob };

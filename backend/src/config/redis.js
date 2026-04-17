@@ -61,7 +61,7 @@ const connectRedis = async () => {
                 url: process.env.REDIS_URL,
                 socket: {
                     tls: process.env.REDIS_URL.startsWith('rediss://'),
-                    keepAlive: 10000,      // Send keepalive every 10s to prevent Upstash from closing idle connections
+                    keepAlive: 60000,      // Send keepalive every 60s to prevent Upstash idle disconnects (was 10s — reduced 6× to save commands)
                     noDelay: true,
                     reconnectStrategy: (retries) => {
                         if (retries > 20) {
