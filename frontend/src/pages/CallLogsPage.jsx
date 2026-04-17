@@ -2,45 +2,56 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play } from 'lucide-react';
 import { apiFetch } from '../services/apiClient';
 import { auth } from '../config/firebase';
+import CustomSelect from '../components/ui/CustomSelect';
 import classes from './CallLogsPage.module.css';
 
 const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
 
-const RecordingPlayer = ({ recordingUrl }) => {
+const RecordingModal = ({ recordingUrl, onClose }) => {
   const [streamUrl, setStreamUrl] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const loadAudio = async () => {
-    if (streamUrl) return;
-    try {
-      setLoading(true);
-      const recordingSid = recordingUrl.split('/').pop();
-      const token = await auth?.currentUser?.getIdToken();
-      const API_URL = import.meta.env.VITE_API_URL || '';
-      const cleanApiUrl = API_URL.replace(/\/$/, '');
+  useEffect(() => {
+    let isMounted = true;
+    const loadAudio = async () => {
+      try {
+        setLoading(true);
+        const recordingSid = recordingUrl.split('/').pop();
+        const token = await auth?.currentUser?.getIdToken();
+        const API_URL = import.meta.env.VITE_API_URL || '';
+        const cleanApiUrl = API_URL.replace(/\/$/, '');
+        const url = `${cleanApiUrl}/api/voice/recording/${recordingSid}?token=${encodeURIComponent(token)}`;
+        if (isMounted) setStreamUrl(url);
+      } catch (err) {
+        console.error('Error loading audio:', err);
+        if (isMounted) alert('Failed to load recording. It might still be processing on Twilio.');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    loadAudio();
+    return () => { isMounted = false; };
+  }, [recordingUrl]);
 
-      // Pass token as query param — browser's <audio> tag can't send headers
-      // but it CAN stream byte-ranges, enabling instant play + scrubbing
-      const url = `${cleanApiUrl}/api/voice/recording/${recordingSid}?token=${encodeURIComponent(token)}`;
-      setStreamUrl(url);
-    } catch (err) {
-      console.error('Error loading audio:', err);
-      alert('Failed to load recording. It might still be processing on Twilio.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!streamUrl) {
-    return (
-      <button className={classes.loadAudioBtn} onClick={loadAudio} disabled={loading}>
-        {loading ? <Loader size={14} className={classes.spinner} /> : <Play size={14} />}
-        {loading ? 'Loading...' : 'Play'}
-      </button>
-    );
-  }
-
-  return <audio className={classes.audioPlayer} controls autoPlay src={streamUrl} />;
+  return (
+    <div className={classes.modalOverlay} onClick={onClose}>
+      <div className={classes.modalContent} onClick={e => e.stopPropagation()}>
+        <div className={classes.modalHeader}>
+          <h3>Call Recording</h3>
+          <button className={classes.closeBtn} onClick={onClose}>&times;</button>
+        </div>
+        <div className={classes.modalBody}>
+          {loading ? (
+             <div className={classes.loadingState}><Loader size={18} className={classes.spinner} /> Loading recording...</div>
+          ) : streamUrl ? (
+             <audio className={classes.modalAudioPlayer} controls autoPlay src={streamUrl} />
+          ) : (
+             <div className={classes.errorState}>Could not load playback.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const CallLogsPage = () => {
@@ -49,6 +60,12 @@ const CallLogsPage = () => {
   const [callLogs, setCallLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeRecordingUrl, setActiveRecordingUrl] = useState(null);
+  
+  // Date Filters
+  const [dateFilter, setDateFilter] = useState('all_time');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   // Fetch real call logs from backend
   const fetchLogs = async (showLoader = false) => {
@@ -115,20 +132,54 @@ const CallLogsPage = () => {
 
   const filtered = useMemo(() => {
     return callLogs.filter((log) => {
+      // 1. Search filter
       const q = search.toLowerCase();
       const matchesSearch =
         !q ||
         (log.from || '').toLowerCase().includes(q) ||
         (log.campaignLabel || '').toLowerCase().includes(q) ||
         (log.campaign || '').toLowerCase().includes(q);
+        
+      // 2. Type/Status filter
       const callType = getCallType(log);
       const callStatus = getCallStatus(log);
       const matchesType =
         typeFilter === 'All' ||
         (typeFilter === 'Missed' ? callStatus === 'missed' : callType === typeFilter.toLowerCase());
-      return matchesSearch && matchesType;
+
+      // 3. Date filter
+      let matchesDate = true;
+      if (log.timestamp) {
+        const logDate = new Date(log.timestamp);
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        if (dateFilter === 'today') {
+          matchesDate = logDate >= startOfToday;
+        } else if (dateFilter === 'last_7') {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(now.getDate() - 7);
+          matchesDate = logDate >= sevenDaysAgo;
+        } else if (dateFilter === 'last_30') {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(now.getDate() - 30);
+          matchesDate = logDate >= thirtyDaysAgo;
+        } else if (dateFilter === 'custom') {
+          if (startDate) {
+             const startObj = new Date(startDate);
+             if (logDate < startObj) matchesDate = false;
+          }
+          if (endDate) {
+             const endObj = new Date(endDate);
+             endObj.setDate(endObj.getDate() + 1); // include the end date day fully
+             if (logDate >= endObj) matchesDate = false;
+          }
+        }
+      }
+
+      return matchesSearch && matchesType && matchesDate;
     });
-  }, [search, typeFilter, callLogs]);
+  }, [search, typeFilter, dateFilter, startDate, endDate, callLogs]);
 
   const stats = useMemo(() => {
     const total = callLogs.length;
@@ -188,17 +239,42 @@ const CallLogsPage = () => {
       </div>
 
       <div className={classes.filters}>
-        <div className={classes.filterTabs}>
-          {FILTER_OPTIONS.map((opt) => (
-            <button
-              key={opt}
-              className={`${classes.filterTab} ${typeFilter === opt ? classes.filterActive : ''}`}
-              onClick={() => setTypeFilter(opt)}
-            >
-              {opt}
-            </button>
-          ))}
+        <div className={classes.filterGroup}>
+          <div className={classes.filterTabs}>
+            {FILTER_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                className={`${classes.filterTab} ${typeFilter === opt ? classes.filterActive : ''}`}
+                onClick={() => setTypeFilter(opt)}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+
+          <div className={classes.dateSwitch}>
+            <CustomSelect
+              options={[
+                { value: 'all_time', label: 'All Time' },
+                { value: 'today', label: 'Today' },
+                { value: 'last_7', label: 'Last 7 Days' },
+                { value: 'last_30', label: 'Last 30 Days' },
+                { value: 'custom', label: 'Custom Range' }
+              ]}
+              value={dateFilter}
+              onChange={setDateFilter}
+            />
+            
+            {dateFilter === 'custom' && (
+              <div className={classes.customDateInputs}>
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                <span>-</span>
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+              </div>
+            )}
+          </div>
         </div>
+
         <span className={classes.totalCalls}>{filtered.length} calls</span>
       </div>
 
@@ -273,7 +349,12 @@ const CallLogsPage = () => {
                       </td>
                       <td className={classes.audioCell}>
                         {log.recordingUrl ? (
-                          <the recordingUrl={log.recordingUrl} />
+                          <button 
+                            className={classes.loadAudioBtn} 
+                            onClick={() => setActiveRecordingUrl(log.recordingUrl)}
+                          >
+                            <Play size={14} /> Play
+                          </button>
                         ) : (
                           <span className={classes.scoreDash}>—</span>
                         )}
@@ -294,6 +375,13 @@ const CallLogsPage = () => {
           </>
         )}
       </div>
+
+      {activeRecordingUrl && (
+        <RecordingModal 
+          recordingUrl={activeRecordingUrl} 
+          onClose={() => setActiveRecordingUrl(null)} 
+        />
+      )}
     </div>
   );
 };

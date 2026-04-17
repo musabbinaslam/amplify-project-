@@ -106,6 +106,63 @@
   align-items: center;
 }
 
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.dateSwitch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dateSelect {
+  background: var(--surface-container-low);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.dateSelect:focus, .dateSelect:hover {
+  border-color: var(--accent-green);
+}
+
+.dateSelect option {
+  background: var(--surface-container-high);
+  color: var(--text-primary);
+}
+
+.customDateInputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surface-container-low);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.2rem 0.6rem;
+}
+
+.customDateInputs input[type="date"] {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  outline: none;
+  cursor: pointer;
+}
+
+.customDateInputs span {
+  color: var(--text-muted);
+}
+
 .filterTabs {
   display: flex;
   gap: 0.35rem;
@@ -425,6 +482,95 @@
   font-weight: 500;
 }
 
+/* ─── Modal Player ─── */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modalContent {
+  background: var(--surface-container-low);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 450px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.closeBtn:hover {
+  color: #ef4444;
+}
+
+.modalBody {
+  padding: 2rem 1.25rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100px;
+}
+
+.loadingState {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.errorState {
+  color: #ef4444;
+  font-size: 0.9rem;
+}
+
+.modalAudioPlayer {
+  width: 100%;
+  outline: none;
+  border-radius: 20px;
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 768px) {
   .header {
@@ -448,3 +594,4 @@
     min-width: 700px;
   }
 }
+
