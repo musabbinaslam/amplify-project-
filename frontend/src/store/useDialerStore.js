@@ -72,6 +72,10 @@ const useDialerStore = create((set, get) => ({
       } catch (err) {
         console.error('DEBUG: ERROR ACCEPTING CALL:', err);
         alert('Could not answer call. Check your microphone permissions!');
+        
+        // Fix: Prevent soft-lock by forcefully rejecting the call back to Twilio
+        // so the agent returns to 'idle' and the caller isn't hung in dead-air.
+        get().rejectCall();
       }
     } else {
       console.warn('DEBUG: No active call found in store to accept.');

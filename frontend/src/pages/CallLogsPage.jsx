@@ -71,14 +71,42 @@ const CallLogsPage = () => {
   const fetchLogs = async (showLoader = false) => {
     try {
       if (showLoader) setLoading(true);
-      const data = await apiFetch('/api/voice/logs');
+
+      let queryUrl = '/api/voice/logs';
+      let params = new URLSearchParams();
+      
+      const now = new Date();
+      if (dateFilter === 'today') {
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        params.append('startDate', startOfToday.toISOString());
+      } else if (dateFilter === 'last_7') {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(now.getDate() - 7);
+        params.append('startDate', sevenDaysAgo.toISOString());
+      } else if (dateFilter === 'last_30') {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(now.getDate() - 30);
+        params.append('startDate', thirtyDaysAgo.toISOString());
+      } else if (dateFilter === 'custom') {
+        if (startDate) params.append('startDate', new Date(startDate).toISOString());
+        if (endDate) {
+           const endObj = new Date(endDate);
+           endObj.setDate(endObj.getDate() + 1);
+           params.append('endDate', endObj.toISOString());
+        }
+      }
+      
+      const qs = params.toString();
+      if (qs) queryUrl += `?${qs}`;
+
+      const data = await apiFetch(queryUrl);
       setCallLogs(data || []);
       setError(null);
     } catch (err) {
       console.error('Error fetching call logs:', err);
       setError('Failed to load call logs');
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   };
 
@@ -86,7 +114,7 @@ const CallLogsPage = () => {
     fetchLogs(true);
     const interval = setInterval(() => fetchLogs(false), 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [dateFilter, startDate, endDate]);
 
   // Determine call type for display (inbound vs outbound vs transfer)
   const getCallType = (log) => {
@@ -147,39 +175,9 @@ const CallLogsPage = () => {
         typeFilter === 'All' ||
         (typeFilter === 'Missed' ? callStatus === 'missed' : callType === typeFilter.toLowerCase());
 
-      // 3. Date filter
-      let matchesDate = true;
-      if (log.timestamp) {
-        const logDate = new Date(log.timestamp);
-        const now = new Date();
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-        if (dateFilter === 'today') {
-          matchesDate = logDate >= startOfToday;
-        } else if (dateFilter === 'last_7') {
-          const sevenDaysAgo = new Date();
-          sevenDaysAgo.setDate(now.getDate() - 7);
-          matchesDate = logDate >= sevenDaysAgo;
-        } else if (dateFilter === 'last_30') {
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(now.getDate() - 30);
-          matchesDate = logDate >= thirtyDaysAgo;
-        } else if (dateFilter === 'custom') {
-          if (startDate) {
-             const startObj = new Date(startDate);
-             if (logDate < startObj) matchesDate = false;
-          }
-          if (endDate) {
-             const endObj = new Date(endDate);
-             endObj.setDate(endObj.getDate() + 1); // include the end date day fully
-             if (logDate >= endObj) matchesDate = false;
-          }
-        }
-      }
-
-      return matchesSearch && matchesType && matchesDate;
+      return matchesSearch && matchesType;
     });
-  }, [search, typeFilter, dateFilter, startDate, endDate, callLogs]);
+  }, [search, typeFilter, callLogs]);
 
   const stats = useMemo(() => {
     const total = callLogs.length;
