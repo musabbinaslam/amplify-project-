@@ -11,6 +11,7 @@ import {
   updateAiTrainingDrillStatus,
   updateAiCoachingTask,
 } from '../services/aiTrainingService';
+import { useUIStore } from '../store/uiStore';
 import classes from './AITrainingPage.module.css';
 
 function fmtDate(iso) {
@@ -27,6 +28,7 @@ function fmtDuration(sec) {
 }
 
 const AITrainingPage = () => {
+  const isSidebarCollapsed = useUIStore((s) => s.isSidebarCollapsed);
   const [range, setRange] = useState('7d');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -43,6 +45,17 @@ const AITrainingPage = () => {
   const [campaignFilter, setCampaignFilter] = useState('all');
   const [outcomeFilter, setOutcomeFilter] = useState('all');
   const [minScoreFilter, setMinScoreFilter] = useState('all');
+  const [chartRenderKey, setChartRenderKey] = useState(0);
+
+  useEffect(() => {
+    const triggerResize = () => {
+      window.dispatchEvent(new Event('resize'));
+      setChartRenderKey((k) => k + 1);
+    };
+    const t = setTimeout(triggerResize, 340);
+    triggerResize();
+    return () => clearTimeout(t);
+  }, [isSidebarCollapsed]);
 
   const getRangeParams = () => {
     const to = new Date();
@@ -221,7 +234,7 @@ const AITrainingPage = () => {
         <div className={classes.chartWrap}>
           {loading ? <p className={classes.empty}>Loading trend...</p> : null}
           {!loading && !trend.length ? <p className={classes.empty}>No trend data for selected range.</p> : null}
-          <ResponsiveContainer width="100%" height={230}>
+          <ResponsiveContainer key={chartRenderKey} width="100%" height={230}>
             <LineChart data={trend}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="day" tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
