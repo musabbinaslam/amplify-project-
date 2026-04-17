@@ -59,13 +59,20 @@ class AgentManager {
       console.log(`[Router] 🔍 Checking available agents in Redis. Found: ${availableIds.length} agents (${availableIds.join(', ')})`);
       if (availableIds.length === 0) return null;
 
-      // 2. Fetch full data for each available agent
-      const agentDataList = await Promise.all(
+      // 2. Fetch full data for each available agent & verify heartbeat
+      const agentDataList = (await Promise.all(
          availableIds.map(async (id) => {
+            const isAlive = await redisClient.exists(`agent:heartbeat:${id}`);
+            if (!isAlive) {
+               console.log(`[Router] 👻 Ghost agent detected (no heartbeat): ${id}. Evicting...`);
+               await redisClient.sRem('agents:available', id);
+               await redisClient.del(`agent:${id}`);
+               return null;
+            }
             const data = await redisClient.hGetAll(`agent:${id}`);
             return { id, ...data };
          })
-      );
+      )).filter(Boolean);
 
       // 3. Filter by campaign match
       const campaignMatches = agentDataList.filter(agent => {
@@ -130,12 +137,18 @@ class AgentManager {
       const availableIds = await redisClient.sMembers('agents:available');
       if (availableIds.length === 0) return false;
 
-      const agentDataList = await Promise.all(
+      const agentDataList = (await Promise.all(
          availableIds.map(async (id) => {
+            const isAlive = await redisClient.exists(`agent:heartbeat:${id}`);
+            if (!isAlive) {
+               await redisClient.sRem('agents:available', id);
+               await redisClient.del(`agent:${id}`);
+               return null;
+            }
             const data = await redisClient.hGetAll(`agent:${id}`);
             return { id, ...data };
          })
-      );
+      )).filter(Boolean);
 
       const campaignMatches = agentDataList.filter(agent => {
          if (!agent.campaignId) return false;

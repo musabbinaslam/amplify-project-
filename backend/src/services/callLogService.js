@@ -126,17 +126,20 @@ class CallLogService {
      * @param {string} uid - Firebase UID of the user
      * @param {number} limit - Max number of logs to return
      */
-    async getLogsByUser(uid, limit = 100) {
+    async getLogsByUser(uid, limit = 500, startDate = null, endDate = null) {
         if (!admin || !uid) return [];
         try {
             const db = admin.firestore();
-            const snap = await db
+            let query = db
                 .collection('users')
                 .doc(uid)
                 .collection('callLogs')
-                .orderBy('createdAt', 'desc')
-                .limit(limit)
-                .get();
+                .orderBy('createdAt', 'desc');
+
+            if (startDate) query = query.where('createdAt', '>=', startDate);
+            if (endDate) query = query.where('createdAt', '<=', endDate);
+
+            const snap = await query.limit(limit).get();
 
             return snap.docs.map((doc) => {
                 const data = doc.data();
