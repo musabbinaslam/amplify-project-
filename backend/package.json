@@ -5,8 +5,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "node --test tests/**/*.test.js",
-    "backfill:qa": "node tools/backfillQaInsights.js"
+    "test": "node --test tests/**/*.test.js"
   },
   "keywords": [],
   "author": "",

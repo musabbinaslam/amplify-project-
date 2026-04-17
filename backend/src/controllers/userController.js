@@ -366,6 +366,10 @@ async function patchMe(req, res) {
   try {
     const body = { ...req.body };
     delete body.role;
+    const existingProfile = await getUserDoc(req.user.uid);
+    if (!existingProfile) {
+      body.role = 'agent';
+    }
     if ('licensedStates' in body) {
       const raw = body.licensedStates;
       if (!Array.isArray(raw)) {
