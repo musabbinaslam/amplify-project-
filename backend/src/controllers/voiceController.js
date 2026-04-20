@@ -176,7 +176,9 @@ exports.getLogs = async (req, res) => {
  * Supports HTTP Range requests for instant playback and audio scrubbing.
  */
 exports.proxyRecording = async (req, res) => {
-    const { recordingSid } = req.params;
+    const rawRecordingSid = String(req.params.recordingSid || '');
+    const sidMatch = rawRecordingSid.match(/(RE[0-9a-fA-F]{32})/);
+    const recordingSid = sidMatch?.[1] || rawRecordingSid.replace(/\.(json|mp3)$/i, '');
 
     if (!recordingSid) {
         return res.status(400).json({ error: 'Recording SID is required' });
@@ -214,15 +216,17 @@ exports.proxyRecording = async (req, res) => {
             throw new Error(`Twilio/S3 returned ${response.status}`);
         }
 
-        // Pass Content-Length so the browser knows how big the file is
+        // Pass through upstream metadata so the browser can parse duration/scrub correctly.
         const contentLength = response.headers.get('content-length');
         const contentRange = response.headers.get('content-range');
+        const contentType = response.headers.get('content-type') || 'audio/mpeg';
 
-        // If browser requested a range, return 206 Partial Content
-        const statusCode = rangeHeader ? 206 : 200;
+        // Preserve actual upstream status. Some CDNs ignore Range and still return 200.
+        // Forcing 206 without Content-Range can make players show 0:00 and fail playback.
+        const statusCode = response.status === 206 ? 206 : 200;
 
         const resHeaders = {
-            'Content-Type': 'audio/mpeg',
+            'Content-Type': contentType,
             'Accept-Ranges': 'bytes',
             'Cache-Control': 'private, max-age=3600',
         };
