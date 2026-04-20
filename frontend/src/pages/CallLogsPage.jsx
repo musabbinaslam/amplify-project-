@@ -7,16 +7,37 @@ import classes from './CallLogsPage.module.css';
 
 const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
 
+function extractRecordingSid(recordingUrl) {
+  const value = String(recordingUrl || '').trim();
+  if (!value) return '';
+  const match = value.match(/(RE[0-9a-fA-F]{32})/);
+  if (match?.[1]) return match[1];
+  // Fallback for non-standard values
+  const cleanTail = value.split('?')[0].split('/').pop() || '';
+  return cleanTail.replace(/\.(json|mp3)$/i, '');
+}
+
 const RecordingModal = ({ recordingUrl, onClose }) => {
   const [streamUrl, setStreamUrl] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
     const loadAudio = async () => {
       try {
         setLoading(true);
-        const recordingSid = recordingUrl.split('/').pop();
+        const recordingSid = extractRecordingSid(recordingUrl);
+        if (!recordingSid) {
+          throw new Error('Invalid recording SID');
+        }
         const token = await auth?.currentUser?.getIdToken();
         const API_URL = import.meta.env.VITE_API_URL || '';
         const cleanApiUrl = API_URL.replace(/\/$/, '');
@@ -112,9 +133,11 @@ const CallLogsPage = () => {
 
   useEffect(() => {
     fetchLogs(true);
+    // Avoid re-render jitter while user is interacting with the audio controls.
+    if (activeRecordingUrl) return undefined;
     const interval = setInterval(() => fetchLogs(false), 15000);
     return () => clearInterval(interval);
-  }, [dateFilter, startDate, endDate]);
+  }, [dateFilter, startDate, endDate, activeRecordingUrl]);
 
   // Determine call type for display (inbound vs outbound vs transfer)
   const getCallType = (log) => {
