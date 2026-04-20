@@ -158,8 +158,13 @@ exports.handleCallCompleted = async (req, res) => {
  */
 exports.getLogs = async (req, res) => {
     try {
-        const limit = Math.min(Number(req.query.limit || 100), 500);
-        const logs = await callLogService.getLogsByUser(req.user.uid, limit);
+        const limit = Math.min(Number(req.query.limit || 500), 1000);
+        let startDate = null;
+        let endDate = null;
+        if (req.query.startDate) startDate = new Date(req.query.startDate);
+        if (req.query.endDate) endDate = new Date(req.query.endDate);
+
+        const logs = await callLogService.getLogsByUser(req.user.uid, limit, startDate, endDate);
         res.json(logs);
     } catch (err) {
         console.error('[Voice] getLogs error:', err.message);
@@ -190,10 +195,23 @@ exports.proxyRecording = async (req, res) => {
             upstreamHeaders['Range'] = rangeHeader;
         }
 
-        const response = await fetch(twilioUrl, { headers: upstreamHeaders });
+        // Intercept redirect to prevent forwarding Twilio Basic Auth to AWS S3 (which causes a 400 Bad Request)
+        let response = await fetch(twilioUrl, { 
+            headers: upstreamHeaders,
+            redirect: 'manual'
+        });
+
+        if (response.status === 302 || response.status === 307) {
+            const redirectUrl = response.headers.get('location');
+            if (!redirectUrl) throw new Error('Twilio redirect missing location header');
+            
+            // Re-fetch from the S3 URL using ONLY the Range header
+            const s3Headers = rangeHeader ? { 'Range': rangeHeader } : {};
+            response = await fetch(redirectUrl, { headers: s3Headers });
+        }
 
         if (!response.ok && response.status !== 206) {
-            throw new Error(`Twilio returned ${response.status}`);
+            throw new Error(`Twilio/S3 returned ${response.status}`);
         }
 
         // Pass Content-Length so the browser knows how big the file is

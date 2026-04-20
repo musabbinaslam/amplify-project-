@@ -74,8 +74,22 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
           agentId: passedIdentity,
           licensedStates
         });
+
+        // 1.1 Heartbeat to prevent Redis ghost agents
+        if (socket._heartbeatInterval) clearInterval(socket._heartbeatInterval);
+        socket._heartbeatInterval = setInterval(() => {
+            if (socket.connected) {
+                socket.emit('agent:heartbeat', { agentId: passedIdentity });
+            }
+        }, 30000);
+
         resolve();
       });
+      
+      socket.on('disconnect', () => {
+          if (socket._heartbeatInterval) clearInterval(socket._heartbeatInterval);
+      });
+      
       socket.on('connect_error', (err) => reject(err));
     });
 
@@ -109,6 +123,26 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       store.setCallState('error');
     });
 
+    // Handle token rotation automatically before it expires (1hr limit)
+    device.on('tokenWillExpire', async () => {
+      try {
+        console.log('[Twilio] Token expiring soon. Fetching fresh token...');
+        const res = await apiFetch('/api/voice/token', {
+          method: 'POST',
+          body: {
+            identity: passedIdentity,
+            campaign
+          }
+        });
+        if (res?.token) {
+          device.updateToken(res.token);
+          console.log('[Twilio] ✅ Token successfully refreshed in background.');
+        }
+      } catch (err) {
+        console.error('[Twilio] ❌ Failed to refresh token before expiration:', err);
+      }
+    });
+
     device.on('incoming', (call) => {
       console.log('Incoming call received!', call);
 
@@ -116,12 +150,17 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       store.setIncomingCall(call, callerId);
 
       call.on('cancel', () => {
+        if (call._durationInterval) clearInterval(call._durationInterval);
         socket.emit('agent:release');
         store.resetCallState();
       });
       call.on('reject', () => {
+        if (call._durationInterval) clearInterval(call._durationInterval);
         socket.emit('agent:release');
         store.resetCallState();
+      });
+      call.on('error', () => {
+          if (call._durationInterval) clearInterval(call._durationInterval);
       });
 
       call.on('accept', () => {
@@ -129,12 +168,13 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
         store.setActiveCall(call);
 
         let seconds = 0;
-        const interval = setInterval(() => {
+        if (call._durationInterval) clearInterval(call._durationInterval);
+        call._durationInterval = setInterval(() => {
           useDialerStore.getState().setCallDuration(++seconds);
         }, 1000);
 
         call.on('disconnect', () => {
-          clearInterval(interval);
+          if (call._durationInterval) clearInterval(call._durationInterval);
           socket.emit('agent:release');
           store.resetCallState();
         });
