@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const path = require('path');
 const fs = require('fs');
 
@@ -57,7 +58,22 @@ function loadServiceAccount() {
   if (fromEnv) return fromEnv;
   const fromFields = parseServiceAccountFromFields();
   if (fromFields) return fromFields;
-  if (fs.existsSync(serviceAccountPath)) return require(serviceAccountPath);
+  if (fs.existsSync(serviceAccountPath)) {
+    const fromFile = require(serviceAccountPath);
+    const expectedProjectId = process.env.FIREBASE_PROJECT_ID;
+    const fileProjectId = fromFile?.project_id;
+    // Guard against silently using stale local credentials from another Firebase project.
+    if (expectedProjectId && fileProjectId && expectedProjectId !== fileProjectId) {
+      console.error(
+        `[Firebase Admin] Service account project mismatch: FIREBASE_PROJECT_ID="${expectedProjectId}" but firebase-service-account.json project_id="${fileProjectId}".`
+      );
+      console.error(
+        '[Firebase Admin] Provide matching admin credentials via FIREBASE_SERVICE_ACCOUNT_JSON / FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY, or replace backend/firebase-service-account.json.'
+      );
+      return null;
+    }
+    return fromFile;
+  }
   return null;
 }
 
@@ -72,5 +88,17 @@ if (!serviceAccount) {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
   });
+  const firestoreDatabaseId = process.env.FIRESTORE_DATABASE_ID || '(default)';
+  const firestoreNamespace = admin.firestore;
+  const firestoreDb = getFirestore(admin.app(), firestoreDatabaseId);
+
+  // Make all admin.firestore() callers use configured database ID.
+  // Preserve static helpers like FieldValue and Timestamp.
+  const firestoreAccessor = () => firestoreDb;
+  Object.keys(firestoreNamespace).forEach((k) => {
+    firestoreAccessor[k] = firestoreNamespace[k];
+  });
+  admin.firestore = firestoreAccessor;
+  console.log(`[Firebase Admin] Using Firestore database "${firestoreDatabaseId}"`);
   module.exports = admin;
 }

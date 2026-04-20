@@ -1,10 +1,11 @@
 const admin = require('../config/firebaseAdmin');
+const { getDb } = require('../config/firestoreDb');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 
 class CallLogService {
     async upsertAdminDailyMetrics(log) {
         if (!admin) return;
-        const db = admin.firestore();
+        const db = getDb();
         const day = new Date().toISOString().slice(0, 10);
         const { FieldValue } = admin.firestore;
         const campaignId = log.campaign || 'unknown';
@@ -99,7 +100,7 @@ class CallLogService {
         // Save to Firestore under the agent's user document
         if (admin && agentId) {
             try {
-                const db = admin.firestore();
+                const db = getDb();
                 const callLogsRef = db.collection('users').doc(agentId).collection('callLogs');
                 const docRef = await callLogsRef.add({
                     ...newLog,
@@ -129,7 +130,7 @@ class CallLogService {
     async getLogsByUser(uid, limit = 500, startDate = null, endDate = null) {
         if (!admin || !uid) return [];
         try {
-            const db = admin.firestore();
+            const db = getDb();
             let query = db
                 .collection('users')
                 .doc(uid)
@@ -161,7 +162,7 @@ class CallLogService {
     async attachQaInsight(uid, callLogId, qaInsight) {
         if (!admin || !uid || !callLogId) return false;
         try {
-            const db = admin.firestore();
+            const db = getDb();
             await db
                 .collection('users')
                 .doc(uid)

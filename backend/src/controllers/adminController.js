@@ -2,6 +2,7 @@ const agentManager = require('../services/agentManager');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const phoneRouteService = require('../services/phoneRouteService');
 const admin = require('../config/firebaseAdmin');
+const { getDb } = require('../config/firestoreDb');
 const ANALYTICS_CACHE_TTL_MS = 30000;
 const READ_CONCURRENCY = 10;
 const analyticsCache = new Map();
@@ -59,7 +60,7 @@ function normalizeCall(doc) {
 
 async function readLogsInRange(from, end) {
   if (!admin) throw new Error('Database service unavailable');
-  const db = admin.firestore();
+  const db = getDb();
   const fromMs = from.getTime();
   const endMs = end.getTime();
   const usersSnap = await db.collection('users').get();
@@ -235,7 +236,7 @@ function ratio(a, b) {
 async function buildUserNameMap(agentIds = []) {
   const ids = [...new Set((agentIds || []).filter(Boolean))];
   if (!ids.length) return new Map();
-  const db = admin.firestore();
+  const db = getDb();
   const refs = ids.map((id) => db.collection('users').doc(id));
   const snaps = await db.getAll(...refs);
   const map = new Map();
@@ -446,7 +447,7 @@ function writeCoachingCache(key, payload) {
 
 async function readCoachingRows(query = {}) {
   if (!admin) throw new Error('Database service unavailable');
-  const db = admin.firestore();
+  const db = getDb();
   const usersSnap = await db.collection('users').get();
   const docs = usersSnap.docs || [];
   const rows = [];
@@ -547,7 +548,7 @@ async function getAnalyticsBundle(req, res) {
         },
       });
     }
-    const db = admin.firestore();
+    const db = getDb();
     const keys = enumerateDayKeys(from, end);
     const dayRefs = keys.map((k) => db.collection('adminMetrics').doc('daily').collection('days').doc(k));
     const snaps = await db.getAll(...dayRefs);
@@ -714,7 +715,7 @@ async function getAnalyticsDrilldown(req, res) {
     }
     if (!id) return res.status(400).json({ error: 'id is required' });
 
-    const db = admin.firestore();
+    const db = getDb();
     const dayKeys = enumerateDayKeys(from, end);
     const dayRefs = dayKeys.map((k) => db.collection('adminMetrics').doc('daily').collection('days').doc(k));
     const daySnaps = await db.getAll(...dayRefs);

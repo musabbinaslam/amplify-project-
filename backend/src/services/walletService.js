@@ -1,9 +1,5 @@
 const admin = require('../config/firebaseAdmin');
-
-function getDb() {
-  if (!admin) return null;
-  return admin.firestore();
-}
+const { getDb } = require('../config/firestoreDb');
 
 function userRef(uid) {
   const db = getDb();

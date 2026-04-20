@@ -10,6 +10,7 @@ const {
   listActivity,
 } = require('../services/userDataService');
 const admin = require('../config/firebaseAdmin');
+const { getDb } = require('../config/firestoreDb');
 const AI_TRAINING_CACHE_TTL_MS = 30 * 1000;
 const aiTrainingCache = new Map();
 
@@ -274,7 +275,7 @@ function buildGuidedPlan(rows, baselineWindow, owner) {
 }
 
 async function readCoachingPlanWithTasks(uid) {
-  const db = admin.firestore();
+  const db = getDb();
   const planRef = db.collection('users').doc(uid).collection('aiCoachingPlan').doc('current');
   const [planSnap, tasksSnap] = await Promise.all([
     planRef.get(),
@@ -286,7 +287,7 @@ async function readCoachingPlanWithTasks(uid) {
 }
 
 async function listAiTrainingDrillStatuses(uid) {
-  const db = admin.firestore();
+  const db = getDb();
   const snap = await db
     .collection('users')
     .doc(uid)
@@ -302,7 +303,7 @@ async function listAiTrainingDrillStatuses(uid) {
 }
 
 async function readUserLogsInRange(uid, from, end, limit = 500) {
-  const db = admin.firestore();
+  const db = getDb();
   const snap = await db
     .collection('users')
     .doc(uid)
@@ -865,7 +866,7 @@ async function postAiTrainingDrillStatus(req, res) {
   if (!drillId) return res.status(400).json({ error: 'drillId is required' });
   if (!allowed.has(status)) return res.status(400).json({ error: 'Invalid status' });
   try {
-    const db = admin.firestore();
+    const db = getDb();
     const { FieldValue } = admin.firestore;
     const ref = db
       .collection('users')
@@ -901,7 +902,7 @@ async function getAiCoachingPlan(req, res) {
       from: from.toISOString().slice(0, 10),
       to: end.toISOString().slice(0, 10),
     };
-    const db = admin.firestore();
+    const db = getDb();
     const { FieldValue } = admin.firestore;
     const userRef = db.collection('users').doc(req.user.uid);
     const planRef = userRef.collection('aiCoachingPlan').doc('current');
@@ -963,7 +964,7 @@ async function patchAiCoachingTask(req, res) {
     return res.status(400).json({ error: 'Evidence note (min 10 chars) is required to complete a task' });
   }
   try {
-    const db = admin.firestore();
+    const db = getDb();
     const { FieldValue } = admin.firestore;
     const taskRef = db
       .collection('users')
