@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DollarSign, Clock, RefreshCw, CheckCircle2, Award, X, AlertCircle } from 'lucide-react';
 import classes from './BillingPage.module.css';
@@ -21,6 +21,7 @@ const BillingPage = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const checkoutInFlightRef = useRef(false);
 
   useEffect(() => {
     fetchWallet();
@@ -49,6 +50,8 @@ const BillingPage = () => {
   };
 
   const handleTopup = async (amountCents) => {
+    if (checkoutInFlightRef.current) return;
+    checkoutInFlightRef.current = true;
     setCheckoutLoading(true);
     setErrorMsg('');
     try {
@@ -58,10 +61,13 @@ const BillingPage = () => {
       console.error(err);
       setErrorMsg(err.message);
       setCheckoutLoading(false);
+      checkoutInFlightRef.current = false;
     }
   };
 
   const handleSubscribe = async (planId) => {
+    if (checkoutInFlightRef.current) return;
+    checkoutInFlightRef.current = true;
     setCheckoutLoading(true);
     setErrorMsg('');
     try {
@@ -71,6 +77,7 @@ const BillingPage = () => {
       console.error(err);
       setErrorMsg(err.message);
       setCheckoutLoading(false);
+      checkoutInFlightRef.current = false;
     }
   };
 
