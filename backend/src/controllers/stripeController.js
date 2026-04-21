@@ -186,6 +186,7 @@ exports.handleWebhook = async (req, res) => {
 
   console.log(`[Stripe] 📩 Webhook event: ${event.type}`);
 
+  let handlerFailed = false;
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -213,9 +214,13 @@ exports.handleWebhook = async (req, res) => {
     }
   } catch (err) {
     console.error(`[Stripe] Error handling ${event.type}:`, err.message);
+    handlerFailed = true;
   }
 
-  res.json({ received: true });
+  if (handlerFailed) {
+    return res.status(500).send('Webhook handler failed');
+  }
+  return res.json({ received: true });
 };
 
 // ─── Internal helpers ──────────────────────────────────────────────────────
@@ -246,7 +251,12 @@ async function handleCheckoutCompleted(session) {
     return;
   }
 
+  const idempotencyKey = session.payment_intent
+    ? `stripe_pi_${session.payment_intent}`
+    : `stripe_cs_${session.id}`;
+
   await walletService.addCredits(uid, amountCents, 'stripe_checkout', {
+    idempotencyKey,
     sessionId: session.id,
     paymentIntentId: session.payment_intent,
   });
@@ -272,7 +282,10 @@ async function handleInvoicePaid(invoice) {
     const plan = PLANS[planId];
     if (!plan) return;
 
+    const idempotencyKey = `stripe_inv_${invoice.id}`;
+
     await walletService.addCredits(uid, plan.weeklyAmountCents, 'subscription_renewal', {
+      idempotencyKey,
       invoiceId: invoice.id,
       subscriptionId,
       planId,
