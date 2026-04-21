@@ -18,7 +18,7 @@ const navItems = [
   { path: '/app/script', label: 'Script', icon: FileText },
   { path: '/app/billing', label: 'Billing', icon: DollarSign },
   { path: '/app/licensed-states', label: 'Licensed States', icon: MapPin },
-  { path: '/app/leads', label: 'Leads', icon: Box, badge: 'Beta' },
+  { path: '/app/leads', label: 'Leads', icon: Box, badge: 'Beta', disabled: true, teaser: true },
   { path: '/app/profile', label: 'Profile', icon: User },
   { path: '/app/ai-training', label: 'AI Training', icon: HeadphonesIcon },
   { path: '/app/support', label: 'Support', icon: MessageSquare },
@@ -77,9 +77,12 @@ const Sidebar = () => {
             to={item.disabled ? '#' : item.path}
             end={item.end || false}
             className={({ isActive }) =>
-              `${classes.navItem} ${isSidebarCollapsed ? classes.navItemCollapsed : ''} ${isActive && !item.disabled ? classes.active : ''} ${item.disabled ? classes.disabled : ''}`
+              `${classes.navItem} ${isSidebarCollapsed ? classes.navItemCollapsed : ''} ${isActive && !item.disabled ? classes.active : ''} ${item.disabled ? classes.disabled : ''} ${item.teaser ? classes.teaser : ''}`
             }
             onClick={(e) => item.disabled && e.preventDefault()}
+            aria-disabled={item.disabled ? 'true' : undefined}
+            title={item.disabled ? 'Coming soon' : undefined}
+            tabIndex={item.disabled ? -1 : undefined}
           >
             <span className={`${classes.iconWrap} ${isSidebarCollapsed ? classes.iconWrapCollapsed : ''}`}>
               <item.icon size={20} className={classes.icon} />
