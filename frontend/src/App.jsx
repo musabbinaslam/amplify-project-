@@ -2,6 +2,8 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { AnimatePresence } from 'framer-motion';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import AppShell from './components/layout/AppShell';
 import PageLoader from './components/ui/PageLoader';
 import ErrorFallback from './components/ui/ErrorFallback';
@@ -135,6 +137,8 @@ function App() {
     <Router>
       <ErrorBoundary FallbackComponent={ErrorFallback}>
         <AnimatedRoutes />
+        <Analytics />
+        <SpeedInsights />
       </ErrorBoundary>
     </Router>
   );
