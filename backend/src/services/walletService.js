@@ -9,7 +9,7 @@ function userRef(uid) {
 
 function toSafeDocId(id) {
   if (!id) return null;
-  // Firestore doc IDs cannot contain '/'
+  // Firestore doc IDs cannot contain '/' and some runtimes may not support String.prototype.replaceAll
   return String(id).replace(/\//g, '_').slice(0, 1500);
 }
 
