@@ -371,6 +371,25 @@ async function patchMe(req, res) {
     if (!existingProfile) {
       body.role = 'agent';
     }
+    if ('averageAp' in body) {
+      const n = Number(body.averageAp);
+      if (!Number.isFinite(n) || n < 0) {
+        return res.status(400).json({ error: 'averageAp must be a non-negative number' });
+      }
+      body.averageAp = Math.min(Math.round(n * 100) / 100, 100000);
+    }
+    if ('brandColor' in body) {
+      const raw = body.brandColor;
+      if (raw === null || raw === '') {
+        body.brandColor = null;
+      } else {
+        const v = String(raw || '').trim().toLowerCase();
+        if (!/^#[0-9a-f]{6}$/.test(v)) {
+          return res.status(400).json({ error: 'brandColor must be a 6-digit hex like #25f425' });
+        }
+        body.brandColor = v;
+      }
+    }
     if ('licensedStates' in body) {
       const raw = body.licensedStates;
       if (!Array.isArray(raw)) {

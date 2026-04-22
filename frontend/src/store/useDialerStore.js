@@ -18,9 +18,20 @@ const useDialerStore = create((set, get) => ({
   incomingCallerId: null,
   leadData: null,
 
+  // Lifecycle handle for live-applying audio settings to the Twilio device.
+  // Set by twilioService after device registration, invoked on teardown.
+  audioSettingsUnsubscribe: null,
+
   // Actions
   setDevice: (device) => set({ device }),
   setSocket: (socket) => set({ socket }),
+  setAudioSettingsUnsubscribe: (unsub) => {
+    const { audioSettingsUnsubscribe } = get();
+    if (audioSettingsUnsubscribe) {
+      try { audioSettingsUnsubscribe(); } catch (e) { /* noop */ }
+    }
+    set({ audioSettingsUnsubscribe: unsub });
+  },
   setCallState: (state) => set({ callState: state }),
   setActiveCall: (call) => set({ activeCall: call }),
   setAgentContext: (identity, campaign, states = []) => set({ 
@@ -48,6 +59,9 @@ const useDialerStore = create((set, get) => ({
   },
   setMuted: (muted) => set({ isMuted: muted }),
   setCallDuration: (duration) => set({ callDuration: duration }),
+
+  showDispositionFor: (meta) => set({ pendingDisposition: meta }),
+  clearPendingDisposition: () => set({ pendingDisposition: null }),
   
   // Cleanup
   resetCallState: () => set({ 
@@ -104,22 +118,25 @@ const useDialerStore = create((set, get) => ({
   },
 
   goOffline: () => {
-    const { device, socket } = get();
+    const { device, socket, audioSettingsUnsubscribe } = get();
     console.log('DEBUG: Going offline & destroying connections');
-    
-    // Completely destroy Twilio device so we don't receive ghost calls
+
+    if (audioSettingsUnsubscribe) {
+      try { audioSettingsUnsubscribe(); } catch (e) { /* noop */ }
+    }
+
     if (device) {
       try { device.destroy(); } catch(e){}
     }
-    
-    // Kill the WebSocket connection to remove agent from backend Redis LRU pool
+
     if (socket) {
       try { socket.disconnect(); } catch(e){}
     }
-    
+
     set({
       device: null,
       socket: null,
+      audioSettingsUnsubscribe: null,
       callState: 'offline',
       activeCall: null,
       isMuted: false,

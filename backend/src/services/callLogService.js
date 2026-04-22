@@ -97,21 +97,37 @@ class CallLogService {
 
         console.log(`[Billing] 💸 Call ${callSid}: ${durationSec}s. Billable: ${isBillable} ($${cost})`);
 
-        // Save to Firestore under the agent's user document
+        // Save to Firestore under the agent's user document. Upserts by callSid so
+        // an early disposition PATCH that created a stub doc merges into the same record.
         if (admin && agentId) {
             try {
                 const db = getDb();
                 const callLogsRef = db.collection('users').doc(agentId).collection('callLogs');
-                const docRef = await callLogsRef.add({
-                    ...newLog,
-                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                });
-                newLog.id = docRef.id;
-                console.log(`[Firestore] ✅ Call log saved for user ${agentId}: ${docRef.id}`);
+
+                let existingDocId = null;
+                if (callSid) {
+                    const existing = await callLogsRef.where('callSid', '==', callSid).limit(1).get();
+                    if (!existing.empty) existingDocId = existing.docs[0].id;
+                }
+
+                if (existingDocId) {
+                    await callLogsRef.doc(existingDocId).set({
+                        ...newLog,
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    }, { merge: true });
+                    newLog.id = existingDocId;
+                    console.log(`[Firestore] ✅ Call log merged for user ${agentId}: ${existingDocId}`);
+                } else {
+                    const docRef = await callLogsRef.add({
+                        ...newLog,
+                        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                    newLog.id = docRef.id;
+                    console.log(`[Firestore] ✅ Call log saved for user ${agentId}: ${docRef.id}`);
+                }
                 await this.upsertAdminDailyMetrics(newLog);
             } catch (err) {
                 console.error(`[Firestore] ❌ Failed to save call log for user ${agentId}:`, err.message);
-                // Assign a fallback ID
                 newLog.id = Date.now().toString();
             }
         } else {
@@ -120,6 +136,47 @@ class CallLogService {
         }
 
         return newLog;
+    }
+
+    /**
+     * Upserts disposition metadata onto a call log identified by its Twilio CallSid.
+     * If the webhook-driven log hasn't been written yet, a minimal stub is created so
+     * the later webhook write will merge into the same document.
+     */
+    async updateDispositionBySid(uid, callSid, payload) {
+        if (!admin || !uid || !callSid) return { ok: false, reason: 'missing-args' };
+        const db = getDb();
+        const callLogsRef = db.collection('users').doc(uid).collection('callLogs');
+
+        const dispositionFields = {
+            ...payload,
+            dispositionUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        // Retry up to ~2s in case the Twilio webhook is racing and the log doesn't exist yet.
+        const maxAttempts = 4;
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+            const snap = await callLogsRef.where('callSid', '==', callSid).limit(1).get();
+            if (!snap.empty) {
+                const docId = snap.docs[0].id;
+                await callLogsRef.doc(docId).set(dispositionFields, { merge: true });
+                return { ok: true, id: docId, created: false };
+            }
+            if (attempt < maxAttempts) {
+                await new Promise((r) => setTimeout(r, 500));
+            }
+        }
+
+        // Webhook hasn't written yet. Create a stub keyed by callSid so it can merge later.
+        const stub = {
+            callSid,
+            agentId: uid,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            ...dispositionFields,
+        };
+        const docRef = await callLogsRef.add(stub);
+        return { ok: true, id: docRef.id, created: true };
     }
 
     /**

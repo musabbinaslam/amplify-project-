@@ -21,7 +21,7 @@
 
 .spinner {
   animation: spin 0.8s linear infinite;
-  color: var(--accent-green);
+  color: var(--brand);
 }
 
 @keyframes spin {
@@ -40,12 +40,12 @@
   width: 64px;
   height: 64px;
   background: var(--surface-container-highest);
-  color: var(--accent-green);
+  color: var(--brand);
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-full);
-  box-shadow: 0 0 16px var(--accent-green-glow);
+  box-shadow: 0 0 16px var(--brand-glow);
 }
 
 .header h2 {
@@ -93,7 +93,7 @@
   width: 96px;
   height: 96px;
   border-radius: var(--radius-full);
-  border: 2px solid var(--accent-green);
+  border: 2px solid var(--brand);
   background: var(--surface-container-highest);
   cursor: pointer;
   overflow: hidden;
@@ -113,7 +113,7 @@
 }
 
 .avatarInitial {
-  color: var(--accent-green);
+  color: var(--brand);
   font-size: 36px;
   font-weight: 800;
   display: flex;
@@ -159,7 +159,7 @@
 }
 
 .uploadBtn {
-  color: var(--accent-green);
+  color: var(--brand);
   font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
@@ -223,7 +223,7 @@
 
 .nameSaveBtn {
   padding: 0 24px;
-  background: var(--accent-green);
+  background: var(--brand);
   color: var(--surface);
   border: none;
   font-size: 14px;
@@ -292,7 +292,7 @@
 
 .bioInput:focus {
   background: var(--surface-container-high);
-  box-shadow: inset 0 0 0 2px var(--accent-green-dim);
+  box-shadow: inset 0 0 0 2px var(--brand-dim);
 }
 
 .charCount {
@@ -303,7 +303,7 @@
 }
 
 .saveBtn {
-  background: var(--accent-green);
+  background: var(--brand);
   color: var(--surface);
   padding: 12px 32px;
   border-radius: var(--radius-full);
@@ -311,14 +311,14 @@
   font-weight: 700;
   margin-top: 16px;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px var(--accent-green-glow);
+  box-shadow: 0 4px 12px var(--brand-glow);
   border: none;
   cursor: pointer;
 }
 
 .saveBtn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px var(--accent-green-glow);
+  box-shadow: 0 6px 16px var(--brand-glow);
 }
 
 .saveBtn:disabled {
@@ -372,7 +372,7 @@
 
 .progressFill {
   height: 100%;
-  background: var(--accent-green);
+  background: var(--brand);
 }
 
 .checklist {
@@ -429,12 +429,12 @@
 }
 
 .editBtn {
-  background: var(--accent-green-dim);
-  color: var(--accent-green);
+  background: var(--brand-dim);
+  color: var(--brand);
 }
 
 .editBtn:hover {
-  background: var(--accent-green);
+  background: var(--brand);
   color: var(--surface);
 }
 
@@ -474,8 +474,8 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-full);
-  background: var(--accent-green-dim);
-  color: var(--accent-green);
+  background: var(--brand-dim);
+  color: var(--brand);
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -543,7 +543,7 @@
 
 .editInput:focus,
 .editSelect:focus {
-  border-color: var(--accent-green);
+  border-color: var(--brand);
   background: var(--surface-container-high);
 }
 
@@ -569,16 +569,16 @@
 }
 
 .editRadio:has(input:checked) {
-  border-color: var(--accent-green);
-  background: var(--accent-green-dim);
+  border-color: var(--brand);
+  background: var(--brand-dim);
 }
 
 .editRadio input {
-  accent-color: var(--accent-green);
+  accent-color: var(--brand);
 }
 
 .saveAccountBtn {
-  background: var(--accent-green);
+  background: var(--brand);
   color: var(--surface);
   padding: 12px 24px;
   border-radius: var(--radius-full);
@@ -587,13 +587,13 @@
   border: none;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px var(--accent-green-glow);
+  box-shadow: 0 4px 12px var(--brand-glow);
   margin-top: 4px;
 }
 
 .saveAccountBtn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px var(--accent-green-glow);
+  box-shadow: 0 6px 16px var(--brand-glow);
 }
 
 .saveAccountBtn:disabled {
@@ -619,25 +619,14 @@
 }
 
 .verticalChipActive {
-  border-color: var(--accent-green);
-  background: var(--accent-green-dim);
-  color: var(--accent-green);
+  border-color: var(--brand);
+  background: var(--brand-dim);
+  color: var(--brand);
 }
 
 @media (max-width: 768px) {
   .twoCol {
     grid-template-columns: 1fr;
-  }
-
-  .stickySaveBar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-
-  .saveBarActions {
-    width: 100%;
-    justify-content: flex-end;
   }
 }
 
@@ -687,8 +676,8 @@
   letter-spacing: 0.04em;
   padding: 3px 10px;
   border-radius: var(--radius-full);
-  background: var(--accent-green-dim);
-  color: var(--accent-green);
+  background: var(--brand-dim);
+  color: var(--brand);
 }
 
 .integrationField {
@@ -728,7 +717,7 @@
 
 .copyBtn:hover {
   background: var(--surface-container-highest);
-  color: var(--accent-green);
+  color: var(--brand);
 }
 
 .apiMetaRow {
@@ -855,78 +844,6 @@
   color: var(--text-tertiary);
 }
 
-.stickySaveBar {
-  position: sticky;
-  bottom: 12px;
-  z-index: 30;
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  border-radius: var(--radius-xl);
-  padding: 10px 14px;
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.14);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.saveBarText {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-right: 8px;
-}
-
-.saveBarActions {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.saveBarGhostBtn,
-.saveBarPrimaryBtn {
-  height: 38px;
-  padding: 0 16px;
-  border-radius: var(--radius-full);
-  border: none;
-  font-size: 13px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.saveBarGhostBtn {
-  background: color-mix(in srgb, var(--surface-container-highest) 72%, transparent);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-}
-
-.saveBarGhostBtn:hover {
-  background: var(--surface-container-highest);
-}
-
-.saveBarPrimaryBtn {
-  background: var(--accent-green);
-  color: var(--surface);
-  box-shadow: 0 0 14px var(--accent-green-glow);
-}
-
-.saveBarPrimaryBtn:hover {
-  transform: translateY(-1px);
-}
-
-.saveBarPrimaryBtn:disabled {
-  opacity: 0.65;
-  cursor: wait;
-  transform: none;
-}
-
 .modalOverlay {
   position: fixed;
   inset: 0;
@@ -997,9 +914,9 @@
 }
 
 .avatarActionPrimary {
-  background: var(--accent-green);
+  background: var(--brand);
   color: var(--surface);
-  box-shadow: 0 0 14px var(--accent-green-glow);
+  box-shadow: 0 0 14px var(--brand-glow);
 }
 
 .avatarActionPrimary:disabled {
@@ -1045,7 +962,7 @@
 
 .uploadProgress > div {
   height: 100%;
-  background: var(--accent-green);
+  background: var(--brand);
 }
 
 @media (max-width: 700px) {

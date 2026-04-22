@@ -26,12 +26,12 @@
 .logoIcon {
   width: 36px;
   height: 36px;
-  background: var(--accent-green);
+  background: var(--brand);
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 10px var(--accent-green-glow);
+  box-shadow: 0 0 10px var(--brand-glow);
 }
 
 .logoTriangle {
@@ -110,7 +110,7 @@
 
 .input:focus,
 .select:focus {
-  border-color: var(--accent-green);
+  border-color: var(--brand);
 }
 
 .select {
@@ -138,7 +138,7 @@
 }
 
 .phoneRow:focus-within {
-  border-color: var(--accent-green);
+  border-color: var(--brand);
 }
 
 .countrySelect {
@@ -211,7 +211,7 @@
 }
 
 .radioInput:checked {
-  border-color: var(--accent-green);
+  border-color: var(--brand);
 }
 
 .radioInput:checked::after {
@@ -222,8 +222,8 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent-green);
-  box-shadow: 0 0 8px var(--accent-green-glow);
+  background: var(--brand);
+  box-shadow: 0 0 8px var(--brand-glow);
 }
 
 .verticalsList {
@@ -236,7 +236,7 @@
 .submitBtn {
   width: 100%;
   padding: 16px;
-  background: var(--accent-green);
+  background: var(--brand);
   color: var(--surface-container-highest);
   font-size: 15px;
   font-weight: 700;
@@ -246,12 +246,12 @@
   cursor: pointer;
   transition: all 0.2s ease;
   margin-top: 4px;
-  box-shadow: 0 4px 12px var(--accent-green-glow);
+  box-shadow: 0 4px 12px var(--brand-glow);
 }
 
 .submitBtn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px var(--accent-green-glow);
+  box-shadow: 0 6px 16px var(--brand-glow);
 }
 
 .submitBtn:active {
@@ -319,13 +319,13 @@
 }
 
 .footerLink {
-  color: var(--accent-green);
+  color: var(--brand);
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.2s;
 }
 
 .footerLink:hover {
-  color: var(--accent-green);
+  color: var(--brand);
   opacity: 0.8;
 }

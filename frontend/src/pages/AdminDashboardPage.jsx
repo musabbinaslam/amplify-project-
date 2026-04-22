@@ -140,13 +140,19 @@ const AdminDashboardPage = () => {
   }, []);
 
   useEffect(() => {
-    // Initial load: shell then analytics
+    // One-time shell + DIDs load (range-independent).
     Promise.all([
       loadShell(),
-      loadAnalytics(),
       refreshDids(),
     ]);
-  }, [loadShell]);
+  }, [loadShell, refreshDids]);
+
+  useEffect(() => {
+    // Re-fetch analytics whenever the selected range changes. loadAnalytics'
+    // identity already depends on rangePreset via getRange, so this fires on
+    // every range-pill click (and on first mount).
+    loadAnalytics();
+  }, [loadAnalytics]);
 
   useEffect(() => {
     // Smarter live refresh:

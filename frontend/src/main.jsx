@@ -5,11 +5,13 @@ import { Toaster } from 'react-hot-toast';
 import App from './App.jsx';
 import useAuthStore from './store/authStore';
 import { useUIStore } from './store/uiStore';
+import { useThemeStore } from './store/themeStore';
 import { initFirebase } from './config/firebase';
 import PageLoader from './components/ui/PageLoader';
 import './index.css';
 
 useUIStore.getState().initTheme();
+useThemeStore.getState().initBrand();
 
 const queryClient = new QueryClient();
 

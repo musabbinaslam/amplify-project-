@@ -176,6 +176,20 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
         call.on('disconnect', () => {
           if (call._durationInterval) clearInterval(call._durationInterval);
           socket.emit('agent:release');
+
+          const latestStore = useDialerStore.getState();
+          const callSid = call.parameters?.CallSid || call.parameters?.callSid || null;
+          const durationSec = latestStore.callDuration;
+          const callerId = latestStore.incomingCallerId;
+          if (callSid && durationSec >= 5) {
+            latestStore.showDispositionFor({
+              callSid,
+              durationSec,
+              callerId,
+              endedAtISO: new Date().toISOString(),
+            });
+          }
+
           store.resetCallState();
         });
       });
@@ -184,6 +198,27 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
     // 5. Register the device with Twilio
     await device.register();
     await applyTwilioDeviceAudio(device);
+
+    // 6. Live-apply audio settings changes while the device is alive.
+    //    Twilio's AudioHelper re-applies setAudioConstraints / setInputDevice
+    //    on the active mic track, so flipping the toggles in Settings takes
+    //    effect on an already-running call within the next getUserMedia cycle.
+    const unsubscribeAudioSettings = useAudioSettingsStore.subscribe((state, prev) => {
+      const prevAudio = prev?.audio || {};
+      const nextAudio = state?.audio || {};
+      const changed =
+        nextAudio.noiseSuppression !== prevAudio.noiseSuppression ||
+        nextAudio.echoCancellation !== prevAudio.echoCancellation ||
+        nextAudio.audioInputDeviceId !== prevAudio.audioInputDeviceId ||
+        nextAudio.audioOutputDeviceId !== prevAudio.audioOutputDeviceId;
+      if (!changed) return;
+      applyTwilioDeviceAudio(device).catch((err) =>
+        console.warn('[Twilio] re-apply audio settings', err?.message || err)
+      );
+    });
+    if (typeof store.setAudioSettingsUnsubscribe === 'function') {
+      store.setAudioSettingsUnsubscribe(unsubscribeAudioSettings);
+    }
 
     return true;
   } catch (error) {
