@@ -508,93 +508,437 @@
   font-weight: 500;
 }
 
-/* ─── Modal Player ─── */
+/* ─── Recording Modal ─── */
 .modalOverlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 24px;
+  animation: modalOverlayFade 0.18s ease-out;
+}
+
+@keyframes modalOverlayFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modalContent {
   background: var(--surface-container-low);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  width: 90%;
-  max-width: 450px;
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: 560px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  animation: modalFadeIn 0.2s ease-out;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  animation: modalFadeIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes modalFadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.modalHeader {
+.recordingHeader {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.25rem;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.1rem 1.4rem 0.9rem;
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
+  background: color-mix(in srgb, var(--surface-container-high) 35%, transparent);
 }
 
-.modalHeader h3 {
+.recordingHeaderMain {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.recordingTitle {
   margin: 0;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.recordingCampaign {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--accent-green);
+  background: var(--accent-green-dim);
+  border: 1px solid color-mix(in srgb, var(--accent-green) 25%, var(--border));
+}
+
+.recordingHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.recordingDate {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  white-space: nowrap;
 }
 
 .closeBtn {
   background: none;
   border: none;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   font-size: 1.5rem;
   cursor: pointer;
   line-height: 1;
-  padding: 0;
-  transition: color 0.15s;
+  padding: 0 0.3rem;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
 }
 
 .closeBtn:hover {
-  color: #ef4444;
+  color: var(--text-primary);
+  background: var(--surface-container-high);
 }
 
-.modalBody {
-  padding: 2rem 1.25rem;
+.recordingBody {
+  padding: 1.25rem 1.4rem 1.4rem;
   display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100px;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-height: 120px;
 }
 
 .loadingState {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  color: var(--text-muted);
-  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  padding: 1.5rem 0;
 }
 
 .errorState {
-  color: #ef4444;
-  font-size: 0.9rem;
+  color: var(--accent-red);
+  font-size: 0.88rem;
+  text-align: center;
+  padding: 1.5rem 0;
 }
 
-.modalAudioPlayer {
+.timeRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  letter-spacing: 0.02em;
+  margin-top: -0.2rem;
+}
+
+/* ─── Equalizer (ambient bars) ─── */
+.eqRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 4px 0 2px;
+}
+
+.eqBar {
+  width: 4px;
+  height: 28px;
+  border-radius: 4px;
+  background: linear-gradient(
+    to top,
+    var(--accent-green),
+    color-mix(in srgb, var(--accent-green) 55%, transparent)
+  );
+  transform-origin: bottom center;
+  animation: eqPulse 0.9s ease-in-out infinite alternate;
+  opacity: 0.9;
+  box-shadow: 0 0 8px var(--accent-green-glow);
+}
+
+.eqPaused .eqBar {
+  animation-play-state: paused;
+  transform: scaleY(0.25);
+  opacity: 0.35;
+  box-shadow: none;
+}
+
+@keyframes eqPulse {
+  0% { transform: scaleY(0.3); }
+  100% { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eqBar {
+    animation: none !important;
+    transform: scaleY(0.55);
+  }
+}
+
+/* ─── Scrubber ─── */
+.scrubber {
+  --played-pct: 0%;
+  --buffered-pct: 0%;
+  position: relative;
   width: 100%;
+  padding: 10px 0;
+}
+
+.scrubberInput {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
   outline: none;
-  border-radius: 20px;
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      to right,
+      var(--accent-green) 0%,
+      var(--accent-green) var(--played-pct),
+      color-mix(in srgb, var(--accent-green) 28%, transparent) var(--played-pct),
+      color-mix(in srgb, var(--accent-green) 28%, transparent) var(--buffered-pct),
+      var(--surface-container-highest) var(--buffered-pct),
+      var(--surface-container-highest) 100%
+    );
+  cursor: pointer;
+  transition: height 0.15s;
+}
+
+.scrubberInput:hover {
+  height: 8px;
+}
+
+.scrubberInput::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  border: 2px solid var(--surface);
+  cursor: pointer;
+  box-shadow:
+    0 0 0 4px var(--accent-green-dim),
+    0 0 12px var(--accent-green-glow);
+  transition: transform 0.12s ease;
+}
+
+.scrubberInput::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.scrubberInput::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  border: 2px solid var(--surface);
+  cursor: pointer;
+  box-shadow:
+    0 0 0 4px var(--accent-green-dim),
+    0 0 12px var(--accent-green-glow);
+}
+
+.scrubberInput::-moz-range-track {
+  background: transparent;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.scrubberInput:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 4px;
+}
+
+/* ─── Transport controls ─── */
+.controlsRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 4px 0 2px;
+}
+
+.playBtn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  color: #0b1f0b;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 6px 20px var(--accent-green-glow);
+}
+
+.playBtn:hover {
+  filter: brightness(1.08);
+  transform: scale(1.04);
+  box-shadow: 0 8px 28px var(--accent-green-glow);
+}
+
+.playBtn:active {
+  transform: scale(0.97);
+}
+
+.skipBtn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--surface-container-high);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.skipBtn:hover {
+  color: var(--accent-green);
+  border-color: color-mix(in srgb, var(--accent-green) 35%, var(--border));
+  background: var(--surface-container-highest);
+}
+
+/* ─── Footer (speed, volume, download) ─── */
+.footerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 2px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.speedPill {
+  min-width: 48px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface-container-high);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: all 0.15s ease;
+}
+
+.speedPill:hover {
+  color: var(--accent-green);
+  border-color: color-mix(in srgb, var(--accent-green) 40%, var(--border));
+}
+
+.volumeWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 220px;
+  margin: 0 auto;
+}
+
+.volumeBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.volumeBtn:hover {
+  color: var(--accent-green);
+  background: var(--surface-container-high);
+}
+
+.volumeInput {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  outline: none;
+  background: linear-gradient(
+    to right,
+    var(--accent-green) 0%,
+    var(--accent-green) calc(var(--volume-pct, 100%)),
+    var(--surface-container-highest) calc(var(--volume-pct, 100%)),
+    var(--surface-container-highest) 100%
+  );
+  cursor: pointer;
+}
+
+.volumeInput::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  border: 2px solid var(--surface);
+  cursor: pointer;
+}
+
+.volumeInput::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  border: 2px solid var(--surface);
+  cursor: pointer;
+}
+
+.downloadBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface-container-high);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.downloadBtn:hover {
+  color: var(--accent-green);
+  border-color: color-mix(in srgb, var(--accent-green) 35%, var(--border));
+  background: var(--surface-container-highest);
 }
 
 /* ─── Responsive ─── */
