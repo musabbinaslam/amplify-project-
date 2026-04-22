@@ -18,6 +18,10 @@ const useDialerStore = create((set, get) => ({
   incomingCallerId: null,
   leadData: null,
 
+  // Post-call disposition modal payload. When non-null the modal is rendered.
+  // Shape: { callSid, durationSec, callerId, endedAtISO, campaignLabel? }
+  pendingDisposition: null,
+
   // Actions
   setDevice: (device) => set({ device }),
   setSocket: (socket) => set({ socket }),
@@ -48,6 +52,9 @@ const useDialerStore = create((set, get) => ({
   },
   setMuted: (muted) => set({ isMuted: muted }),
   setCallDuration: (duration) => set({ callDuration: duration }),
+
+  showDispositionFor: (meta) => set({ pendingDisposition: meta }),
+  clearPendingDisposition: () => set({ pendingDisposition: null }),
   
   // Cleanup
   resetCallState: () => set({ 

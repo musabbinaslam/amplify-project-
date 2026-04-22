@@ -1,0 +1,312 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fadeIn 160ms ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  background: var(--surface-container-low);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  animation: slideUp 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 22px 26px 14px;
+  gap: 16px;
+}
+
+.titleBlock h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+}
+
+.titleBlock p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease;
+}
+
+.closeBtn:hover {
+  background: var(--surface-container-high);
+  color: var(--text-primary);
+}
+
+.meta {
+  display: flex;
+  gap: 16px;
+  padding: 6px 26px 18px;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.meta span strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.body {
+  padding: 4px 26px 20px;
+}
+
+.label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+
+.optionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.optionBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface-container);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.optionBtn:hover {
+  background: var(--surface-container-high);
+  border-color: color-mix(in srgb, var(--accent-green) 40%, var(--border));
+}
+
+.optionBtn.selected {
+  background: color-mix(in srgb, var(--accent-green) 12%, transparent);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.optionBtn.sold.selected {
+  background: color-mix(in srgb, var(--accent-green) 18%, transparent);
+}
+
+.optionBtn.danger.selected {
+  background: color-mix(in srgb, #ef4444 14%, transparent);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.optionBtn.warn.selected {
+  background: color-mix(in srgb, #f59e0b 14%, transparent);
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.optionBtn.neutral.selected {
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  border-color: var(--text-muted);
+  color: var(--text-secondary);
+}
+
+.saleDetails {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--accent-green) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-green) 30%, var(--border));
+  border-radius: var(--radius-lg);
+  margin-top: 6px;
+  animation: expandIn 200ms ease-out;
+}
+
+@keyframes expandIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.input, .textarea {
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease;
+  font-family: inherit;
+}
+
+.input:focus, .textarea:focus {
+  border-color: var(--accent-green);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 68px;
+  max-height: 160px;
+}
+
+.apField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.apField:focus-within {
+  border-color: var(--accent-green);
+}
+
+.apPrefix {
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.apInput {
+  flex: 1;
+  padding: 10px 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.errorText {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 2px;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 26px 22px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-container) 40%, transparent);
+}
+
+.skipBtn, .saveBtn {
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.skipBtn {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+.skipBtn:hover {
+  background: var(--surface-container-high);
+  color: var(--text-primary);
+}
+
+.saveBtn {
+  background: var(--accent-green);
+  color: var(--surface);
+}
+
+.saveBtn:hover:not(:disabled) {
+  filter: brightness(1.05);
+  box-shadow: 0 0 22px var(--accent-green-glow);
+}
+
+.saveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 520px) {
+  .optionGrid {
+    grid-template-columns: 1fr;
+  }
+  .modal {
+    max-width: 100%;
+  }
+  .header, .meta, .body, .footer {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}

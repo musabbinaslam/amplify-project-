@@ -32,6 +32,27 @@ router.get('/firebase-config', (req, res) => {
 
 const agentManager = require('../services/agentManager');
 const phoneUtils = require('../utils/phoneUtils');
+const { CAMPAIGN_CONFIG } = require('../config/pricing');
+
+/**
+ * Public campaign pricing catalog.
+ * Returns the canonical list of campaigns with pricing and buffers so the
+ * frontend dashboard can render them without hardcoding values.
+ */
+router.get('/campaigns', (req, res) => {
+  try {
+    const campaigns = Object.entries(CAMPAIGN_CONFIG).map(([id, cfg]) => ({
+      id,
+      label: cfg.label,
+      price: cfg.price,
+      buffer: cfg.buffer,
+    }));
+    res.json({ campaigns });
+  } catch (err) {
+    console.error('[Public API] campaigns error:', err.message);
+    res.status(500).json({ error: 'Failed to load campaigns' });
+  }
+});
 
 /**
  * Universal Vendor Ping API
