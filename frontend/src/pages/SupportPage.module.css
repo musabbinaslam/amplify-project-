@@ -34,12 +34,12 @@
   width: 64px;
   height: 64px;
   background: var(--surface-container-highest);
-  color: var(--accent-green);
+  color: var(--brand);
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-full);
-  box-shadow: 0 0 16px var(--accent-green-glow);
+  box-shadow: 0 0 16px var(--brand-glow);
 }
 
 .header h2 {
@@ -102,7 +102,7 @@
   height: 36px;
   border-radius: var(--radius-full);
   background: var(--surface-container-highest);
-  color: var(--accent-green);
+  color: var(--brand);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -113,7 +113,7 @@
   width: 36px;
   height: 36px;
   border-radius: var(--radius-full);
-  background: var(--accent-green);
+  background: var(--brand);
   color: var(--surface);
   font-size: 14px;
   font-weight: 700;
@@ -141,7 +141,7 @@
 }
 
 .userBubble {
-  background: var(--accent-green);
+  background: var(--brand);
   color: var(--surface);
   border-bottom-right-radius: 4px;
   font-weight: 500;
@@ -220,7 +220,7 @@
   width: 44px;
   height: 44px;
   border-radius: var(--radius-full);
-  background: var(--accent-green);
+  background: var(--brand);
   color: var(--surface);
   border: none;
   cursor: pointer;
@@ -229,12 +229,12 @@
   justify-content: center;
   flex-shrink: 0;
   transition: all 0.15s ease;
-  box-shadow: 0 2px 8px var(--accent-green-glow);
+  box-shadow: 0 2px 8px var(--brand-glow);
 }
 
 .sendBtn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px var(--accent-green-glow);
+  box-shadow: 0 4px 12px var(--brand-glow);
 }
 
 .sendBtn:disabled {
@@ -265,7 +265,7 @@
 }
 
 .emailCard h3 svg {
-  color: var(--accent-green);
+  color: var(--brand);
 }
 
 .emailNote {
@@ -311,7 +311,7 @@
 
 .emailInput:focus,
 .emailSelect:focus {
-  border-color: var(--accent-green);
+  border-color: var(--brand);
   background: var(--surface-container-high);
 }
 
@@ -336,7 +336,7 @@
 }
 
 .emailTextarea:focus {
-  border-color: var(--accent-green);
+  border-color: var(--brand);
   background: var(--surface-container-high);
 }
 
@@ -349,7 +349,7 @@
   align-items: center;
   gap: 10px;
   padding: 12px 28px;
-  background: var(--accent-green);
+  background: var(--brand);
   color: var(--surface);
   border: none;
   border-radius: var(--radius-full);
@@ -357,7 +357,7 @@
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px var(--accent-green-glow);
+  box-shadow: 0 4px 12px var(--brand-glow);
   margin-top: auto;
   align-self: flex-start;
 }

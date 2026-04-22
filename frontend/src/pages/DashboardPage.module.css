@@ -98,7 +98,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent-green);
+  color: var(--brand);
 }
 
 .statValue {
@@ -137,11 +137,11 @@
   height: 40px;
   border-radius: var(--radius-full);
   background: var(--surface-container-highest);
-  color: var(--accent-green);
+  color: var(--brand);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 10px var(--accent-green-glow);
+  box-shadow: 0 0 10px var(--brand-glow);
 }
 
 .campaignGrid {
@@ -197,7 +197,7 @@
 .priceLarge {
   font-size: 28px;
   font-weight: 800;
-  color: var(--accent-green);
+  color: var(--brand);
 }
 
 .priceSub {
@@ -253,7 +253,7 @@
 
 .dropdownTrigger:hover {
   background: var(--surface-container-high);
-  border-color: var(--accent-green);
+  border-color: var(--brand);
 }
 
 .dropdownIcon {
@@ -303,8 +303,8 @@
 }
 
 .activeItem {
-  background: color-mix(in srgb, var(--accent-green) 12%, transparent);
-  color: var(--accent-green);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
 }
 
 .perfStatsGrid {
@@ -349,7 +349,7 @@
   height: 48px;
   border-radius: var(--radius-full);
   background: var(--surface-container-highest);
-  color: var(--accent-green);
+  color: var(--brand);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -393,8 +393,8 @@
 .statePill {
   display: inline-block;
   padding: 0.35rem 0.85rem;
-  background: color-mix(in srgb, var(--accent-green) 12%, transparent);
-  color: var(--accent-green);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 700;
@@ -460,8 +460,8 @@
 }
 
 .callInbound {
-  background: color-mix(in srgb, var(--accent-green) 14%, transparent);
-  color: var(--accent-green);
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  color: var(--brand);
 }
 
 .callOutbound {
@@ -492,8 +492,8 @@
 }
 
 .dispSold {
-  background: color-mix(in srgb, var(--accent-green) 14%, transparent);
-  color: var(--accent-green);
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  color: var(--brand);
 }
 
 .dispCallback {
@@ -512,7 +512,7 @@
 }
 
 .editBtn, .viewAllBtn {
-  color: var(--accent-green);
+  color: var(--brand);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;

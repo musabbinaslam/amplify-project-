@@ -42,6 +42,7 @@ const Sidebar = () => {
         path: '/app/admin',
         label: 'Admin',
         icon: Shield,
+        end: true,
       });
       base.splice(base.length - 1, 0, {
         path: '/app/admin/ai-training',

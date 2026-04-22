@@ -409,7 +409,7 @@ const DashboardPage = () => {
                   itemStyle={{ color: 'var(--text-secondary)' }}
                   labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
                 />
-                <Line type="monotone" dataKey="sales" name="Sales" stroke="var(--accent-green)" strokeWidth={2} dot={{ r: 4, fill: 'var(--accent-green)' }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="sales" name="Sales" stroke="var(--brand)" strokeWidth={2} dot={{ r: 4, fill: 'var(--brand)' }} activeDot={{ r: 6 }} />
                 <Line type="monotone" dataKey="calls" name="Calls" stroke="var(--text-muted)" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
               </LineChart>
             </ResponsiveContainer>
