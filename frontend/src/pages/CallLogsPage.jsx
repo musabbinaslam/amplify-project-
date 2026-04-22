@@ -371,6 +371,10 @@ const CallLogsPage = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
   // Fetch real call logs from backend
   const fetchLogs = async (showLoader = false) => {
     try {
@@ -421,6 +425,10 @@ const CallLogsPage = () => {
     const interval = setInterval(() => fetchLogs(false), 15000);
     return () => clearInterval(interval);
   }, [dateFilter, startDate, endDate, activeRecording]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, typeFilter, dateFilter, startDate, endDate]);
 
   // Determine call type for display (inbound vs outbound vs transfer)
   const getCallType = (log) => {
@@ -495,6 +503,12 @@ const CallLogsPage = () => {
     const sold = callLogs.filter((c) => c.disposition === 'sold').length;
     return { total, completed, missed, sold };
   }, [callLogs]);
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+  const paginatedLogs = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filtered.slice(startIndex, startIndex + itemsPerPage);
+  }, [filtered, currentPage, itemsPerPage]);
 
   return (
     <div className={classes.callLogs}>
@@ -609,7 +623,7 @@ const CallLogsPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((log) => {
+                {paginatedLogs.map((log) => {
                   const callType = getCallType(log);
                   const disposition = getDisposition(log);
                   const isInbound = callType === 'inbound';
@@ -695,6 +709,42 @@ const CallLogsPage = () => {
                 {callLogs.length === 0
                   ? 'No call logs yet. Start taking calls to see your activity here.'
                   : 'No calls match your search'}
+              </div>
+            )}
+
+            {filtered.length > 0 && (
+              <div className={classes.pagination}>
+                <button
+                  className={classes.pageBtn}
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </button>
+                <span className={classes.pageInfo}>
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  className={classes.pageBtn}
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                </button>
+                <div style={{ marginLeft: '1rem', width: '130px' }}>
+                  <CustomSelect
+                    options={[
+                      { value: 10, label: '10 per page' },
+                      { value: 20, label: '20 per page' }
+                    ]}
+                    value={itemsPerPage}
+                    onChange={(val) => {
+                      setItemsPerPage(Number(val));
+                      setCurrentPage(1);
+                    }}
+                    menuAlign="top"
+                  />
+                </div>
               </div>
             )}
           </>

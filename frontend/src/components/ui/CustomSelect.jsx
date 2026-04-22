@@ -11,7 +11,7 @@ import classes from './CustomSelect.module.css';
  *   onChange  — (value) => void
  *   placeholder — shown when nothing selected (optional)
  *   className — extra class for the trigger button (optional)
- *   menuAlign — 'left' | 'right' (default 'left')
+ *   menuAlign — 'left' | 'right' | 'top' (default 'left')
  */
 const CustomSelect = ({
   options = [],
@@ -58,7 +58,7 @@ const CustomSelect = ({
 
       {open && (
         <div
-          className={`${classes.menu} ${menuAlign === 'right' ? classes.menuRight : classes.menuLeft}`}
+          className={`${classes.menu} ${menuAlign === 'right' ? classes.menuRight : menuAlign === 'top' ? classes.menuTop : classes.menuLeft}`}
           role="listbox"
         >
           {normalised.map((o) => (
