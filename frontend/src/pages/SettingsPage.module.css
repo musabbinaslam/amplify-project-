@@ -569,66 +569,6 @@
   border: 1px solid rgba(255, 188, 77, 0.35);
 }
 
-.stickySaveBar {
-  position: sticky;
-  bottom: 14px;
-  z-index: 15;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: -8px;
-  padding: 12px 14px;
-  border-radius: var(--radius-xl);
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  background: linear-gradient(
-    120deg,
-    rgba(15, 23, 42, 0.62),
-    rgba(15, 23, 42, 0.44)
-  );
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.saveBarText {
-  color: #dce8ff;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.saveBarActions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.saveBarGhostBtn,
-.saveBarPrimaryBtn {
-  border-radius: var(--radius-lg);
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 700;
-  border: 1px solid transparent;
-  cursor: pointer;
-}
-
-.saveBarGhostBtn {
-  color: #d5deee;
-  background: rgba(148, 163, 184, 0.1);
-  border-color: rgba(148, 163, 184, 0.3);
-}
-
-.saveBarPrimaryBtn {
-  color: #061a13;
-  background: linear-gradient(135deg, #48d597, #66f6bb);
-  box-shadow: 0 8px 18px rgba(72, 213, 151, 0.28);
-}
-
-.saveBarPrimaryBtn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .savedLabel {
   margin: 0;
   color: var(--text-tertiary);
@@ -644,19 +584,5 @@
 @media (max-width: 768px) {
   .toggleGrid {
     grid-template-columns: 1fr;
-  }
-
-  .stickySaveBar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .saveBarActions {
-    width: 100%;
-  }
-
-  .saveBarGhostBtn,
-  .saveBarPrimaryBtn {
-    flex: 1;
   }
 }

@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import { getProfileBootstrap, saveProfile, regenerateApiKey, checkSlugAvailability, getProfileActivity } from '../services/profileService';
 import CustomSelect from '../components/ui/CustomSelect';
+import UnsavedChangesBar from '../components/ui/UnsavedChangesBar';
 import classes from './ProfilePage.module.css';
 
 const SPENDING_OPTIONS = ['Less than $500', '$500 - $1,000', '$1,000 - $2,500', '$2,500 - $5,000', '$5,000+', 'Not currently spending'];
@@ -404,15 +405,12 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      {isDirty && (
-        <div className={classes.stickySaveBar}>
-          <span className={classes.saveBarText}>You have unsaved changes</span>
-          <div className={classes.saveBarActions}>
-            <button type="button" onClick={discardChanges} className={classes.saveBarGhostBtn}>Discard</button>
-            <button type="button" onClick={handleSaveAll} className={classes.saveBarPrimaryBtn} disabled={savingAll}>{savingAll ? 'Saving...' : 'Save Changes'}</button>
-          </div>
-        </div>
-      )}
+      <UnsavedChangesBar
+        visible={isDirty}
+        onDiscard={discardChanges}
+        onSave={handleSaveAll}
+        saving={savingAll}
+      />
 
       {showRegenerateConfirm && (
         <div className={classes.modalOverlay}>
