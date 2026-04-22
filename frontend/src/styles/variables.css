@@ -10,7 +10,12 @@
   --accent-green: #25f425;
   --accent-green-dim: rgba(37, 244, 37, 0.15);
   --accent-green-glow: rgba(37, 244, 37, 0.3);
-  
+
+  /* Brand accent (user-customizable; overridden at runtime by themeStore) */
+  --brand: #25f425;
+  --brand-dim: rgba(37, 244, 37, 0.15);
+  --brand-glow: rgba(37, 244, 37, 0.3);
+
   --accent-cyan: #00e3fd;
   --accent-blue: #00e3fd; /* map blue to cyan to keep the theme */
   --accent-red: #ff7351;
@@ -23,7 +28,7 @@
 
   /* Borders - Ghost Borders */
   --border: rgba(255, 255, 255, 0.05); /* very faint line, primarily favor background shifts */
-  --border-focus: rgba(37, 244, 37, 0.4);
+  --border-focus: var(--brand);
 
   /* Radii */
   --radius-sm: 4px;
@@ -56,6 +61,10 @@
   --accent-green-dim: rgba(24, 168, 24, 0.12);
   --accent-green-glow: rgba(24, 168, 24, 0.25);
 
+  --brand: #18a818;
+  --brand-dim: rgba(24, 168, 24, 0.12);
+  --brand-glow: rgba(24, 168, 24, 0.25);
+
   --accent-cyan: #0099ad;
   --accent-blue: #0099ad;
   --accent-red: #d94a2b;
@@ -66,7 +75,7 @@
   --text-tertiary: #888888;
 
   --border: rgba(0, 0, 0, 0.08);
-  --border-focus: rgba(24, 168, 24, 0.4);
+  --border-focus: var(--brand);
 
   --bg-primary: var(--surface);
   --bg-secondary: var(--surface-container-low);

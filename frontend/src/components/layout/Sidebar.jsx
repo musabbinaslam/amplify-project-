@@ -1,5 +1,5 @@
-import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import React, { useEffect, useRef } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useUIStore } from '../../store/uiStore';
 import useAuthStore from '../../store/authStore';
 import {
@@ -31,6 +31,9 @@ const Sidebar = () => {
   const logout = useAuthStore((s) => s.logout);
   const role = useAuthStore((s) => s.user?.role);
   const navigate = useNavigate();
+  const location = useLocation();
+  const navRef = useRef(null);
+  const activeItemRef = useRef(null);
 
   const items = React.useMemo(() => {
     const base = [...navItems];
@@ -54,6 +57,20 @@ const Sidebar = () => {
     navigate('/login');
   };
 
+  // Keep the active sidebar item visible on navigation. Only scrolls when
+  // the active item is off-screen ("nearest" = no-op when already visible).
+  useEffect(() => {
+    const el = activeItemRef.current;
+    const container = navRef.current;
+    if (!el || !container) return;
+    const elRect = el.getBoundingClientRect();
+    const navRect = container.getBoundingClientRect();
+    const fullyVisible = elRect.top >= navRect.top && elRect.bottom <= navRect.bottom;
+    if (!fullyVisible) {
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [location.pathname]);
+
   return (
     <aside className={`${classes.sidebar} ${isSidebarCollapsed ? classes.collapsed : ''}`}>
       <div className={classes.header}>
@@ -70,12 +87,24 @@ const Sidebar = () => {
         </button>
       </div>
 
-      <nav className={`${classes.nav} ${isSidebarCollapsed ? classes.navCollapsed : ''}`}>
+      <nav
+        ref={navRef}
+        className={`${classes.nav} ${isSidebarCollapsed ? classes.navCollapsed : ''}`}
+      >
         {items.map((item) => (
           <NavLink
             key={item.path}
             to={item.disabled ? '#' : item.path}
             end={item.end || false}
+            ref={(el) => {
+              if (!el) return;
+              const matches = item.end
+                ? location.pathname === item.path
+                : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+              if (matches && !item.disabled) {
+                activeItemRef.current = el;
+              }
+            }}
             className={({ isActive }) =>
               `${classes.navItem} ${isSidebarCollapsed ? classes.navItemCollapsed : ''} ${isActive && !item.disabled ? classes.active : ''} ${item.disabled ? classes.disabled : ''} ${item.teaser ? classes.teaser : ''}`
             }

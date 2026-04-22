@@ -2,15 +2,29 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Settings, Mic, Volume2, Shield, Download, LogOut,
   Trash2, Loader2, RefreshCw, AlertTriangle, SlidersHorizontal,
+  Palette, RotateCcw, Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
+import { useThemeStore, DEFAULT_BRAND } from '../store/themeStore';
 import { exportUserData, revokeAllSessions } from '../services/settingsService';
+import { saveProfile, getProfile } from '../services/profileService';
 import { usePersistedAudioSettings } from '../hooks/usePersistedAudioSettings';
 import CustomSelect from '../components/ui/CustomSelect';
 import UnsavedChangesBar from '../components/ui/UnsavedChangesBar';
 import classes from './SettingsPage.module.css';
+
+const BRAND_PRESETS = [
+  { value: DEFAULT_BRAND, label: 'Green' },
+  { value: '#00e3fd', label: 'Cyan' },
+  { value: '#8b5cf6', label: 'Violet' },
+  { value: '#ff7351', label: 'Orange' },
+  { value: '#f43f5e', label: 'Rose' },
+  { value: '#ffcf33', label: 'Amber' },
+];
+
+const HEX_RE = /^#[0-9a-f]{6}$/i;
 
 const SettingsPage = () => {
   const navigate = useNavigate();
@@ -67,10 +81,21 @@ const SettingsPage = () => {
 
   const isPasswordUser = user?.authProvider === 'password';
   const canDelete = deletePw.trim().length > 0 && deletePhrase.trim().toUpperCase() === 'DELETE';
-  const isDirty = useMemo(() => {
+  const audioDirty = useMemo(() => {
     if (!saved) return false;
     return JSON.stringify(staged) !== JSON.stringify(saved);
   }, [staged, saved]);
+
+  // Appearance (brand color) state
+  const brandColor = useThemeStore((s) => s.brandColor);
+  const setBrandColor = useThemeStore((s) => s.setBrandColor);
+  const [savedBrand, setSavedBrand] = useState(brandColor);
+  const [hexInput, setHexInput] = useState(brandColor);
+  const brandDirty = useMemo(
+    () => brandColor.toLowerCase() !== (savedBrand || DEFAULT_BRAND).toLowerCase(),
+    [brandColor, savedBrand],
+  );
+  const isDirty = audioDirty || brandDirty;
 
   const patchStaged = (partial) => {
     updateStaged(partial);
@@ -87,10 +112,28 @@ const SettingsPage = () => {
       } catch (err) {
         console.error('Failed to load settings:', err);
       }
+      try {
+        const profile = await getProfile(user.uid);
+        const serverHex = HEX_RE.test(profile?.brandColor || '')
+          ? profile.brandColor.toLowerCase()
+          : DEFAULT_BRAND;
+        setSavedBrand(serverHex);
+        if (serverHex !== useThemeStore.getState().brandColor) {
+          setBrandColor(serverHex);
+        }
+        setHexInput(useThemeStore.getState().brandColor);
+      } catch (err) {
+        console.error('Failed to load profile brand color:', err);
+      }
       await enumerateDevices();
       setLoading(false);
     })();
-  }, [user?.uid, hydrate]);
+  }, [user?.uid, hydrate, setBrandColor]);
+
+  // Keep the hex text field in sync when brandColor changes via swatch / preset
+  useEffect(() => {
+    setHexInput(brandColor);
+  }, [brandColor]);
 
   const enumerateDevices = async () => {
     if (!navigator?.mediaDevices) {
@@ -302,7 +345,13 @@ const SettingsPage = () => {
     if (!user?.uid || !isDirty) return;
     setSaving(true);
     try {
-      await saveAudioNow(user.uid);
+      if (audioDirty) {
+        await saveAudioNow(user.uid);
+      }
+      if (brandDirty) {
+        await saveProfile(user.uid, { brandColor });
+        setSavedBrand(brandColor);
+      }
       setSavedLabel('Saved');
       toast.success('Settings saved');
     } catch (err) {
@@ -313,9 +362,32 @@ const SettingsPage = () => {
   };
 
   const handleDiscardChanges = () => {
-    if (!saved) return;
-    resetAudioToSaved();
+    if (audioDirty && saved) resetAudioToSaved();
+    if (brandDirty) {
+      setBrandColor(savedBrand || DEFAULT_BRAND);
+      setHexInput(savedBrand || DEFAULT_BRAND);
+    }
     setSavedLabel('Changes discarded');
+  };
+
+  const handlePickBrand = (hex) => {
+    setBrandColor(hex);
+    setSavedLabel('Unsaved changes');
+  };
+
+  const handleHexInput = (value) => {
+    setHexInput(value);
+    const v = String(value || '').trim().toLowerCase();
+    if (HEX_RE.test(v)) {
+      setBrandColor(v);
+      setSavedLabel('Unsaved changes');
+    }
+  };
+
+  const handleResetBrand = () => {
+    setBrandColor(DEFAULT_BRAND);
+    setHexInput(DEFAULT_BRAND);
+    setSavedLabel('Unsaved changes');
   };
 
   if (loading) {
@@ -523,6 +595,143 @@ const SettingsPage = () => {
               <Download size={14} />
               {exporting ? 'Exporting...' : 'Download My Data'}
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Appearance ── */}
+      <div className={classes.card}>
+        <div className={classes.appearanceHeader}>
+          <div>
+            <h3 className={classes.appearanceTitle}>
+              <Palette size={18} /> Appearance
+            </h3>
+            <p className={classes.appearanceSubtitle}>
+              Pick an accent color — it applies instantly to buttons, the sidebar, focus rings, and CTAs.
+            </p>
+          </div>
+          <div className={classes.appearanceHeaderRight}>
+            <span className={brandDirty ? classes.unsavedPill : classes.savedPill}>
+              {brandDirty ? 'Unsaved' : 'Saved'}
+            </span>
+            <button
+              type="button"
+              className={classes.resetGhostBtn}
+              onClick={handleResetBrand}
+              disabled={brandColor.toLowerCase() === DEFAULT_BRAND.toLowerCase()}
+              title="Reset to default green"
+            >
+              <RotateCcw size={14} />
+              Reset
+            </button>
+          </div>
+        </div>
+
+        <div className={classes.appearanceGrid}>
+          {/* Left: picker */}
+          <div className={classes.appearanceLeft}>
+            <div className={classes.appearanceSubheading}>Presets</div>
+            <div className={classes.swatchGrid}>
+              {BRAND_PRESETS.map((p) => {
+                const active = brandColor.toLowerCase() === p.value.toLowerCase();
+                return (
+                  <button
+                    key={p.value}
+                    type="button"
+                    className={`${classes.swatchTile} ${active ? classes.swatchTileActive : ''}`}
+                    onClick={() => handlePickBrand(p.value)}
+                    aria-label={`${p.label} (${p.value})`}
+                    title={`${p.label} — ${p.value}`}
+                  >
+                    <span
+                      className={classes.swatchDot}
+                      style={{
+                        background: p.value,
+                        boxShadow: active ? `0 0 16px ${p.value}66, inset 0 0 0 2px rgba(255,255,255,0.14)` : undefined,
+                      }}
+                    >
+                      {active && <Check size={14} strokeWidth={3.5} />}
+                    </span>
+                    <span className={classes.swatchTileLabel}>{p.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className={classes.appearanceSubheading} style={{ marginTop: 20 }}>Custom</div>
+            <div className={classes.customColorRow}>
+              <label
+                className={classes.colorPickerPill}
+                style={{
+                  background: `linear-gradient(135deg, ${brandColor} 0%, color-mix(in srgb, ${brandColor} 70%, #000) 100%)`,
+                }}
+              >
+                <input
+                  type="color"
+                  value={brandColor}
+                  onChange={(e) => handleHexInput(e.target.value)}
+                  className={classes.colorInput}
+                  aria-label="Pick custom color"
+                />
+                <Palette size={14} strokeWidth={2.5} className={classes.colorPickerIcon} />
+              </label>
+              <div className={classes.hexField}>
+                <span className={classes.hexPrefix}>HEX</span>
+                <input
+                  type="text"
+                  value={hexInput}
+                  onChange={(e) => handleHexInput(e.target.value)}
+                  className={classes.hexInput}
+                  placeholder="25f425"
+                  spellCheck="false"
+                  maxLength={7}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Right: live preview */}
+          <div className={classes.appearanceRight}>
+            <div className={classes.previewHeader}>
+              <span className={classes.previewLabel}>Live preview</span>
+              <span className={classes.previewDot} />
+            </div>
+
+            <div className={classes.previewCard}>
+              <div className={classes.previewGlow} />
+
+              {/* Mock sidebar row */}
+              <div className={classes.previewNavRow}>
+                <div className={classes.previewNavRail} />
+                <div className={classes.previewNavIcon}>
+                  <Palette size={14} />
+                </div>
+                <div className={classes.previewNavLabel}>Dashboard</div>
+              </div>
+
+              {/* Row of actions */}
+              <div className={classes.previewActionRow}>
+                <button type="button" className={classes.previewPrimaryBtn}>
+                  <Check size={13} strokeWidth={3} />
+                  Save changes
+                </button>
+                <span className={classes.previewChip}>Active</span>
+              </div>
+
+              {/* Focus input demo */}
+              <div className={classes.previewInputWrap}>
+                <input
+                  type="text"
+                  defaultValue="Focus to see the ring"
+                  className={classes.previewInput}
+                />
+              </div>
+
+              {/* Progress bar */}
+              <div className={classes.previewProgressTrack}>
+                <div className={classes.previewProgressFill} />
+              </div>
+            </div>
           </div>
         </div>
       </div>

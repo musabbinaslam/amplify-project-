@@ -61,18 +61,18 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent-green);
+  background: var(--brand);
   transform: translateY(-50%);
-  box-shadow: 0 0 0 0 var(--accent-green-glow);
+  box-shadow: 0 0 0 0 var(--brand-glow);
   animation: unsavedDotPulse 1.8s ease-in-out infinite;
 }
 
 @keyframes unsavedDotPulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-green) 55%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 55%, transparent);
   }
   50% {
-    box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent-green) 0%, transparent);
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--brand) 0%, transparent);
   }
 }
 
@@ -111,20 +111,20 @@
 
 .saveBarGhostBtn:focus-visible,
 .saveBarPrimaryBtn:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent-green) 65%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--brand) 65%, transparent);
   outline-offset: 2px;
 }
 
 .saveBarPrimaryBtn {
-  background: var(--accent-green);
+  background: var(--brand);
   color: var(--surface);
   border: none;
-  box-shadow: 0 0 14px var(--accent-green-glow);
+  box-shadow: 0 0 14px var(--brand-glow);
 }
 
 .saveBarPrimaryBtn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 0 22px var(--accent-green-glow);
+  box-shadow: 0 0 22px var(--brand-glow);
 }
 
 .saveBarPrimaryBtn:active {
