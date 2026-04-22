@@ -124,17 +124,19 @@
 
 .optionBtn:hover {
   background: var(--surface-container-high);
-  border-color: color-mix(in srgb, var(--accent-green) 40%, var(--border));
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--border));
 }
 
 .optionBtn.selected {
-  background: color-mix(in srgb, var(--accent-green) 12%, transparent);
-  border-color: var(--accent-green);
-  color: var(--accent-green);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border-color: var(--brand);
+  color: var(--brand);
 }
 
 .optionBtn.sold.selected {
   background: color-mix(in srgb, var(--accent-green) 18%, transparent);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
 }
 
 .optionBtn.danger.selected {
@@ -196,7 +198,7 @@
 }
 
 .input:focus, .textarea:focus {
-  border-color: var(--accent-green);
+  border-color: var(--brand);
 }
 
 .textarea {
@@ -216,7 +218,7 @@
 }
 
 .apField:focus-within {
-  border-color: var(--accent-green);
+  border-color: var(--brand);
 }
 
 .apPrefix {
@@ -276,13 +278,13 @@
 }
 
 .saveBtn {
-  background: var(--accent-green);
+  background: var(--brand);
   color: var(--surface);
 }
 
 .saveBtn:hover:not(:disabled) {
   filter: brightness(1.05);
-  box-shadow: 0 0 22px var(--accent-green-glow);
+  box-shadow: 0 0 22px var(--brand-glow);
 }
 
 .saveBtn:disabled {

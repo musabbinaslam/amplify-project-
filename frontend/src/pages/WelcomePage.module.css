@@ -36,7 +36,7 @@
 }
 
 .playIcon {
-  color: var(--accent-green);
+  color: var(--brand);
   margin-top: 4px;
 }
 
@@ -81,7 +81,7 @@
 .playBubble {
   width: 80px;
   height: 50px;
-  background: var(--accent-green);
+  background: var(--brand);
   color: var(--surface-container-highest);
   border-radius: var(--radius-lg);
   display: flex;
@@ -89,10 +89,10 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 0 20px var(--accent-green-glow);
+  box-shadow: 0 0 20px var(--brand-glow);
 }
 
 .playBubble:hover {
   transform: scale(1.05);
-  box-shadow: 0 0 30px var(--accent-green-glow);
+  box-shadow: 0 0 30px var(--brand-glow);
 }
