@@ -199,6 +199,27 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
     await device.register();
     await applyTwilioDeviceAudio(device);
 
+    // 6. Live-apply audio settings changes while the device is alive.
+    //    Twilio's AudioHelper re-applies setAudioConstraints / setInputDevice
+    //    on the active mic track, so flipping the toggles in Settings takes
+    //    effect on an already-running call within the next getUserMedia cycle.
+    const unsubscribeAudioSettings = useAudioSettingsStore.subscribe((state, prev) => {
+      const prevAudio = prev?.audio || {};
+      const nextAudio = state?.audio || {};
+      const changed =
+        nextAudio.noiseSuppression !== prevAudio.noiseSuppression ||
+        nextAudio.echoCancellation !== prevAudio.echoCancellation ||
+        nextAudio.audioInputDeviceId !== prevAudio.audioInputDeviceId ||
+        nextAudio.audioOutputDeviceId !== prevAudio.audioOutputDeviceId;
+      if (!changed) return;
+      applyTwilioDeviceAudio(device).catch((err) =>
+        console.warn('[Twilio] re-apply audio settings', err?.message || err)
+      );
+    });
+    if (typeof store.setAudioSettingsUnsubscribe === 'function') {
+      store.setAudioSettingsUnsubscribe(unsubscribeAudioSettings);
+    }
+
     return true;
   } catch (error) {
     console.error('Error initializing Twilio Device:', error);
