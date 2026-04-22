@@ -247,7 +247,7 @@ const AITrainingPage = () => {
                 }}
                 formatter={(v) => [`${v}/100`, 'Score']}
               />
-              <Line type="monotone" dataKey="score" stroke="var(--accent-green)" strokeWidth={2} />
+              <Line type="monotone" dataKey="score" stroke="var(--brand)" strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </div>

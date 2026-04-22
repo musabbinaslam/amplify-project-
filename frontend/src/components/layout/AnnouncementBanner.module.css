@@ -1,6 +1,6 @@
 .banner {
   height: var(--banner-height);
-  background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-dim) 100%);
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dim) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -19,7 +19,7 @@
 
 .button {
   background: var(--surface-container-highest);
-  color: var(--accent-green);
+  color: var(--brand);
   padding: 4px 12px;
   border-radius: var(--radius-full);
   font-size: 12px;

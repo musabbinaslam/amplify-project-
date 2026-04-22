@@ -38,7 +38,7 @@
 }
 
 .searchBox:focus-within {
-  border-color: var(--accent-green);
+  border-color: var(--brand);
 }
 
 .searchBox input {
@@ -73,7 +73,7 @@
   background: var(--surface-container-low);
   border: 1px solid var(--border);
   border-radius: 10px;
-  color: var(--accent-green);
+  color: var(--brand);
 }
 
 .statCard div {
@@ -132,7 +132,7 @@
 }
 
 .dateSelect:focus, .dateSelect:hover {
-  border-color: var(--accent-green);
+  border-color: var(--brand);
 }
 
 .dateSelect option {
@@ -189,7 +189,7 @@
 }
 
 .filterActive {
-  background: var(--accent-green);
+  background: var(--brand);
   color: #000;
 }
 
@@ -362,8 +362,8 @@
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  background: color-mix(in srgb, var(--accent-green) 15%, transparent);
-  color: var(--accent-green);
+  background: color-mix(in srgb, var(--brand) 15%, transparent);
+  color: var(--brand);
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
@@ -493,8 +493,8 @@
 
 .pageBtn:not(:disabled):hover {
   background: var(--surface-container-highest);
-  border-color: var(--accent-green);
-  color: var(--accent-green);
+  border-color: var(--brand);
+  color: var(--brand);
 }
 
 .pageBtn:disabled {
@@ -580,9 +580,9 @@
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  color: var(--accent-green);
-  background: var(--accent-green-dim);
-  border: 1px solid color-mix(in srgb, var(--accent-green) 25%, var(--border));
+  color: var(--brand);
+  background: var(--brand-dim);
+  border: 1px solid color-mix(in srgb, var(--brand) 25%, var(--border));
 }
 
 .recordingHeaderRight {
@@ -667,13 +667,13 @@
   border-radius: 4px;
   background: linear-gradient(
     to top,
-    var(--accent-green),
-    color-mix(in srgb, var(--accent-green) 55%, transparent)
+    var(--brand),
+    color-mix(in srgb, var(--brand) 55%, transparent)
   );
   transform-origin: bottom center;
   animation: eqPulse 0.9s ease-in-out infinite alternate;
   opacity: 0.9;
-  box-shadow: 0 0 8px var(--accent-green-glow);
+  box-shadow: 0 0 8px var(--brand-glow);
 }
 
 .eqPaused .eqBar {
@@ -714,10 +714,10 @@
   background:
     linear-gradient(
       to right,
-      var(--accent-green) 0%,
-      var(--accent-green) var(--played-pct),
-      color-mix(in srgb, var(--accent-green) 28%, transparent) var(--played-pct),
-      color-mix(in srgb, var(--accent-green) 28%, transparent) var(--buffered-pct),
+      var(--brand) 0%,
+      var(--brand) var(--played-pct),
+      color-mix(in srgb, var(--brand) 28%, transparent) var(--played-pct),
+      color-mix(in srgb, var(--brand) 28%, transparent) var(--buffered-pct),
       var(--surface-container-highest) var(--buffered-pct),
       var(--surface-container-highest) 100%
     );
@@ -735,12 +735,12 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--accent-green);
+  background: var(--brand);
   border: 2px solid var(--surface);
   cursor: pointer;
   box-shadow:
-    0 0 0 4px var(--accent-green-dim),
-    0 0 12px var(--accent-green-glow);
+    0 0 0 4px var(--brand-dim),
+    0 0 12px var(--brand-glow);
   transition: transform 0.12s ease;
 }
 
@@ -752,12 +752,12 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--accent-green);
+  background: var(--brand);
   border: 2px solid var(--surface);
   cursor: pointer;
   box-shadow:
-    0 0 0 4px var(--accent-green-dim),
-    0 0 12px var(--accent-green-glow);
+    0 0 0 4px var(--brand-dim),
+    0 0 12px var(--brand-glow);
 }
 
 .scrubberInput::-moz-range-track {
@@ -784,7 +784,7 @@
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: var(--accent-green);
+  background: var(--brand);
   color: #0b1f0b;
   border: none;
   cursor: pointer;
@@ -792,13 +792,13 @@
   align-items: center;
   justify-content: center;
   transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
-  box-shadow: 0 6px 20px var(--accent-green-glow);
+  box-shadow: 0 6px 20px var(--brand-glow);
 }
 
 .playBtn:hover {
   filter: brightness(1.08);
   transform: scale(1.04);
-  box-shadow: 0 8px 28px var(--accent-green-glow);
+  box-shadow: 0 8px 28px var(--brand-glow);
 }
 
 .playBtn:active {
@@ -820,8 +820,8 @@
 }
 
 .skipBtn:hover {
-  color: var(--accent-green);
-  border-color: color-mix(in srgb, var(--accent-green) 35%, var(--border));
+  color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 35%, var(--border));
   background: var(--surface-container-highest);
 }
 
@@ -851,8 +851,8 @@
 }
 
 .speedPill:hover {
-  color: var(--accent-green);
-  border-color: color-mix(in srgb, var(--accent-green) 40%, var(--border));
+  color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--border));
 }
 
 .volumeWrap {
@@ -879,7 +879,7 @@
 }
 
 .volumeBtn:hover {
-  color: var(--accent-green);
+  color: var(--brand);
   background: var(--surface-container-high);
 }
 
@@ -892,8 +892,8 @@
   outline: none;
   background: linear-gradient(
     to right,
-    var(--accent-green) 0%,
-    var(--accent-green) calc(var(--volume-pct, 100%)),
+    var(--brand) 0%,
+    var(--brand) calc(var(--volume-pct, 100%)),
     var(--surface-container-highest) calc(var(--volume-pct, 100%)),
     var(--surface-container-highest) 100%
   );
@@ -906,7 +906,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--accent-green);
+  background: var(--brand);
   border: 2px solid var(--surface);
   cursor: pointer;
 }
@@ -915,7 +915,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--accent-green);
+  background: var(--brand);
   border: 2px solid var(--surface);
   cursor: pointer;
 }
@@ -936,8 +936,8 @@
 }
 
 .downloadBtn:hover {
-  color: var(--accent-green);
-  border-color: color-mix(in srgb, var(--accent-green) 35%, var(--border));
+  color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 35%, var(--border));
   background: var(--surface-container-highest);
 }
 

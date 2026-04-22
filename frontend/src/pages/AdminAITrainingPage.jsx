@@ -201,7 +201,7 @@ const AdminAITrainingPage = () => {
                         }}
                         formatter={(value, key) => [key === 'score' ? `${value}/100` : value, key === 'score' ? 'Score' : 'Calls']}
                       />
-                      <Line type="monotone" dataKey="score" stroke="var(--accent-cyan)" strokeWidth={2} />
+                      <Line type="monotone" dataKey="score" stroke="var(--brand)" strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>

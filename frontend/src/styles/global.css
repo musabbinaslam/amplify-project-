@@ -36,7 +36,7 @@ a {
 }
 
 a:hover {
-  color: var(--accent-green);
+  color: var(--brand);
 }
 
 button {
@@ -75,7 +75,7 @@ select {
 }
 
 select:focus {
-  border-color: var(--accent-green);
+  border-color: var(--brand);
   background-color: var(--surface-container-high);
 }
 
@@ -92,7 +92,7 @@ textarea {
 
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
 textarea:focus {
-  border-color: var(--accent-green);
+  border-color: var(--brand);
   background-color: var(--surface-container-high);
 }
 
