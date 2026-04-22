@@ -298,6 +298,32 @@
   font-weight: 600;
 }
 
+.statusCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.editDispositionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.editDispositionBtn:hover {
+  background: color-mix(in srgb, var(--accent-green) 10%, transparent);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
 .dispSold {
   background: color-mix(in srgb, var(--accent-green) 15%, transparent);
   color: var(--accent-green);

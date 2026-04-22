@@ -1,9 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play } from 'lucide-react';
+import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play, Pencil } from 'lucide-react';
 import { apiFetch } from '../services/apiClient';
 import { auth } from '../config/firebase';
 import CustomSelect from '../components/ui/CustomSelect';
+import PostCallDispositionModal from '../components/ui/PostCallDispositionModal';
 import classes from './CallLogsPage.module.css';
+
+const DISPOSITION_LABELS = {
+  sold: 'Sold',
+  callback: 'Callback',
+  not_interested: 'Not Interested',
+  no_answer: 'No Answer',
+};
 
 const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
 
@@ -82,6 +90,7 @@ const CallLogsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeRecordingUrl, setActiveRecordingUrl] = useState(null);
+  const [editingDispositionFor, setEditingDispositionFor] = useState(null);
   
   // Date Filters
   const [dateFilter, setDateFilter] = useState('all_time');
@@ -151,8 +160,11 @@ const CallLogsPage = () => {
     return 'completed';
   };
 
-  // Determine disposition for display
+  // Determine disposition for display. Prefer explicit disposition when set.
   const getDisposition = (log) => {
+    if (log?.disposition && DISPOSITION_LABELS[log.disposition]) {
+      return DISPOSITION_LABELS[log.disposition];
+    }
     if (log.isBillable) return 'Sold';
     if (log.status === 'missed') return 'Missed';
     if (log.status === 'completed' && log.duration > 0) return 'Answered';
@@ -206,7 +218,7 @@ const CallLogsPage = () => {
     const total = callLogs.length;
     const completed = callLogs.filter((c) => c.status === 'completed').length;
     const missed = callLogs.filter((c) => c.status === 'missed').length;
-    const sold = callLogs.filter((c) => c.isBillable).length;
+    const sold = callLogs.filter((c) => c.disposition === 'sold').length;
     return { total, completed, missed, sold };
   }, [callLogs]);
 
@@ -351,15 +363,33 @@ const CallLogsPage = () => {
                         </span>
                       </td>
                       <td>
-                        {log.isBillable ? (
-                          <span className={`${classes.dispBadge} ${classes.dispSold}`}>
-                            <DollarSign size={12} /> SALE (${log.cost})
-                          </span>
-                        ) : log.status === 'missed' ? (
-                          <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Missed</span>
-                        ) : (
-                          <span className={`${classes.dispBadge} ${classes.dispAnswered}`}>{disposition}</span>
-                        )}
+                        <div className={classes.statusCell}>
+                          {log.disposition === 'sold' ? (
+                            <span className={`${classes.dispBadge} ${classes.dispSold}`}>
+                              <DollarSign size={12} /> SOLD {log.saleAmount ? `($${Number(log.saleAmount).toFixed(0)})` : ''}
+                            </span>
+                          ) : log.disposition === 'callback' ? (
+                            <span className={`${classes.dispBadge} ${classes.dispAnswered}`}>Callback</span>
+                          ) : log.disposition === 'not_interested' ? (
+                            <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Not Interested</span>
+                          ) : log.disposition === 'no_answer' ? (
+                            <span className={`${classes.dispBadge} ${classes.dispMissed}`}>No Answer</span>
+                          ) : log.status === 'missed' ? (
+                            <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Missed</span>
+                          ) : (
+                            <span className={`${classes.dispBadge} ${classes.dispAnswered}`}>{disposition}</span>
+                          )}
+                          {log.callSid && (
+                            <button
+                              type="button"
+                              className={classes.editDispositionBtn}
+                              title={log.disposition ? 'Edit disposition' : 'Set disposition'}
+                              onClick={() => setEditingDispositionFor(log)}
+                            >
+                              <Pencil size={12} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td>
                         {log.cost > 0 ? (
@@ -401,6 +431,21 @@ const CallLogsPage = () => {
         <RecordingModal 
           recordingUrl={activeRecordingUrl} 
           onClose={() => setActiveRecordingUrl(null)} 
+        />
+      )}
+
+      {editingDispositionFor && (
+        <PostCallDispositionModal
+          override={{
+            callSid: editingDispositionFor.callSid,
+            callerId: editingDispositionFor.from,
+            durationSec: editingDispositionFor.duration,
+            campaignLabel: editingDispositionFor.campaignLabel,
+          }}
+          onClose={() => {
+            setEditingDispositionFor(null);
+            fetchLogs(false);
+          }}
         />
       )}
     </div>

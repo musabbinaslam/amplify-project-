@@ -59,6 +59,9 @@ const useDialerStore = create((set, get) => ({
   },
   setMuted: (muted) => set({ isMuted: muted }),
   setCallDuration: (duration) => set({ callDuration: duration }),
+
+  showDispositionFor: (meta) => set({ pendingDisposition: meta }),
+  clearPendingDisposition: () => set({ pendingDisposition: null }),
   
   // Cleanup
   resetCallState: () => set({ 

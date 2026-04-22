@@ -371,6 +371,13 @@ async function patchMe(req, res) {
     if (!existingProfile) {
       body.role = 'agent';
     }
+    if ('averageAp' in body) {
+      const n = Number(body.averageAp);
+      if (!Number.isFinite(n) || n < 0) {
+        return res.status(400).json({ error: 'averageAp must be a non-negative number' });
+      }
+      body.averageAp = Math.min(Math.round(n * 100) / 100, 100000);
+    }
     if ('licensedStates' in body) {
       const raw = body.licensedStates;
       if (!Array.isArray(raw)) {
