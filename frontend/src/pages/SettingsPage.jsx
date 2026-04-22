@@ -9,6 +9,7 @@ import useAuthStore from '../store/authStore';
 import { exportUserData, revokeAllSessions } from '../services/settingsService';
 import { usePersistedAudioSettings } from '../hooks/usePersistedAudioSettings';
 import CustomSelect from '../components/ui/CustomSelect';
+import UnsavedChangesBar from '../components/ui/UnsavedChangesBar';
 import classes from './SettingsPage.module.css';
 
 const SettingsPage = () => {
@@ -587,17 +588,12 @@ const SettingsPage = () => {
         </div>
       )}
 
-      {isDirty && (
-        <div className={classes.stickySaveBar}>
-          <span className={classes.saveBarText}>You have unsaved changes</span>
-          <div className={classes.saveBarActions}>
-            <button type="button" onClick={handleDiscardChanges} className={classes.saveBarGhostBtn}>Discard</button>
-            <button type="button" onClick={handleSaveChanges} className={classes.saveBarPrimaryBtn} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </div>
-      )}
+      <UnsavedChangesBar
+        visible={isDirty}
+        onDiscard={handleDiscardChanges}
+        onSave={handleSaveChanges}
+        saving={saving}
+      />
     </div>
   );
 };
