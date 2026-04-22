@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Activity, Phone, PhoneCall, Target, CheckCircle2, DollarSign, PiggyBank, Percent, Clock, ChevronDown, Loader2 } from 'lucide-react';
+import { Activity, Phone, PhoneCall, Target, CheckCircle2, DollarSign, Clock, Percent, Loader2, ChevronDown } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -49,6 +49,17 @@ function formatDurationSec(seconds) {
   const mins = Math.floor(secs / 60);
   const remainSecs = secs % 60;
   return `${mins}:${remainSecs.toString().padStart(2, '0')}`;
+}
+
+function formatTotalTalkTime(secs) {
+  const total = parseInt(secs) || 0;
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 function formatRecentTime(iso) {
@@ -210,31 +221,26 @@ const DashboardPage = () => {
     const todayCalls = logs.filter((l) => new Date(l.createdAt || 0).getTime() >= startOfToday).length;
     const totalCalls = logs.length;
 
-    // Real disposition-driven metrics. Fall back to legacy isBillable for old logs.
-    const soldLogs = logs.filter((l) => l.disposition === 'sold' || (!l.disposition && l.isBillable));
-    const conversions = soldLogs.length;
-    const totalAp = soldLogs.reduce((sum, l) => sum + (Number(l.saleAmount) || 0), 0);
+    const conversions = logs.filter((l) => l.isBillable).length;
 
-    // "Qualified" = calls where the agent actually had a conversation:
-    // any explicitly dispositioned non-NA call, plus completed calls with duration.
-    const qualifiedCalls = logs.filter((l) => {
-      if (['sold', 'callback', 'not_interested'].includes(l.disposition)) return true;
-      if (!l.disposition && l.status === 'completed' && Number(l.duration) > 0) return true;
-      return false;
-    }).length;
+    // Answered calls are completed calls with > 0 duration
+    const answeredCalls = logs.filter((l) => l.status === 'completed' && Number(l.duration) > 0).length;
 
-    const closeRate = qualifiedCalls > 0 ? Math.round((conversions / qualifiedCalls) * 100) : 0;
+    const answerRate = totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100) : 0;
+    const bufferHitRate = answeredCalls > 0 ? Math.round((conversions / answeredCalls) * 100) : 0;
+    
     const spend = logs.reduce((sum, l) => sum + (Number(l.cost) || 0), 0);
-    const roi = spend > 0 ? Math.round(((totalAp - spend) / spend) * 100) : 0;
+    const totalTalkTimeSecs = logs.reduce((sum, l) => sum + (Number(l.duration) || 0), 0);
+
     return {
       todayCalls,
       totalCalls,
-      qualifiedCalls,
+      answeredCalls,
       sales: conversions,
-      closeRate,
+      answerRate,
+      bufferHitRate,
       spend,
-      totalAp,
-      roi,
+      totalTalkTimeSecs,
     };
   }, [logs]);
 
@@ -284,7 +290,7 @@ const DashboardPage = () => {
       <div className={classes.sectionStats}>
         <StatCard title="Today's Calls" value={loading ? '…' : String(metrics.todayCalls)} icon={PhoneCall} />
         <StatCard title={period} value={loading ? '…' : String(metrics.totalCalls)} icon={Phone} />
-        <StatCard title="Close Rate" value={loading ? '…' : `${metrics.closeRate}%`} icon={Target} />
+        <StatCard title="Answer Rate" value={loading ? '…' : `${metrics.answerRate}%`} icon={Activity} />
         <StatCard title="Conversions" value={loading ? '…' : String(metrics.sales)} icon={CheckCircle2} />
       </div>
 
@@ -353,25 +359,23 @@ const DashboardPage = () => {
         </div>
         <div className={classes.statCard}>
           <div className={classes.statHeader}>
-            <span className={classes.statTitle}>Total AP</span>
-            <div className={classes.iconWrapper}><PiggyBank size={18} /></div>
+            <span className={classes.statTitle}>Talk Time</span>
+            <div className={classes.iconWrapper}><Clock size={18} /></div>
           </div>
-          <div className={classes.statValue}>{loading ? '…' : `$${metrics.totalAp.toFixed(2)}`}</div>
+          <div className={classes.statValue}>{loading ? '…' : formatTotalTalkTime(metrics.totalTalkTimeSecs)}</div>
           <div className={classes.statSub}>
-            {metrics.sales > 0
-              ? 'Annual premium written'
-              : 'Mark calls as Sold to track AP'}
+            Time spent speaking to prospects
           </div>
         </div>
         <div className={`${classes.statCard} ${classes.wideCard}`}>
           <div className={classes.statHeader}>
-            <span className={classes.statTitle}>ROI</span>
-            <div className={classes.iconWrapper}><Percent size={18} /></div>
+            <span className={classes.statTitle}>Close Rate</span>
+            <div className={classes.iconWrapper}><Target size={18} /></div>
           </div>
-          <div className={classes.statValue} style={{ color: metrics.roi >= 0 ? 'var(--accent-green)' : '#ef4444' }}>
-            {loading ? '…' : `${metrics.roi}%`}
+          <div className={classes.statValue} style={{ color: metrics.bufferHitRate >= 20 ? 'var(--accent-green)' : 'var(--text-primary)' }}>
+            {loading ? '…' : `${metrics.bufferHitRate}%`}
           </div>
-          <div className={classes.statSub}>Return on investment</div>
+          <div className={classes.statSub}>Percentage of answered calls that converted</div>
         </div>
       </div>
 
@@ -381,12 +385,12 @@ const DashboardPage = () => {
             <div className={classes.chartIcon}><Target size={16} /></div>
             <div>
               <div className={classes.chartTitle}>Close Rate</div>
-              <div className={classes.chartValue}>{metrics.closeRate}%</div>
+              <div className={classes.chartValue}>{metrics.bufferHitRate}%</div>
             </div>
           </div>
           <div className={classes.chartStats}>
             <div>{metrics.sales} sales</div>
-            <div>{metrics.qualifiedCalls} qualified calls</div>
+            <div>{metrics.answeredCalls} answered calls</div>
           </div>
         </div>
         <div className={classes.chartContainer}>

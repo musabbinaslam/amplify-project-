@@ -171,61 +171,6 @@ exports.getLogs = async (req, res) => {
         res.status(500).json({ error: 'Failed to load call logs' });
     }
 };
-const VALID_DISPOSITIONS = new Set(['sold', 'callback', 'not_interested', 'no_answer']);
-
-/**
- * PATCH /api/voice/logs/by-sid/:callSid/disposition
- * Records the agent's post-call disposition (Sold / Callback / Not Interested / No Answer)
- * and, when sold, the policy AP, carrier, and notes.
- */
-exports.updateDisposition = async (req, res) => {
-    try {
-        const rawSid = String(req.params.callSid || '').trim();
-        const sidMatch = rawSid.match(/(CA[0-9a-fA-F]{32})/);
-        const callSid = sidMatch?.[1] || rawSid;
-        if (!callSid) {
-            return res.status(400).json({ error: 'callSid is required' });
-        }
-
-        const body = req.body && typeof req.body === 'object' ? req.body : {};
-        const disposition = String(body.disposition || '').trim().toLowerCase();
-        if (!VALID_DISPOSITIONS.has(disposition)) {
-            return res.status(400).json({
-                error: `disposition must be one of: ${Array.from(VALID_DISPOSITIONS).join(', ')}`,
-            });
-        }
-
-        const payload = { disposition };
-
-        if (disposition === 'sold') {
-            const n = Number(body.saleAmount);
-            if (!Number.isFinite(n) || n < 0) {
-                return res.status(400).json({ error: 'saleAmount must be a non-negative number when disposition is sold' });
-            }
-            payload.saleAmount = Math.min(Math.round(n * 100) / 100, 1000000);
-        } else {
-            payload.saleAmount = 0;
-        }
-
-        if (body.carrier != null) {
-            const c = String(body.carrier).trim().slice(0, 64);
-            if (c) payload.carrier = c;
-        }
-        if (body.notes != null) {
-            const n = String(body.notes).trim().slice(0, 500);
-            if (n) payload.notes = n;
-        }
-
-        const result = await callLogService.updateDispositionBySid(req.user.uid, callSid, payload);
-        if (!result?.ok) {
-            return res.status(500).json({ error: 'Failed to update disposition' });
-        }
-        return res.json({ ok: true, id: result.id, created: !!result.created, ...payload });
-    } catch (err) {
-        console.error('[Voice] updateDisposition error:', err.message);
-        return res.status(500).json({ error: 'Failed to update disposition' });
-    }
-};
 
 /**
  * Proxy a Twilio recording so the browser doesn't need to authenticate directly.

@@ -29,7 +29,6 @@ const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const AdminAITrainingPage = lazy(() => import('./pages/AdminAITrainingPage'));
 
 import DialerOverlay from './components/ui/DialerOverlay';
-import PostCallDispositionModal from './components/ui/PostCallDispositionModal';
 
 const ProtectedRoute = () => {
   const token = useAuthStore((s) => s.token);
@@ -53,7 +52,6 @@ const AnimatedRoutes = () => {
   return (
     <>
       <DialerOverlay />
-      <PostCallDispositionModal />
       <Routes>
         {/* Public landing page */}
         <Route path="/" element={

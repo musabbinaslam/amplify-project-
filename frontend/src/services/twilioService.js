@@ -177,19 +177,6 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
           if (call._durationInterval) clearInterval(call._durationInterval);
           socket.emit('agent:release');
 
-          const latestStore = useDialerStore.getState();
-          const callSid = call.parameters?.CallSid || call.parameters?.callSid || null;
-          const durationSec = latestStore.callDuration;
-          const callerId = latestStore.incomingCallerId;
-          if (callSid && durationSec >= 5) {
-            latestStore.showDispositionFor({
-              callSid,
-              durationSec,
-              callerId,
-              endedAtISO: new Date().toISOString(),
-            });
-          }
-
           store.resetCallState();
         });
       });
