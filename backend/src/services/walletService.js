@@ -1,5 +1,6 @@
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
+const { FieldValue } = require('firebase-admin/firestore');
 
 function userRef(uid) {
   const db = getDb();
@@ -48,7 +49,6 @@ async function getBalance(uid) {
 async function addCredits(uid, amountCents, source = 'manual', metadata = {}) {
   const ref = userRef(uid);
   if (!ref) throw new Error('Database unavailable');
-  const { FieldValue } = admin.firestore;
 
   const idempotencyKey = toSafeDocId(metadata?.idempotencyKey);
   if (idempotencyKey) {
@@ -125,7 +125,6 @@ async function addCredits(uid, amountCents, source = 'manual', metadata = {}) {
 async function deductCredits(uid, amountCents, metadata = {}) {
   const ref = userRef(uid);
   if (!ref) throw new Error('Database unavailable');
-  const { FieldValue } = admin.firestore;
 
   // Check current balance
   const snap = await ref.get();
@@ -188,7 +187,6 @@ async function getTransactions(uid, limit = 50) {
 async function updateWalletMeta(uid, fields) {
   const ref = userRef(uid);
   if (!ref) throw new Error('Database unavailable');
-  const { FieldValue } = admin.firestore;
   const walletUpdate = {};
   for (const [k, v] of Object.entries(fields)) {
     walletUpdate[`wallet.${k}`] = v;

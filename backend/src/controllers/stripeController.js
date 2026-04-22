@@ -1,6 +1,7 @@
 const { stripe, CREDIT_TIERS, PLANS } = require('../config/stripe');
 const walletService = require('../services/walletService');
 const admin = require('../config/firebaseAdmin');
+const { getDb } = require('../config/firestoreDb');
 
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
@@ -95,7 +96,12 @@ exports.verifyCheckout = async (req, res) => {
 
     const alreadyCredited = await hasCreditTransactionForSession(uid, session.id);
     if (!alreadyCredited) {
+      const idempotencyKey = session.payment_intent
+        ? `stripe_pi_${session.payment_intent}`
+        : `stripe_cs_${session.id}`;
+
       await walletService.addCredits(uid, amountCents, 'stripe_checkout', {
+        idempotencyKey,
         sessionId: session.id,
         paymentIntentId: session.payment_intent || null,
         source: 'verify_checkout_fallback',
@@ -318,8 +324,8 @@ async function handleCheckoutCompleted(session) {
 }
 
 async function hasCreditTransactionForSession(uid, sessionId) {
-  if (!admin) return false;
-  const db = admin.firestore();
+  const db = getDb();
+  if (!db) return false;
   const snap = await db
     .collection('users')
     .doc(uid)
