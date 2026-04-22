@@ -17,8 +17,6 @@ router.post('/call-completed', webhookCallLimiter, validateTwilioWebhook, voiceC
 // Fetch history (authenticated — per-user from Firestore)
 router.get('/logs', verifyFirebaseToken, voiceController.getLogs);
 
-// Record post-call disposition (Sold / Callback / Not Interested / No Answer)
-router.patch('/logs/by-sid/:callSid/disposition', verifyFirebaseToken, voiceController.updateDisposition);
 
 // Proxy a Twilio recording so the browser doesn't need to auth directly with Twilio
 router.get('/recording/:recordingSid', verifyFirebaseToken, voiceController.proxyRecording);

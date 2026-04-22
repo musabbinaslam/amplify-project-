@@ -3,15 +3,7 @@ import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, Dollar
 import { apiFetch } from '../services/apiClient';
 import { auth } from '../config/firebase';
 import CustomSelect from '../components/ui/CustomSelect';
-import PostCallDispositionModal from '../components/ui/PostCallDispositionModal';
 import classes from './CallLogsPage.module.css';
-
-const DISPOSITION_LABELS = {
-  sold: 'Sold',
-  callback: 'Callback',
-  not_interested: 'Not Interested',
-  no_answer: 'No Answer',
-};
 
 const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
 
@@ -364,7 +356,6 @@ const CallLogsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeRecording, setActiveRecording] = useState(null);
-  const [editingDispositionFor, setEditingDispositionFor] = useState(null);
   
   // Date Filters
   const [dateFilter, setDateFilter] = useState('all_time');
@@ -434,11 +425,8 @@ const CallLogsPage = () => {
     return 'completed';
   };
 
-  // Determine disposition for display. Prefer explicit disposition when set.
+  // Determine disposition for display.
   const getDisposition = (log) => {
-    if (log?.disposition && DISPOSITION_LABELS[log.disposition]) {
-      return DISPOSITION_LABELS[log.disposition];
-    }
     if (log.isBillable) return 'Sold';
     if (log.status === 'missed') return 'Missed';
     if (log.status === 'completed' && log.duration > 0) return 'Answered';
@@ -653,16 +641,6 @@ const CallLogsPage = () => {
                           ) : (
                             <span className={`${classes.dispBadge} ${classes.dispAnswered}`}>{disposition}</span>
                           )}
-                          {log.callSid && (
-                            <button
-                              type="button"
-                              className={classes.editDispositionBtn}
-                              title={log.disposition ? 'Edit disposition' : 'Set disposition'}
-                              onClick={() => setEditingDispositionFor(log)}
-                            >
-                              <Pencil size={12} />
-                            </button>
-                          )}
                         </div>
                       </td>
                       <td>
@@ -705,21 +683,6 @@ const CallLogsPage = () => {
         <RecordingModal 
           log={activeRecording} 
           onClose={() => setActiveRecording(null)} 
-        />
-      )}
-
-      {editingDispositionFor && (
-        <PostCallDispositionModal
-          override={{
-            callSid: editingDispositionFor.callSid,
-            callerId: editingDispositionFor.from,
-            durationSec: editingDispositionFor.duration,
-            campaignLabel: editingDispositionFor.campaignLabel,
-          }}
-          onClose={() => {
-            setEditingDispositionFor(null);
-            fetchLogs(false);
-          }}
         />
       )}
     </div>

@@ -138,46 +138,6 @@ class CallLogService {
         return newLog;
     }
 
-    /**
-     * Upserts disposition metadata onto a call log identified by its Twilio CallSid.
-     * If the webhook-driven log hasn't been written yet, a minimal stub is created so
-     * the later webhook write will merge into the same document.
-     */
-    async updateDispositionBySid(uid, callSid, payload) {
-        if (!admin || !uid || !callSid) return { ok: false, reason: 'missing-args' };
-        const db = getDb();
-        const callLogsRef = db.collection('users').doc(uid).collection('callLogs');
-
-        const dispositionFields = {
-            ...payload,
-            dispositionUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        };
-
-        // Retry up to ~2s in case the Twilio webhook is racing and the log doesn't exist yet.
-        const maxAttempts = 4;
-        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-            const snap = await callLogsRef.where('callSid', '==', callSid).limit(1).get();
-            if (!snap.empty) {
-                const docId = snap.docs[0].id;
-                await callLogsRef.doc(docId).set(dispositionFields, { merge: true });
-                return { ok: true, id: docId, created: false };
-            }
-            if (attempt < maxAttempts) {
-                await new Promise((r) => setTimeout(r, 500));
-            }
-        }
-
-        // Webhook hasn't written yet. Create a stub keyed by callSid so it can merge later.
-        const stub = {
-            callSid,
-            agentId: uid,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            ...dispositionFields,
-        };
-        const docRef = await callLogsRef.add(stub);
-        return { ok: true, id: docRef.id, created: true };
-    }
 
     /**
      * Get call logs for a specific user from Firestore
