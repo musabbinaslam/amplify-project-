@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DollarSign, Clock, RefreshCw, CheckCircle2, Award, X, AlertCircle } from 'lucide-react';
 import classes from './BillingPage.module.css';
@@ -21,17 +21,39 @@ const BillingPage = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const checkoutInFlightRef = useRef(false);
 
   useEffect(() => {
-    fetchWallet();
-    
-    // Check URL params for success/cancel redirects from Stripe
-    const params = new URLSearchParams(location.search);
-    if (params.get('payment') === 'success') {
-      setSuccessMsg('Payment successful! Credits have been added to your wallet.');
-    } else if (params.get('subscription') === 'success') {
-      setSuccessMsg('Subscription successful! Your plan is now active.');
-    }
+    const initBilling = async () => {
+      setErrorMsg('');
+      const params = new URLSearchParams(location.search);
+
+      if (params.get('payment') === 'success') {
+        const sessionId = params.get('session_id');
+        if (sessionId) {
+          try {
+            const result = await stripeService.verifyCheckout(sessionId);
+            if (result?.credited) {
+              setSuccessMsg('Payment verified. Credits were added to your wallet.');
+            } else {
+              setSuccessMsg('Payment successful! Credits have been added to your wallet.');
+            }
+          } catch (err) {
+            console.error(err);
+            setErrorMsg(err.message || 'Payment succeeded, but we could not verify credits yet. Please refresh in a moment.');
+          }
+        } else {
+          // Backward compatibility for checkouts created before session_id was added.
+          setSuccessMsg('Payment successful! Credits are being processed.');
+        }
+      } else if (params.get('subscription') === 'success') {
+        setSuccessMsg('Subscription successful! Your plan is now active.');
+      }
+
+      await fetchWallet();
+    };
+
+    initBilling();
   }, [location]);
 
   const fetchWallet = async () => {
@@ -49,6 +71,8 @@ const BillingPage = () => {
   };
 
   const handleTopup = async (amountCents) => {
+    if (checkoutInFlightRef.current) return;
+    checkoutInFlightRef.current = true;
     setCheckoutLoading(true);
     setErrorMsg('');
     try {
@@ -58,10 +82,13 @@ const BillingPage = () => {
       console.error(err);
       setErrorMsg(err.message);
       setCheckoutLoading(false);
+      checkoutInFlightRef.current = false;
     }
   };
 
   const handleSubscribe = async (planId) => {
+    if (checkoutInFlightRef.current) return;
+    checkoutInFlightRef.current = true;
     setCheckoutLoading(true);
     setErrorMsg('');
     try {
@@ -71,6 +98,7 @@ const BillingPage = () => {
       console.error(err);
       setErrorMsg(err.message);
       setCheckoutLoading(false);
+      checkoutInFlightRef.current = false;
     }
   };
 
