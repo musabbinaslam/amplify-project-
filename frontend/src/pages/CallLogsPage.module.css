@@ -38,7 +38,7 @@
 }
 
 .searchBox:focus-within {
-  border-color: var(--brand);
+  border-color: var(--brand-text);
 }
 
 .searchBox input {
@@ -73,7 +73,7 @@
   background: var(--surface-container-low);
   border: 1px solid var(--border);
   border-radius: 10px;
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 .statCard div {
@@ -132,7 +132,7 @@
 }
 
 .dateSelect:focus, .dateSelect:hover {
-  border-color: var(--brand);
+  border-color: var(--brand-text);
 }
 
 .dateSelect option {
@@ -189,8 +189,8 @@
 }
 
 .filterActive {
-  background: var(--brand);
-  color: #000;
+  background: var(--brand-solid);
+  color: var(--brand-on);
 }
 
 .filterActive:hover {
@@ -319,9 +319,9 @@
 }
 
 .editDispositionBtn:hover {
-  background: color-mix(in srgb, var(--brand) 10%, transparent);
-  border-color: var(--brand);
-  color: var(--brand);
+  background: color-mix(in srgb, var(--brand-text) 10%, transparent);
+  border-color: var(--brand-text);
+  color: var(--brand-text);
 }
 
 .dispSold {
@@ -362,8 +362,8 @@
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  background: color-mix(in srgb, var(--brand) 15%, transparent);
-  color: var(--brand);
+  background: color-mix(in srgb, var(--brand-text) 15%, transparent);
+  color: var(--brand-text);
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
@@ -447,7 +447,7 @@
 
 .loadAudioBtn:hover {
   background: var(--surface-container-highest);
-  border-color: var(--brand);
+  border-color: var(--brand-text);
 }
 
 .loadAudioBtn:disabled {
@@ -493,8 +493,8 @@
 
 .pageBtn:not(:disabled):hover {
   background: var(--surface-container-highest);
-  border-color: var(--brand);
-  color: var(--brand);
+  border-color: var(--brand-text);
+  color: var(--brand-text);
 }
 
 .pageBtn:disabled {
@@ -580,9 +580,9 @@
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  color: var(--brand);
+  color: var(--brand-text);
   background: var(--brand-dim);
-  border: 1px solid color-mix(in srgb, var(--brand) 25%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--brand-text) 25%, var(--border));
 }
 
 .recordingHeaderRight {
@@ -667,8 +667,8 @@
   border-radius: 4px;
   background: linear-gradient(
     to top,
-    var(--brand),
-    color-mix(in srgb, var(--brand) 55%, transparent)
+    var(--brand-solid),
+    color-mix(in srgb, var(--brand-solid) 55%, transparent)
   );
   transform-origin: bottom center;
   animation: eqPulse 0.9s ease-in-out infinite alternate;
@@ -714,10 +714,10 @@
   background:
     linear-gradient(
       to right,
-      var(--brand) 0%,
-      var(--brand) var(--played-pct),
-      color-mix(in srgb, var(--brand) 28%, transparent) var(--played-pct),
-      color-mix(in srgb, var(--brand) 28%, transparent) var(--buffered-pct),
+      var(--brand-solid) 0%,
+      var(--brand-solid) var(--played-pct),
+      color-mix(in srgb, var(--brand-solid) 28%, transparent) var(--played-pct),
+      color-mix(in srgb, var(--brand-solid) 28%, transparent) var(--buffered-pct),
       var(--surface-container-highest) var(--buffered-pct),
       var(--surface-container-highest) 100%
     );
@@ -735,7 +735,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--brand);
+  background: var(--brand-solid);
   border: 2px solid var(--surface);
   cursor: pointer;
   box-shadow:
@@ -752,7 +752,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--brand);
+  background: var(--brand-solid);
   border: 2px solid var(--surface);
   cursor: pointer;
   box-shadow:
@@ -784,8 +784,8 @@
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: var(--brand);
-  color: #0b1f0b;
+  background: var(--brand-solid);
+  color: var(--brand-on);
   border: none;
   cursor: pointer;
   display: inline-flex;
@@ -820,8 +820,8 @@
 }
 
 .skipBtn:hover {
-  color: var(--brand);
-  border-color: color-mix(in srgb, var(--brand) 35%, var(--border));
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 35%, var(--border));
   background: var(--surface-container-highest);
 }
 
@@ -851,8 +851,8 @@
 }
 
 .speedPill:hover {
-  color: var(--brand);
-  border-color: color-mix(in srgb, var(--brand) 40%, var(--border));
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 40%, var(--border));
 }
 
 .volumeWrap {
@@ -879,7 +879,7 @@
 }
 
 .volumeBtn:hover {
-  color: var(--brand);
+  color: var(--brand-text);
   background: var(--surface-container-high);
 }
 
@@ -892,8 +892,8 @@
   outline: none;
   background: linear-gradient(
     to right,
-    var(--brand) 0%,
-    var(--brand) calc(var(--volume-pct, 100%)),
+    var(--brand-solid) 0%,
+    var(--brand-solid) calc(var(--volume-pct, 100%)),
     var(--surface-container-highest) calc(var(--volume-pct, 100%)),
     var(--surface-container-highest) 100%
   );
@@ -906,7 +906,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--brand);
+  background: var(--brand-solid);
   border: 2px solid var(--surface);
   cursor: pointer;
 }
@@ -915,7 +915,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--brand);
+  background: var(--brand-solid);
   border: 2px solid var(--surface);
   cursor: pointer;
 }
@@ -936,8 +936,8 @@
 }
 
 .downloadBtn:hover {
-  color: var(--brand);
-  border-color: color-mix(in srgb, var(--brand) 35%, var(--border));
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 35%, var(--border));
   background: var(--surface-container-highest);
 }
 

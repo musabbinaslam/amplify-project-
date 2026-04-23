@@ -3,6 +3,7 @@ import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, Dollar
 import { apiFetch } from '../services/apiClient';
 import { auth } from '../config/firebase';
 import CustomSelect from '../components/ui/CustomSelect';
+import PageLoader from '../components/ui/PageLoader';
 import classes from './CallLogsPage.module.css';
 
 const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
@@ -354,6 +355,7 @@ const CallLogsPage = () => {
   const [typeFilter, setTypeFilter] = useState('All');
   const [callLogs, setCallLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeRecording, setActiveRecording] = useState(null);
   
@@ -406,6 +408,7 @@ const CallLogsPage = () => {
       setError('Failed to load call logs');
     } finally {
       if (showLoader) setLoading(false);
+      setInitialLoading(false);
     }
   };
 
@@ -497,6 +500,8 @@ const CallLogsPage = () => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filtered.slice(startIndex, startIndex + itemsPerPage);
   }, [filtered, currentPage, itemsPerPage]);
+
+  if (initialLoading) return <PageLoader />;
 
   return (
     <div className={classes.callLogs}>

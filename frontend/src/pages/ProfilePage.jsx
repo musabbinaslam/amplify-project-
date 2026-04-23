@@ -6,6 +6,7 @@ import useAuthStore from '../store/authStore';
 import { getProfileBootstrap, saveProfile, regenerateApiKey, checkSlugAvailability, getProfileActivity } from '../services/profileService';
 import CustomSelect from '../components/ui/CustomSelect';
 import UnsavedChangesBar from '../components/ui/UnsavedChangesBar';
+import PageLoader from '../components/ui/PageLoader';
 import classes from './ProfilePage.module.css';
 
 const SPENDING_OPTIONS = ['Less than $500', '$500 - $1,000', '$1,000 - $2,500', '$2,500 - $5,000', '$5,000+', 'Not currently spending'];
@@ -266,7 +267,7 @@ const ProfilePage = () => {
     setRegeneratingKey(false);
   };
 
-  if (loading) return <div className={classes.profilePage}><div className={classes.loaderWrap}><Loader2 size={32} className={classes.spinner} /></div></div>;
+  if (loading) return <PageLoader />;
 
   const maskedApiKey = apiKey ? `${apiKey.slice(0, 6)}••••••••${apiKey.slice(-4)}` : '';
 

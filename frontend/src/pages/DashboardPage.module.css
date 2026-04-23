@@ -98,7 +98,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 .statValue {
@@ -137,7 +137,7 @@
   height: 40px;
   border-radius: var(--radius-full);
   background: var(--surface-container-highest);
-  color: var(--brand);
+  color: var(--brand-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -197,7 +197,7 @@
 .priceLarge {
   font-size: 28px;
   font-weight: 800;
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 .priceSub {
@@ -253,7 +253,7 @@
 
 .dropdownTrigger:hover {
   background: var(--surface-container-high);
-  border-color: var(--brand);
+  border-color: var(--brand-text);
 }
 
 .dropdownIcon {
@@ -303,8 +303,8 @@
 }
 
 .activeItem {
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
-  color: var(--brand);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  color: var(--brand-text);
 }
 
 .perfStatsGrid {
@@ -349,7 +349,7 @@
   height: 48px;
   border-radius: var(--radius-full);
   background: var(--surface-container-highest);
-  color: var(--brand);
+  color: var(--brand-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -393,8 +393,8 @@
 .statePill {
   display: inline-block;
   padding: 0.35rem 0.85rem;
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
-  color: var(--brand);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  color: var(--brand-text);
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 700;
@@ -460,8 +460,8 @@
 }
 
 .callInbound {
-  background: color-mix(in srgb, var(--brand) 14%, transparent);
-  color: var(--brand);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  color: var(--brand-text);
 }
 
 .callOutbound {
@@ -492,8 +492,8 @@
 }
 
 .dispSold {
-  background: color-mix(in srgb, var(--brand) 14%, transparent);
-  color: var(--brand);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  color: var(--brand-text);
 }
 
 .dispCallback {
@@ -512,7 +512,7 @@
 }
 
 .editBtn, .viewAllBtn {
-  color: var(--brand);
+  color: var(--brand-text);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;

@@ -19,7 +19,7 @@
   border: 1px solid var(--border);
   display: grid;
   place-items: center;
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 .controls {
@@ -169,7 +169,7 @@
 }
 
 .rowActive td:first-child {
-  border-left: 2px solid var(--brand);
+  border-left: 2px solid var(--brand-text);
 }
 
 .rowActive td strong {

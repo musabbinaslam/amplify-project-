@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import { getProfile } from '../services/profileService';
 import { fetchDashboardLogs, fetchCampaignPricing } from '../services/dashboardService';
+import PageLoader from '../components/ui/PageLoader';
 import classes from './DashboardPage.module.css';
 
 const PERIOD_OPTIONS = ['This Week', 'This Month', 'Last 30 Days'];
@@ -279,6 +280,8 @@ const DashboardPage = () => {
     ? campaigns
     : Object.keys(CAMPAIGN_DESCRIPTIONS).map((id) => ({ id, label: '', price: 0, buffer: 0 }));
 
+  if (loading) return <PageLoader />;
+
   return (
     <div className={classes.dashboard}>
       {error && (
@@ -413,7 +416,7 @@ const DashboardPage = () => {
                   itemStyle={{ color: 'var(--text-secondary)' }}
                   labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
                 />
-                <Line type="monotone" dataKey="sales" name="Sales" stroke="var(--brand)" strokeWidth={2} dot={{ r: 4, fill: 'var(--brand)' }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="sales" name="Sales" stroke="var(--brand-text)" strokeWidth={2} dot={{ r: 4, fill: 'var(--brand-text)' }} activeDot={{ r: 6 }} />
                 <Line type="monotone" dataKey="calls" name="Calls" stroke="var(--text-muted)" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
               </LineChart>
             </ResponsiveContainer>

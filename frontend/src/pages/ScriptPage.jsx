@@ -8,6 +8,7 @@ import useAuthStore from '../store/authStore';
 import { SCRIPTS, SCRIPT_OPTIONS } from '../data/scriptData';
 import { loadScriptData, saveScriptData } from '../services/scriptService';
 import CustomSelect from '../components/ui/CustomSelect';
+import PageLoader from '../components/ui/PageLoader';
 import classes from './ScriptPage.module.css';
 
 const ICON_MAP = {
@@ -257,13 +258,7 @@ const ScriptPage = () => {
   };
 
   if (loading) {
-    return (
-      <div className={classes.page}>
-        <div className={classes.loaderWrap}>
-          <Loader2 size={32} className={classes.spinner} />
-        </div>
-      </div>
-    );
+    return <PageLoader />;
   }
 
   return (

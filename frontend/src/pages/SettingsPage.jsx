@@ -13,6 +13,7 @@ import { saveProfile, getProfile } from '../services/profileService';
 import { usePersistedAudioSettings } from '../hooks/usePersistedAudioSettings';
 import CustomSelect from '../components/ui/CustomSelect';
 import UnsavedChangesBar from '../components/ui/UnsavedChangesBar';
+import PageLoader from '../components/ui/PageLoader';
 import classes from './SettingsPage.module.css';
 
 const BRAND_PRESETS = [
@@ -391,13 +392,7 @@ const SettingsPage = () => {
   };
 
   if (loading) {
-    return (
-      <div className={classes.settingsPage}>
-        <div className={classes.loaderWrap}>
-          <Loader2 size={32} className={classes.spinner} />
-        </div>
-      </div>
-    );
+    return <PageLoader />;
   }
 
   const sessionMeta = (() => {

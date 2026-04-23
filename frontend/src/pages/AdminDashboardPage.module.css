@@ -19,7 +19,7 @@
   height: 56px;
   border-radius: var(--radius-full);
   background: var(--surface-container-highest);
-  color: var(--brand);
+  color: var(--brand-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -91,7 +91,7 @@
 }
 
 .statIcon {
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 .statLabel {
@@ -150,9 +150,9 @@
 }
 
 .filterBtnActive {
-  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+  border-color: color-mix(in srgb, var(--brand-text) 45%, var(--border));
   background: color-mix(in srgb, var(--brand-dim) 42%, transparent);
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 .muted {
@@ -305,7 +305,7 @@
 
 .searchInput:focus {
   outline: none;
-  border-color: var(--brand);
+  border-color: var(--brand-text);
 }
 
 .formField {
@@ -332,7 +332,7 @@
 .input:focus,
 .select:focus {
   outline: none;
-  border-color: var(--brand);
+  border-color: var(--brand-text);
 }
 
 .check {
@@ -350,8 +350,8 @@
   padding: 10px 18px;
   border-radius: var(--radius-full);
   border: none;
-  background: var(--brand);
-  color: var(--surface);
+  background: var(--brand-solid);
+  color: var(--brand-on);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
@@ -513,7 +513,7 @@
 .linkBtn {
   background: none;
   border: none;
-  color: var(--brand);
+  color: var(--brand-text);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
