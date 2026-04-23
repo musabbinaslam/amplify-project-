@@ -77,9 +77,13 @@ const Sidebar = () => {
       <div className={classes.header}>
         {!isSidebarCollapsed && (
           <div className={classes.logo}>
-            <div className={classes.logoIcon}>
-              <span className={classes.logoTriangle}></span>
-            </div>
+            <img
+              src="/logo.png"
+              alt="Callsflow logo"
+              className={classes.logoImg}
+              loading="eager"
+              decoding="async"
+            />
             <h2>CALLSFLOW</h2>
           </div>
         )}

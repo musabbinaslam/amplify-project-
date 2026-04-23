@@ -23,23 +23,14 @@
   margin-bottom: 24px;
 }
 
-.logoIcon {
-  width: 36px;
-  height: 36px;
-  background: var(--brand-solid);
+.logoImg {
+  width: 43px;
+  height: 70px;
   border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 10px var(--brand-glow);
-}
-
-.logoTriangle {
-  width: 0;
-  height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-bottom: 12px solid var(--brand-on);
+  object-fit: cover;
+  display: block;
+  filter: drop-shadow(0 0 14px var(--brand-glow));
+  margin-top: 5px;
 }
 
 .logoText {

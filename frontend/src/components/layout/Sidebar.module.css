@@ -30,31 +30,27 @@
 .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
 }
 
-.logoIcon {
-  width: 28px;
-  height: 28px;
-  background: var(--brand-solid);
+.logoImg {
+  width: 43px;
+  height: 70px;
   border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 10px var(--brand-glow);
-}
-
-.logoTriangle {
-  width: 0;
-  height: 0;
-  border-top: 6px solid transparent;
-  border-bottom: 6px solid transparent;
-  border-left: 10px solid var(--brand-on);
+  object-fit: cover;
+  display: block;
+  filter: drop-shadow(0 0 14px var(--brand-glow));
+  margin-top: 5px;
 }
 
 .logo h2 {
-  font-size: 17px;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  font-size: 19px;
   font-weight: 800;
+  margin: 0;
+  line-height: 1;
   letter-spacing: -0.01em;
   color: var(--text-primary);
   text-transform: uppercase;

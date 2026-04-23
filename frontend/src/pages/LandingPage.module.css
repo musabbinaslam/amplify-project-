@@ -36,23 +36,14 @@
   text-decoration: none;
 }
 
-.logoIcon {
-  width: 32px;
-  height: 32px;
-  background: var(--brand-solid);
+.logoImg {
+  width: 43px;
+  height: 70px;
   border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 12px var(--brand-glow);
-}
-
-.logoTriangle {
-  width: 0;
-  height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-bottom: 10px solid var(--surface);
+  object-fit: cover;
+  display: block;
+  filter: drop-shadow(0 0 14px var(--brand-glow));
+  margin-top: 5px;
 }
 
 .logoText {
