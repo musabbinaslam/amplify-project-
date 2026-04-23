@@ -362,9 +362,23 @@
   align-self: flex-start;
 }
 
+.emailSubmitBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px var(--brand-glow);
+}
+
 .emailSubmitBtn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.spinIcon {
+  animation: supportSpin 0.9s linear infinite;
+}
+
+@keyframes supportSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .comingSoon {
@@ -376,4 +390,116 @@
   border-radius: var(--radius-full);
   background: rgba(255, 255, 255, 0.2);
   color: inherit;
+}
+
+/* ── Attachments ── */
+
+.attachmentHint {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  margin-left: 6px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.fileInputHidden {
+  display: none;
+}
+
+.attachBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 8px 14px;
+  background: var(--surface-container);
+  color: var(--text-primary);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md, 10px);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  margin-top: 6px;
+}
+
+.attachBtn:hover:not(:disabled) {
+  border-color: var(--brand-text);
+  color: var(--brand-text);
+  background: var(--surface-container-high);
+}
+
+.attachBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.attachmentList {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.attachmentChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 10px;
+  background: var(--surface-container-high);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  max-width: 100%;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.attachmentIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand-text);
+  flex-shrink: 0;
+}
+
+.attachmentName {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.attachmentSize {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.attachmentRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.attachmentRemove:hover:not(:disabled) {
+  background: var(--surface-container-highest);
+  color: var(--accent-red, #ff7351);
+}
+
+.attachmentRemove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
