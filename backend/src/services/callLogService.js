@@ -70,14 +70,28 @@ class CallLogService {
         // Auto-deduct credits from wallet
         if (isBillable && cost > 0 && agentId) {
             try {
-                await walletService.deductCredits(agentId, cost * 100, {
+                const newBalance = await walletService.deductCredits(agentId, cost * 100, {
                    callSid, campaignId, campaignLabel: config.label || campaignId
                 });
+
+                // If balance is now zero or below, notify the agent via their live socket.
+                // The call has already completed — this notification fires AFTER billing,
+                // so the agent's experience on the call was never interrupted.
+                if (typeof newBalance === 'number' && newBalance <= 0) {
+                    const socketRegistry = require('../sockets/socketRegistry');
+                    const notified = socketRegistry.emitToAgent(agentId, 'agent:balance_exhausted', {
+                        balance: newBalance,
+                        callSid,
+                        message: 'Your wallet balance has been exhausted. Please top up to continue taking calls.',
+                    });
+                    console.log(`[Wallet] 📭 Balance exhausted for agent ${agentId} after call ${callSid} — socket ${notified ? 'notified ✅' : 'not connected (agent already offline)'}`);
+                }
             } catch (err) {
                 console.error("[Billing] Failed to deduct credits:", err.message);
                 // Call will still be logged
             }
         }
+
 
         const newLog = {
             callSid,

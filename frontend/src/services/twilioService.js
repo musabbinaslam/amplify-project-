@@ -82,10 +82,24 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
                 socket.emit('agent:heartbeat', { agentId: passedIdentity });
             }
         }, 30000);
+        // Don't resolve here — wait for live_confirmed or go_live_error from backend
+      });
 
+      // Backend confirmed agent is registered in the pool
+      socket.on('agent:live_confirmed', () => {
         resolve();
       });
-      
+
+      // Backend rejected go_live (e.g. zero wallet balance)
+      socket.on('agent:go_live_error', (data) => {
+        if (socket._heartbeatInterval) clearInterval(socket._heartbeatInterval);
+        socket.disconnect();
+        const err = new Error(data?.message || 'Cannot go live. Please check your wallet balance.');
+        err.code  = data?.code    || 'GO_LIVE_ERROR';
+        err.balance = data?.balance ?? 0;
+        reject(err);
+      });
+
       socket.on('disconnect', () => {
           if (socket._heartbeatInterval) clearInterval(socket._heartbeatInterval);
       });
@@ -206,6 +220,44 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
     if (typeof store.setAudioSettingsUnsubscribe === 'function') {
       store.setAudioSettingsUnsubscribe(unsubscribeAudioSettings);
     }
+
+    // 7. Balance exhausted — fires AFTER a call ends and billing deducts the final credit.
+    //    The call itself was never interrupted. This handler takes the agent offline cleanly
+    //    and redirects them to billing so they can top up.
+    socket.on('agent:balance_exhausted', () => {
+      console.log('[Wallet] 📦 Balance exhausted after call — taking agent offline automatically');
+
+      // Stop heartbeat
+      if (socket._heartbeatInterval) clearInterval(socket._heartbeatInterval);
+
+      // Tell backend to remove from routing pool
+      socket.emit('agent:go_offline');
+
+      // Destroy Twilio Device so no more calls can ring through
+      try { device.destroy(); } catch (_) { /* ignore */ }
+
+      // Reset dialer store
+      const dialerStore = useDialerStore.getState();
+      if (typeof dialerStore.goOffline === 'function') {
+        dialerStore.goOffline();
+      } else {
+        dialerStore.setDevice   && dialerStore.setDevice(null);
+        dialerStore.setCallState && dialerStore.setCallState('offline');
+      }
+
+      // Show a persistent toast and redirect to billing after a short delay
+      // so the agent has time to read the message before the page changes
+      import('react-hot-toast').then(({ default: toast }) => {
+        toast(
+          '💳 Your last call was billed and your balance is now $0.00. Redirecting to top up…',
+          { duration: 4000 }
+        );
+      }).catch(() => {});
+
+      setTimeout(() => {
+        window.location.href = '/app/billing';
+      }, 3500);
+    });
 
     return true;
   } catch (error) {

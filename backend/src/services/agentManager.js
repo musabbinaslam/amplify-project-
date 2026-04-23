@@ -1,213 +1,223 @@
 const { redisClient } = require('../config/redis');
+const { CAMPAIGN_CONFIG } = require('../config/pricing');
 
+/**
+ * AgentManager — Per-Campaign Sorted Set Routing
+ *
+ * Architecture:
+ *   pool:{campaignId}          → Redis Sorted Set  (score = lastCallAt ms; 0 = never had a call)
+ *                                 ZRANGE 0 19 returns the 20 agents who waited longest (LRU)
+ *   agents:ringing             → Redis Set          (locked agents currently ringing)
+ *   agents:busy                → Redis Set          (agents on an active call)
+ *   agent:{id}                 → Redis Hash         (campaignId, licensedStates, status, etc.)
+ *   agent:heartbeat:{id}       → Redis String / TTL (60s; absence = ghost agent → evict)
+ *   activecall:{id}            → Redis Hash         (live call metadata for status callbacks)
+ *
+ * Routing complexity:
+ *   Old design: O(N×2) Redis calls for N total available agents
+ *   New design: O(K×2) where K = candidates checked (capped at 20), regardless of total pool size
+ *   → 1000 agents = max ~41 Redis calls per routing request (vs 2001 before)
+ *
+ * Atomic lock:
+ *   ZREM returns 1 if the member was present and removed, 0 if already gone.
+ *   Only one concurrent routing request can receive a return value of 1 for a given agent.
+ *   No double-routing is possible.
+ */
 class AgentManager {
-   activeCallKey(agentId) {
-      return `activecall:${agentId}`;
-   }
-   activeCallPattern() {
-      return 'activecall:*';
-   }
+
+   // ─── Key helpers ──────────────────────────────────────────────────────────
+   poolKey(campaignId)   { return `pool:${campaignId}`; }
+   activeCallKey(agentId) { return `activecall:${agentId}`; }
+   activeCallPattern()    { return 'activecall:*'; }
+
    /**
-    * Registers an agent in the pool when they go live.
+    * Registers an agent in the correct campaign pool when they go live.
     */
    async registerAgent(agentId, payload) {
-      // CLEAR ANY PREVIOUS STUCK STATE
-      await redisClient.sRem('agents:available', agentId);
+      // ── Clear any stale state from a previous session ──────────────────────
+      const oldData = await redisClient.hGetAll(`agent:${agentId}`);
+      if (oldData?.campaignId) {
+         await redisClient.zRem(this.poolKey(oldData.campaignId), agentId);
+      }
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sRem('agents:busy', agentId);
 
-      const campaign = payload.campaign || payload.campaignId || 'fe_transfers';
-      const licensedStates = payload.licensedStates || []; // e.g. ['TX', 'FL', 'CA']
+      const campaign       = payload.campaign || payload.campaignId || 'fe_transfers';
+      const licensedStates = payload.licensedStates || [];
 
-      const agentData = {
+      await redisClient.hSet(`agent:${agentId}`, {
          agentId,
-         campaignId: campaign,
+         campaignId:     campaign,
          licensedStates: JSON.stringify(licensedStates),
-         status: 'AVAILABLE',
-         joinedAt: Date.now().toString(),
-         lastCallAt: '0' // 0 = never had a call = highest priority (LRU)
-      };
+         status:         'AVAILABLE',
+         joinedAt:       Date.now().toString(),
+         lastCallAt:     '0',   // 0 = never had a call = highest LRU priority
+      });
 
-      // Store full data in a hash map
-      await redisClient.hSet(`agent:${agentId}`, agentData);
-
-      // Add to AVAILABLE set
-      await redisClient.sAdd('agents:available', agentId);
+      // Score 0 = highest priority (longest wait). Score is updated to Date.now() on each release.
+      await redisClient.zAdd(this.poolKey(campaign), { score: 0, value: agentId });
 
       console.log(`[Redis] ✅ Agent Registered: ${agentId} | Campaign: ${campaign} | States: ${licensedStates.join(', ') || 'ALL'}`);
    }
 
    /**
-    * Clean up agent state upon disconnect.
+    * Removes an agent from the pool on disconnect or go-offline.
     */
    async removeAgent(agentId) {
+      // Read the agent's campaign so we can remove from the correct sorted set
+      const data = await redisClient.hGetAll(`agent:${agentId}`);
+      if (data?.campaignId) {
+         await redisClient.zRem(this.poolKey(data.campaignId), agentId);
+      }
       await redisClient.del(`agent:${agentId}`);
-      await redisClient.sRem('agents:available', agentId);
+      await redisClient.del(`agent:heartbeat:${agentId}`);
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sRem('agents:busy', agentId);
       console.log(`[Redis] ❌ Agent Offline: ${agentId}`);
    }
 
    /**
-    * LRU Routing: Find the agent who has been waiting longest,
-    * matches the campaign, and is licensed in the caller's state.
-    * Uses atomic Redis lock to prevent double-routing.
+    * LRU Routing — O(K×2) Redis calls, K ≤ 20, regardless of total pool size.
+    *
+    * Steps:
+    *  1. ZRANGE pool:{campaign} 0 19   → up to 20 LRU candidates (score ascending = waited longest)
+    *  2. Parallel heartbeat + hash fetch for those 20 candidates only
+    *  3. Evict ghosts, filter by licensed state
+    *  4. ZREM as atomic lock — only the request that gets return value 1 wins the agent
     */
    async findAndLockAvailableAgent(campaignId, callerState = null) {
-      // 1. Fetch all available agent IDs
-      const availableIds = await redisClient.sMembers('agents:available');
-      console.log(`[Router] 🔍 Checking available agents in Redis. Found: ${availableIds.length} agents (${availableIds.join(', ')})`);
-      if (availableIds.length === 0) return null;
+      // 1. Get up to 20 longest-waiting agents from this campaign's sorted set
+      const candidates = await redisClient.zRange(this.poolKey(campaignId), 0, 19);
 
-      // 2. Fetch full data for each available agent & verify heartbeat
+      console.log(`[Router] 🔍 Campaign "${campaignId}" pool — ${candidates.length} LRU candidates`);
+      if (candidates.length === 0) return null;
+
+      // 2. Parallel heartbeat + data fetch (max 20×2 = 40 Redis calls)
       const agentDataList = (await Promise.all(
-         availableIds.map(async (id) => {
+         candidates.map(async (id) => {
             const isAlive = await redisClient.exists(`agent:heartbeat:${id}`);
             if (!isAlive) {
-               console.log(`[Router] 👻 Ghost agent detected (no heartbeat): ${id}. Evicting...`);
-               await redisClient.sRem('agents:available', id);
+               // Ghost agent: evict from the sorted set immediately
+               console.log(`[Router] 👻 Ghost agent evicted (no heartbeat): ${id}`);
+               await redisClient.zRem(this.poolKey(campaignId), id);
                await redisClient.del(`agent:${id}`);
                return null;
             }
             const data = await redisClient.hGetAll(`agent:${id}`);
-            return { id, ...data };
+            return data ? { id, ...data } : null;
          })
       )).filter(Boolean);
 
-      // 3. Filter by campaign match
-      const campaignMatches = agentDataList.filter(agent => {
-         if (!agent.campaignId) return false;
-         return agent.campaignId === campaignId || !campaignId || agent.campaignId === 'all';
-      });
+      if (agentDataList.length === 0) return null;
 
-      if (campaignMatches.length === 0) {
-         console.log(`[Router] No agents found for campaign "${campaignId}"`);
-         return null;
-      }
-
-      // 4. Filter by licensed state (if a caller state is provided)
-      let stateMatches = campaignMatches;
+      // 3. Filter by licensed state (if a caller state is provided)
+      let eligible = agentDataList;
       if (callerState) {
-         stateMatches = campaignMatches.filter(agent => {
+         eligible = agentDataList.filter((agent) => {
             try {
                const states = JSON.parse(agent.licensedStates || '[]');
-               // Empty array = licensed in all states
+               // Empty array = licensed in all states (no restriction)
                return states.length === 0 || states.includes(callerState.toUpperCase());
             } catch {
-               return true; // If parse fails, don't block
+               return true; // Parse failure → don't block routing
             }
          });
 
-         if (stateMatches.length === 0) {
-            console.log(`[Router] No agents licensed in state "${callerState}" for campaign "${campaignId}"`);
+         if (eligible.length === 0) {
+            console.log(`[Router] No agents licensed in "${callerState}" for campaign "${campaignId}"`);
             return null;
          }
       }
 
-      // 5. SORT BY LRU — agent with smallest lastCallAt waited the longest
-      stateMatches.sort((a, b) => {
-         const aTime = parseInt(a.lastCallAt || '0');
-         const bTime = parseInt(b.lastCallAt || '0');
-         return aTime - bTime; // ascending: smallest time = waited longest = first priority
-      });
+      // Candidates are already in LRU order from ZRANGE (lowest score = waited longest = first)
+      console.log(`[Router] ${eligible.length} eligible agents. LRU candidates: ${eligible.map(a => a.id).join(', ')}`);
 
-      console.log(`[Router] ${stateMatches.length} eligible agents. LRU order: ${stateMatches.map(a => `${a.id}(${a.lastCallAt})`).join(', ')}`);
-
-      // 6. Try to atomically lock the highest-priority agent
-      for (const agent of stateMatches) {
-         const locked = await redisClient.sMove('agents:available', 'agents:ringing', agent.id);
-
+      // 4. Atomic lock: ZREM returns 1 if we successfully removed the agent (we own the lock),
+      //    0 if another concurrent request already took them (race condition safe)
+      for (const agent of eligible) {
+         const locked = await redisClient.zRem(this.poolKey(campaignId), agent.id);
          if (locked === 1) {
-            // Won the lock — mark as ringing
+            await redisClient.sAdd('agents:ringing', agent.id);
             await redisClient.hSet(`agent:${agent.id}`, 'status', 'RINGING');
-            console.log(`[Router] 🔒 Locked agent ${agent.id} (LRU: waited since ${agent.lastCallAt === '0' ? 'start' : new Date(parseInt(agent.lastCallAt)).toISOString()})`);
+            console.log(`[Router] 🔒 Locked agent ${agent.id} for campaign "${campaignId}"`);
             return agent;
          }
-         // If lock failed, another request grabbed this agent — try next in LRU order
+         // Another concurrent request got there first — try next in LRU order
+         console.log(`[Router] ⚡ Race: agent ${agent.id} already taken, trying next...`);
       }
 
       return null;
    }
 
    /**
-    * CAPACITY PING: Checks if an agent is available without locking them.
-    * Used by Ringba/Trackdrive to ping before dialing.
+    * CAPACITY PING: Check if any agent is available for a given campaign/state.
+    * Used by Ringba/Trackdrive before dialing. Does NOT lock anyone.
     */
    async checkAvailableAgent(campaignId, callerState = null) {
-      const availableIds = await redisClient.sMembers('agents:available');
-      if (availableIds.length === 0) return false;
+      const candidates = await redisClient.zRange(this.poolKey(campaignId), 0, 9);
+      if (candidates.length === 0) return false;
 
-      const agentDataList = (await Promise.all(
-         availableIds.map(async (id) => {
-            const isAlive = await redisClient.exists(`agent:heartbeat:${id}`);
-            if (!isAlive) {
-               await redisClient.sRem('agents:available', id);
-               await redisClient.del(`agent:${id}`);
-               return null;
-            }
-            const data = await redisClient.hGetAll(`agent:${id}`);
-            return { id, ...data };
-         })
-      )).filter(Boolean);
+      if (!callerState) return true; // Has agents, no state filter needed
 
-      const campaignMatches = agentDataList.filter(agent => {
-         if (!agent.campaignId) return false;
-         return agent.campaignId === campaignId || !campaignId || agent.campaignId === 'all';
-      });
-
-      if (campaignMatches.length === 0) return false;
-
-      if (callerState) {
-         const stateMatches = campaignMatches.filter(agent => {
-            try {
-               const states = JSON.parse(agent.licensedStates || '[]');
-               return states.length === 0 || states.includes(callerState.toUpperCase());
-            } catch {
-               return true;
-            }
-         });
-         if (stateMatches.length === 0) return false;
+      for (const id of candidates) {
+         const isAlive = await redisClient.exists(`agent:heartbeat:${id}`);
+         if (!isAlive) continue;
+         const data = await redisClient.hGetAll(`agent:${id}`);
+         if (!data) continue;
+         try {
+            const states = JSON.parse(data.licensedStates || '[]');
+            if (states.length === 0 || states.includes(callerState.toUpperCase())) return true;
+         } catch {
+            return true;
+         }
       }
-
-      return true;
+      return false;
    }
 
    /**
-    * Moves an agent back to AVAILABLE after a call ends.
-    * Updates lastCallAt so they go to the BACK of the LRU queue.
+    * Release an agent back to the available pool after a call ends.
+    * They are added back with score = Date.now() → they go to the BACK of the LRU queue.
     */
    async releaseAgent(agentId) {
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sRem('agents:busy', agentId);
-      await redisClient.sAdd('agents:available', agentId);
 
-      // Update lastCallAt to NOW → they go to back of the queue
+      const data = await redisClient.hGetAll(`agent:${agentId}`);
+      if (data?.campaignId) {
+         // Score = current timestamp → this agent goes to back of LRU queue
+         await redisClient.zAdd(this.poolKey(data.campaignId), {
+            score: Date.now(),
+            value: agentId,
+         });
+      }
+
       await redisClient.hSet(`agent:${agentId}`, {
-         status: 'AVAILABLE',
-         lastCallAt: Date.now().toString()
+         status:      'AVAILABLE',
+         lastCallAt:  Date.now().toString(),
       });
 
-      console.log(`[Router] 🔓 Agent ${agentId} released → back to AVAILABLE (moved to back of LRU queue)`);
+      console.log(`[Router] 🔓 Agent ${agentId} released → back to AVAILABLE (end of LRU queue)`);
    }
+
+   // ─── Active call tracking (unchanged) ────────────────────────────────────
 
    async upsertActiveCall(agentId, payload = {}) {
       if (!agentId) return;
-      await redisClient.sRem('agents:available', agentId);
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sAdd('agents:busy', agentId);
       await redisClient.hSet(`agent:${agentId}`, {
-         status: 'IN_CALL',
-         lastCallAt: Date.now().toString(),
+         status:      'IN_CALL',
+         lastCallAt:  Date.now().toString(),
       });
       await redisClient.hSet(this.activeCallKey(agentId), {
          agentId,
-         callSid: String(payload.callSid || ''),
-         from: String(payload.from || ''),
-         to: String(payload.to || ''),
+         callSid:    String(payload.callSid    || ''),
+         from:       String(payload.from       || ''),
+         to:         String(payload.to         || ''),
          campaignId: String(payload.campaignId || ''),
-         startedAt: String(payload.startedAt || new Date().toISOString()),
-         state: String(payload.state || 'in_call'),
-         updatedAt: new Date().toISOString(),
+         startedAt:  String(payload.startedAt  || new Date().toISOString()),
+         state:      String(payload.state      || 'in_call'),
+         updatedAt:  new Date().toISOString(),
       });
    }
 
@@ -248,32 +258,35 @@ class AgentManager {
       if (!agentIds.length) return [];
       const rows = await Promise.all(
          agentIds.map(async (id) => {
-            const row = await redisClient.hGetAll(this.activeCallKey(id));
+            const row   = await redisClient.hGetAll(this.activeCallKey(id));
             const agent = await redisClient.hGetAll(`agent:${id}`);
             if (!row || Object.keys(row).length === 0) return null;
             const startedAtMs = row.startedAt ? new Date(row.startedAt).getTime() : NaN;
             return {
-               agentId: id,
-               callSid: row.callSid || null,
-               from: row.from || null,
-               to: row.to || null,
-               campaignId: row.campaignId || agent.campaignId || null,
-               startedAt: row.startedAt || null,
+               agentId:     id,
+               callSid:     row.callSid   || null,
+               from:        row.from      || null,
+               to:          row.to        || null,
+               campaignId:  row.campaignId || agent.campaignId || null,
+               startedAt:   row.startedAt || null,
                durationSec: Number.isNaN(startedAtMs) ? 0 : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000)),
-               status: agent.status || 'IN_CALL',
-               state: row.state || 'in_call',
+               status:      agent.status  || 'IN_CALL',
+               state:       row.state     || 'in_call',
             };
          }),
       );
       return rows.filter(Boolean);
    }
 
-   /**
-    * Get a snapshot of the current agent pool for debugging.
-    */
+   // ─── Snapshot / overview (aggregates across all campaign pools) ───────────
+
    async getPoolSnapshot() {
-      const [available, ringing, busy] = await Promise.all([
-         redisClient.sMembers('agents:available'),
+      const campaignIds = Object.keys(CAMPAIGN_CONFIG);
+      const availableSets = await Promise.all(
+         campaignIds.map((cId) => redisClient.zRange(this.poolKey(cId), 0, -1))
+      );
+      const available = [...new Set(availableSets.flat())];
+      const [ringing, busy] = await Promise.all([
          redisClient.sMembers('agents:ringing'),
          redisClient.sMembers('agents:busy'),
       ]);
@@ -281,15 +294,20 @@ class AgentManager {
    }
 
    /**
-    * Collect unique agent ids across pool sets and return full agent hashes + counts by campaign.
+    * Total available agent count across all campaign pools — used for stats:agent_count broadcast.
     */
+   async getTotalAvailableCount() {
+      const campaignIds = Object.keys(CAMPAIGN_CONFIG);
+      const counts = await Promise.all(
+         campaignIds.map((cId) => redisClient.zCard(this.poolKey(cId)))
+      );
+      // Sum all campaign pools (an agent is only ever in one campaign pool at a time)
+      return counts.reduce((a, b) => a + (b || 0), 0);
+   }
+
    async getOverview() {
       const pool = await this.getPoolSnapshot();
-      const idSet = new Set([
-         ...pool.available,
-         ...pool.ringing,
-         ...pool.busy,
-      ]);
+      const idSet = new Set([...pool.available, ...pool.ringing, ...pool.busy]);
       const agents = [];
       const byCampaign = {};
 
@@ -308,9 +326,9 @@ class AgentManager {
          const campaignId = raw.campaignId || 'unknown';
          const row = {
             id,
-            agentId: raw.agentId || id,
+            agentId:       raw.agentId || id,
             campaignId,
-            status: raw.status || 'UNKNOWN',
+            status:        raw.status  || 'UNKNOWN',
             licensedStates,
             pool: pool.available.includes(id)
                ? 'available'
@@ -324,12 +342,7 @@ class AgentManager {
          byCampaign[campaignId] = (byCampaign[campaignId] || 0) + 1;
       }
 
-      return {
-         pool,
-         totalAgents: agents.length,
-         agents,
-         byCampaign,
-      };
+      return { pool, totalAgents: agents.length, agents, byCampaign };
    }
 }
 

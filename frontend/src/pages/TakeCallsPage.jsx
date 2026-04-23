@@ -574,8 +574,13 @@ const TakeCallsPage = () => {
       await initializeTwilioDevice(agentId, campaign, wizardStates);
     } catch (err) {
       console.error('Failed to go live:', err);
-      const errorText = err.response ? err.response.data : err.message;
-      alert('Failed to connect. Error: ' + JSON.stringify(errorText));
+      if (err.code === 'INSUFFICIENT_BALANCE') {
+        // Backend double-check: balance was zero when the server received go_live
+        toast.error('Your wallet balance is $0.00. Please top up before going live.', { duration: 6000 });
+      } else {
+        const errorText = err.response ? err.response.data : err.message;
+        alert('Failed to connect. Error: ' + JSON.stringify(errorText));
+      }
     } finally {
       setIsConnecting(false);
     }
