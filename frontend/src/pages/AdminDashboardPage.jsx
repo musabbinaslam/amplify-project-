@@ -23,6 +23,7 @@ import {
   deleteAdminDid,
 } from '../services/adminService';
 import useAuthStore from '../store/authStore';
+import PageLoader from '../components/ui/PageLoader';
 import classes from './AdminDashboardPage.module.css';
 
 const AdminDashboardPage = () => {
@@ -256,43 +257,7 @@ const AdminDashboardPage = () => {
   }, [agentStats, agentSearch, getAgentId, getAgentName]);
 
   if (loading && !overview) {
-    return (
-      <div className={classes.page}>
-        <div className={classes.loadingHeader}>
-          <span className={classes.loadingIcon} />
-          <div>
-            <span className={classes.loadingTitle} />
-            <span className={classes.loadingSubtitle} />
-          </div>
-        </div>
-
-        <section className={classes.card}>
-          <div className={classes.grid}>
-            <div className={classes.statCard}><span className={classes.skeletonNumWide} /></div>
-            <div className={classes.statCard}><span className={classes.skeletonNumWide} /></div>
-            <div className={classes.statCard}><span className={classes.skeletonNumWide} /></div>
-            <div className={classes.statCard}><span className={classes.skeletonNumWide} /></div>
-          </div>
-        </section>
-
-        <section className={classes.card}>
-          <div className={classes.skeletonList}>
-            <div className={classes.skeletonRow} />
-            <div className={classes.skeletonRow} />
-            <div className={classes.skeletonRow} />
-          </div>
-        </section>
-
-        <section className={classes.card}>
-          <div className={classes.skeletonList}>
-            <div className={classes.skeletonRow} />
-            <div className={classes.skeletonRow} />
-            <div className={classes.skeletonRow} />
-            <div className={classes.skeletonRow} />
-          </div>
-        </section>
-      </div>
-    );
+    return <PageLoader />;
   }
 
   const pool = overview?.pool || { available: [], ringing: [], busy: [] };

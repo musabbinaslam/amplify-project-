@@ -16,6 +16,12 @@
   --brand-dim: rgba(37, 244, 37, 0.15);
   --brand-glow: rgba(37, 244, 37, 0.3);
 
+  /* Role tokens derived at runtime by themeStore.applyBrand().
+     Fallbacks below keep UI sensible before JS runs. */
+  --brand-solid: var(--brand);
+  --brand-on: #0b0b0b;
+  --brand-text: var(--brand);
+
   --accent-cyan: #00e3fd;
   --accent-blue: #00e3fd; /* map blue to cyan to keep the theme */
   --accent-red: #ff7351;
@@ -65,6 +71,11 @@
   --brand-dim: rgba(24, 168, 24, 0.12);
   --brand-glow: rgba(24, 168, 24, 0.25);
 
+  /* Light-mode role token fallbacks (runtime derivation overrides these). */
+  --brand-solid: #13881a;
+  --brand-on: #ffffff;
+  --brand-text: #0f7a16;
+
   --accent-cyan: #0099ad;
   --accent-blue: #0099ad;
   --accent-red: #d94a2b;
@@ -72,10 +83,10 @@
 
   --text-primary: #111111;
   --text-secondary: #555555;
-  --text-tertiary: #888888;
+  --text-tertiary: #6a6a6a;
 
-  --border: rgba(0, 0, 0, 0.08);
-  --border-focus: var(--brand);
+  --border: rgba(0, 0, 0, 0.14);
+  --border-focus: var(--brand-text);
 
   --bg-primary: var(--surface);
   --bg-secondary: var(--surface-container-low);

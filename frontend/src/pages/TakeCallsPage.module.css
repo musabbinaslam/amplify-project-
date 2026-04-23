@@ -49,7 +49,7 @@
   background: var(--surface-container-highest);
 }
 .dotActive {
-  background: var(--brand);
+  background: var(--brand-solid);
   box-shadow: 0 0 8px var(--brand-glow);
 }
 .mainProgress {
@@ -61,7 +61,7 @@
 }
 .mainProgressFill {
   height: 100%;
-  background: var(--brand);
+  background: var(--brand-solid);
   transition: width 0.25s ease;
 }
 .stepContent { display: flex; justify-content: center; }
@@ -86,7 +86,7 @@
   height: 64px;
   border-radius: var(--radius-full);
   background: var(--surface-container-highest);
-  color: var(--brand);
+  color: var(--brand-text);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -136,7 +136,7 @@
   font-size: 14px;
   font-weight: 600;
 }
-.levelPercent { color: var(--brand); }
+.levelPercent { color: var(--brand-text); }
 .progressBar {
   height: 8px;
   background: var(--surface-container-highest);
@@ -144,7 +144,7 @@
   overflow: hidden;
   position: relative;
 }
-.progressFill { height: 100%; background: var(--brand); }
+.progressFill { height: 100%; background: var(--brand-solid); }
 .progressMarker {
   position: absolute;
   top: 0;
@@ -269,8 +269,8 @@
 }
 
 .primaryBtn {
-  background: var(--brand);
-  color: var(--surface);
+  background: var(--brand-solid);
+  color: var(--brand-on);
   box-shadow: 0 0 14px var(--brand-glow);
 }
 .primaryBtn:disabled {
@@ -311,7 +311,7 @@
   background: var(--surface-container-high);
 }
 .campaignSelectActive {
-  border-color: color-mix(in srgb, var(--brand) 48%, var(--border));
+  border-color: color-mix(in srgb, var(--brand-text) 48%, var(--border));
   background: color-mix(in srgb, var(--brand-dim) 38%, var(--surface-container-high));
 }
 .campIconWrapper {
@@ -322,13 +322,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--brand);
+  color: var(--brand-text);
 }
 .campaignInfoCol { flex: 1; display: flex; flex-direction: column; gap: 4px; text-align: left; }
 .campaignInfoCol h3 { margin: 0; font-size: 17px; }
 .campaignDesc { margin: 0; color: var(--text-secondary); font-size: 13px; }
 .campaignMetrics { display: flex; align-items: center; gap: 12px; }
-.campaignPrice { font-weight: 800; color: var(--brand); }
+.campaignPrice { font-weight: 800; color: var(--brand-text); }
 .campaignBuffer { color: var(--text-tertiary); font-size: 12px; }
 .campaignRadio { align-self: center; padding-top: 0; }
 .radioCircle {
@@ -340,12 +340,12 @@
   align-items: center;
   justify-content: center;
 }
-.radioActive { border-color: var(--brand); }
+.radioActive { border-color: var(--brand-text); }
 .radioInner {
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: var(--brand);
+  background: var(--brand-solid);
 }
 
 .statesToolbar {
@@ -362,7 +362,7 @@
   font-size: 12px;
   line-height: 1.4;
 }
-.stateCounter strong { color: var(--brand); }
+.stateCounter strong { color: var(--brand-text); }
 .warningText { color: var(--accent-red); }
 .statesGrid {
   display: grid;
@@ -384,12 +384,12 @@
   color: var(--text-primary);
 }
 .stateChipActive {
-  border-color: color-mix(in srgb, var(--brand) 48%, var(--border));
+  border-color: color-mix(in srgb, var(--brand-text) 48%, var(--border));
   background: color-mix(in srgb, var(--brand-dim) 26%, var(--surface-container-high));
 }
 .stateCode { font-size: 13px; font-weight: 700; }
 .stateName { font-size: 11px; color: var(--text-tertiary); }
-.stateCheck { position: absolute; top: 8px; right: 8px; color: var(--brand); }
+.stateCheck { position: absolute; top: 8px; right: 8px; color: var(--brand-text); }
 
 .summaryBox {
   border: 1px solid var(--border);
@@ -405,7 +405,7 @@
 .summaryRow + .summaryRow { border-top: 1px solid var(--border); }
 .summaryLabel { font-size: 12px; color: var(--text-tertiary); text-transform: uppercase; }
 .summaryValue { font-size: 13px; text-align: right; color: var(--text-primary); }
-.summaryValueAccent { color: var(--brand); }
+.summaryValueAccent { color: var(--brand-text); }
 
 .rulesList { display: flex; flex-direction: column; gap: 8px; }
 .ruleItem {
@@ -421,7 +421,7 @@
   height: 24px;
   border-radius: 999px;
   background: var(--surface-container-highest);
-  color: var(--brand);
+  color: var(--brand-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -500,10 +500,10 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid color-mix(in srgb, var(--brand) 44%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 44%, transparent);
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--brand-dim) 34%, transparent);
-  color: var(--brand);
+  color: var(--brand-text);
   padding: 6px 12px;
   font-size: 12px;
   font-weight: 700;
@@ -512,7 +512,7 @@
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: var(--brand);
+  background: var(--brand-solid);
   animation: blink 1.3s infinite;
 }
 @keyframes blink {
@@ -552,9 +552,9 @@
   gap: 6px;
 }
 .liveStateChip {
-  border: 1px solid color-mix(in srgb, var(--brand) 42%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 42%, transparent);
   background: color-mix(in srgb, var(--brand-dim) 36%, transparent);
-  color: var(--brand);
+  color: var(--brand-text);
   border-radius: var(--radius-full);
   padding: 3px 9px;
   font-size: 11px;
@@ -614,8 +614,8 @@
   border-radius: var(--radius-full);
   padding: 3px 8px;
   background: color-mix(in srgb, var(--brand-dim) 40%, transparent);
-  color: var(--brand);
-  border: 1px solid color-mix(in srgb, var(--brand) 42%, transparent);
+  color: var(--brand-text);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 42%, transparent);
   font-size: 11px;
 }
 .badgeAnswered { color: var(--text-secondary); font-size: 11px; }
@@ -648,9 +648,9 @@
 .incomingBadge {
   display: inline-block;
   border-radius: var(--radius-full);
-  border: 1px solid color-mix(in srgb, var(--brand) 42%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 42%, transparent);
   background: color-mix(in srgb, var(--brand-dim) 34%, transparent);
-  color: var(--brand);
+  color: var(--brand-text);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -668,7 +668,7 @@
   justify-content: center;
   margin: 14px auto 10px;
 }
-.pulseIcon { color: var(--brand); animation: heartbeat 1.4s ease infinite; }
+.pulseIcon { color: var(--brand-text); animation: heartbeat 1.4s ease infinite; }
 @keyframes heartbeat {
   0% { transform: scale(1); }
   50% { transform: scale(1.08); }
@@ -682,8 +682,8 @@
   border-radius: var(--radius-lg);
   border: none;
   padding: 12px;
-  background: var(--brand);
-  color: var(--surface);
+  background: var(--brand-solid);
+  color: var(--brand-on);
   font-weight: 700;
 }
 .declineBtn {

@@ -12,6 +12,7 @@ import {
   updateAiCoachingTask,
 } from '../services/aiTrainingService';
 import { useUIStore } from '../store/uiStore';
+import PageLoader from '../components/ui/PageLoader';
 import classes from './AITrainingPage.module.css';
 
 function fmtDate(iso) {
@@ -158,6 +159,8 @@ const AITrainingPage = () => {
     }
   };
 
+  if (loading && !summary) return <PageLoader />;
+
   return (
     <div className={classes.page}>
       <div className={classes.header}>
@@ -247,7 +250,7 @@ const AITrainingPage = () => {
                 }}
                 formatter={(v) => [`${v}/100`, 'Score']}
               />
-              <Line type="monotone" dataKey="score" stroke="var(--brand)" strokeWidth={2} />
+              <Line type="monotone" dataKey="score" stroke="var(--brand-text)" strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </div>

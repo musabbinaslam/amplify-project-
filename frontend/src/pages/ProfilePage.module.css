@@ -21,7 +21,7 @@
 
 .spinner {
   animation: spin 0.8s linear infinite;
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 @keyframes spin {
@@ -40,7 +40,7 @@
   width: 64px;
   height: 64px;
   background: var(--surface-container-highest);
-  color: var(--brand);
+  color: var(--brand-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -93,7 +93,7 @@
   width: 96px;
   height: 96px;
   border-radius: var(--radius-full);
-  border: 2px solid var(--brand);
+  border: 2px solid var(--brand-text);
   background: var(--surface-container-highest);
   cursor: pointer;
   overflow: hidden;
@@ -113,7 +113,7 @@
 }
 
 .avatarInitial {
-  color: var(--brand);
+  color: var(--brand-text);
   font-size: 36px;
   font-weight: 800;
   display: flex;
@@ -159,7 +159,7 @@
 }
 
 .uploadBtn {
-  color: var(--brand);
+  color: var(--brand-text);
   font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
@@ -209,7 +209,9 @@
 .nameInput {
   flex: 1;
   background: transparent;
-  border: none;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
   padding: 16px 20px;
   color: var(--text-primary);
   font-size: 15px;
@@ -218,13 +220,16 @@
 }
 
 .nameInput:focus {
-  background: var(--surface-container-high);
+  background: var(--surface-container-high) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 .nameSaveBtn {
   padding: 0 24px;
-  background: var(--brand);
-  color: var(--surface);
+  background: var(--brand-solid);
+  color: var(--brand-on);
   border: none;
   font-size: 14px;
   font-weight: 700;
@@ -262,10 +267,14 @@
   white-space: nowrap;
 }
 
-.urlInput {
+.urlInput,
+.urlInput:focus {
   flex: 1;
-  background: transparent;
-  border: none;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
   padding: 16px 20px;
   color: var(--text-primary);
   font-size: 15px;
@@ -303,8 +312,8 @@
 }
 
 .saveBtn {
-  background: var(--brand);
-  color: var(--surface);
+  background: var(--brand-solid);
+  color: var(--brand-on);
   padding: 12px 32px;
   border-radius: var(--radius-full);
   font-size: 15px;
@@ -372,7 +381,7 @@
 
 .progressFill {
   height: 100%;
-  background: var(--brand);
+  background: var(--brand-solid);
 }
 
 .checklist {
@@ -430,12 +439,12 @@
 
 .editBtn {
   background: var(--brand-dim);
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 .editBtn:hover {
-  background: var(--brand);
-  color: var(--surface);
+  background: var(--brand-solid);
+  color: var(--brand-on);
 }
 
 .cancelBtn {
@@ -475,7 +484,7 @@
   justify-content: center;
   border-radius: var(--radius-full);
   background: var(--brand-dim);
-  color: var(--brand);
+  color: var(--brand-text);
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -543,7 +552,7 @@
 
 .editInput:focus,
 .editSelect:focus {
-  border-color: var(--brand);
+  border-color: var(--brand-text);
   background: var(--surface-container-high);
 }
 
@@ -569,17 +578,17 @@
 }
 
 .editRadio:has(input:checked) {
-  border-color: var(--brand);
+  border-color: var(--brand-text);
   background: var(--brand-dim);
 }
 
 .editRadio input {
-  accent-color: var(--brand);
+  accent-color: var(--brand-solid);
 }
 
 .saveAccountBtn {
-  background: var(--brand);
-  color: var(--surface);
+  background: var(--brand-solid);
+  color: var(--brand-on);
   padding: 12px 24px;
   border-radius: var(--radius-full);
   font-size: 14px;
@@ -619,9 +628,9 @@
 }
 
 .verticalChipActive {
-  border-color: var(--brand);
+  border-color: var(--brand-text);
   background: var(--brand-dim);
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 @media (max-width: 768px) {
@@ -677,7 +686,7 @@
   padding: 3px 10px;
   border-radius: var(--radius-full);
   background: var(--brand-dim);
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 .integrationField {
@@ -689,10 +698,14 @@
   background: var(--surface-container);
 }
 
-.readonlyInput {
+.readonlyInput,
+.readonlyInput:focus {
   flex: 1;
-  background: transparent;
-  border: none;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
   padding: 14px 20px;
   color: var(--text-secondary);
   font-size: 14px;
@@ -717,7 +730,7 @@
 
 .copyBtn:hover {
   background: var(--surface-container-highest);
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 .apiMetaRow {
@@ -914,8 +927,8 @@
 }
 
 .avatarActionPrimary {
-  background: var(--brand);
-  color: var(--surface);
+  background: var(--brand-solid);
+  color: var(--brand-on);
   box-shadow: 0 0 14px var(--brand-glow);
 }
 
@@ -962,7 +975,7 @@
 
 .uploadProgress > div {
   height: 100%;
-  background: var(--brand);
+  background: var(--brand-solid);
 }
 
 @media (max-width: 700px) {

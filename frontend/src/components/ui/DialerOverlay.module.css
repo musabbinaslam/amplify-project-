@@ -168,7 +168,7 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: var(--surface-container-highest);
+  color: var(--brand-on);
 }
 
 .actionBtn:hover {
@@ -176,7 +176,8 @@
 }
 
 .acceptBtn {
-  background: var(--brand);
+  background: var(--brand-solid);
+  color: var(--brand-on);
   box-shadow: 0 8px 24px var(--brand-glow);
   width: 72px;
   height: 72px;
@@ -261,7 +262,7 @@
 .idleBadgeCollapsed:hover {
   transform: scale(1.1);
   background: var(--surface-container-highest) !important;
-  border-color: var(--brand);
+  border-color: var(--brand-text);
 }
 
 .idleBadgeCollapsed .statusDot {

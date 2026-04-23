@@ -111,13 +111,13 @@
 
 .saveBarGhostBtn:focus-visible,
 .saveBarPrimaryBtn:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--brand) 65%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--brand-text) 65%, transparent);
   outline-offset: 2px;
 }
 
 .saveBarPrimaryBtn {
-  background: var(--brand);
-  color: var(--surface);
+  background: var(--brand-solid);
+  color: var(--brand-on);
   border: none;
   box-shadow: 0 0 14px var(--brand-glow);
 }

@@ -36,7 +36,7 @@
 .logoIcon {
   width: 28px;
   height: 28px;
-  background: var(--brand);
+  background: var(--brand-solid);
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -49,7 +49,7 @@
   height: 0;
   border-top: 6px solid transparent;
   border-bottom: 6px solid transparent;
-  border-left: 10px solid var(--surface-container-lowest);
+  border-left: 10px solid var(--brand-on);
 }
 
 .logo h2 {
@@ -133,8 +133,8 @@
 
 .navItem.active {
   background: color-mix(in srgb, var(--surface-container-high) 94%, transparent);
-  color: var(--brand);
-  border-color: color-mix(in srgb, var(--brand) 44%, transparent);
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 44%, transparent);
   box-shadow: 0 1px 8px var(--brand-glow);
 }
 
@@ -146,7 +146,7 @@
   bottom: 8px;
   width: 3px;
   border-radius: 99px;
-  background: var(--brand);
+  background: var(--brand-text);
 }
 
 .navItemCollapsed {
@@ -184,8 +184,8 @@
 }
 
 .navItem.active .iconWrap {
-  background: color-mix(in srgb, var(--brand) 15%, transparent);
-  color: var(--brand);
+  background: color-mix(in srgb, var(--brand-text) 15%, transparent);
+  color: var(--brand-text);
 }
 
 .iconWrapCollapsed {
@@ -195,10 +195,10 @@
 }
 
 .navItemCollapsed.active .iconWrapCollapsed {
-  background: color-mix(in srgb, var(--brand) 16%, transparent);
-  color: var(--brand);
+  background: color-mix(in srgb, var(--brand-text) 16%, transparent);
+  color: var(--brand-text);
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--brand) 50%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--brand-text) 50%, transparent),
     0 2px 10px var(--brand-glow);
 }
 
@@ -219,7 +219,7 @@
 
 .badge.beta {
   background: var(--brand-dim);
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 .badge.comingSoon {

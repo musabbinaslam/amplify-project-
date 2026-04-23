@@ -51,7 +51,7 @@
 }
 
 .walletIcon {
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 .balance {

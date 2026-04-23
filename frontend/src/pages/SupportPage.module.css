@@ -34,7 +34,7 @@
   width: 64px;
   height: 64px;
   background: var(--surface-container-highest);
-  color: var(--brand);
+  color: var(--brand-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -102,7 +102,7 @@
   height: 36px;
   border-radius: var(--radius-full);
   background: var(--surface-container-highest);
-  color: var(--brand);
+  color: var(--brand-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -113,8 +113,8 @@
   width: 36px;
   height: 36px;
   border-radius: var(--radius-full);
-  background: var(--brand);
-  color: var(--surface);
+  background: var(--brand-solid);
+  color: var(--brand-on);
   font-size: 14px;
   font-weight: 700;
   display: flex;
@@ -141,8 +141,8 @@
 }
 
 .userBubble {
-  background: var(--brand);
-  color: var(--surface);
+  background: var(--brand-solid);
+  color: var(--brand-on);
   border-bottom-right-radius: 4px;
   font-weight: 500;
 }
@@ -220,8 +220,8 @@
   width: 44px;
   height: 44px;
   border-radius: var(--radius-full);
-  background: var(--brand);
-  color: var(--surface);
+  background: var(--brand-solid);
+  color: var(--brand-on);
   border: none;
   cursor: pointer;
   display: flex;
@@ -265,7 +265,7 @@
 }
 
 .emailCard h3 svg {
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 .emailNote {
@@ -311,7 +311,7 @@
 
 .emailInput:focus,
 .emailSelect:focus {
-  border-color: var(--brand);
+  border-color: var(--brand-text);
   background: var(--surface-container-high);
 }
 
@@ -336,7 +336,7 @@
 }
 
 .emailTextarea:focus {
-  border-color: var(--brand);
+  border-color: var(--brand-text);
   background: var(--surface-container-high);
 }
 
@@ -349,8 +349,8 @@
   align-items: center;
   gap: 10px;
   padding: 12px 28px;
-  background: var(--brand);
-  color: var(--surface);
+  background: var(--brand-solid);
+  color: var(--brand-on);
   border: none;
   border-radius: var(--radius-full);
   font-size: 14px;

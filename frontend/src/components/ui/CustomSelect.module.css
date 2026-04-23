@@ -26,7 +26,7 @@
 
 .trigger:hover {
   background: var(--surface-container-high);
-  border-color: var(--brand);
+  border-color: var(--brand-text);
 }
 
 .selectedLabel {
@@ -93,12 +93,12 @@
 }
 
 .activeItem {
-  background: color-mix(in srgb, var(--brand) 12%, transparent);
-  color: var(--brand);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  color: var(--brand-text);
   font-weight: 600;
 }
 
 .activeItem:hover {
-  background: color-mix(in srgb, var(--brand) 18%, transparent);
-  color: var(--brand);
+  background: color-mix(in srgb, var(--brand-text) 18%, transparent);
+  color: var(--brand-text);
 }

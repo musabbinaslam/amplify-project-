@@ -1,6 +1,6 @@
 .banner {
   height: var(--banner-height);
-  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dim) 100%);
+  background: linear-gradient(135deg, var(--brand-solid) 0%, var(--brand-dim) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -12,14 +12,14 @@
 }
 
 .text {
-  color: var(--surface-container-highest);
+  color: var(--brand-on);
   font-weight: 700;
   font-size: 14px;
 }
 
 .button {
-  background: var(--surface-container-highest);
-  color: var(--brand);
+  background: var(--brand-on);
+  color: var(--brand-solid);
   padding: 4px 12px;
   border-radius: var(--radius-full);
   font-size: 12px;
@@ -35,7 +35,7 @@
 .closeButton {
   position: absolute;
   right: 24px;
-  color: var(--surface-container-highest);
+  color: var(--brand-on);
   font-size: 20px;
   line-height: 1;
   opacity: 0.8;

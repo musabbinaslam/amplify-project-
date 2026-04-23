@@ -26,7 +26,7 @@
 .logoIcon {
   width: 36px;
   height: 36px;
-  background: var(--brand);
+  background: var(--brand-solid);
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -39,7 +39,7 @@
   height: 0;
   border-left: 7px solid transparent;
   border-right: 7px solid transparent;
-  border-bottom: 12px solid var(--surface);
+  border-bottom: 12px solid var(--brand-on);
 }
 
 .logoText {
@@ -103,14 +103,14 @@
 }
 
 .input:focus {
-  border-color: var(--brand);
+  border-color: var(--brand-text);
 }
 
 .submitBtn {
   width: 100%;
   padding: 16px;
-  background: var(--brand);
-  color: var(--surface-container-highest);
+  background: var(--brand-solid);
+  color: var(--brand-on);
   font-size: 15px;
   font-weight: 700;
   font-family: inherit;
@@ -203,7 +203,7 @@
   margin-top: 12px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--brand);
+  color: var(--brand-text);
   text-decoration: none;
   transition: opacity 0.2s ease;
 }
@@ -213,14 +213,14 @@
 }
 
 .footerLink {
-  color: var(--brand);
+  color: var(--brand-text);
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.2s;
 }
 
 .footerLink:hover {
-  color: var(--brand);
+  color: var(--brand-text);
   opacity: 0.8;
 }
 
@@ -233,7 +233,7 @@
 .forgotLink {
   font-size: 13px;
   font-weight: 600;
-  color: var(--brand);
+  color: var(--brand-text);
   cursor: pointer;
   padding: 0;
   transition: opacity 0.2s;

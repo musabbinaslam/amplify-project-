@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { DollarSign, Clock, RefreshCw, CheckCircle2, Award, X, AlertCircle } from 'lucide-react';
 import classes from './BillingPage.module.css';
 import { stripeService } from '../services/stripeService';
+import PageLoader from '../components/ui/PageLoader';
 
 const TOPUP_TIERS = [
   { id: 'tier_50', label: '$50', amountCents: 5000 },
@@ -121,7 +122,7 @@ const BillingPage = () => {
   const formatMoney = (cents) => `$${(cents / 100).toFixed(2)}`;
 
   if (loading) {
-    return <div className={classes.loadingContainer}><RefreshCw className={classes.spinner} /> Loading billing info...</div>;
+    return <PageLoader />;
   }
 
   const balance = wallet?.balance || 0;
