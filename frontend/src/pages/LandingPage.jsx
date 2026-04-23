@@ -101,9 +101,13 @@ const LandingPage = () => {
       <nav className={classes.navbar}>
         <div className={classes.navInner}>
           <Link to="/" className={classes.navLogo}>
-            <div className={classes.logoIcon}>
-              <span className={classes.logoTriangle} />
-            </div>
+            <img
+              src="/logo.png"
+              alt="Callsflow logo"
+              className={classes.logoImg}
+              loading="eager"
+              decoding="async"
+            />
             <span className={classes.logoText}>CALLSFLOW</span>
           </Link>
 
@@ -465,9 +469,13 @@ const LandingPage = () => {
         <div className={classes.footerInner}>
           <div className={classes.footerBrand}>
             <div className={classes.navLogo}>
-              <div className={classes.logoIcon}>
-                <span className={classes.logoTriangle} />
-              </div>
+              <img
+                src="/logo.png"
+                alt="Callsflow logo"
+                className={classes.logoImg}
+                loading="eager"
+                decoding="async"
+              />
               <span className={classes.logoText}>CALLSFLOW</span>
             </div>
             <p className={classes.footerTagline}>Inbound insurance calls for agents.</p>

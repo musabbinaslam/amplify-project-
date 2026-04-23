@@ -289,9 +289,13 @@ const SignupPage = () => {
           transition={{ duration: 0.4, ease: 'easeOut' }}
         >
           <div className={classes.logoBlock}>
-            <div className={classes.logoIcon}>
-              <span className={classes.logoTriangle} />
-            </div>
+            <img
+              src="/logo.png"
+              alt="Callsflow logo"
+              className={classes.logoImg}
+              loading="eager"
+              decoding="async"
+            />
             <span className={classes.logoText}>CALLSFLOW</span>
           </div>
 
@@ -319,9 +323,13 @@ const SignupPage = () => {
         transition={{ duration: 0.4, ease: 'easeOut' }}
       >
         <div className={classes.logoBlock}>
-          <div className={classes.logoIcon}>
-            <span className={classes.logoTriangle} />
-          </div>
+          <img
+            src="/logo.png"
+            alt="Callsflow logo"
+            className={classes.logoImg}
+            loading="eager"
+            decoding="async"
+          />
           <span className={classes.logoText}>CALLSFLOW</span>
         </div>
 
