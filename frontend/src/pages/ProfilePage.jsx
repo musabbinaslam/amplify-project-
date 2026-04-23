@@ -4,6 +4,11 @@ import { User, Camera, Copy, Check, Link2, Key, Loader2, X, Eye, EyeOff, Refresh
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import { getProfileBootstrap, saveProfile, regenerateApiKey, checkSlugAvailability, getProfileActivity } from '../services/profileService';
+import {
+  COUNTRY_DIAL_CODES,
+  DEFAULT_PHONE_COUNTRY,
+  buildInternationalPhone,
+} from '../constants/countryDialCodes';
 import CustomSelect from '../components/ui/CustomSelect';
 import UnsavedChangesBar from '../components/ui/UnsavedChangesBar';
 import PageLoader from '../components/ui/PageLoader';
@@ -17,9 +22,30 @@ const MAX_AVATAR_OUTPUT_PX = 512;
 const MIN_SLUG_LEN = 3;
 
 function normalizeSlug(v) { return String(v || '').toLowerCase().replace(/[^a-z0-9-_]/g, ''); }
-function isValidPhone(v) {
-  const cleaned = String(v || '').replace(/[^\d+]/g, '');
-  return cleaned.length >= 10 && cleaned.length <= 16;
+function isValidPhoneLocal(v) {
+  const cleaned = String(v || '').replace(/\D/g, '');
+  return cleaned.length >= 6 && cleaned.length <= 15;
+}
+function splitInternationalPhone(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return { phoneCountry: DEFAULT_PHONE_COUNTRY, phone: '' };
+  }
+
+  const normalized = raw.startsWith('+') ? raw : `+${raw.replace(/[^\d]/g, '')}`;
+  const exactDialMatch = COUNTRY_DIAL_CODES
+    .slice()
+    .sort((a, b) => b.dial.length - a.dial.length)
+    .find((c) => normalized.startsWith(c.dial));
+
+  if (!exactDialMatch) {
+    return { phoneCountry: DEFAULT_PHONE_COUNTRY, phone: raw.replace(/\D/g, '') };
+  }
+
+  return {
+    phoneCountry: exactDialMatch.code,
+    phone: normalized.slice(exactDialMatch.dial.length).replace(/\D/g, ''),
+  };
 }
 function createImage(url) {
   return new Promise((resolve, reject) => {
@@ -52,7 +78,7 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [savingAll, setSavingAll] = useState(false);
   const [autosaving, setAutosaving] = useState(false);
-  const [form, setForm] = useState({ displayName: '', bio: '', slug: '', phone: '', weeklySpend: '', usedInbound: '', verticals: [], hearAbout: '', avatarUrl: '' });
+  const [form, setForm] = useState({ displayName: '', bio: '', slug: '', phoneCountry: DEFAULT_PHONE_COUNTRY, phone: '', weeklySpend: '', usedInbound: '', verticals: [], hearAbout: '', avatarUrl: '' });
   const [initialForm, setInitialForm] = useState(null);
   const [apiKey, setApiKey] = useState('');
   const [apiKeyRotatedAt, setApiKeyRotatedAt] = useState(null);
@@ -78,7 +104,7 @@ const ProfilePage = () => {
 
   const webhookUrl = 'https://api.callsflow.io/api/leads/webhook';
   const bioValid = form.bio.trim().length >= 20 && form.bio.trim().length <= 500;
-  const phoneValid = !form.phone || isValidPhone(form.phone);
+  const phoneValid = !form.phone || isValidPhoneLocal(form.phone);
   const slugValid = form.slug.length >= MIN_SLUG_LEN && /^[a-z0-9-_]+$/.test(form.slug);
 
   const isDirty = useMemo(() => initialForm ? JSON.stringify(form) !== JSON.stringify(initialForm) : false, [form, initialForm]);
@@ -107,11 +133,13 @@ const ProfilePage = () => {
         if (cancelled) return;
         const onboardingData = profile?.onboarding || {};
         const verticals = onboardingData.verticals ? (Array.isArray(onboardingData.verticals) ? onboardingData.verticals : String(onboardingData.verticals).split(',').map((v) => v.trim()).filter(Boolean)) : [];
+        const phoneParts = splitInternationalPhone(onboardingData.phone || '');
         const next = {
           displayName: user.name || '',
           bio: profile?.bio || '',
           slug: profile?.landingPageSlug || normalizeSlug(user.name || ''),
-          phone: onboardingData.phone || '',
+          phoneCountry: phoneParts.phoneCountry,
+          phone: phoneParts.phone,
           weeklySpend: onboardingData.weeklySpend || '',
           usedInbound: onboardingData.usedInbound || '',
           verticals,
@@ -166,14 +194,21 @@ const ProfilePage = () => {
     autosaveTimerRef.current = setTimeout(async () => {
       setAutosaving(true);
       try {
-        await saveProfile(user.uid, { bio: form.bio, onboarding: { ...(onboarding || {}), phone: form.phone, verticals: form.verticals } });
+        await saveProfile(user.uid, {
+          bio: form.bio,
+          onboarding: {
+            ...(onboarding || {}),
+            phone: buildInternationalPhone(form.phoneCountry, form.phone),
+            verticals: form.verticals,
+          },
+        });
       } catch (err) {
         console.error('Autosave failed:', err);
       }
       setAutosaving(false);
     }, 2000);
     return () => clearTimeout(autosaveTimerRef.current);
-  }, [form.bio, form.phone, form.verticals, onboarding, initialForm, user?.uid]);
+  }, [form.bio, form.phoneCountry, form.phone, form.verticals, onboarding, initialForm, user?.uid]);
 
   const setField = (k, v) => setForm((prev) => ({ ...prev, [k]: v }));
   const toggleVertical = (v) => setForm((prev) => ({ ...prev, verticals: prev.verticals.includes(v) ? prev.verticals.filter((x) => x !== v) : [...prev.verticals, v] }));
@@ -192,7 +227,14 @@ const ProfilePage = () => {
         bio: form.bio,
         landingPageSlug: form.slug,
         avatarUrl: form.avatarUrl || '',
-        onboarding: { ...(onboarding || {}), phone: form.phone, weeklySpend: form.weeklySpend, usedInbound: form.usedInbound, verticals: form.verticals, hearAbout: form.hearAbout },
+        onboarding: {
+          ...(onboarding || {}),
+          phone: buildInternationalPhone(form.phoneCountry, form.phone),
+          weeklySpend: form.weeklySpend,
+          usedInbound: form.usedInbound,
+          verticals: form.verticals,
+          hearAbout: form.hearAbout,
+        },
       });
       setInitialForm(form);
       setLastUpdated(new Date().toISOString());
@@ -327,7 +369,29 @@ const ProfilePage = () => {
           <div className={classes.editGrid}>
             <div className={classes.editGroup}>
               <label className={classes.editLabel}>Phone Number</label>
-              <input className={classes.editInput} type="tel" value={form.phone} onChange={(e) => setField('phone', e.target.value)} />
+              <div className={classes.profilePhoneRow}>
+                <select
+                  className={classes.profileCountrySelect}
+                  value={form.phoneCountry}
+                  onChange={(e) => setField('phoneCountry', e.target.value)}
+                  aria-label="Phone country"
+                >
+                  {COUNTRY_DIAL_CODES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.name} ({c.dial})
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className={classes.profilePhoneInput}
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel-national"
+                  placeholder="Mobile number (no country code)"
+                  value={form.phone}
+                  onChange={(e) => setField('phone', e.target.value)}
+                />
+              </div>
               <div className={classes.validationText}>{phoneValid ? <span className={classes.valid}>Phone format looks valid.</span> : <span className={classes.invalid}>Invalid phone format.</span>}</div>
             </div>
             <div className={classes.editGroup}>
