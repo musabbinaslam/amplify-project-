@@ -37,7 +37,17 @@ const Topbar = () => {
   const getPageTitle = (pathname) => {
     const stripped = pathname.replace(/^\/app\/?/, '');
     if (!stripped) return 'Lets get started';
-    return stripped.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    const ACRONYMS = new Set(['ai', 'aca', 'id', 'api', 'us']);
+    const titleize = (segment) =>
+      segment
+        .split('-')
+        .map((word) => {
+          if (!word) return word;
+          if (ACRONYMS.has(word.toLowerCase())) return word.toUpperCase();
+          return word.charAt(0).toUpperCase() + word.slice(1);
+        })
+        .join(' ');
+    return stripped.split('/').map(titleize).join(' / ');
   };
 
   const formatBalance = (cents) => {
