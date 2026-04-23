@@ -16,6 +16,7 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase';
 import { getProfile, saveProfile } from '../services/profileService';
+import { useThemeStore } from './themeStore';
 
 const mapFirebaseUser = (firebaseUser) => ({
   uid: firebaseUser.uid,
@@ -28,6 +29,9 @@ const mapFirebaseUser = (firebaseUser) => ({
 async function loadUserRole(uid) {
   try {
     const profile = await getProfile(uid);
+    if (profile?.brandColor) {
+      try { useThemeStore.getState().hydrateFromProfile(profile.brandColor); } catch {}
+    }
     return profile?.role === 'admin' ? 'admin' : 'agent';
   } catch {
     return 'agent';
@@ -146,6 +150,7 @@ const useAuthStore = create((set, get) => ({
   logout: async () => {
     await signOut(auth);
     set({ user: null, token: null });
+    try { useThemeStore.getState().resetBrand(); } catch {}
   },
 
   resetPassword: async (email) => {

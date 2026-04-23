@@ -1,5 +1,7 @@
 const { stripe, CREDIT_TIERS, PLANS } = require('../config/stripe');
 const walletService = require('../services/walletService');
+const admin = require('../config/firebaseAdmin');
+const { getDb } = require('../config/firestoreDb');
 
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
@@ -46,7 +48,7 @@ exports.createCheckout = async (req, res) => {
         type: 'credit_topup',
         amountCents: String(amountCents),
       },
-      success_url: `${CLIENT_URL}/app/billing?payment=success`,
+      success_url: `${CLIENT_URL}/app/billing?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${CLIENT_URL}/app/billing?payment=cancelled`,
     });
 
@@ -54,6 +56,63 @@ exports.createCheckout = async (req, res) => {
   } catch (err) {
     console.error('[Stripe] Checkout error:', err.message);
     res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+};
+
+/**
+ * POST /api/stripe/verify-checkout
+ * Verifies a checkout session and credits wallet if webhook has not done so yet.
+ * This is a safety net for delayed/missed webhook deliveries.
+ */
+exports.verifyCheckout = async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'Stripe not configured' });
+
+  const { sessionId } = req.body || {};
+  if (!sessionId || typeof sessionId !== 'string' || !sessionId.startsWith('cs_')) {
+    return res.status(400).json({ error: 'Invalid sessionId' });
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (!session) return res.status(404).json({ error: 'Checkout session not found' });
+
+    if (session.mode !== 'payment' || session.metadata?.type !== 'credit_topup') {
+      return res.status(400).json({ error: 'Session is not a credit top-up payment' });
+    }
+
+    const uid = session.metadata?.uid;
+    const amountCents = parseInt(session.metadata?.amountCents, 10);
+    if (!uid || !amountCents) {
+      return res.status(400).json({ error: 'Missing credit metadata on checkout session' });
+    }
+
+    if (uid !== req.user.uid) {
+      return res.status(403).json({ error: 'Session does not belong to current user' });
+    }
+
+    if (session.payment_status !== 'paid') {
+      return res.status(409).json({ error: 'Payment not completed yet' });
+    }
+
+    const alreadyCredited = await hasCreditTransactionForSession(uid, session.id);
+    if (!alreadyCredited) {
+      const idempotencyKey = session.payment_intent
+        ? `stripe_pi_${session.payment_intent}`
+        : `stripe_cs_${session.id}`;
+
+      await walletService.addCredits(uid, amountCents, 'stripe_checkout', {
+        idempotencyKey,
+        sessionId: session.id,
+        paymentIntentId: session.payment_intent || null,
+        source: 'verify_checkout_fallback',
+      });
+      return res.json({ success: true, credited: true });
+    }
+
+    return res.json({ success: true, credited: false });
+  } catch (err) {
+    console.error('[Stripe] Verify checkout error:', err.message);
+    return res.status(500).json({ error: 'Failed to verify checkout session' });
   }
 };
 
@@ -186,6 +245,7 @@ exports.handleWebhook = async (req, res) => {
 
   console.log(`[Stripe] 📩 Webhook event: ${event.type}`);
 
+  let handlerFailed = false;
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -213,9 +273,13 @@ exports.handleWebhook = async (req, res) => {
     }
   } catch (err) {
     console.error(`[Stripe] Error handling ${event.type}:`, err.message);
+    handlerFailed = true;
   }
 
-  res.json({ received: true });
+  if (handlerFailed) {
+    return res.status(500).send('Webhook handler failed');
+  }
+  return res.json({ received: true });
 };
 
 // ─── Internal helpers ──────────────────────────────────────────────────────
@@ -246,12 +310,31 @@ async function handleCheckoutCompleted(session) {
     return;
   }
 
+  const idempotencyKey = session.payment_intent
+    ? `stripe_pi_${session.payment_intent}`
+    : `stripe_cs_${session.id}`;
+
   await walletService.addCredits(uid, amountCents, 'stripe_checkout', {
+    idempotencyKey,
     sessionId: session.id,
     paymentIntentId: session.payment_intent,
   });
 
   console.log(`[Stripe] ✅ Checkout completed. Added $${(amountCents / 100).toFixed(2)} credits for user ${uid}`);
+}
+
+async function hasCreditTransactionForSession(uid, sessionId) {
+  const db = getDb();
+  if (!db) return false;
+  const snap = await db
+    .collection('users')
+    .doc(uid)
+    .collection('transactions')
+    .where('metadata.sessionId', '==', sessionId)
+    .where('source', '==', 'stripe_checkout')
+    .limit(1)
+    .get();
+  return !snap.empty;
 }
 
 async function handleInvoicePaid(invoice) {
@@ -272,7 +355,10 @@ async function handleInvoicePaid(invoice) {
     const plan = PLANS[planId];
     if (!plan) return;
 
+    const idempotencyKey = `stripe_inv_${invoice.id}`;
+
     await walletService.addCredits(uid, plan.weeklyAmountCents, 'subscription_renewal', {
+      idempotencyKey,
       invoiceId: invoice.id,
       subscriptionId,
       planId,

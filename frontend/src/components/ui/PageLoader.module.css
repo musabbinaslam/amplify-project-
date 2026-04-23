@@ -30,12 +30,12 @@
 .logoIcon {
   width: 48px;
   height: 48px;
-  background: var(--accent-green, #25f425);
+  background: var(--brand-solid, #25f425);
   border-radius: var(--radius-md, 8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 16px var(--accent-green-glow, rgba(37, 244, 37, 0.3));
+  box-shadow: 0 0 16px var(--brand-glow, rgba(37, 244, 37, 0.3));
 }
 
 .logoTriangle {
@@ -43,7 +43,7 @@
   height: 0;
   border-left: 9px solid transparent;
   border-right: 9px solid transparent;
-  border-bottom: 15px solid var(--surface, #0e0e0e);
+  border-bottom: 15px solid var(--brand-on, #0e0e0e);
 }
 
 @keyframes logoPulse {
@@ -64,8 +64,8 @@
   width: 40%;
   height: 100%;
   border-radius: 4px;
-  background: var(--accent-green, #25f425);
-  box-shadow: 0 0 8px var(--accent-green-glow, rgba(37, 244, 37, 0.3));
+  background: var(--brand-solid, #25f425);
+  box-shadow: 0 0 8px var(--brand-glow, rgba(37, 244, 37, 0.3));
   animation: barSlide 1.4s ease-in-out infinite;
 }
 

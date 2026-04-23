@@ -4,8 +4,7 @@ const { VoiceResponse } = twilio.twiml;
 const agentManager = require('../services/agentManager');
 const callLogService = require('../services/callLogService');
 const phoneRouteService = require('../services/phoneRouteService');
-const { redisClient } = require('../config/redis');
-const { qaInsightQueue } = require('../queues/qaQueue');
+const { dispatchQaInsightJob } = require('../queues/qaQueue');
 
 exports.generateToken = (req, res) => {
   const { identity } = req.body;
@@ -137,23 +136,15 @@ exports.handleCallCompleted = async (req, res) => {
       }
     }
 
-    // Non-blocking QA insight generation dispatched cleanly via BullMQ
+    // Non-blocking QA insight generation — runs in-process with exponential backoff retries.
+    // Dispatched AFTER the HTTP response is already sent, so call handling is never delayed.
     if (resolvedAgentId && savedLog?.id) {
-        try {
-            await qaInsightQueue.add('generate-qa-insight', {
-                savedLog,
-                agentId: resolvedAgentId,
-                FromState: FromState || null
-            }, {
-                attempts: 3,
-                backoff: { type: 'exponential', delay: 1000 },
-                removeOnComplete: true,
-                removeOnFail: false
-            });
-            console.log(`[Twilio] Queued QA Insight generation for Call ${savedLog.id}`);
-        } catch (err) {
-            console.error('[QA] Failed to dispatch QA job to queue:', err.message);
-        }
+        dispatchQaInsightJob({
+            savedLog,
+            agentId: resolvedAgentId,
+            FromState: FromState || null,
+        });
+        console.log(`[Twilio] QA Insight dispatched (async) for Call ${savedLog.id}`);
     }
 
     const twiml = new VoiceResponse();
@@ -167,20 +158,28 @@ exports.handleCallCompleted = async (req, res) => {
  */
 exports.getLogs = async (req, res) => {
     try {
-        const limit = Math.min(Number(req.query.limit || 100), 500);
-        const logs = await callLogService.getLogsByUser(req.user.uid, limit);
+        const limit = Math.min(Number(req.query.limit || 500), 1000);
+        let startDate = null;
+        let endDate = null;
+        if (req.query.startDate) startDate = new Date(req.query.startDate);
+        if (req.query.endDate) endDate = new Date(req.query.endDate);
+
+        const logs = await callLogService.getLogsByUser(req.user.uid, limit, startDate, endDate);
         res.json(logs);
     } catch (err) {
         console.error('[Voice] getLogs error:', err.message);
         res.status(500).json({ error: 'Failed to load call logs' });
     }
 };
+
 /**
  * Proxy a Twilio recording so the browser doesn't need to authenticate directly.
  * Supports HTTP Range requests for instant playback and audio scrubbing.
  */
 exports.proxyRecording = async (req, res) => {
-    const { recordingSid } = req.params;
+    const rawRecordingSid = String(req.params.recordingSid || '');
+    const sidMatch = rawRecordingSid.match(/(RE[0-9a-fA-F]{32})/);
+    const recordingSid = sidMatch?.[1] || rawRecordingSid.replace(/\.(json|mp3)$/i, '');
 
     if (!recordingSid) {
         return res.status(400).json({ error: 'Recording SID is required' });
@@ -199,21 +198,36 @@ exports.proxyRecording = async (req, res) => {
             upstreamHeaders['Range'] = rangeHeader;
         }
 
-        const response = await fetch(twilioUrl, { headers: upstreamHeaders });
+        // Intercept redirect to prevent forwarding Twilio Basic Auth to AWS S3 (which causes a 400 Bad Request)
+        let response = await fetch(twilioUrl, { 
+            headers: upstreamHeaders,
+            redirect: 'manual'
+        });
 
-        if (!response.ok && response.status !== 206) {
-            throw new Error(`Twilio returned ${response.status}`);
+        if (response.status === 302 || response.status === 307) {
+            const redirectUrl = response.headers.get('location');
+            if (!redirectUrl) throw new Error('Twilio redirect missing location header');
+            
+            // Re-fetch from the S3 URL using ONLY the Range header
+            const s3Headers = rangeHeader ? { 'Range': rangeHeader } : {};
+            response = await fetch(redirectUrl, { headers: s3Headers });
         }
 
-        // Pass Content-Length so the browser knows how big the file is
+        if (!response.ok && response.status !== 206) {
+            throw new Error(`Twilio/S3 returned ${response.status}`);
+        }
+
+        // Pass through upstream metadata so the browser can parse duration/scrub correctly.
         const contentLength = response.headers.get('content-length');
         const contentRange = response.headers.get('content-range');
+        const contentType = response.headers.get('content-type') || 'audio/mpeg';
 
-        // If browser requested a range, return 206 Partial Content
-        const statusCode = rangeHeader ? 206 : 200;
+        // Preserve actual upstream status. Some CDNs ignore Range and still return 200.
+        // Forcing 206 without Content-Range can make players show 0:00 and fail playback.
+        const statusCode = response.status === 206 ? 206 : 200;
 
         const resHeaders = {
-            'Content-Type': 'audio/mpeg',
+            'Content-Type': contentType,
             'Accept-Ranges': 'bytes',
             'Cache-Control': 'private, max-age=3600',
         };

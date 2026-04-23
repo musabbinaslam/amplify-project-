@@ -35,7 +35,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: var(--accent-green);
+  background: var(--brand);
   opacity: 0.9;
   animation: scanLight 2s infinite ease-in-out;
 }
@@ -168,7 +168,7 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: var(--surface-container-highest);
+  color: var(--brand-on);
 }
 
 .actionBtn:hover {
@@ -176,13 +176,14 @@
 }
 
 .acceptBtn {
-  background: var(--accent-green);
-  box-shadow: 0 8px 24px var(--accent-green-glow);
+  background: var(--brand-solid);
+  color: var(--brand-on);
+  box-shadow: 0 8px 24px var(--brand-glow);
   width: 72px;
   height: 72px;
 }
 .acceptBtn:hover {
-  box-shadow: 0 12px 32px var(--accent-green-glow);
+  box-shadow: 0 12px 32px var(--brand-glow);
 }
 
 .rejectBtn {
@@ -261,7 +262,7 @@
 .idleBadgeCollapsed:hover {
   transform: scale(1.1);
   background: var(--surface-container-highest) !important;
-  border-color: var(--accent-green);
+  border-color: var(--brand-text);
 }
 
 .idleBadgeCollapsed .statusDot {

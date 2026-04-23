@@ -7,6 +7,7 @@ import {
   getAdminAiAgentPlans,
   getAdminAiCoachingOverview,
 } from '../services/adminService';
+import PageLoader from '../components/ui/PageLoader';
 import classes from './AdminAITrainingPage.module.css';
 
 const AdminAITrainingPage = () => {
@@ -58,6 +59,8 @@ const AdminAITrainingPage = () => {
     () => rows.find((r) => r.uid === selectedUid) || rows[0] || null,
     [rows, selectedUid],
   );
+
+  if (loading && !overview) return <PageLoader />;
 
   return (
     <section className={classes.page}>
@@ -201,7 +204,7 @@ const AdminAITrainingPage = () => {
                         }}
                         formatter={(value, key) => [key === 'score' ? `${value}/100` : value, key === 'score' ? 'Score' : 'Calls']}
                       />
-                      <Line type="monotone" dataKey="score" stroke="var(--accent-cyan)" strokeWidth={2} />
+                      <Line type="monotone" dataKey="score" stroke="var(--brand-text)" strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>

@@ -17,11 +17,11 @@
   height: 58px;
   border-radius: var(--radius-full);
   background: var(--surface-container-highest);
-  color: var(--accent-green);
+  color: var(--brand-text);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 16px var(--accent-green-glow);
+  box-shadow: 0 0 16px var(--brand-glow);
 }
 
 .header h2 {
@@ -65,9 +65,9 @@
 }
 
 .pillBtnActive {
-  color: var(--accent-green);
-  border-color: var(--accent-green);
-  background: var(--accent-green-dim);
+  color: var(--brand-text);
+  border-color: var(--brand-text);
+  background: var(--brand-dim);
 }
 
 .refreshBtn {
@@ -134,8 +134,8 @@
   width: 34px;
   height: 34px;
   border-radius: var(--radius-md);
-  background: var(--accent-green-dim);
-  color: var(--accent-green);
+  background: var(--brand-dim);
+  color: var(--brand-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -233,8 +233,8 @@
 }
 
 .listItemActive {
-  border-color: var(--accent-green);
-  background: var(--accent-green-dim);
+  border-color: var(--brand-text);
+  background: var(--brand-dim);
 }
 
 .scorePill {
@@ -283,7 +283,7 @@
 
 .rubricFill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+  background: linear-gradient(90deg, var(--accent-cyan), var(--brand-solid));
 }
 
 .feedbackBlocks {
@@ -349,8 +349,8 @@
 }
 
 .statuscompleted {
-  background: var(--accent-green-dim);
-  color: var(--accent-green);
+  background: var(--brand-dim);
+  color: var(--brand-text);
 }
 
 .statussnoozed {
@@ -476,7 +476,7 @@
 }
 
 .deltaUp {
-  color: var(--accent-green);
+  color: var(--brand-text);
 }
 
 .deltaDown {

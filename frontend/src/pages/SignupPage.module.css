@@ -26,12 +26,12 @@
 .logoIcon {
   width: 36px;
   height: 36px;
-  background: var(--accent-green);
+  background: var(--brand-solid);
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 10px var(--accent-green-glow);
+  box-shadow: 0 0 10px var(--brand-glow);
 }
 
 .logoTriangle {
@@ -39,7 +39,7 @@
   height: 0;
   border-left: 7px solid transparent;
   border-right: 7px solid transparent;
-  border-bottom: 12px solid var(--surface);
+  border-bottom: 12px solid var(--brand-on);
 }
 
 .logoText {
@@ -110,7 +110,7 @@
 
 .input:focus,
 .select:focus {
-  border-color: var(--accent-green);
+  border-color: var(--brand-text);
 }
 
 .select {
@@ -138,7 +138,7 @@
 }
 
 .phoneRow:focus-within {
-  border-color: var(--accent-green);
+  border-color: var(--brand-text);
 }
 
 .countrySelect {
@@ -165,13 +165,16 @@
   color: var(--text-primary);
 }
 
-.phoneInput {
+.phoneInput,
+.phoneInput:focus {
   flex: 1;
   min-width: 0;
   padding: 12px 14px;
-  background: transparent;
-  border: none;
-  border-radius: 0;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
   color: var(--text-primary);
   font-size: 14px;
   font-family: inherit;
@@ -211,7 +214,7 @@
 }
 
 .radioInput:checked {
-  border-color: var(--accent-green);
+  border-color: var(--brand-text);
 }
 
 .radioInput:checked::after {
@@ -222,8 +225,8 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent-green);
-  box-shadow: 0 0 8px var(--accent-green-glow);
+  background: var(--brand-text);
+  box-shadow: 0 0 8px var(--brand-glow);
 }
 
 .verticalsList {
@@ -236,8 +239,8 @@
 .submitBtn {
   width: 100%;
   padding: 16px;
-  background: var(--accent-green);
-  color: var(--surface-container-highest);
+  background: var(--brand-solid);
+  color: var(--brand-on);
   font-size: 15px;
   font-weight: 700;
   font-family: inherit;
@@ -246,12 +249,12 @@
   cursor: pointer;
   transition: all 0.2s ease;
   margin-top: 4px;
-  box-shadow: 0 4px 12px var(--accent-green-glow);
+  box-shadow: 0 4px 12px var(--brand-glow);
 }
 
 .submitBtn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px var(--accent-green-glow);
+  box-shadow: 0 6px 16px var(--brand-glow);
 }
 
 .submitBtn:active {
@@ -319,13 +322,13 @@
 }
 
 .footerLink {
-  color: var(--accent-green);
+  color: var(--brand-text);
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.2s;
 }
 
 .footerLink:hover {
-  color: var(--accent-green);
+  color: var(--brand-text);
   opacity: 0.8;
 }

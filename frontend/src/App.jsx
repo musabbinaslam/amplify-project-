@@ -1,11 +1,11 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
-import { AnimatePresence } from 'framer-motion';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import AppShell from './components/layout/AppShell';
 import PageLoader from './components/ui/PageLoader';
 import ErrorFallback from './components/ui/ErrorFallback';
-import PageTransition from './components/ui/PageTransition';
 import useAuthStore from './store/authStore';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -23,7 +23,7 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
 
 const ScriptPage = lazy(() => import('./pages/ScriptPage'));
-const LeadsPage = lazy(() => Promise.resolve({ default: () => <PageTransition><div><h2 style={{color: 'white'}}>Leads (Beta)</h2></div></PageTransition> }));
+const LeadsPage = lazy(() => Promise.resolve({ default: () => <div><h2 style={{color: 'white'}}>Leads (Beta)</h2></div> }));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const AdminAITrainingPage = lazy(() => import('./pages/AdminAITrainingPage'));
@@ -49,83 +49,79 @@ const AdminOnly = ({ children }) => {
 };
 
 const AnimatedRoutes = () => {
-  const location = useLocation();
-  
   return (
     <>
       <DialerOverlay />
-      <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
-          {/* Public landing page */}
-          <Route path="/" element={
-            <Suspense fallback={<PageLoader />}><LandingPage /></Suspense>
-          } />
+      <Routes>
+        {/* Public landing page */}
+        <Route path="/" element={
+          <Suspense fallback={<PageLoader />}><LandingPage /></Suspense>
+        } />
 
-          <Route path="/signup" element={
-            <Suspense fallback={<PageLoader />}><SignupPage /></Suspense>
-          } />
-          <Route path="/login" element={
-            <GuestRoute>
-              <Suspense fallback={<PageLoader />}><LoginPage /></Suspense>
-            </GuestRoute>
-          } />
+        <Route path="/signup" element={
+          <Suspense fallback={<PageLoader />}><SignupPage /></Suspense>
+        } />
+        <Route path="/login" element={
+          <GuestRoute>
+            <Suspense fallback={<PageLoader />}><LoginPage /></Suspense>
+          </GuestRoute>
+        } />
 
-          {/* Authenticated app under /app */}
-          <Route path="/app" element={<ProtectedRoute />}>
-            <Route index element={
-              <Suspense fallback={<PageLoader />}><PageTransition><WelcomePage /></PageTransition></Suspense>
-            } />
-            <Route path="take-calls" element={
-              <Suspense fallback={<PageLoader />}><PageTransition><TakeCallsPage /></PageTransition></Suspense>
-            } />
-            <Route path="dashboard" element={
-              <Suspense fallback={<PageLoader />}><PageTransition><DashboardPage /></PageTransition></Suspense>
-            } />
-            <Route path="call-logs" element={
-              <Suspense fallback={<PageLoader />}><PageTransition><CallLogsPage /></PageTransition></Suspense>
-            } />
-            <Route path="ai-training" element={
-              <Suspense fallback={<PageLoader />}><PageTransition><AITrainingPage /></PageTransition></Suspense>
-            } />
-            <Route path="script" element={
-              <Suspense fallback={<PageLoader />}><PageTransition><ScriptPage /></PageTransition></Suspense>
-            } />
-            <Route path="billing" element={
-              <Suspense fallback={<PageLoader />}><PageTransition><BillingPage /></PageTransition></Suspense>
-            } />
-            <Route path="licensed-states" element={
-              <Suspense fallback={<PageLoader />}><PageTransition><LicensedStatesPage /></PageTransition></Suspense>
-            } />
-            <Route path="leads" element={
-              <Suspense fallback={<PageLoader />}><PageTransition><LeadsPage /></PageTransition></Suspense>
-            } />
-            <Route path="profile" element={
-              <Suspense fallback={<PageLoader />}><PageTransition><ProfilePage /></PageTransition></Suspense>
-            } />
-            <Route path="support" element={
-              <Suspense fallback={<PageLoader />}><PageTransition><SupportPage /></PageTransition></Suspense>
-            } />
-            <Route path="settings" element={
-              <Suspense fallback={<PageLoader />}><PageTransition><SettingsPage /></PageTransition></Suspense>
-            } />
-            <Route path="admin" element={
-              <Suspense fallback={<PageLoader />}>
-                <AdminOnly>
-                  <PageTransition><AdminDashboardPage /></PageTransition>
-                </AdminOnly>
-              </Suspense>
-            } />
-            <Route path="admin/ai-training" element={
-              <Suspense fallback={<PageLoader />}>
-                <AdminOnly>
-                  <PageTransition><AdminAITrainingPage /></PageTransition>
-                </AdminOnly>
-              </Suspense>
-            } />
-            <Route path="*" element={<PageTransition><div><h2 style={{color: 'white'}}>404 Not Found</h2></div></PageTransition>} />
-          </Route>
-        </Routes>
-      </AnimatePresence>
+        {/* Authenticated app under /app */}
+        <Route path="/app" element={<ProtectedRoute />}>
+          <Route index element={
+            <Suspense fallback={<PageLoader />}><WelcomePage /></Suspense>
+          } />
+          <Route path="take-calls" element={
+            <Suspense fallback={<PageLoader />}><TakeCallsPage /></Suspense>
+          } />
+          <Route path="dashboard" element={
+            <Suspense fallback={<PageLoader />}><DashboardPage /></Suspense>
+          } />
+          <Route path="call-logs" element={
+            <Suspense fallback={<PageLoader />}><CallLogsPage /></Suspense>
+          } />
+          <Route path="ai-training" element={
+            <Suspense fallback={<PageLoader />}><AITrainingPage /></Suspense>
+          } />
+          <Route path="script" element={
+            <Suspense fallback={<PageLoader />}><ScriptPage /></Suspense>
+          } />
+          <Route path="billing" element={
+            <Suspense fallback={<PageLoader />}><BillingPage /></Suspense>
+          } />
+          <Route path="licensed-states" element={
+            <Suspense fallback={<PageLoader />}><LicensedStatesPage /></Suspense>
+          } />
+          <Route path="leads" element={
+            <Suspense fallback={<PageLoader />}><LeadsPage /></Suspense>
+          } />
+          <Route path="profile" element={
+            <Suspense fallback={<PageLoader />}><ProfilePage /></Suspense>
+          } />
+          <Route path="support" element={
+            <Suspense fallback={<PageLoader />}><SupportPage /></Suspense>
+          } />
+          <Route path="settings" element={
+            <Suspense fallback={<PageLoader />}><SettingsPage /></Suspense>
+          } />
+          <Route path="admin" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminDashboardPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/ai-training" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminAITrainingPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="*" element={<div><h2 style={{color: 'white'}}>404 Not Found</h2></div>} />
+        </Route>
+      </Routes>
     </>
   );
 };
@@ -135,6 +131,8 @@ function App() {
     <Router>
       <ErrorBoundary FallbackComponent={ErrorFallback}>
         <AnimatedRoutes />
+        <Analytics />
+        <SpeedInsights />
       </ErrorBoundary>
     </Router>
   );

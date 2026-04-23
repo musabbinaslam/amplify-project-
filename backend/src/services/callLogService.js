@@ -1,10 +1,11 @@
 const admin = require('../config/firebaseAdmin');
+const { getDb } = require('../config/firestoreDb');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 
 class CallLogService {
     async upsertAdminDailyMetrics(log) {
         if (!admin) return;
-        const db = admin.firestore();
+        const db = getDb();
         const day = new Date().toISOString().slice(0, 10);
         const { FieldValue } = admin.firestore;
         const campaignId = log.campaign || 'unknown';
@@ -96,21 +97,37 @@ class CallLogService {
 
         console.log(`[Billing] 💸 Call ${callSid}: ${durationSec}s. Billable: ${isBillable} ($${cost})`);
 
-        // Save to Firestore under the agent's user document
+        // Save to Firestore under the agent's user document. Upserts by callSid so
+        // an early disposition PATCH that created a stub doc merges into the same record.
         if (admin && agentId) {
             try {
-                const db = admin.firestore();
+                const db = getDb();
                 const callLogsRef = db.collection('users').doc(agentId).collection('callLogs');
-                const docRef = await callLogsRef.add({
-                    ...newLog,
-                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                });
-                newLog.id = docRef.id;
-                console.log(`[Firestore] ✅ Call log saved for user ${agentId}: ${docRef.id}`);
+
+                let existingDocId = null;
+                if (callSid) {
+                    const existing = await callLogsRef.where('callSid', '==', callSid).limit(1).get();
+                    if (!existing.empty) existingDocId = existing.docs[0].id;
+                }
+
+                if (existingDocId) {
+                    await callLogsRef.doc(existingDocId).set({
+                        ...newLog,
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    }, { merge: true });
+                    newLog.id = existingDocId;
+                    console.log(`[Firestore] ✅ Call log merged for user ${agentId}: ${existingDocId}`);
+                } else {
+                    const docRef = await callLogsRef.add({
+                        ...newLog,
+                        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                    newLog.id = docRef.id;
+                    console.log(`[Firestore] ✅ Call log saved for user ${agentId}: ${docRef.id}`);
+                }
                 await this.upsertAdminDailyMetrics(newLog);
             } catch (err) {
                 console.error(`[Firestore] ❌ Failed to save call log for user ${agentId}:`, err.message);
-                // Assign a fallback ID
                 newLog.id = Date.now().toString();
             }
         } else {
@@ -121,22 +138,26 @@ class CallLogService {
         return newLog;
     }
 
+
     /**
      * Get call logs for a specific user from Firestore
      * @param {string} uid - Firebase UID of the user
      * @param {number} limit - Max number of logs to return
      */
-    async getLogsByUser(uid, limit = 100) {
+    async getLogsByUser(uid, limit = 500, startDate = null, endDate = null) {
         if (!admin || !uid) return [];
         try {
-            const db = admin.firestore();
-            const snap = await db
+            const db = getDb();
+            let query = db
                 .collection('users')
                 .doc(uid)
                 .collection('callLogs')
-                .orderBy('createdAt', 'desc')
-                .limit(limit)
-                .get();
+                .orderBy('createdAt', 'desc');
+
+            if (startDate) query = query.where('createdAt', '>=', startDate);
+            if (endDate) query = query.where('createdAt', '<=', endDate);
+
+            const snap = await query.limit(limit).get();
 
             return snap.docs.map((doc) => {
                 const data = doc.data();
@@ -158,7 +179,7 @@ class CallLogService {
     async attachQaInsight(uid, callLogId, qaInsight) {
         if (!admin || !uid || !callLogId) return false;
         try {
-            const db = admin.firestore();
+            const db = getDb();
             await db
                 .collection('users')
                 .doc(uid)

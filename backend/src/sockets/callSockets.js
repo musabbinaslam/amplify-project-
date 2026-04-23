@@ -23,8 +23,19 @@ exports.setupCallSockets = (io) => {
             // Store mapping on socket for cleanup
             socket.agentId = identity;
             
+            // Set initial heartbeat TTL (60s)
+            await redisClient.setEx(`agent:heartbeat:${identity}`, 60, "alive");
+            
             socket.emit('agent:live_confirmed', { status: 'AVAILABLE', identity });
             await broadcastAgentCount(io);
+        });
+
+        socket.on('agent:heartbeat', async (payload) => {
+            const identity = payload?.agentId || socket.agentId;
+            if (identity) {
+                // Heartbeat to keep agent alive in the active pool
+                await redisClient.setEx(`agent:heartbeat:${identity}`, 60, "alive");
+            }
         });
 
         socket.on('agent:release', async () => {

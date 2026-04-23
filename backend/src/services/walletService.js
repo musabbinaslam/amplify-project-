@@ -1,14 +1,17 @@
 const admin = require('../config/firebaseAdmin');
-
-function getDb() {
-  if (!admin) return null;
-  return admin.firestore();
-}
+const { getDb } = require('../config/firestoreDb');
+const { FieldValue } = require('firebase-admin/firestore');
 
 function userRef(uid) {
   const db = getDb();
   if (!db) return null;
   return db.collection('users').doc(uid);
+}
+
+function toSafeDocId(id) {
+  if (!id) return null;
+  // Firestore doc IDs cannot contain '/' and some runtimes may not support String.prototype.replaceAll
+  return String(id).replace(/\//g, '_').slice(0, 1500);
 }
 
 /**
@@ -41,24 +44,66 @@ async function getBalance(uid) {
  * @param {string} uid
  * @param {number} amountCents - positive integer (in cents)
  * @param {string} source - 'stripe_checkout' | 'subscription_renewal' | 'manual'
- * @param {object} metadata - { sessionId, invoiceId, etc. }
+ * @param {object} metadata - { sessionId, invoiceId, idempotencyKey, etc. }
  */
 async function addCredits(uid, amountCents, source = 'manual', metadata = {}) {
   const ref = userRef(uid);
   if (!ref) throw new Error('Database unavailable');
-  const { FieldValue } = admin.firestore;
 
-  // Atomically increment balance
-  await ref.set(
-    { wallet: { balance: FieldValue.increment(amountCents) } },
-    { merge: true }
-  );
+  const idempotencyKey = toSafeDocId(metadata?.idempotencyKey);
+  if (idempotencyKey) {
+    const db = getDb();
+    if (!db) throw new Error('Database unavailable');
 
-  // Read new balance for the transaction record
+    const txRef = ref.collection('transactions').doc(idempotencyKey);
+
+    const result = await db.runTransaction(async (t) => {
+      const [userSnap, existingTxSnap] = await Promise.all([t.get(ref), t.get(txRef)]);
+
+      if (existingTxSnap.exists) {
+        const existing = existingTxSnap.data() || {};
+        const existingBalance = existing.balanceAfterCents;
+        if (typeof existingBalance === 'number') return existingBalance;
+        return userSnap.data()?.wallet?.balance || 0;
+      }
+
+      const current = userSnap.data()?.wallet?.balance || 0;
+      const newBalance = current + amountCents;
+
+      t.set(
+        ref,
+        {
+          wallet: { balance: newBalance },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      t.set(txRef, {
+        type: 'credit',
+        amountCents,
+        description: descriptionForSource(source, amountCents),
+        source,
+        metadata,
+        balanceAfterCents: newBalance,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      return newBalance;
+    });
+
+    console.log(
+      `[Wallet] ✅ +$${(amountCents / 100).toFixed(2)} for user ${uid} (idempotent: ${idempotencyKey}). New balance: $${(result / 100).toFixed(2)}`
+    );
+    return result;
+  }
+
+  // Legacy (non-idempotent) path
+  await ref.set({ wallet: { balance: FieldValue.increment(amountCents) } }, { merge: true });
+
   const snap = await ref.get();
   const newBalance = snap.data()?.wallet?.balance || 0;
 
-  // Record transaction
   await ref.collection('transactions').add({
     type: 'credit',
     amountCents,
@@ -80,7 +125,6 @@ async function addCredits(uid, amountCents, source = 'manual', metadata = {}) {
 async function deductCredits(uid, amountCents, metadata = {}) {
   const ref = userRef(uid);
   if (!ref) throw new Error('Database unavailable');
-  const { FieldValue } = admin.firestore;
 
   // Check current balance
   const snap = await ref.get();
@@ -143,7 +187,6 @@ async function getTransactions(uid, limit = 50) {
 async function updateWalletMeta(uid, fields) {
   const ref = userRef(uid);
   if (!ref) throw new Error('Database unavailable');
-  const { FieldValue } = admin.firestore;
   const walletUpdate = {};
   for (const [k, v] of Object.entries(fields)) {
     walletUpdate[`wallet.${k}`] = v;

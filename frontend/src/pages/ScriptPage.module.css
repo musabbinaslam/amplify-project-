@@ -43,7 +43,7 @@
 
 .scriptSelect:focus {
   outline: none;
-  border-color: var(--accent-green);
+  border-color: var(--brand-text);
 }
 
 .selectArrow {
@@ -60,8 +60,8 @@
   align-items: center;
   gap: 0.45rem;
   padding: 0.55rem 1.25rem;
-  background: var(--accent-green);
-  color: #000;
+  background: var(--brand-solid);
+  color: var(--brand-on);
   border: none;
   border-radius: 8px;
   font-weight: 600;
@@ -175,7 +175,7 @@
 
 .inlineInput:focus {
   outline: none;
-  border-color: var(--accent-green);
+  border-color: var(--brand-text);
 }
 
 /* ─── Badge ─── */
@@ -189,8 +189,8 @@
 }
 
 .badgeGreen {
-  background: color-mix(in srgb, var(--accent-green) 18%, transparent);
-  color: var(--accent-green);
+  background: color-mix(in srgb, var(--brand-text) 18%, transparent);
+  color: var(--brand-text);
 }
 
 .badgeOrange {
@@ -271,7 +271,7 @@
 
 .fieldInput:focus {
   outline: none;
-  border-color: var(--accent-green);
+  border-color: var(--brand-text);
 }
 
 /* ─── Checkbox ─── */
@@ -285,7 +285,7 @@
 }
 
 .checkbox {
-  accent-color: var(--accent-green);
+  accent-color: var(--brand-solid);
   width: 16px;
   height: 16px;
   cursor: pointer;
@@ -349,8 +349,8 @@
 }
 
 .tierCard:hover {
-  border-color: var(--accent-green);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--accent-green) 12%, transparent);
+  border-color: var(--brand-text);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--brand-text) 12%, transparent);
 }
 
 .tierEmoji {
@@ -379,7 +379,7 @@
 
 .tierInput:focus {
   outline: none;
-  border-color: var(--accent-green);
+  border-color: var(--brand-text);
 }
 
 /* ─── Tip ─── */
@@ -387,9 +387,9 @@
   margin-top: 0.6rem;
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--accent-green) 8%, transparent);
-  border-left: 3px solid var(--accent-green);
-  color: var(--accent-green);
+  background: color-mix(in srgb, var(--brand-text) 8%, transparent);
+  border-left: 3px solid var(--brand-text);
+  color: var(--brand-text);
   font-size: 0.8rem;
   font-style: italic;
 }
@@ -426,7 +426,7 @@
 }
 
 .checklist li svg {
-  color: var(--accent-green);
+  color: var(--brand-text);
   flex-shrink: 0;
 }
 

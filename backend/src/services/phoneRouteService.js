@@ -1,12 +1,8 @@
 const admin = require('../config/firebaseAdmin');
+const { getDb } = require('../config/firestoreDb');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 
 const COLLECTION = 'phoneRoutes';
-
-function getDb() {
-  if (!admin) return null;
-  return admin.firestore();
-}
 
 function normalizePhoneE164(input) {
   if (!input || typeof input !== 'string') return '';

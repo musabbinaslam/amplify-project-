@@ -10,6 +10,7 @@ const {
   listActivity,
 } = require('../services/userDataService');
 const admin = require('../config/firebaseAdmin');
+const { getDb } = require('../config/firestoreDb');
 const AI_TRAINING_CACHE_TTL_MS = 30 * 1000;
 const aiTrainingCache = new Map();
 
@@ -274,7 +275,7 @@ function buildGuidedPlan(rows, baselineWindow, owner) {
 }
 
 async function readCoachingPlanWithTasks(uid) {
-  const db = admin.firestore();
+  const db = getDb();
   const planRef = db.collection('users').doc(uid).collection('aiCoachingPlan').doc('current');
   const [planSnap, tasksSnap] = await Promise.all([
     planRef.get(),
@@ -286,7 +287,7 @@ async function readCoachingPlanWithTasks(uid) {
 }
 
 async function listAiTrainingDrillStatuses(uid) {
-  const db = admin.firestore();
+  const db = getDb();
   const snap = await db
     .collection('users')
     .doc(uid)
@@ -302,7 +303,7 @@ async function listAiTrainingDrillStatuses(uid) {
 }
 
 async function readUserLogsInRange(uid, from, end, limit = 500) {
-  const db = admin.firestore();
+  const db = getDb();
   const snap = await db
     .collection('users')
     .doc(uid)
@@ -366,6 +367,29 @@ async function patchMe(req, res) {
   try {
     const body = { ...req.body };
     delete body.role;
+    const existingProfile = await getUserDoc(req.user.uid);
+    if (!existingProfile) {
+      body.role = 'agent';
+    }
+    if ('averageAp' in body) {
+      const n = Number(body.averageAp);
+      if (!Number.isFinite(n) || n < 0) {
+        return res.status(400).json({ error: 'averageAp must be a non-negative number' });
+      }
+      body.averageAp = Math.min(Math.round(n * 100) / 100, 100000);
+    }
+    if ('brandColor' in body) {
+      const raw = body.brandColor;
+      if (raw === null || raw === '') {
+        body.brandColor = null;
+      } else {
+        const v = String(raw || '').trim().toLowerCase();
+        if (!/^#[0-9a-f]{6}$/.test(v)) {
+          return res.status(400).json({ error: 'brandColor must be a 6-digit hex like #25f425' });
+        }
+        body.brandColor = v;
+      }
+    }
     if ('licensedStates' in body) {
       const raw = body.licensedStates;
       if (!Array.isArray(raw)) {
@@ -861,7 +885,7 @@ async function postAiTrainingDrillStatus(req, res) {
   if (!drillId) return res.status(400).json({ error: 'drillId is required' });
   if (!allowed.has(status)) return res.status(400).json({ error: 'Invalid status' });
   try {
-    const db = admin.firestore();
+    const db = getDb();
     const { FieldValue } = admin.firestore;
     const ref = db
       .collection('users')
@@ -897,7 +921,7 @@ async function getAiCoachingPlan(req, res) {
       from: from.toISOString().slice(0, 10),
       to: end.toISOString().slice(0, 10),
     };
-    const db = admin.firestore();
+    const db = getDb();
     const { FieldValue } = admin.firestore;
     const userRef = db.collection('users').doc(req.user.uid);
     const planRef = userRef.collection('aiCoachingPlan').doc('current');
@@ -959,7 +983,7 @@ async function patchAiCoachingTask(req, res) {
     return res.status(400).json({ error: 'Evidence note (min 10 chars) is required to complete a task' });
   }
   try {
-    const db = admin.firestore();
+    const db = getDb();
     const { FieldValue } = admin.firestore;
     const taskRef = db
       .collection('users')

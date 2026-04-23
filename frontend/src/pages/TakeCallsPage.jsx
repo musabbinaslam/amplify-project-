@@ -551,10 +551,14 @@ const TakeCallsPage = () => {
     }
   };
 
+  const pollingTimerRef = useRef(null);
+
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
+    pollingTimerRef.current = setInterval(fetchData, 10000);
+    return () => {
+      if (pollingTimerRef.current) clearInterval(pollingTimerRef.current);
+    };
   }, []);
 
   const handleGoLive = async () => {
@@ -585,22 +589,6 @@ const TakeCallsPage = () => {
 
     return (
       <div className={classes.page}>
-        {isRinging && (
-          <div className={classes.callOverlay}>
-            <div className={classes.callCard}>
-              <div className={classes.incomingBadge}>INCOMING CALL</div>
-              <div className={classes.callerIcon}><Activity size={48} className={classes.pulseIcon} /></div>
-              <h2>{activeCampaign?.replace(/_/g, ' ').toUpperCase() || 'Insurance'} Lead</h2>
-              <p>Someone is on the line waiting to speak with you.</p>
-
-              <div className={classes.callActions}>
-                <button className={classes.acceptBtn} onClick={() => useDialerStore.getState().acceptCall()}>Accept Call</button>
-                <button className={classes.declineBtn} onClick={() => useDialerStore.getState().rejectCall()}>Decline</button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className={`${classes.activeDialerLayout} ${isRinging ? classes.blurred : ''}`}>
           <div className={classes.pageHeader}>
             <div>

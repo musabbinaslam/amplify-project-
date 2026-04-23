@@ -23,6 +23,7 @@ import {
   deleteAdminDid,
 } from '../services/adminService';
 import useAuthStore from '../store/authStore';
+import PageLoader from '../components/ui/PageLoader';
 import classes from './AdminDashboardPage.module.css';
 
 const AdminDashboardPage = () => {
@@ -140,13 +141,19 @@ const AdminDashboardPage = () => {
   }, []);
 
   useEffect(() => {
-    // Initial load: shell then analytics
+    // One-time shell + DIDs load (range-independent).
     Promise.all([
       loadShell(),
-      loadAnalytics(),
       refreshDids(),
     ]);
-  }, [loadShell]);
+  }, [loadShell, refreshDids]);
+
+  useEffect(() => {
+    // Re-fetch analytics whenever the selected range changes. loadAnalytics'
+    // identity already depends on rangePreset via getRange, so this fires on
+    // every range-pill click (and on first mount).
+    loadAnalytics();
+  }, [loadAnalytics]);
 
   useEffect(() => {
     // Smarter live refresh:
@@ -250,43 +257,7 @@ const AdminDashboardPage = () => {
   }, [agentStats, agentSearch, getAgentId, getAgentName]);
 
   if (loading && !overview) {
-    return (
-      <div className={classes.page}>
-        <div className={classes.loadingHeader}>
-          <span className={classes.loadingIcon} />
-          <div>
-            <span className={classes.loadingTitle} />
-            <span className={classes.loadingSubtitle} />
-          </div>
-        </div>
-
-        <section className={classes.card}>
-          <div className={classes.grid}>
-            <div className={classes.statCard}><span className={classes.skeletonNumWide} /></div>
-            <div className={classes.statCard}><span className={classes.skeletonNumWide} /></div>
-            <div className={classes.statCard}><span className={classes.skeletonNumWide} /></div>
-            <div className={classes.statCard}><span className={classes.skeletonNumWide} /></div>
-          </div>
-        </section>
-
-        <section className={classes.card}>
-          <div className={classes.skeletonList}>
-            <div className={classes.skeletonRow} />
-            <div className={classes.skeletonRow} />
-            <div className={classes.skeletonRow} />
-          </div>
-        </section>
-
-        <section className={classes.card}>
-          <div className={classes.skeletonList}>
-            <div className={classes.skeletonRow} />
-            <div className={classes.skeletonRow} />
-            <div className={classes.skeletonRow} />
-            <div className={classes.skeletonRow} />
-          </div>
-        </section>
-      </div>
-    );
+    return <PageLoader />;
   }
 
   const pool = overview?.pool || { available: [], ringing: [], busy: [] };

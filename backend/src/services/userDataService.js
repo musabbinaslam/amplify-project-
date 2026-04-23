@@ -1,10 +1,6 @@
 const admin = require('../config/firebaseAdmin');
+const { getDb } = require('../config/firestoreDb');
 const crypto = require('crypto');
-
-function getDb() {
-  if (!admin) return null;
-  return admin.firestore();
-}
 
 function usersRef(uid) {
   const db = getDb();
@@ -28,13 +24,9 @@ async function mergeUserDoc(uid, data) {
   const ref = usersRef(uid);
   if (!ref) throw new Error('Database unavailable');
   const { FieldValue } = admin.firestore;
-  const payload = { ...data };
-  if (!('role' in payload)) {
-    payload.role = 'agent';
-  }
   await ref.set(
     {
-      ...payload,
+      ...data,
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },

@@ -14,8 +14,9 @@ const adminRoutes = require('./routes/adminRoutes');
 const { setupCallSockets } = require('./sockets/callSockets');
 const { verifyFirebaseToken } = require('./middleware/auth');
 const { globalRateLimiter } = require('./middleware/security');
+const { verifyMailer } = require('./config/mailer');
 
-// Auto-start queues on boot
+// QA insight runner — in-process async, no Redis queue needed
 require('./queues/qaQueue');
 
 const app = express();
@@ -55,6 +56,10 @@ const io = new Server(server, {
 const startEngine = async () => {
     console.log('Starting CallsFlow System...');
     await connectRedis();
+
+    verifyMailer().catch((err) => {
+        console.warn('[mailer] verify crashed:', err?.message || err);
+    });
 
     // Init Socket events
     setupCallSockets(io);
