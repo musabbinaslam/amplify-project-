@@ -159,19 +159,26 @@ class AgentManager {
 
       if (!callerState) return true; // Has agents, no state filter needed
 
-      for (const id of candidates) {
+      // OPTIMIZATION: Run all Redis checks in parallel instead of a slow loop
+      const results = await Promise.all(candidates.map(async (id) => {
          const isAlive = await redisClient.exists(`agent:heartbeat:${id}`);
-         if (!isAlive) continue;
+         if (!isAlive) return false;
+         
          const data = await redisClient.hGetAll(`agent:${id}`);
-         if (!data) continue;
+         if (!data) return false;
+         
          try {
             const states = JSON.parse(data.licensedStates || '[]');
+            // Return true if agent has no state restrictions or matches the caller state
             if (states.length === 0 || states.includes(callerState.toUpperCase())) return true;
          } catch {
-            return true;
+            return true; // Failsafe
          }
-      }
-      return false;
+         return false;
+      }));
+
+      // If any of the parallel checks returned true, we have an available agent
+      return results.some(isAvailable => isAvailable);
    }
 
    /**
