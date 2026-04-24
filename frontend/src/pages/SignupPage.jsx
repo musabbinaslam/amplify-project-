@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { useNavigate, Navigate, Link } from 'react-router-dom';
+import { useNavigate, Navigate, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
@@ -9,6 +9,7 @@ import {
   buildInternationalPhone,
 } from '../constants/countryDialCodes';
 import classes from './SignupPage.module.css';
+import { referralService } from '../services/referralService';
 
 const SPENDING_OPTIONS = [
   'Less than $500',
@@ -73,6 +74,10 @@ const SignupPage = () => {
 
   const [submitting, setSubmitting] = useState(false);
 
+  // ── Referral code capture ──
+  const [searchParams] = useSearchParams();
+  const [refCode] = useState(() => searchParams.get('ref')?.trim().toUpperCase() || '');
+
   // Redirect authenticated users UNLESS Google onboarding is in progress
   if (token && step === 'credentials' && !googleFlowActive.current) {
     return <Navigate to="/app" replace />;
@@ -108,6 +113,15 @@ const SignupPage = () => {
         ...form,
         phone: buildInternationalPhone(form.phoneCountry, form.phone),
       });
+      // Claim referral code after signup (non-blocking)
+      if (refCode) {
+        try {
+          await referralService.claimCode(refCode);
+          toast.success('Referral code applied! Complete all steps to unlock your discount.');
+        } catch (refErr) {
+          console.warn('[Referral] Claim failed:', refErr.message);
+        }
+      }
       toast.success('Account created!');
       navigate('/app');
     } catch (err) {
@@ -151,6 +165,15 @@ const SignupPage = () => {
         ...form,
         phone: buildInternationalPhone(form.phoneCountry, form.phone),
       });
+      // Claim referral code after Google onboarding (non-blocking)
+      if (refCode) {
+        try {
+          await referralService.claimCode(refCode);
+          toast.success('Referral code applied! Complete all steps to unlock your discount.');
+        } catch (refErr) {
+          console.warn('[Referral] Claim failed:', refErr.message);
+        }
+      }
       toast.success('Account created!');
       googleFlowActive.current = false;
       navigate('/app');
@@ -335,6 +358,19 @@ const SignupPage = () => {
 
         <h1 className={classes.heading}>Create Agent Account</h1>
         <p className={classes.subtitle}>Sign up to start receiving calls</p>
+
+        {refCode && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 16px', borderRadius: 10,
+            background: 'rgba(0, 200, 83, 0.1)',
+            border: '1px solid rgba(0, 200, 83, 0.25)',
+            color: '#4ade80', fontSize: 13, fontWeight: 600,
+            marginBottom: 4,
+          }}>
+            🎁 Referral code <strong style={{ fontFamily: 'monospace', letterSpacing: '0.06em' }}>{refCode}</strong> applied — complete all steps for 20% off!
+          </div>
+        )}
 
         <button type="button" className={classes.googleBtn} onClick={handleGoogleSignup} disabled={submitting}>
           <svg className={classes.googleIcon} viewBox="0 0 24 24" width="20" height="20">

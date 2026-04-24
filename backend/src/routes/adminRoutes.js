@@ -19,4 +19,11 @@ router.post('/dids', adminController.createDid);
 router.patch('/dids/:id', adminController.patchDid);
 router.delete('/dids/:id', adminController.deleteDid);
 
+// Referral admin
+router.get('/referrals', adminController.getReferralOverview);
+router.get('/referrals/search', adminController.searchReferrals);
+router.patch('/referrals/:referralId/status', adminController.updateReferralStatus);
+router.post('/referrals/grant-discount', adminController.grantDiscount);
+router.post('/referrals/revoke-discount', adminController.revokeDiscount);
+
 module.exports = router;

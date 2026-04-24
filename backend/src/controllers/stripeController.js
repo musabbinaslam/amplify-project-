@@ -1,5 +1,6 @@
 const { stripe, CREDIT_TIERS, PLANS } = require('../config/stripe');
 const walletService = require('../services/walletService');
+const referralService = require('../services/referralService');
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 
@@ -24,8 +25,35 @@ exports.createCheckout = async (req, res) => {
   }
 
   try {
+    // Check for active referral discount
+    let finalAmountCents = amountCents;
+    let referralDiscountApplied = false;
+    let discountSavedCents = 0;
+    let discountPercent = 0;
+
+    try {
+      const discount = await referralService.getDiscountStatus(req.user.uid);
+      if (discount.hasDiscount && !discount.expired) {
+        const result = referralService.calculateDiscount(amountCents, discount.percent);
+        finalAmountCents = result.discountedAmountCents;
+        discountSavedCents = result.savedCents;
+        discountPercent = discount.percent;
+        referralDiscountApplied = true;
+        console.log(`[Stripe] Referral discount applied: ${discount.percent}% off ($${(amountCents / 100).toFixed(2)} → $${(finalAmountCents / 100).toFixed(2)})`);
+      }
+    } catch (discErr) {
+      console.warn('[Stripe] Referral discount check failed (non-blocking):', discErr.message);
+    }
+
     // Get or create Stripe Customer
     const customerId = await getOrCreateCustomer(req.user.uid, req.user.email);
+
+    const productName = referralDiscountApplied
+      ? `AgentCalls Credits — ${tier.label} (${discountPercent}% referral discount)`
+      : `AgentCalls Credits — ${tier.label}`;
+    const productDescription = referralDiscountApplied
+      ? `Add ${tier.label} in call credits (discounted from $${(amountCents / 100).toFixed(2)})`
+      : `Add ${tier.label} in call credits to your wallet`;
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -35,10 +63,10 @@ exports.createCheckout = async (req, res) => {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: `AgentCalls Credits — ${tier.label}`,
-              description: `Add ${tier.label} in call credits to your wallet`,
+              name: productName,
+              description: productDescription,
             },
-            unit_amount: amountCents,
+            unit_amount: finalAmountCents,
           },
           quantity: 1,
         },
@@ -47,12 +75,16 @@ exports.createCheckout = async (req, res) => {
         uid: req.user.uid,
         type: 'credit_topup',
         amountCents: String(amountCents),
+        chargedCents: String(finalAmountCents),
+        referralDiscount: referralDiscountApplied ? 'true' : 'false',
+        discountSavedCents: String(discountSavedCents),
+        discountPercent: String(discountPercent),
       },
       success_url: `${CLIENT_URL}/app/billing?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${CLIENT_URL}/app/billing?payment=cancelled`,
     });
 
-    res.json({ url: session.url });
+    res.json({ url: session.url, discountApplied: referralDiscountApplied, discountPercent, originalAmountCents: amountCents, chargedAmountCents: finalAmountCents });
   } catch (err) {
     console.error('[Stripe] Checkout error:', err.message);
     res.status(500).json({ error: 'Failed to create checkout session' });
@@ -321,6 +353,29 @@ async function handleCheckoutCompleted(session) {
   });
 
   console.log(`[Stripe] ✅ Checkout completed. Added $${(amountCents / 100).toFixed(2)} credits for user ${uid}`);
+
+  // ── Referral Stage 2: Advance to "qualified" on first qualifying payment ──
+  try {
+    await referralService.advanceToQualified(uid, amountCents);
+  } catch (err) {
+    console.warn('[Referral] Stage 2 advance failed (non-blocking):', err.message);
+  }
+
+  // ── Referral: Mark discount as used if this was a discounted purchase ──
+  if (session.metadata?.referralDiscount === 'true') {
+    const savedCents = parseInt(session.metadata.discountSavedCents) || 0;
+    if (savedCents > 0) {
+      try {
+        await referralService.markDiscountUsed(uid, savedCents, {
+          sessionId: session.id,
+          paymentIntentId: session.payment_intent,
+          originalAmountCents: amountCents,
+        });
+      } catch (err) {
+        console.error('[Referral] markDiscountUsed failed:', err.message);
+      }
+    }
+  }
 }
 
 async function hasCreditTransactionForSession(uid, sessionId) {

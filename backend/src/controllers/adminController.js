@@ -862,6 +862,74 @@ async function getAiCoachingAgentPlans(req, res) {
   }
 }
 
+// ─── Referral Admin ──────────────────────────────────────────────────────────
+
+const referralService = require('../services/referralService');
+
+async function getReferralOverview(req, res) {
+  try {
+    const overview = await referralService.getAdminReferralOverview();
+    res.json(overview);
+  } catch (err) {
+    console.error('[Admin] getReferralOverview:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to load referral overview' });
+  }
+}
+
+async function searchReferralsHandler(req, res) {
+  try {
+    const results = await referralService.searchReferrals(req.query || {});
+    res.json({ referrals: results });
+  } catch (err) {
+    console.error('[Admin] searchReferrals:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to search referrals' });
+  }
+}
+
+async function updateReferralStatusHandler(req, res) {
+  try {
+    const { referralId } = req.params;
+    const { status, reason } = req.body || {};
+
+    if (!referralId || !referralId.includes('/')) {
+      return res.status(400).json({ error: 'referralId must be in format referrerUid/refereeUid' });
+    }
+    if (!status) return res.status(400).json({ error: 'status is required' });
+
+    const [referrerUid, refereeUid] = referralId.split('/');
+    await referralService.updateReferralStatus(referrerUid, refereeUid, status, reason);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Admin] updateReferralStatus:', err.message);
+    const code = err.message.includes('not found') ? 404 : 400;
+    res.status(code).json({ error: err.message || 'Failed to update referral status' });
+  }
+}
+
+async function grantDiscountHandler(req, res) {
+  try {
+    const { uid, percent } = req.body || {};
+    if (!uid) return res.status(400).json({ error: 'uid is required' });
+    await referralService.grantDiscount(uid, percent || undefined);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Admin] grantDiscount:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to grant discount' });
+  }
+}
+
+async function revokeDiscountHandler(req, res) {
+  try {
+    const { uid } = req.body || {};
+    if (!uid) return res.status(400).json({ error: 'uid is required' });
+    await referralService.revokeDiscount(uid);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Admin] revokeDiscount:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to revoke discount' });
+  }
+}
+
 module.exports = {
   getOverviewLite,
   getAnalyticsBundle,
@@ -873,4 +941,9 @@ module.exports = {
   createDid,
   patchDid,
   deleteDid,
+  getReferralOverview,
+  searchReferrals: searchReferralsHandler,
+  updateReferralStatus: updateReferralStatusHandler,
+  grantDiscount: grantDiscountHandler,
+  revokeDiscount: revokeDiscountHandler,
 };

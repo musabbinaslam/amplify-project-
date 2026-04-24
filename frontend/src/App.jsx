@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -25,6 +25,7 @@ const SupportPage = lazy(() => import('./pages/SupportPage'));
 const ScriptPage = lazy(() => import('./pages/ScriptPage'));
 const LeadsPage = lazy(() => Promise.resolve({ default: () => <div><h2 style={{color: 'white'}}>Leads (Beta)</h2></div> }));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const ReferralProgramPage = lazy(() => import('./pages/ReferralProgramPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const AdminAITrainingPage = lazy(() => import('./pages/AdminAITrainingPage'));
 
@@ -48,6 +49,12 @@ const AdminOnly = ({ children }) => {
   return children;
 };
 
+/** Tiny redirect: /r/AGENT-XXXXXX → /signup?ref=AGENT-XXXXXX */
+const ReferralRedirect = () => {
+  const { code } = useParams();
+  return <Navigate to={`/signup?ref=${encodeURIComponent(code || '')}`} replace />;
+};
+
 const AnimatedRoutes = () => {
   return (
     <>
@@ -66,6 +73,9 @@ const AnimatedRoutes = () => {
             <Suspense fallback={<PageLoader />}><LoginPage /></Suspense>
           </GuestRoute>
         } />
+
+        {/* Short referral redirect: /r/AGENT-XXXXXX → /signup?ref=AGENT-XXXXXX */}
+        <Route path="/r/:code" element={<ReferralRedirect />} />
 
         {/* Authenticated app under /app */}
         <Route path="/app" element={<ProtectedRoute />}>
@@ -104,6 +114,9 @@ const AnimatedRoutes = () => {
           } />
           <Route path="settings" element={
             <Suspense fallback={<PageLoader />}><SettingsPage /></Suspense>
+          } />
+          <Route path="referral-program" element={
+            <Suspense fallback={<PageLoader />}><ReferralProgramPage /></Suspense>
           } />
           <Route path="admin" element={
             <Suspense fallback={<PageLoader />}>

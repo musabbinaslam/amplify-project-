@@ -147,6 +147,17 @@ exports.handleCallCompleted = async (req, res) => {
         console.log(`[Twilio] QA Insight dispatched (async) for Call ${savedLog.id}`);
     }
 
+    // ── Referral Stage 3: Check if this agent just "went live" ──────────────
+    // "Goes live" = first completed call with duration ≥ 30 seconds
+    if (resolvedAgentId && savedLog?.status === 'completed' && Number(savedLog?.duration || 0) >= 30) {
+        try {
+            const referralService = require('../services/referralService');
+            await referralService.advanceToLive(resolvedAgentId);
+        } catch (err) {
+            console.warn('[Referral] Stage 3 advance failed (non-blocking):', err.message);
+        }
+    }
+
     const twiml = new VoiceResponse();
     twiml.hangup();
     res.set('Content-Type', 'text/xml');
