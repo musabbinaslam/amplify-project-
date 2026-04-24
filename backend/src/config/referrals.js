@@ -12,9 +12,9 @@ const REFERRAL_CONFIG = {
   codeLength: 6,                // random alphanumeric chars after prefix
 
   // ── Reward ─────────────────────────────────────────────────────────
-  discountPercent: 20,          // referee gets 20% off their next purchase
+  discountPercent: 20,          // referrer gets 20% off their next purchase
   discountExpiryDays: 90,       // days from "goes live" date until discount expires
-  referrerRewardCents: 0,       // 0 = referee-only; set > 0 for dual-sided later
+  referrerRewardCents: 0,       // reserved for future dual-sided rewards
   discountMultiplier: 1.0,      // multiply discountPercent for campaigns (e.g. 1.5 → 30%)
 
   // ── Qualifying Thresholds ──────────────────────────────────────────
@@ -32,7 +32,7 @@ const REFERRAL_CONFIG = {
  * Placeholders: {{code}}, {{url}}
  */
 const SHARE_TEXT_TEMPLATE =
-  "I've been using CallsFlow for inbound insurance calls — sign up with my code {{code}} and get {{percent}}% off your second purchase. {{url}}";
+  "I've been using CallsFlow for inbound insurance calls — sign up with my code {{code}} and help me earn a {{percent}}% discount! {{url}}";
 
 /**
  * Base URL for referral links. Reads from env or defaults to production.

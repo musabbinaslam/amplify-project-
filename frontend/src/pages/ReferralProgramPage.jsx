@@ -82,7 +82,7 @@ const ReferralProgramPage = () => {
     const url = encodeURIComponent(dashboard.shareUrl);
     const urls = {
       whatsapp: `https://wa.me/?text=${text}`,
-      email: `mailto:?subject=${encodeURIComponent('Join CallsFlow — Get 20% Off')}&body=${text}`,
+      email: `mailto:?subject=${encodeURIComponent('Join CallsFlow — Help Me Earn a Discount!')}&body=${text}`,
       x: `https://twitter.com/intent/tweet?text=${text}`,
       linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${url}`,
     };
@@ -96,7 +96,7 @@ const ReferralProgramPage = () => {
 
   return (
     <div className={classes.page}>
-      {/* ── Discount Banner (for referee) ── */}
+      {/* ── Discount Banner (for referrer) ── */}
       {discount?.hasDiscount && !discount.expired && (
         <div className={classes.discountBanner}>
           <Gift size={20} />
@@ -122,8 +122,8 @@ const ReferralProgramPage = () => {
               Referral Program
             </h1>
             <p className={classes.heroSubtitle}>
-              Anyone who signs up with your code, makes a payment, and goes live gets{' '}
-              <strong>{config.discountPercent}% off</strong> their next purchase.
+              Share your code with friends. When they sign up, make a payment, and go live,{' '}
+              <strong>you get {config.discountPercent}% off</strong> your next purchase.
             </p>
           </div>
 
@@ -273,7 +273,7 @@ const ReferralProgramPage = () => {
           <div className={classes.stepCard}>
             <div className={classes.stepNumber}>3</div>
             <h4>Go Live</h4>
-            <p>They complete their first call — {config.discountPercent}% discount unlocked!</p>
+            <p>They complete their first call — you get {config.discountPercent}% off your next purchase!</p>
           </div>
         </div>
       </section>
@@ -307,7 +307,7 @@ const ReferralProgramPage = () => {
         {[
           { q: 'What does "going live" mean?', a: 'Going live means completing your first inbound call that lasts at least 30 seconds. Short or missed calls don\'t count.' },
           { q: 'When does my discount expire?', a: `Your referral discount expires ${config.expiryDays} days after your referred friend goes live. Use it before then!` },
-          { q: 'Can I transfer my discount?', a: 'No. Referral discounts are non-transferable and can only be used by the referred agent on their own account.' },
+          { q: 'Can I transfer my discount?', a: 'No. Referral discounts are non-transferable and can only be used by you (the referrer) on your own account.' },
           { q: 'Is there a cash value?', a: 'No. The discount is applied as bonus wallet credits after your discounted purchase. It has no cash value and cannot be withdrawn.' },
           { q: 'How many people can I refer?', a: 'You can refer up to 100 people. Each person can only use one referral code.' },
         ].map((faq, i) => (

@@ -117,7 +117,7 @@ const SignupPage = () => {
       if (refCode) {
         try {
           await referralService.claimCode(refCode);
-          toast.success('Referral code applied! Complete all steps to unlock your discount.');
+          toast.success('Referral code applied! You\'re helping your referrer earn a discount.');
         } catch (refErr) {
           console.warn('[Referral] Claim failed:', refErr.message);
         }
@@ -368,7 +368,7 @@ const SignupPage = () => {
             color: '#4ade80', fontSize: 13, fontWeight: 600,
             marginBottom: 4,
           }}>
-            🎁 Referral code <strong style={{ fontFamily: 'monospace', letterSpacing: '0.06em' }}>{refCode}</strong> applied — complete all steps for 20% off!
+            🎁 Referral code <strong style={{ fontFamily: 'monospace', letterSpacing: '0.06em' }}>{refCode}</strong> applied — welcome aboard!
           </div>
         )}
 

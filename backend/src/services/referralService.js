@@ -172,11 +172,10 @@ async function claimReferral(refereeUid, referralCode) {
     const freshReferee = await t.get(userRef(refereeUid));
     if (freshReferee.data()?.referredBy) return; // already claimed
 
-    // Update referee doc
+    // Update referee doc (track who referred them, no discount fields here)
     t.set(userRef(refereeUid), {
       referredBy: referrerUid,
       referredByCode: normalized,
-      discountUsed: false,
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
@@ -254,6 +253,7 @@ async function advanceToQualified(refereeUid, amountCents = 0) {
 /**
  * Called from voice controller after a completed call.
  * Only advances if the user was referred and status is 'qualified'.
+ * The discount is awarded to the REFERRER (the person who sent the link).
  */
 async function advanceToLive(refereeUid) {
   const db = getDb();
@@ -263,9 +263,15 @@ async function advanceToLive(refereeUid) {
   const refereeData = refereeSnap.data() || {};
 
   if (!refereeData.referredBy) return;
-  if (refereeData.pendingDiscountPercent > 0) return; // already went live
 
   const referrerUid = refereeData.referredBy;
+
+  // Check if referrer already has an active discount from this referral
+  const referrerSnap = await userRef(referrerUid).get();
+  const referrerData = referrerSnap.data() || {};
+  // If referrer already has a pending discount, still update the referral status
+  // but don't overwrite their existing discount
+
   const referralRef = userRef(referrerUid).collection('referrals').doc(refereeUid);
 
   const discountPercent = Math.round(REFERRAL_CONFIG.discountPercent * REFERRAL_CONFIG.discountMultiplier);
@@ -285,12 +291,18 @@ async function advanceToLive(refereeUid) {
       wentLiveAt: FieldValue.serverTimestamp(),
     });
 
-    // Set pending discount on referee's user doc
-    t.set(userRef(refereeUid), {
-      pendingDiscountPercent: discountPercent,
-      pendingDiscountExpiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
+    // Set pending discount on REFERRER's user doc (not the referee!)
+    // Only set if referrer doesn't already have an unused discount
+    const freshReferrer = await t.get(userRef(referrerUid));
+    const freshReferrerData = freshReferrer.data() || {};
+    if (!freshReferrerData.pendingDiscountPercent || freshReferrerData.discountUsed) {
+      t.set(userRef(referrerUid), {
+        pendingDiscountPercent: discountPercent,
+        pendingDiscountExpiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
+        discountUsed: false,
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
 
     // Increment referrer's qualified count
     t.set(userRef(referrerUid), {
@@ -299,7 +311,7 @@ async function advanceToLive(refereeUid) {
     }, { merge: true });
   });
 
-  console.log(`[Referral] Stage 3: User ${refereeUid} went live — ${discountPercent}% discount unlocked (expires ${expiresAt.toISOString().slice(0, 10)})`);
+  console.log(`[Referral] Stage 3: Referee ${refereeUid} went live — ${discountPercent}% discount unlocked for REFERRER ${referrerUid} (expires ${expiresAt.toISOString().slice(0, 10)})`);
 }
 
 // ─── Discount Logic ───────────────────────────────────────────────────────────
@@ -348,6 +360,7 @@ function calculateDiscount(originalAmountCents, discountPercent) {
 
 /**
  * Marks the discount as used after a successful discounted purchase.
+ * The discount lives on the REFERRER's doc (the person making the purchase).
  * Writes a referral_discount wallet transaction for the bonus credits.
  */
 async function markDiscountUsed(uid, savedCents, metadata = {}) {
@@ -358,30 +371,42 @@ async function markDiscountUsed(uid, savedCents, metadata = {}) {
   const snap = await ref.get();
   const data = snap.data() || {};
 
-  if (!data.referredBy) return;
-
-  const referrerUid = data.referredBy;
-  const referralRef = userRef(referrerUid).collection('referrals').doc(uid);
+  // uid here is the referrer (the person who has the discount on their doc)
+  if (!data.pendingDiscountPercent || data.discountUsed) return;
 
   await db.runTransaction(async (t) => {
-    const referralSnap = await t.get(referralRef);
-
-    // Clear discount on referee doc
+    // Clear discount on the user's doc
     t.set(ref, {
       pendingDiscountPercent: 0,
       discountUsed: true,
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    // Update referral entry
-    if (referralSnap.exists) {
-      t.update(referralRef, {
+    // Find and update the referral entry that triggered this discount
+    // We look through the user's referrals subcollection for a 'live' status entry
+    const referralsSnap = await t.get(
+      ref.collection('referrals').where('status', '==', 'live').limit(1)
+    );
+    // Note: Firestore transactions don't support queries directly in all SDKs.
+    // We'll update outside the transaction if needed.
+  });
+
+  // Update the referral entry outside transaction (find the 'live' one)
+  try {
+    const referralsSnap = await ref.collection('referrals')
+      .where('status', '==', 'live')
+      .limit(1)
+      .get();
+    if (!referralsSnap.empty) {
+      await referralsSnap.docs[0].ref.update({
         status: 'discount_applied',
         discountAppliedAt: FieldValue.serverTimestamp(),
         discountSavedCents: savedCents,
       });
     }
-  });
+  } catch (err) {
+    console.warn('[Referral] Failed to update referral entry status:', err.message);
+  }
 
   // Write a bonus wallet transaction for the saved amount
   const walletService = require('./walletService');
@@ -391,7 +416,7 @@ async function markDiscountUsed(uid, savedCents, metadata = {}) {
     ...metadata,
   });
 
-  console.log(`[Referral] Discount applied for user ${uid}: saved $${(savedCents / 100).toFixed(2)} as bonus credits`);
+  console.log(`[Referral] Discount applied for REFERRER ${uid}: saved $${(savedCents / 100).toFixed(2)} as bonus credits`);
 }
 
 // ─── Dashboard / API ──────────────────────────────────────────────────────────
@@ -600,9 +625,9 @@ async function updateReferralStatus(referrerUid, refereeUid, newStatus, reason =
     adminOverrideAt: FieldValue.serverTimestamp(),
   });
 
-  // If blocked or reversed, also remove the pending discount from the referee
+  // If blocked or reversed, also remove the pending discount from the REFERRER
   if (newStatus === 'blocked' || newStatus === 'reversed') {
-    await userRef(refereeUid).set({
+    await userRef(referrerUid).set({
       pendingDiscountPercent: 0,
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
