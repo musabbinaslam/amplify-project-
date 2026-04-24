@@ -138,6 +138,31 @@ exports.verifyCheckout = async (req, res) => {
         paymentIntentId: session.payment_intent || null,
         source: 'verify_checkout_fallback',
       });
+
+      // ── Referral Stage 2: Advance to "qualified" on first qualifying payment ──
+      try {
+        await referralService.advanceToQualified(uid, amountCents);
+      } catch (err) {
+        console.warn('[Referral] Stage 2 advance failed (non-blocking):', err.message);
+      }
+
+      // ── Referral: Mark discount as used if this was a discounted purchase ──
+      if (session.metadata?.referralDiscount === 'true') {
+        const savedCents = parseInt(session.metadata.discountSavedCents) || 0;
+        if (savedCents > 0) {
+          try {
+            await referralService.markDiscountUsed(uid, savedCents, {
+              sessionId: session.id,
+              paymentIntentId: session.payment_intent,
+              originalAmountCents: amountCents,
+              source: 'verify_checkout_fallback',
+            });
+          } catch (err) {
+            console.error('[Referral] markDiscountUsed failed:', err.message);
+          }
+        }
+      }
+
       return res.json({ success: true, credited: true });
     }
 

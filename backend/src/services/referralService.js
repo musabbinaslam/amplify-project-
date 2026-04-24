@@ -395,14 +395,33 @@ async function markDiscountUsed(uid, savedCents, metadata = {}) {
   try {
     const referralsSnap = await ref.collection('referrals')
       .where('status', '==', 'live')
-      .limit(1)
+      .orderBy('wentLiveAt', 'asc')
+      .limit(2) // Get up to 2 so we know if there's another one waiting
       .get();
+
     if (!referralsSnap.empty) {
-      await referralsSnap.docs[0].ref.update({
+      // Mark the first one as applied
+      const firstLiveRef = referralsSnap.docs[0];
+      await firstLiveRef.ref.update({
         status: 'discount_applied',
         discountAppliedAt: FieldValue.serverTimestamp(),
         discountSavedCents: savedCents,
       });
+
+      // If there's a second one, queue up the NEXT discount for the referrer!
+      if (referralsSnap.size > 1) {
+        const nextPercent = referralsSnap.docs[1].data().discountPercent || 20; // default to 20 if missing
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 90); // 90 days expiry
+
+        await ref.set({
+          pendingDiscountPercent: nextPercent,
+          pendingDiscountExpiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
+          discountUsed: false,
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+        console.log(`[Referral] Referrer ${uid} has another 'live' referral. Next discount queued.`);
+      }
     }
   } catch (err) {
     console.warn('[Referral] Failed to update referral entry status:', err.message);
