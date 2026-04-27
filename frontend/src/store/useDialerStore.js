@@ -94,7 +94,7 @@ const useDialerStore = create((set, get) => ({
   },
 
   rejectCall: () => {
-    const { activeCall } = get();
+    const { activeCall, socket } = get();
     console.log('DEBUG: Rejecting incoming call.');
     if (activeCall) {
        try {
@@ -102,8 +102,12 @@ const useDialerStore = create((set, get) => ({
        } catch (err) {
          console.error('DEBUG: Error rejecting call:', err);
        }
-       get().resetCallState();
     }
+    // Notify backend immediately so the agent is released from ringing
+    if (socket && socket.connected) {
+       socket.emit('agent:release');
+    }
+    get().resetCallState();
   },
 
   hangUp: () => {
