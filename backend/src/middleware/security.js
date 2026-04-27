@@ -92,6 +92,17 @@ const webhookCallLimiter = rateLimit({
     message: 'Too many webhook requests',
 });
 
+const LIMIT_REFERRAL_RESOLVE_WINDOW_MS = envInt('RATE_LIMIT_REFERRAL_RESOLVE_WINDOW_MS', 60 * 1000);
+const LIMIT_REFERRAL_RESOLVE_MAX = envInt('RATE_LIMIT_REFERRAL_RESOLVE_MAX', 10);
+
+const referralResolveLimiter = rateLimit({
+    windowMs: LIMIT_REFERRAL_RESOLVE_WINDOW_MS,
+    max: LIMIT_REFERRAL_RESOLVE_MAX,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many referral code lookups. Please try again later.' },
+});
+
 const validateTwilioWebhook = (req, res, next) => {
     // Bypass validation in local dev unless explicitly enabled (so ngrok testing works seamlessly)
     if (process.env.NODE_ENV !== 'production' && process.env.TWILIO_VALIDATE_WEBHOOKS !== 'true') {
@@ -139,5 +150,6 @@ module.exports = {
     supportEmailLimiter,
     voiceTokenLimiter,
     webhookCallLimiter,
+    referralResolveLimiter,
     validateTwilioWebhook
 };

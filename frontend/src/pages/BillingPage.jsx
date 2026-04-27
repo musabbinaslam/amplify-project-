@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { DollarSign, Clock, RefreshCw, CheckCircle2, Award, X, AlertCircle } from 'lucide-react';
+import { DollarSign, Clock, RefreshCw, CheckCircle2, Award, X, AlertCircle, Gift } from 'lucide-react';
 import classes from './BillingPage.module.css';
 import { stripeService } from '../services/stripeService';
+import { referralService } from '../services/referralService';
 import PageLoader from '../components/ui/PageLoader';
 
 const TOPUP_TIERS = [
@@ -22,6 +23,7 @@ const BillingPage = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [discount, setDiscount] = useState(null);
   const checkoutInFlightRef = useRef(false);
 
   useEffect(() => {
@@ -52,6 +54,12 @@ const BillingPage = () => {
       }
 
       await fetchWallet();
+
+      // Fetch referral discount status
+      try {
+        const discountData = await referralService.getDiscountStatus();
+        setDiscount(discountData);
+      } catch {} // non-blocking
     };
 
     initBilling();
@@ -132,6 +140,16 @@ const BillingPage = () => {
     <div className={classes.billingPage}>
       {errorMsg && <div className={classes.errorBanner}><AlertCircle size={16}/> {errorMsg}</div>}
       {successMsg && <div className={classes.successBanner}><CheckCircle2 size={16}/> {successMsg}</div>}
+
+      {discount?.hasDiscount && !discount.expired && (
+        <div className={classes.successBanner} style={{ gap: 10 }}>
+          <Gift size={18} />
+          <span>
+            <strong>{discount.percent}% referral discount active!</strong> Your next top-up will be discounted.
+            {discount.expiresAt && ` Expires ${new Date(discount.expiresAt).toLocaleDateString()}.`}
+          </span>
+        </div>
+      )}
 
       <section className={classes.sectionBox}>
         <div className={classes.sectionTop}>
@@ -268,17 +286,30 @@ const BillingPage = () => {
             <p className={classes.modalSub}>Select a top-up amount. Credits will be instantly added to your wallet.</p>
             
             <div className={classes.tiersGrid}>
-              {TOPUP_TIERS.map(tier => (
-                <button 
-                  key={tier.id} 
-                  className={`${classes.tierBtn} ${tier.popular ? classes.tierPopular : ''}`}
-                  onClick={() => handleTopup(tier.amountCents)}
-                  disabled={checkoutLoading}
-                >
-                  {tier.popular && <span className={classes.popularBadge}>Most Popular</span>}
-                  <span className={classes.tierAmount}>{tier.label}</span>
-                </button>
-              ))}
+              {TOPUP_TIERS.map(tier => {
+                const hasDisc = discount?.hasDiscount && !discount.expired;
+                const discountedCents = hasDisc
+                  ? Math.round(tier.amountCents * (1 - discount.percent / 100))
+                  : tier.amountCents;
+                return (
+                  <button 
+                    key={tier.id} 
+                    className={`${classes.tierBtn} ${tier.popular ? classes.tierPopular : ''}`}
+                    onClick={() => handleTopup(tier.amountCents)}
+                    disabled={checkoutLoading}
+                  >
+                    {tier.popular && <span className={classes.popularBadge}>Most Popular</span>}
+                    {hasDisc ? (
+                      <span className={classes.tierAmount}>
+                        <span style={{ textDecoration: 'line-through', opacity: 0.5, fontSize: '0.7em', marginRight: 8 }}>{tier.label}</span>
+                        ${(discountedCents / 100).toFixed(0)}
+                      </span>
+                    ) : (
+                      <span className={classes.tierAmount}>{tier.label}</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

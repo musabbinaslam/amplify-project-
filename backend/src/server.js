@@ -127,6 +127,10 @@ const startEngine = async () => {
     const stripeRoutes = require('./routes/stripeRoutes');
     app.use('/api/stripe', stripeRoutes);
 
+    // Mount Referral routes
+    const referralRoutes = require('./routes/referralRoutes');
+    app.use('/api/referrals', referralRoutes);
+
     // Support chat (Gemini); requires Firebase ID token
     app.use('/api/support', supportRoutes);
 
