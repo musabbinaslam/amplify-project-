@@ -293,12 +293,12 @@ const StepOne = ({ onNext }) => {
 const StepTwo = ({ onNext, onBack }) => {
   const [selectedCampaign, setSelectedCampaign] = useState('');
   const campaigns = [
-    { id: 'fe_transfers', title: 'FE Transfers', subtitle: 'Live transfer Final Expense leads', price: '$35', buffer: '120s buffer', icon: Umbrella },
-    { id: 'fe_inbounds', title: 'FE Inbounds', subtitle: 'Direct inbound Final Expense calls', price: '$25', buffer: '30s buffer', icon: PhoneIncoming },
-    { id: 'medicare_transfers', title: 'Medicare Transfers', subtitle: 'Live transfer Medicare leads', price: '$25', buffer: '120s buffer', icon: HeartPulse },
+    { id: 'fe_transfers', title: 'FE Transfers', subtitle: 'Live transfer Final Expense calls', price: '$35', buffer: '120s buffer', icon: Umbrella },
+    { id: 'fe_inbounds', title: 'FE Inbounds', subtitle: 'Direct inbound Final Expense calls', price: '$45', buffer: '90s buffer', icon: PhoneIncoming },
+    { id: 'medicare_transfers', title: 'Medicare Transfers', subtitle: 'Live transfer Medicare calls', price: '$25', buffer: '120s buffer', icon: HeartPulse },
     { id: 'medicare_inbound_1', title: 'Medicare Inbounds (1)', subtitle: 'High-intent Medicare inbound calls', price: '$35', buffer: '90s buffer', icon: Shield },
     { id: 'medicare_inbound_2', title: 'Medicare Inbounds (2)', subtitle: 'Standard Medicare inbound calls', price: '$18', buffer: '15s buffer', icon: ShieldCheck },
-    { id: 'aca_transfers', title: 'ACA Transfers', subtitle: 'Live transfer ACA health leads', price: '$30', buffer: '120s buffer', icon: Users },
+    { id: 'aca_transfers', title: 'ACA Transfers', subtitle: 'Live transfer ACA health calls', price: '$30', buffer: '120s buffer', icon: Users },
   ];
 
   return (
@@ -423,7 +423,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
   const hasBalance = walletBalance > 0;
   const campaignLabels = {
     fe_transfers: 'FE Transfers ($35 / 120s)',
-    fe_inbounds: 'FE Inbounds ($25 / 30s)',
+    fe_inbounds: 'FE Inbounds ($45 / 90s)',
     medicare_transfers: 'Medicare Transfers ($25 / 120s)',
     medicare_inbound_1: 'Medicare Inbounds 1 ($35 / 90s)',
     medicare_inbound_2: 'Medicare Inbounds 2 ($18 / 15s)',
@@ -492,7 +492,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
 // ─── Call History Table ──────────────────────────────────────────────────────
 const CallHistory = ({ logs }) => {
   if (!logs || logs.length === 0) {
-    return <div className={classes.emptyLogs}><p>No recent calls yet. Go live to start taking leads!</p></div>;
+    return <div className={classes.emptyLogs}><p>No recent calls yet. Go live to start taking calls!</p></div>;
   }
   return (
     <div className={classes.logsTableWrapper}>
@@ -598,7 +598,7 @@ const TakeCallsPage = () => {
           <div className={classes.pageHeader}>
             <div>
               <h1>Take Calls</h1>
-              <p>Monitor live status and handle inbound leads in real time.</p>
+              <p>Monitor live status and handle inbound calls in real time.</p>
             </div>
           </div>
 
@@ -621,7 +621,7 @@ const TakeCallsPage = () => {
             <div className={classes.pulsingGlow} />
             <div className={classes.liveBadge}><div className={classes.liveDot} />Dialer Active</div>
 
-            <h2>{callState === 'active' ? 'Currently On Call' : 'Listening for Leads'}</h2>
+            <h2>{callState === 'active' ? 'Currently On Call' : 'Listening for Calls'}</h2>
             <p>
               {callState === 'active'
                 ? 'Stay focused on the prospect. Follow your script.'
@@ -661,7 +661,7 @@ const TakeCallsPage = () => {
       <div className={classes.pageHeader}>
         <div>
           <h1>Take Calls</h1>
-          <p>Complete setup to start receiving inbound leads.</p>
+          <p>Complete setup to start receiving inbound calls.</p>
         </div>
       </div>
 
