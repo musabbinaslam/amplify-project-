@@ -11,6 +11,10 @@ const {
   postRegenerateApiKey,
   getSlugAvailability,
   getActivity,
+  getNotifications,
+  patchNotificationRead,
+  patchNotificationsReadAll,
+  getMaintenance,
   getQaSummary,
   getQaTrend,
   getQaScorecards,
@@ -34,6 +38,10 @@ router.get('/me/bootstrap', getMeBootstrap);
 router.patch('/me', patchMe);
 router.get('/me/slug-availability', getSlugAvailability);
 router.get('/me/activity', getActivity);
+router.get('/me/notifications', getNotifications);
+router.patch('/me/notifications/read-all', patchNotificationsReadAll);
+router.patch('/me/notifications/:id/read', patchNotificationRead);
+router.get('/me/maintenance', getMaintenance);
 router.get('/me/qa/summary', getQaSummary);
 router.get('/me/qa/trend', getQaTrend);
 router.get('/me/qa/scorecards', getQaScorecards);

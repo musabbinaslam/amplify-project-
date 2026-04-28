@@ -9,6 +9,12 @@ const {
   addActivity,
   listActivity,
 } = require('../services/userDataService');
+const {
+  listUserNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  getMaintenanceState,
+} = require('../services/notificationService');
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const AI_TRAINING_CACHE_TTL_MS = 30 * 1000;
@@ -524,6 +530,54 @@ async function getActivity(req, res) {
   } catch (err) {
     console.error('[Users] getActivity:', err.message);
     res.status(500).json({ error: err.message || 'Failed to load activity' });
+  }
+}
+
+async function getNotifications(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  try {
+    const out = await listUserNotifications(req.user.uid, req.query || {});
+    res.json(out);
+  } catch (err) {
+    console.error('[Users] getNotifications:', err.message);
+    const status = /must/i.test(err.message) ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to load notifications' });
+  }
+}
+
+async function patchNotificationRead(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  const notificationId = String(req.params.id || '').trim();
+  if (!notificationId) return res.status(400).json({ error: 'Notification id is required' });
+  try {
+    const out = await markNotificationRead(req.user.uid, notificationId);
+    res.json(out);
+  } catch (err) {
+    console.error('[Users] patchNotificationRead:', err.message);
+    const status = err.message === 'Notification not found' ? 404 : (/must|required/i.test(err.message) ? 400 : 500);
+    res.status(status).json({ error: err.message || 'Failed to mark notification as read' });
+  }
+}
+
+async function patchNotificationsReadAll(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  try {
+    const out = await markAllNotificationsRead(req.user.uid);
+    res.json(out);
+  } catch (err) {
+    console.error('[Users] patchNotificationsReadAll:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to mark all notifications as read' });
+  }
+}
+
+async function getMaintenance(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  try {
+    const maintenance = await getMaintenanceState();
+    res.json({ maintenance });
+  } catch (err) {
+    console.error('[Users] getMaintenance:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to load maintenance state' });
   }
 }
 
@@ -1092,6 +1146,10 @@ module.exports = {
   postRegenerateApiKey,
   getSlugAvailability,
   getActivity,
+  getNotifications,
+  patchNotificationRead,
+  patchNotificationsReadAll,
+  getMaintenance,
   getQaSummary,
   getQaTrend,
   getQaScorecards,
