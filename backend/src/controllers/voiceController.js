@@ -84,14 +84,16 @@ exports.handleIncomingCall = async (req, res) => {
           record: 'record-from-answer'
         });
         
-        const clientNode = dial.client(available.id);
+        dial.client(available.id);
         // Trackdrive Lead Data has been deliberately removed — dialing purely via Twilio
      } else {
         twiml.say('All agents are currently assisting other callers.');
+        twiml.hangup();
      }
   } catch(error) {
      console.error('Routing Error:', error);
      twiml.say('An error occurred in the routing logic.');
+     twiml.hangup();
   }
 
   res.set('Content-Type', 'text/xml');
@@ -99,13 +101,22 @@ exports.handleIncomingCall = async (req, res) => {
 };
 
 /**
- * Handle call completion metadata from Twilio
+ * Handle call completion metadata from Twilio.
+ *
+ * DialCallStatus values from Twilio:
+ *   'completed'  → agent answered and call ended normally
+ *   'busy'       → agent rejected the call via .reject()
+ *   'no-answer'  → agent didn't pick up within the timeout
+ *   'cancel'     → caller hung up before agent answered
+ *   'failed'     → Twilio could not reach the client endpoint
  */
 exports.handleCallCompleted = async (req, res) => {
     const { campaign, agentId } = req.query;
     const { From, To, DialCallDuration, DialCallStatus, CallSid, FromState, RecordingUrl } = req.body;
 
-    console.log(`[Twilio] Call Completed: ${CallSid}. Duration: ${DialCallDuration}s. Status: ${DialCallStatus}. Recording: ${RecordingUrl ? 'Yes' : 'No'}`);
+    const isRejectedOrMissed = ['busy', 'no-answer', 'failed', 'cancel'].includes(DialCallStatus);
+
+    console.log(`[Twilio] Call Completed: ${CallSid}. Duration: ${DialCallDuration}s. Status: ${DialCallStatus}${isRejectedOrMissed ? ' (agent rejected/missed)' : ''}. Recording: ${RecordingUrl ? 'Yes' : 'No'}`);
 
     let savedLog = null;
     let resolvedAgentId = agentId || null;
@@ -138,7 +149,7 @@ exports.handleCallCompleted = async (req, res) => {
 
     // Non-blocking QA insight generation — runs in-process with exponential backoff retries.
     // Dispatched AFTER the HTTP response is already sent, so call handling is never delayed.
-    if (resolvedAgentId && savedLog?.id) {
+    if (resolvedAgentId && savedLog?.id && !isRejectedOrMissed) {
         dispatchQaInsightJob({
             savedLog,
             agentId: resolvedAgentId,
@@ -158,6 +169,8 @@ exports.handleCallCompleted = async (req, res) => {
         }
     }
 
+    // IMPORTANT: Always return <Hangup/> so Twilio terminates the caller leg.
+    // Without this, rejected/no-answer calls can loop back and re-ring the agent.
     const twiml = new VoiceResponse();
     twiml.hangup();
     res.set('Content-Type', 'text/xml');

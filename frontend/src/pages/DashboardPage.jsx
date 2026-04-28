@@ -12,12 +12,12 @@ import classes from './DashboardPage.module.css';
 const PERIOD_OPTIONS = ['This Week', 'This Month', 'Last 30 Days'];
 
 const CAMPAIGN_DESCRIPTIONS = {
-  fe_transfers: 'Live transfer Final Expense leads',
+  fe_transfers: 'Live transfer Final Expense calls',
   fe_inbounds: 'Direct inbound Final Expense calls',
-  medicare_transfers: 'Live transfer Medicare leads',
+  medicare_transfers: 'Live transfer Medicare calls',
   medicare_inbound_1: 'High-intent Medicare inbound calls',
   medicare_inbound_2: 'Standard Medicare inbound calls',
-  aca_transfers: 'Live transfer ACA health leads',
+  aca_transfers: 'Live transfer ACA health calls',
 };
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -122,7 +122,7 @@ const StatCard = ({ title, value, icon: Icon }) => (
 );
 
 const CampaignCard = ({ title, desc, price, buffer }) => {
-  const unit = title.toLowerCase().includes('transfer') ? 'lead' : 'call';
+  const unit = 'call';
   return (
     <motion.div
       className={classes.campaignCard}
