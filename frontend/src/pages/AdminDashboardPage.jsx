@@ -21,6 +21,9 @@ import {
   createAdminDid,
   patchAdminDid,
   deleteAdminDid,
+  postAdminBroadcastNotification,
+  getAdminMaintenanceState,
+  patchAdminMaintenanceState,
 } from '../services/adminService';
 import useAuthStore from '../store/authStore';
 import PageLoader from '../components/ui/PageLoader';
@@ -48,6 +51,19 @@ const AdminDashboardPage = () => {
     campaignId: '',
     label: '',
     active: true,
+  });
+  const [broadcastForm, setBroadcastForm] = useState({
+    title: '',
+    body: '',
+    priority: 'normal',
+    expiresAt: '',
+  });
+  const [maintenanceForm, setMaintenanceForm] = useState({
+    active: false,
+    title: '',
+    message: '',
+    startsAt: '',
+    endsAt: '',
   });
 
   const getRange = useCallback(() => {
@@ -140,13 +156,30 @@ const AdminDashboardPage = () => {
     setDids(didList.dids || []);
   }, []);
 
+  const refreshMaintenance = useCallback(async () => {
+    try {
+      const out = await getAdminMaintenanceState();
+      const m = out?.maintenance || {};
+      setMaintenanceForm({
+        active: Boolean(m.active),
+        title: m.title || '',
+        message: m.message || '',
+        startsAt: m.startsAt ? String(m.startsAt).slice(0, 16) : '',
+        endsAt: m.endsAt ? String(m.endsAt).slice(0, 16) : '',
+      });
+    } catch (err) {
+      toast.error(err.message || 'Failed to load maintenance state');
+    }
+  }, []);
+
   useEffect(() => {
     // One-time shell + DIDs load (range-independent).
     Promise.all([
       loadShell(),
       refreshDids(),
+      refreshMaintenance(),
     ]);
-  }, [loadShell, refreshDids]);
+  }, [loadShell, refreshDids, refreshMaintenance]);
 
   useEffect(() => {
     // Re-fetch analytics whenever the selected range changes. loadAnalytics'
@@ -235,6 +268,45 @@ const AdminDashboardPage = () => {
       await refreshDids();
     } catch (err) {
       toast.error(err.message || 'Failed to delete');
+    }
+  };
+
+  const handleSendBroadcast = async (e) => {
+    e.preventDefault();
+    if (!broadcastForm.title.trim() || !broadcastForm.body.trim()) {
+      toast.error('Broadcast title and message are required');
+      return;
+    }
+    try {
+      const payload = {
+        title: broadcastForm.title.trim(),
+        body: broadcastForm.body.trim(),
+        priority: broadcastForm.priority,
+        ...(broadcastForm.expiresAt ? { expiresAt: new Date(broadcastForm.expiresAt).toISOString() } : {}),
+      };
+      const out = await postAdminBroadcastNotification(payload);
+      toast.success(`Broadcast sent to ${out.recipientCount || 0} users`);
+      setBroadcastForm((prev) => ({ ...prev, title: '', body: '' }));
+    } catch (err) {
+      toast.error(err.message || 'Failed to send broadcast');
+    }
+  };
+
+  const handleSaveMaintenance = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        active: Boolean(maintenanceForm.active),
+        title: maintenanceForm.title.trim(),
+        message: maintenanceForm.message.trim(),
+        startsAt: maintenanceForm.startsAt ? new Date(maintenanceForm.startsAt).toISOString() : null,
+        endsAt: maintenanceForm.endsAt ? new Date(maintenanceForm.endsAt).toISOString() : null,
+      };
+      await patchAdminMaintenanceState(payload);
+      toast.success(maintenanceForm.active ? 'Maintenance update published' : 'Maintenance mode turned off');
+      await refreshMaintenance();
+    } catch (err) {
+      toast.error(err.message || 'Failed to save maintenance state');
     }
   };
 
@@ -641,6 +713,85 @@ const AdminDashboardPage = () => {
             </div>
           </>
         )}
+      </section>
+
+      <section className={classes.card}>
+        <h2 className={classes.cardTitle}>Notifications & maintenance</h2>
+        <div className={classes.notificationGrid}>
+          <form className={classes.notificationForm} onSubmit={handleSendBroadcast}>
+            <h3 className={classes.subTitle}>Broadcast to all users</h3>
+            <input
+              className={classes.input}
+              placeholder="Notification title"
+              value={broadcastForm.title}
+              onChange={(e) => setBroadcastForm((prev) => ({ ...prev, title: e.target.value }))}
+            />
+            <textarea
+              className={classes.textarea}
+              placeholder="Message"
+              value={broadcastForm.body}
+              onChange={(e) => setBroadcastForm((prev) => ({ ...prev, body: e.target.value }))}
+            />
+            <div className={classes.formRow}>
+              <select
+                className={classes.select}
+                value={broadcastForm.priority}
+                onChange={(e) => setBroadcastForm((prev) => ({ ...prev, priority: e.target.value }))}
+              >
+                <option value="low">Low priority</option>
+                <option value="normal">Normal priority</option>
+                <option value="high">High priority</option>
+              </select>
+              <input
+                type="datetime-local"
+                className={classes.input}
+                value={broadcastForm.expiresAt}
+                onChange={(e) => setBroadcastForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
+              />
+            </div>
+            <button type="submit" className={classes.primaryBtn}>Send broadcast</button>
+          </form>
+          <form className={classes.notificationForm} onSubmit={handleSaveMaintenance}>
+            <h3 className={classes.subTitle}>Maintenance banner</h3>
+            <label className={classes.check}>
+              <input
+                type="checkbox"
+                checked={maintenanceForm.active}
+                onChange={(e) => setMaintenanceForm((prev) => ({ ...prev, active: e.target.checked }))}
+              />
+              Maintenance active
+            </label>
+            <input
+              className={classes.input}
+              placeholder="Maintenance title"
+              value={maintenanceForm.title}
+              onChange={(e) => setMaintenanceForm((prev) => ({ ...prev, title: e.target.value }))}
+            />
+            <textarea
+              className={classes.textarea}
+              placeholder="Maintenance message"
+              value={maintenanceForm.message}
+              onChange={(e) => setMaintenanceForm((prev) => ({ ...prev, message: e.target.value }))}
+            />
+            <div className={classes.formRow}>
+              <input
+                type="datetime-local"
+                className={classes.input}
+                value={maintenanceForm.startsAt}
+                onChange={(e) => setMaintenanceForm((prev) => ({ ...prev, startsAt: e.target.value }))}
+              />
+              <input
+                type="datetime-local"
+                className={classes.input}
+                value={maintenanceForm.endsAt}
+                onChange={(e) => setMaintenanceForm((prev) => ({ ...prev, endsAt: e.target.value }))}
+              />
+            </div>
+            <button type="submit" className={classes.primaryBtn}>
+              {maintenanceForm.active ? 'Publish maintenance update' : 'Save maintenance off'}
+            </button>
+          </form>
+        </div>
       </section>
 
       <section className={classes.card}>

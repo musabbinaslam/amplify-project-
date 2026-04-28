@@ -1,17 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Wallet, Moon, Sun, Settings2 } from 'lucide-react';
+import { Wallet, Moon, Sun, Bell } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
 import classes from './Topbar.module.css';
 import useDialerStore from '../../store/useDialerStore';
 
-const Topbar = () => {
+const Topbar = ({
+  notifications = [],
+  unreadCount = 0,
+  onMarkRead,
+  onMarkAllRead,
+}) => {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const { theme, toggleTheme } = useUIStore();
   const [balanceCents, setBalanceCents] = useState(null);
+  const [isInboxOpen, setIsInboxOpen] = useState(false);
+  const inboxRef = useRef(null);
   const { callState } = useDialerStore();
   
   const isOnline = callState !== 'offline' && callState !== 'error';
@@ -32,6 +39,18 @@ const Topbar = () => {
       return () => clearInterval(interval);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!isInboxOpen) return undefined;
+    const onClickOutside = (event) => {
+      if (!inboxRef.current) return;
+      if (!inboxRef.current.contains(event.target)) {
+        setIsInboxOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [isInboxOpen]);
 
   // Format pathname to Title Case for the header
   const getPageTitle = (pathname) => {
@@ -55,6 +74,14 @@ const Topbar = () => {
     return (cents / 100).toFixed(2);
   };
 
+  const items = useMemo(() => notifications.slice(0, 8), [notifications]);
+  const formatTime = (value) => {
+    if (!value) return 'Just now';
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return 'Just now';
+    return dt.toLocaleString();
+  };
+
   return (
     <header className={classes.topbar}>
       <div className={classes.pageInfo}>
@@ -63,6 +90,47 @@ const Topbar = () => {
       </div>
 
       <div className={classes.actions}>
+        <div className={classes.inboxWrap} ref={inboxRef}>
+          <button
+            className={classes.iconBtn}
+            onClick={() => setIsInboxOpen((v) => !v)}
+            title="Notifications"
+            type="button"
+          >
+            <Bell size={18} />
+            {unreadCount > 0 ? (
+              <span className={classes.unreadBadge}>{unreadCount > 99 ? '99+' : unreadCount}</span>
+            ) : null}
+          </button>
+          {isInboxOpen ? (
+            <div className={classes.inboxPanel}>
+              <div className={classes.inboxHeader}>
+                <strong>Notifications</strong>
+                <button type="button" className={classes.inlineBtn} onClick={onMarkAllRead}>
+                  Mark all read
+                </button>
+              </div>
+              {!items.length ? (
+                <p className={classes.emptyText}>No notifications yet.</p>
+              ) : (
+                <div className={classes.inboxList}>
+                  {items.map((row) => (
+                    <button
+                      type="button"
+                      key={row.id || `${row.title}-${row.createdAt}`}
+                      className={`${classes.inboxItem} ${!row.read ? classes.inboxItemUnread : ''}`}
+                      onClick={() => row.id && onMarkRead && onMarkRead(row.id)}
+                    >
+                      <span className={classes.itemTitle}>{row.title || 'Notification'}</span>
+                      <span className={classes.itemBody}>{row.body || ''}</span>
+                      <span className={classes.itemTime}>{formatTime(row.createdAt || row.createdAtIso)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
         <div className={classes.walletBox} onClick={() => navigate('/app/billing')} style={{cursor: 'pointer'}}>
           <Wallet size={16} className={classes.walletIcon} />
           <span className={classes.balance}>{formatBalance(balanceCents)}</span>
