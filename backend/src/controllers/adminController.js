@@ -1,6 +1,12 @@
 const agentManager = require('../services/agentManager');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const phoneRouteService = require('../services/phoneRouteService');
+const socketRegistry = require('../sockets/socketRegistry');
+const {
+  broadcastNotificationToAllUsers,
+  setMaintenanceState,
+  getMaintenanceState,
+} = require('../services/notificationService');
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const ANALYTICS_CACHE_TTL_MS = 30000;
@@ -930,6 +936,96 @@ async function revokeDiscountHandler(req, res) {
   }
 }
 
+async function postBroadcastNotification(req, res) {
+  try {
+    const payload = await broadcastNotificationToAllUsers(
+      {
+        type: 'admin_broadcast',
+        title: req.body?.title,
+        body: req.body?.body,
+        priority: req.body?.priority,
+        expiresAt: req.body?.expiresAt,
+      },
+      req.user?.uid || 'admin',
+    );
+    payload.created.forEach(({ uid, id }) => {
+      socketRegistry.emitToAgent(uid, 'notification:new', {
+        id,
+        type: payload.type,
+        title: payload.title,
+        body: payload.body,
+        priority: payload.priority,
+        source: 'admin',
+        read: false,
+        createdAt: payload.createdAt,
+        expiresAt: payload.expiresAt || null,
+      });
+    });
+    res.status(201).json({
+      success: true,
+      recipientCount: payload.recipientCount,
+      createdCount: payload.createdCount,
+      message: 'Broadcast sent',
+    });
+  } catch (err) {
+    console.error('[Admin] postBroadcastNotification:', err.message);
+    const status = /required|exceeds|must|Invalid|priority/i.test(err.message) ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to send broadcast' });
+  }
+}
+
+async function patchMaintenance(req, res) {
+  try {
+    const maintenance = await setMaintenanceState(req.body || {}, req.user?.uid || null);
+    const db = getDb();
+    const usersSnap = await db.collection('users').select().limit(20000).get();
+    usersSnap.docs.forEach((doc) => {
+      socketRegistry.emitToAgent(doc.id, 'maintenance:update', maintenance);
+    });
+
+    if (maintenance.active) {
+      const payload = await broadcastNotificationToAllUsers(
+        {
+          type: 'maintenance',
+          title: maintenance.title || 'Maintenance update',
+          body: maintenance.message || 'Maintenance update has been posted.',
+          priority: 'high',
+          expiresAt: maintenance.endsAt || null,
+        },
+        req.user?.uid || 'admin',
+      );
+      payload.created.forEach(({ uid, id }) => {
+        socketRegistry.emitToAgent(uid, 'notification:new', {
+          id,
+          type: payload.type,
+          title: payload.title,
+          body: payload.body,
+          priority: payload.priority,
+          source: 'admin',
+          read: false,
+          createdAt: payload.createdAt,
+          expiresAt: payload.expiresAt || null,
+        });
+      });
+    }
+    res.json({ maintenance });
+  } catch (err) {
+    console.error('[Admin] patchMaintenance:', err.message);
+    const status = /required|exceeds|must|valid date/i.test(err.message) ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to update maintenance state' });
+  }
+}
+
+async function getMaintenance(req, res) {
+  try {
+    const maintenance = await getMaintenanceState();
+    res.json({ maintenance });
+  } catch (err) {
+    console.error('[Admin] getMaintenance:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to read maintenance state' });
+  }
+}
+
 module.exports = {
   getOverviewLite,
   getAnalyticsBundle,
@@ -946,4 +1042,7 @@ module.exports = {
   updateReferralStatus: updateReferralStatusHandler,
   grantDiscount: grantDiscountHandler,
   revokeDiscount: revokeDiscountHandler,
+  postBroadcastNotification,
+  patchMaintenance,
+  getMaintenance,
 };

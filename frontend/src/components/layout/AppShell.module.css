@@ -31,3 +31,14 @@
   padding: 40px 48px 80px;
   background-color: var(--surface);
 }
+
+.maintenanceBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: color-mix(in srgb, var(--accent-red) 18%, var(--surface-container-low));
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 13px;
+}

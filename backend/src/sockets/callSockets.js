@@ -17,6 +17,19 @@ exports.setupCallSockets = (io) => {
     io.on('connection', (socket) => {
         console.log(`🔌 WebRTC Socket Connected: ${socket.id}`);
 
+        socket.on('notification:register', (payload = {}) => {
+            const uid = String(payload.uid || '').trim();
+            if (!uid) return;
+            socket.notificationUid = uid;
+            socketRegistry.register(uid, socket);
+        });
+
+        socket.on('notification:unregister', () => {
+            if (!socket.notificationUid) return;
+            socketRegistry.unregister(socket.notificationUid, socket);
+            socket.notificationUid = null;
+        });
+
         socket.on('agent:go_live', async (payload) => {
             const { agentId, campaign } = payload;
             // Use the specific agentId provided by the frontend
@@ -78,7 +91,7 @@ exports.setupCallSockets = (io) => {
         // Removes them from the pool immediately rather than waiting for disconnect/heartbeat expiry
         socket.on('agent:go_offline', async () => {
             if (socket.agentId) {
-                socketRegistry.unregister(socket.agentId);
+                socketRegistry.unregister(socket.agentId, socket);
                 await agentManager.removeAgent(socket.agentId);
                 socket.agentId = null;
                 await broadcastAgentCount(io);
@@ -88,8 +101,12 @@ exports.setupCallSockets = (io) => {
 
         socket.on('disconnect', async () => {
             if (socket.agentId) {
-                socketRegistry.unregister(socket.agentId);
+                socketRegistry.unregister(socket.agentId, socket);
                 await agentManager.removeAgent(socket.agentId);
+            }
+            if (socket.notificationUid) {
+                socketRegistry.unregister(socket.notificationUid, socket);
+                socket.notificationUid = null;
             }
             await broadcastAgentCount(io);
             console.log(`❌ WebRTC Socket Disconnected: ${socket.id}`);
