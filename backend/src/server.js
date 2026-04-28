@@ -76,22 +76,17 @@ const startEngine = async () => {
 
     async function runGhostCleanup() {
         try {
-            let evicted = 0;
-            for (const campaignId of Object.keys(CAMPAIGN_CONFIG)) {
-                const poolKey = `pool:${campaignId}`;
-                const candidates = await redisClient.zRange(poolKey, 0, -1);
-                for (const agentId of candidates) {
-                    const isAlive = await redisClient.exists(`agent:heartbeat:${agentId}`);
-                    if (!isAlive) {
-                        await redisClient.zRem(poolKey, agentId);
-                        await redisClient.del(`agent:${agentId}`);
-                        evicted++;
-                        console.log(`[Ghost Cleanup] Evicted stale agent: ${agentId} from campaign: ${campaignId}`);
-                    }
+            const cutoff = Date.now() - 65000; // 65 seconds
+            // Get all agents whose last heartbeat was older than the cutoff
+            const ghosts = await redisClient.zRangeByScore('agents:heartbeats', 0, cutoff);
+            
+            if (ghosts && ghosts.length > 0) {
+                for (const agentId of ghosts) {
+                    await agentManager.removeAgent(agentId);
+                    console.log(`[Ghost Cleanup] Evicted stale agent: ${agentId}`);
                 }
-            }
-            if (evicted > 0) {
-                console.log(`[Ghost Cleanup] ✅ Swept ${evicted} ghost agent(s) from pool`);
+                console.log(`[Ghost Cleanup] ✅ Swept ${ghosts.length} ghost agent(s) from pool`);
+                
                 // Broadcast updated count to all connected frontends
                 const count = await agentManager.getTotalAvailableCount();
                 io.emit('stats:agent_count', count || 0);

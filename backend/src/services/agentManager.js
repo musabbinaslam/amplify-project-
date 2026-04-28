@@ -56,6 +56,9 @@ class AgentManager {
 
       // Score 0 = highest priority (longest wait). Score is updated to Date.now() on each release.
       await redisClient.zAdd(this.poolKey(campaign), { score: 0, value: agentId });
+      
+      // Add to global heartbeats tracker for efficient O(1) sweeper lookups
+      await redisClient.zAdd('agents:heartbeats', { score: Date.now(), value: agentId });
 
       console.log(`[Redis] ✅ Agent Registered: ${agentId} | Campaign: ${campaign} | States: ${licensedStates.join(', ') || 'ALL'}`);
    }
@@ -71,6 +74,7 @@ class AgentManager {
       }
       await redisClient.del(`agent:${agentId}`);
       await redisClient.del(`agent:heartbeat:${agentId}`);
+      await redisClient.zRem('agents:heartbeats', agentId);
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sRem('agents:busy', agentId);
       console.log(`[Redis] ❌ Agent Offline: ${agentId}`);

@@ -64,6 +64,7 @@ exports.setupCallSockets = (io) => {
             if (identity) {
                 // Heartbeat to keep agent alive in the active pool
                 await redisClient.setEx(`agent:heartbeat:${identity}`, 60, "alive");
+                await redisClient.zAdd('agents:heartbeats', { score: Date.now(), value: identity });
             }
         });
 
