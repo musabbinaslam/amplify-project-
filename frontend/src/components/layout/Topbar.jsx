@@ -11,6 +11,8 @@ const Topbar = ({
   unreadCount = 0,
   onMarkRead,
   onMarkAllRead,
+  notificationTick = 0,
+  latestNotificationId = null,
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -18,6 +20,8 @@ const Topbar = ({
   const { theme, toggleTheme } = useUIStore();
   const [balanceCents, setBalanceCents] = useState(null);
   const [isInboxOpen, setIsInboxOpen] = useState(false);
+  const [isInboxClosing, setIsInboxClosing] = useState(false);
+  const [isBellAnimating, setIsBellAnimating] = useState(false);
   const inboxRef = useRef(null);
   const { callState } = useDialerStore();
   
@@ -41,16 +45,27 @@ const Topbar = ({
   }, [user]);
 
   useEffect(() => {
-    if (!isInboxOpen) return undefined;
+    if (!isInboxOpen || isInboxClosing) return undefined;
     const onClickOutside = (event) => {
       if (!inboxRef.current) return;
       if (!inboxRef.current.contains(event.target)) {
-        setIsInboxOpen(false);
+        setIsInboxClosing(true);
+        window.setTimeout(() => {
+          setIsInboxOpen(false);
+          setIsInboxClosing(false);
+        }, 170);
       }
     };
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
-  }, [isInboxOpen]);
+  }, [isInboxOpen, isInboxClosing]);
+
+  useEffect(() => {
+    if (!notificationTick) return;
+    setIsBellAnimating(true);
+    const timer = window.setTimeout(() => setIsBellAnimating(false), 1100);
+    return () => window.clearTimeout(timer);
+  }, [notificationTick]);
 
   // Format pathname to Title Case for the header
   const getPageTitle = (pathname) => {
@@ -75,6 +90,17 @@ const Topbar = ({
   };
 
   const items = useMemo(() => notifications.slice(0, 8), [notifications]);
+  const toggleInbox = () => {
+    if (isInboxOpen && !isInboxClosing) {
+      setIsInboxClosing(true);
+      window.setTimeout(() => {
+        setIsInboxOpen(false);
+        setIsInboxClosing(false);
+      }, 170);
+      return;
+    }
+    setIsInboxOpen(true);
+  };
   const formatTime = (value) => {
     if (!value) return 'Just now';
     const dt = new Date(value);
@@ -92,18 +118,24 @@ const Topbar = ({
       <div className={classes.actions}>
         <div className={classes.inboxWrap} ref={inboxRef}>
           <button
-            className={classes.iconBtn}
-            onClick={() => setIsInboxOpen((v) => !v)}
+            className={`${classes.iconBtn} ${isBellAnimating ? classes.bellAnimated : ''}`}
+            onClick={toggleInbox}
             title="Notifications"
             type="button"
           >
-            <Bell size={18} />
+            <Bell size={18} className={classes.bellIcon} />
             {unreadCount > 0 ? (
-              <span className={classes.unreadBadge}>{unreadCount > 99 ? '99+' : unreadCount}</span>
+              <span className={`${classes.unreadBadge} ${isBellAnimating ? classes.badgeAnimated : ''}`}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
             ) : null}
           </button>
           {isInboxOpen ? (
-            <div className={classes.inboxPanel}>
+            <div
+              className={`${classes.inboxPanel} ${
+                isInboxClosing ? classes.inboxPanelClose : classes.inboxPanelOpen
+              }`}
+            >
               <div className={classes.inboxHeader}>
                 <strong>Notifications</strong>
                 <button type="button" className={classes.inlineBtn} onClick={onMarkAllRead}>
@@ -118,7 +150,9 @@ const Topbar = ({
                     <button
                       type="button"
                       key={row.id || `${row.title}-${row.createdAt}`}
-                      className={`${classes.inboxItem} ${!row.read ? classes.inboxItemUnread : ''}`}
+                      className={`${classes.inboxItem} ${!row.read ? classes.inboxItemUnread : ''} ${
+                        latestNotificationId && row.id === latestNotificationId ? classes.inboxItemNew : ''
+                      }`}
                       onClick={() => row.id && onMarkRead && onMarkRead(row.id)}
                     >
                       <span className={classes.itemTitle}>{row.title || 'Notification'}</span>

@@ -22,6 +22,8 @@ const AppShell = () => {
   const user = useAuthStore((s) => s.user);
   const [notifications, setNotifications] = useState([]);
   const [maintenance, setMaintenance] = useState(null);
+  const [notificationTick, setNotificationTick] = useState(0);
+  const [latestNotificationId, setLatestNotificationId] = useState(null);
   const unreadCount = useMemo(
     () => notifications.filter((row) => !row.read).length,
     [notifications],
@@ -87,6 +89,8 @@ const AppShell = () => {
     socket.on('notification:new', (payload) => {
       if (!payload) return;
       setNotifications((rows) => [{ ...payload, read: false }, ...rows].slice(0, 80));
+      setLatestNotificationId(payload.id || null);
+      setNotificationTick((n) => n + 1);
       toast(payload.title || 'New notification', { icon: '🔔' });
     });
     socket.on('maintenance:update', (payload) => {
@@ -117,6 +121,8 @@ const AppShell = () => {
             unreadCount={unreadCount}
             onMarkRead={handleMarkRead}
             onMarkAllRead={handleMarkAllRead}
+            notificationTick={notificationTick}
+            latestNotificationId={latestNotificationId}
           />
           <main className={classes.mainContent}>
             <motion.div
