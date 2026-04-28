@@ -70,8 +70,9 @@ class AgentManager {
          this.markDiagnostic('rejectedNoHeartbeat');
          return { ok: false, reason: 'no-heartbeat' };
       }
-      const data = await redisClient.hGetAll(`agent:${id}`);
-      if (!data || Object.keys(data).length === 0) {
+      const dataStr = await redisClient.hGet('agents:data', id);
+      const data = dataStr ? JSON.parse(dataStr) : null;
+      if (!data) {
          this.markDiagnostic('rejectedMissingAgentData');
          return { ok: false, reason: 'missing-agent-data' };
       }
@@ -94,18 +95,20 @@ class AgentManager {
    }
 
    async touchHeartbeat(agentId, sessionId, ttlSec = 120) {
-      const data = await redisClient.hGetAll(`agent:${agentId}`);
-      if (!data || Object.keys(data).length === 0) return { ok: false, reason: 'missing-agent-data' };
+      const dataStr = await redisClient.hGet('agents:data', agentId);
+      const data = dataStr ? JSON.parse(dataStr) : null;
+      if (!data) return { ok: false, reason: 'missing-agent-data' };
       if (data.sessionId && sessionId && String(data.sessionId) !== String(sessionId)) {
          return { ok: false, reason: 'session-mismatch' };
       }
       const now = Date.now().toString();
+      data.lastSeenAt = now;
+      data.lastHeartbeatAt = now;
+
       await Promise.all([
-         redisClient.hSet(`agent:${agentId}`, {
-            lastSeenAt: now,
-            lastHeartbeatAt: now,
-         }),
+         redisClient.hSet('agents:data', agentId, JSON.stringify(data)),
          redisClient.setEx(`agent:heartbeat:${agentId}`, ttlSec, data.sessionId || sessionId || 'legacy'),
+         redisClient.zAdd('agents:heartbeats', { score: Date.now(), value: agentId })
       ]);
       return { ok: true, sessionId: data.sessionId || sessionId || 'legacy' };
    }
@@ -115,7 +118,8 @@ class AgentManager {
     */
    async registerAgent(agentId, payload) {
       // ── Clear any stale state from a previous session ──────────────────────
-      const oldData = await redisClient.hGetAll(`agent:${agentId}`);
+      const oldDataStr = await redisClient.hGet('agents:data', agentId);
+      const oldData = oldDataStr ? JSON.parse(oldDataStr) : null;
       if (oldData?.campaignId) {
          await redisClient.zRem(this.poolKey(oldData.campaignId), agentId);
       }
@@ -127,7 +131,7 @@ class AgentManager {
       const sessionId = String(payload.sessionId || `legacy-${Date.now()}`).trim();
       const now = Date.now().toString();
 
-      await redisClient.hSet(`agent:${agentId}`, {
+      const newAgentData = {
          agentId,
          campaignId:     campaign,
          licensedStates: JSON.stringify(licensedStates),
@@ -137,10 +141,15 @@ class AgentManager {
          lastSeenAt:     now,
          lastHeartbeatAt: now,
          lastCallAt:     '0',   // 0 = never had a call = highest LRU priority
-      });
+      };
+
+      await redisClient.hSet('agents:data', agentId, JSON.stringify(newAgentData));
 
       // Score 0 = highest priority (longest wait). Score is updated to Date.now() on each release.
       await redisClient.zAdd(this.poolKey(campaign), { score: 0, value: agentId });
+      
+      // Add to global heartbeats tracker for efficient O(1) sweeper lookups
+      await redisClient.zAdd('agents:heartbeats', { score: Date.now(), value: agentId });
 
       console.log(`[Redis] ✅ Agent Registered: ${agentId} | Campaign: ${campaign} | Session: ${sessionId} | States: ${licensedStates.join(', ') || 'ALL'}`);
       return { agentId, campaign, sessionId };
@@ -151,7 +160,8 @@ class AgentManager {
     */
    async removeAgent(agentId, expectedSessionId = null) {
       // Read the agent's campaign so we can remove from the correct sorted set
-      const data = await redisClient.hGetAll(`agent:${agentId}`);
+      const dataStr = await redisClient.hGet('agents:data', agentId);
+      const data = dataStr ? JSON.parse(dataStr) : null;
       if (expectedSessionId && data?.sessionId && String(expectedSessionId) !== String(data.sessionId)) {
          console.log(`[Presence] Ignoring remove for ${agentId} due to session mismatch`);
          return false;
@@ -159,8 +169,9 @@ class AgentManager {
       if (data?.campaignId) {
          await redisClient.zRem(this.poolKey(data.campaignId), agentId);
       }
-      await redisClient.del(`agent:${agentId}`);
+      await redisClient.hDel('agents:data', agentId);
       await redisClient.del(`agent:heartbeat:${agentId}`);
+      await redisClient.zRem('agents:heartbeats', agentId);
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sRem('agents:busy', agentId);
       console.log(`[Redis] ❌ Agent Offline: ${agentId}`);
@@ -197,7 +208,7 @@ class AgentManager {
                console.log(`[Router] ⛔ Candidate rejected (${presence.reason}): ${id}`);
                await redisClient.zRem(this.poolKey(campaignId), id);
                if (presence.reason === 'no-heartbeat' || presence.reason === 'session-mismatch' || presence.reason === 'missing-agent-data') {
-                  await redisClient.del(`agent:${id}`);
+                  await redisClient.hDel('agents:data', id);
                   this.markDiagnostic('ghostEvicted');
                }
                return null;
@@ -237,7 +248,12 @@ class AgentManager {
          const locked = await redisClient.zRem(this.poolKey(campaignId), agent.id);
          if (locked === 1) {
             await redisClient.sAdd('agents:ringing', agent.id);
-            await redisClient.hSet(`agent:${agent.id}`, 'status', 'RINGING');
+            const rawAgentStr = await redisClient.hGet('agents:data', agent.id);
+            if (rawAgentStr) {
+               const agentObj = JSON.parse(rawAgentStr);
+               agentObj.status = 'RINGING';
+               await redisClient.hSet('agents:data', agent.id, JSON.stringify(agentObj));
+            }
             this.markDiagnostic('locksWon');
             console.log(`[Router] 🔒 Locked agent ${agent.id} for campaign "${campaignId}"`);
             return agent;
@@ -291,7 +307,8 @@ class AgentManager {
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sRem('agents:busy', agentId);
 
-      const data = await redisClient.hGetAll(`agent:${agentId}`);
+      const dataStr = await redisClient.hGet('agents:data', agentId);
+      const data = dataStr ? JSON.parse(dataStr) : null;
       if (expectedSessionId && data?.sessionId && String(expectedSessionId) !== String(data.sessionId)) {
          console.log(`[Presence] Ignoring release for ${agentId} due to session mismatch`);
          return false;
@@ -304,11 +321,12 @@ class AgentManager {
          });
       }
 
-      await redisClient.hSet(`agent:${agentId}`, {
-         status:      'AVAILABLE',
-         lastSeenAt:  Date.now().toString(),
-         lastCallAt:  Date.now().toString(),
-      });
+      if (data) {
+         data.status = 'AVAILABLE';
+         data.lastSeenAt = Date.now().toString();
+         data.lastCallAt = Date.now().toString();
+         await redisClient.hSet('agents:data', agentId, JSON.stringify(data));
+      }
 
       console.log(`[Router] 🔓 Agent ${agentId} released → back to AVAILABLE (end of LRU queue)`);
       return true;
@@ -320,12 +338,17 @@ class AgentManager {
       if (!agentId) return;
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sAdd('agents:busy', agentId);
-      await redisClient.hSet(`agent:${agentId}`, {
-         status:      'IN_CALL',
-         lastSeenAt:  Date.now().toString(),
-         lastCallAt:  Date.now().toString(),
-      });
-      await redisClient.hSet(this.activeCallKey(agentId), {
+      
+      const rawAgentStr = await redisClient.hGet('agents:data', agentId);
+      if (rawAgentStr) {
+         const agentObj = JSON.parse(rawAgentStr);
+         agentObj.status = 'IN_CALL';
+         agentObj.lastSeenAt = Date.now().toString();
+         agentObj.lastCallAt = Date.now().toString();
+         await redisClient.hSet('agents:data', agentId, JSON.stringify(agentObj));
+      }
+
+      const activeCallData = {
          agentId,
          callSid:    String(payload.callSid    || ''),
          from:       String(payload.from       || ''),
@@ -334,75 +357,76 @@ class AgentManager {
          startedAt:  String(payload.startedAt  || new Date().toISOString()),
          state:      String(payload.state      || 'in_call'),
          updatedAt:  new Date().toISOString(),
-      });
+      };
+      await redisClient.hSet('activecalls:data', agentId, JSON.stringify(activeCallData));
    }
 
    async clearActiveCall(agentId) {
       if (!agentId) return;
-      await redisClient.del(this.activeCallKey(agentId));
+      await redisClient.hDel('activecalls:data', agentId);
    }
 
    async getActiveCall(agentId) {
       if (!agentId) return null;
-      const row = await redisClient.hGetAll(this.activeCallKey(agentId));
-      return row && Object.keys(row).length ? row : null;
+      const rawStr = await redisClient.hGet('activecalls:data', agentId);
+      return rawStr ? JSON.parse(rawStr) : null;
    }
 
    async getAgentState(agentId) {
       if (!agentId) return null;
-      const row = await redisClient.hGetAll(`agent:${agentId}`);
-      return row && Object.keys(row).length ? row : null;
+      const rawStr = await redisClient.hGet('agents:data', agentId);
+      return rawStr ? JSON.parse(rawStr) : null;
    }
 
    async listActiveCallAgentIds() {
-      const ids = new Set();
-      for await (const key of redisClient.scanIterator({ MATCH: this.activeCallPattern(), COUNT: 200 })) {
-         const raw = String(key || '');
-         if (!raw.startsWith('activecall:')) continue;
-         const agentId = raw.slice('activecall:'.length);
-         if (agentId) ids.add(agentId);
-      }
-      return [...ids];
+      const keys = await redisClient.hKeys('activecalls:data');
+      return keys || [];
    }
 
    async findAgentIdByCallSid(callSid) {
       const target = String(callSid || '').trim();
       if (!target) return null;
       const ids = await this.listActiveCallAgentIds();
-      for (const agentId of ids) {
-         // eslint-disable-next-line no-await-in-loop
-         const row = await redisClient.hGetAll(this.activeCallKey(agentId));
+      const activeCalls = await redisClient.hGetAll('activecalls:data');
+      for (const [agentId, callStr] of Object.entries(activeCalls)) {
+         const row = JSON.parse(callStr);
          if (row?.callSid && String(row.callSid).trim() === target) return agentId;
       }
       return null;
    }
 
    async listActiveCalls() {
-      const [busyIds, keyedIds] = await Promise.all([
+      const [busyIds, keyedIds, allActiveCallsStr, allAgentsStr] = await Promise.all([
          redisClient.sMembers('agents:busy'),
          this.listActiveCallAgentIds(),
+         redisClient.hGetAll('activecalls:data'),
+         redisClient.hGetAll('agents:data'),
       ]);
       const agentIds = [...new Set([...(busyIds || []), ...(keyedIds || [])])];
       if (!agentIds.length) return [];
-      const rows = await Promise.all(
-         agentIds.map(async (id) => {
-            const row   = await redisClient.hGetAll(this.activeCallKey(id));
-            const agent = await redisClient.hGetAll(`agent:${id}`);
-            if (!row || Object.keys(row).length === 0) return null;
-            const startedAtMs = row.startedAt ? new Date(row.startedAt).getTime() : NaN;
-            return {
-               agentId:     id,
-               callSid:     row.callSid   || null,
-               from:        row.from      || null,
-               to:          row.to        || null,
-               campaignId:  row.campaignId || agent.campaignId || null,
-               startedAt:   row.startedAt || null,
-               durationSec: Number.isNaN(startedAtMs) ? 0 : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000)),
-               status:      agent.status  || 'IN_CALL',
-               state:       row.state     || 'in_call',
-            };
-         }),
-      );
+      
+      const rows = agentIds.map((id) => {
+         const rowStr = allActiveCallsStr[id];
+         const agentStr = allAgentsStr[id];
+         if (!rowStr) return null;
+         
+         const row = JSON.parse(rowStr);
+         const agent = agentStr ? JSON.parse(agentStr) : {};
+         
+         const startedAtMs = row.startedAt ? new Date(row.startedAt).getTime() : NaN;
+         return {
+            agentId:     id,
+            callSid:     row.callSid   || null,
+            from:        row.from      || null,
+            to:          row.to        || null,
+            campaignId:  row.campaignId || agent.campaignId || null,
+            startedAt:   row.startedAt || null,
+            durationSec: Number.isNaN(startedAtMs) ? 0 : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000)),
+            status:      agent.status  || 'IN_CALL',
+            state:       row.state     || 'in_call',
+         };
+      });
+      
       return rows.filter(Boolean);
    }
 
@@ -434,14 +458,19 @@ class AgentManager {
    }
 
    async getOverview() {
-      const pool = await this.getPoolSnapshot();
+      const [pool, allAgentsStr] = await Promise.all([
+         this.getPoolSnapshot(),
+         redisClient.hGetAll('agents:data')
+      ]);
+      
       const idSet = new Set([...pool.available, ...pool.ringing, ...pool.busy]);
       const agents = [];
       const byCampaign = {};
 
       for (const id of idSet) {
-         const raw = await redisClient.hGetAll(`agent:${id}`);
-         if (!raw || Object.keys(raw).length === 0) continue;
+         const rawStr = allAgentsStr[id];
+         if (!rawStr) continue;
+         const raw = JSON.parse(rawStr);
 
          let licensedStates = [];
          try {
@@ -488,7 +517,7 @@ class AgentManager {
          await redisClient.zRem(poolKey, agentId);
          if (['no-heartbeat', 'session-mismatch', 'missing-agent-data'].includes(presence.reason)) {
             // eslint-disable-next-line no-await-in-loop
-            await redisClient.del(`agent:${agentId}`);
+            await redisClient.hDel('agents:data', agentId);
          }
          evicted += 1;
          this.markDiagnostic('ghostEvicted');

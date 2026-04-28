@@ -75,15 +75,16 @@ const startEngine = async () => {
 
     async function runGhostCleanup() {
         try {
-            let evicted = 0;
-            for (const campaignId of Object.keys(CAMPAIGN_CONFIG)) {
-                // agentManager internally validates heartbeat, session binding, and freshness.
-                // eslint-disable-next-line no-await-in-loop
-                const removed = await agentManager.evictStaleAgentsFromCampaign(campaignId);
-                evicted += Number(removed || 0);
-            }
-            if (evicted > 0) {
-                console.log(`[Ghost Cleanup] ✅ Swept ${evicted} ghost agent(s) from pool`);
+            const cutoff = Date.now() - 65000; // 65 seconds
+            // Get all agents whose last heartbeat was older than the cutoff
+            const ghosts = await redisClient.zRangeByScore('agents:heartbeats', 0, cutoff);
+            
+            if (ghosts && ghosts.length > 0) {
+                for (const agentId of ghosts) {
+                    await agentManager.removeAgent(agentId);
+                    console.log(`[Ghost Cleanup] Evicted stale agent: ${agentId}`);
+                }
+                console.log(`[Ghost Cleanup] ✅ Swept ${ghosts.length} ghost agent(s) from pool`);
                 // Broadcast updated count to all connected frontends
                 const count = await agentManager.getTotalAvailableCount();
                 io.emit('stats:agent_count', count || 0);
