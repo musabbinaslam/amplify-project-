@@ -1,5 +1,6 @@
 const { redisClient } = require('../config/redis');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
+const PRESENCE_FRESHNESS_MS = 120 * 1000;
 
 /**
  * AgentManager — Per-Campaign Sorted Set Routing
@@ -24,11 +25,90 @@ const { CAMPAIGN_CONFIG } = require('../config/pricing');
  *   No double-routing is possible.
  */
 class AgentManager {
+   constructor() {
+      this.routingDiagnostics = {
+         totalRequests: 0,
+         locksWon: 0,
+         raceLost: 0,
+         rejectedNoHeartbeat: 0,
+         rejectedMissingAgentData: 0,
+         rejectedSessionMismatch: 0,
+         rejectedWrongStatus: 0,
+         rejectedStaleLastSeen: 0,
+         ghostEvicted: 0,
+         lastCandidates: 0,
+         lastEligible: 0,
+         updatedAt: new Date().toISOString(),
+      };
+   }
 
    // ─── Key helpers ──────────────────────────────────────────────────────────
    poolKey(campaignId)   { return `pool:${campaignId}`; }
    activeCallKey(agentId) { return `activecall:${agentId}`; }
    activeCallPattern()    { return 'activecall:*'; }
+
+   markDiagnostic(field, delta = 1) {
+      this.routingDiagnostics[field] = Number(this.routingDiagnostics[field] || 0) + delta;
+      this.routingDiagnostics.updatedAt = new Date().toISOString();
+   }
+
+   getRoutingDiagnostics() {
+      return {
+         ...this.routingDiagnostics,
+      };
+   }
+
+   isFreshLastSeen(rawLastSeenAt) {
+      const lastSeenAt = Number(rawLastSeenAt || 0);
+      if (!Number.isFinite(lastSeenAt) || lastSeenAt <= 0) return false;
+      return Date.now() - lastSeenAt <= PRESENCE_FRESHNESS_MS;
+   }
+
+   async validateAgentPresence(campaignId, id, options = {}) {
+      const heartbeat = await redisClient.get(`agent:heartbeat:${id}`);
+      if (!heartbeat) {
+         this.markDiagnostic('rejectedNoHeartbeat');
+         return { ok: false, reason: 'no-heartbeat' };
+      }
+      const data = await redisClient.hGetAll(`agent:${id}`);
+      if (!data || Object.keys(data).length === 0) {
+         this.markDiagnostic('rejectedMissingAgentData');
+         return { ok: false, reason: 'missing-agent-data' };
+      }
+      if (data.campaignId && String(data.campaignId) !== String(campaignId)) {
+         return { ok: false, reason: 'campaign-mismatch' };
+      }
+      if (options.requireAvailable && String(data.status || '').toUpperCase() !== 'AVAILABLE') {
+         this.markDiagnostic('rejectedWrongStatus');
+         return { ok: false, reason: 'wrong-status' };
+      }
+      if (data.sessionId && String(heartbeat) !== String(data.sessionId)) {
+         this.markDiagnostic('rejectedSessionMismatch');
+         return { ok: false, reason: 'session-mismatch' };
+      }
+      if (options.requireFresh !== false && !this.isFreshLastSeen(data.lastSeenAt)) {
+         this.markDiagnostic('rejectedStaleLastSeen');
+         return { ok: false, reason: 'stale-last-seen' };
+      }
+      return { ok: true, data, heartbeat };
+   }
+
+   async touchHeartbeat(agentId, sessionId, ttlSec = 120) {
+      const data = await redisClient.hGetAll(`agent:${agentId}`);
+      if (!data || Object.keys(data).length === 0) return { ok: false, reason: 'missing-agent-data' };
+      if (data.sessionId && sessionId && String(data.sessionId) !== String(sessionId)) {
+         return { ok: false, reason: 'session-mismatch' };
+      }
+      const now = Date.now().toString();
+      await Promise.all([
+         redisClient.hSet(`agent:${agentId}`, {
+            lastSeenAt: now,
+            lastHeartbeatAt: now,
+         }),
+         redisClient.setEx(`agent:heartbeat:${agentId}`, ttlSec, data.sessionId || sessionId || 'legacy'),
+      ]);
+      return { ok: true, sessionId: data.sessionId || sessionId || 'legacy' };
+   }
 
    /**
     * Registers an agent in the correct campaign pool when they go live.
@@ -44,28 +124,38 @@ class AgentManager {
 
       const campaign       = payload.campaign || payload.campaignId || 'fe_transfers';
       const licensedStates = payload.licensedStates || [];
+      const sessionId = String(payload.sessionId || `legacy-${Date.now()}`).trim();
+      const now = Date.now().toString();
 
       await redisClient.hSet(`agent:${agentId}`, {
          agentId,
          campaignId:     campaign,
          licensedStates: JSON.stringify(licensedStates),
          status:         'AVAILABLE',
-         joinedAt:       Date.now().toString(),
+         sessionId,
+         joinedAt:       now,
+         lastSeenAt:     now,
+         lastHeartbeatAt: now,
          lastCallAt:     '0',   // 0 = never had a call = highest LRU priority
       });
 
       // Score 0 = highest priority (longest wait). Score is updated to Date.now() on each release.
       await redisClient.zAdd(this.poolKey(campaign), { score: 0, value: agentId });
 
-      console.log(`[Redis] ✅ Agent Registered: ${agentId} | Campaign: ${campaign} | States: ${licensedStates.join(', ') || 'ALL'}`);
+      console.log(`[Redis] ✅ Agent Registered: ${agentId} | Campaign: ${campaign} | Session: ${sessionId} | States: ${licensedStates.join(', ') || 'ALL'}`);
+      return { agentId, campaign, sessionId };
    }
 
    /**
     * Removes an agent from the pool on disconnect or go-offline.
     */
-   async removeAgent(agentId) {
+   async removeAgent(agentId, expectedSessionId = null) {
       // Read the agent's campaign so we can remove from the correct sorted set
       const data = await redisClient.hGetAll(`agent:${agentId}`);
+      if (expectedSessionId && data?.sessionId && String(expectedSessionId) !== String(data.sessionId)) {
+         console.log(`[Presence] Ignoring remove for ${agentId} due to session mismatch`);
+         return false;
+      }
       if (data?.campaignId) {
          await redisClient.zRem(this.poolKey(data.campaignId), agentId);
       }
@@ -74,6 +164,7 @@ class AgentManager {
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sRem('agents:busy', agentId);
       console.log(`[Redis] ❌ Agent Offline: ${agentId}`);
+      return true;
    }
 
    /**
@@ -86,8 +177,10 @@ class AgentManager {
     *  4. ZREM as atomic lock — only the request that gets return value 1 wins the agent
     */
    async findAndLockAvailableAgent(campaignId, callerState = null) {
+      this.markDiagnostic('totalRequests');
       // 1. Get up to 20 longest-waiting agents from this campaign's sorted set
       const candidates = await redisClient.zRange(this.poolKey(campaignId), 0, 19);
+      this.routingDiagnostics.lastCandidates = candidates.length;
 
       console.log(`[Router] 🔍 Campaign "${campaignId}" pool — ${candidates.length} LRU candidates`);
       if (candidates.length === 0) return null;
@@ -95,16 +188,21 @@ class AgentManager {
       // 2. Parallel heartbeat + data fetch (max 20×2 = 40 Redis calls)
       const agentDataList = (await Promise.all(
          candidates.map(async (id) => {
-            const isAlive = await redisClient.exists(`agent:heartbeat:${id}`);
-            if (!isAlive) {
+            const presence = await this.validateAgentPresence(campaignId, id, {
+               requireAvailable: true,
+               requireFresh: true,
+            });
+            if (!presence.ok) {
                // Ghost agent: evict from the sorted set immediately
-               console.log(`[Router] 👻 Ghost agent evicted (no heartbeat): ${id}`);
+               console.log(`[Router] ⛔ Candidate rejected (${presence.reason}): ${id}`);
                await redisClient.zRem(this.poolKey(campaignId), id);
-               await redisClient.del(`agent:${id}`);
+               if (presence.reason === 'no-heartbeat' || presence.reason === 'session-mismatch' || presence.reason === 'missing-agent-data') {
+                  await redisClient.del(`agent:${id}`);
+                  this.markDiagnostic('ghostEvicted');
+               }
                return null;
             }
-            const data = await redisClient.hGetAll(`agent:${id}`);
-            return data ? { id, ...data } : null;
+            return { id, ...presence.data };
          })
       )).filter(Boolean);
 
@@ -130,6 +228,7 @@ class AgentManager {
       }
 
       // Candidates are already in LRU order from ZRANGE (lowest score = waited longest = first)
+      this.routingDiagnostics.lastEligible = eligible.length;
       console.log(`[Router] ${eligible.length} eligible agents. LRU candidates: ${eligible.map(a => a.id).join(', ')}`);
 
       // 4. Atomic lock: ZREM returns 1 if we successfully removed the agent (we own the lock),
@@ -139,10 +238,12 @@ class AgentManager {
          if (locked === 1) {
             await redisClient.sAdd('agents:ringing', agent.id);
             await redisClient.hSet(`agent:${agent.id}`, 'status', 'RINGING');
+            this.markDiagnostic('locksWon');
             console.log(`[Router] 🔒 Locked agent ${agent.id} for campaign "${campaignId}"`);
             return agent;
          }
          // Another concurrent request got there first — try next in LRU order
+         this.markDiagnostic('raceLost');
          console.log(`[Router] ⚡ Race: agent ${agent.id} already taken, trying next...`);
       }
 
@@ -161,11 +262,12 @@ class AgentManager {
 
       // OPTIMIZATION: Run all Redis checks in parallel instead of a slow loop
       const results = await Promise.all(candidates.map(async (id) => {
-         const isAlive = await redisClient.exists(`agent:heartbeat:${id}`);
-         if (!isAlive) return false;
-         
-         const data = await redisClient.hGetAll(`agent:${id}`);
-         if (!data) return false;
+         const presence = await this.validateAgentPresence(campaignId, id, {
+            requireAvailable: true,
+            requireFresh: true,
+         });
+         if (!presence.ok) return false;
+         const data = presence.data;
          
          try {
             const states = JSON.parse(data.licensedStates || '[]');
@@ -185,11 +287,15 @@ class AgentManager {
     * Release an agent back to the available pool after a call ends.
     * They are added back with score = Date.now() → they go to the BACK of the LRU queue.
     */
-   async releaseAgent(agentId) {
+   async releaseAgent(agentId, expectedSessionId = null) {
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sRem('agents:busy', agentId);
 
       const data = await redisClient.hGetAll(`agent:${agentId}`);
+      if (expectedSessionId && data?.sessionId && String(expectedSessionId) !== String(data.sessionId)) {
+         console.log(`[Presence] Ignoring release for ${agentId} due to session mismatch`);
+         return false;
+      }
       if (data?.campaignId) {
          // Score = current timestamp → this agent goes to back of LRU queue
          await redisClient.zAdd(this.poolKey(data.campaignId), {
@@ -200,10 +306,12 @@ class AgentManager {
 
       await redisClient.hSet(`agent:${agentId}`, {
          status:      'AVAILABLE',
+         lastSeenAt:  Date.now().toString(),
          lastCallAt:  Date.now().toString(),
       });
 
       console.log(`[Router] 🔓 Agent ${agentId} released → back to AVAILABLE (end of LRU queue)`);
+      return true;
    }
 
    // ─── Active call tracking (unchanged) ────────────────────────────────────
@@ -214,6 +322,7 @@ class AgentManager {
       await redisClient.sAdd('agents:busy', agentId);
       await redisClient.hSet(`agent:${agentId}`, {
          status:      'IN_CALL',
+         lastSeenAt:  Date.now().toString(),
          lastCallAt:  Date.now().toString(),
       });
       await redisClient.hSet(this.activeCallKey(agentId), {
@@ -231,6 +340,18 @@ class AgentManager {
    async clearActiveCall(agentId) {
       if (!agentId) return;
       await redisClient.del(this.activeCallKey(agentId));
+   }
+
+   async getActiveCall(agentId) {
+      if (!agentId) return null;
+      const row = await redisClient.hGetAll(this.activeCallKey(agentId));
+      return row && Object.keys(row).length ? row : null;
+   }
+
+   async getAgentState(agentId) {
+      if (!agentId) return null;
+      const row = await redisClient.hGetAll(`agent:${agentId}`);
+      return row && Object.keys(row).length ? row : null;
    }
 
    async listActiveCallAgentIds() {
@@ -350,6 +471,29 @@ class AgentManager {
       }
 
       return { pool, totalAgents: agents.length, agents, byCampaign };
+   }
+
+   async evictStaleAgentsFromCampaign(campaignId) {
+      const poolKey = this.poolKey(campaignId);
+      const candidates = await redisClient.zRange(poolKey, 0, -1);
+      let evicted = 0;
+      for (const agentId of candidates) {
+         // eslint-disable-next-line no-await-in-loop
+         const presence = await this.validateAgentPresence(campaignId, agentId, {
+            requireAvailable: false,
+            requireFresh: true,
+         });
+         if (presence.ok) continue;
+         // eslint-disable-next-line no-await-in-loop
+         await redisClient.zRem(poolKey, agentId);
+         if (['no-heartbeat', 'session-mismatch', 'missing-agent-data'].includes(presence.reason)) {
+            // eslint-disable-next-line no-await-in-loop
+            await redisClient.del(`agent:${agentId}`);
+         }
+         evicted += 1;
+         this.markDiagnostic('ghostEvicted');
+      }
+      return evicted;
    }
 }
 
