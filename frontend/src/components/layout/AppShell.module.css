@@ -36,9 +36,164 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 20px;
-  background: color-mix(in srgb, var(--accent-red) 18%, var(--surface-container-low));
-  border-bottom: 1px solid var(--border);
+  padding: 12px 20px;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent-red) 32%, var(--surface-container-low)),
+    color-mix(in srgb, var(--accent-red) 18%, var(--surface-container-low))
+  );
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-red) 45%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent-red) 25%, transparent) inset,
+    0 0 20px color-mix(in srgb, var(--accent-red) 28%, transparent);
   color: var(--text-primary);
   font-size: 13px;
+  font-weight: 600;
+  animation:
+    maintenanceEnter 320ms ease-out,
+    maintenanceGlow 2.8s ease-in-out infinite;
+}
+
+.maintenanceBanner strong {
+  color: #fff;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.maintenanceBanner::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 32%;
+  height: 100%;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.24) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: skewX(-18deg);
+  animation: maintenanceSweep 2.8s ease-in-out infinite;
+}
+
+:global([data-theme="light"]) .maintenanceBanner {
+  background: linear-gradient(
+    90deg,
+    #ffd9d1 0%,
+    #ffc7ba 45%,
+    #ffb5a6 100%
+  );
+  border-bottom: 1px solid rgba(171, 45, 17, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(171, 45, 17, 0.22) inset,
+    0 0 14px rgba(217, 74, 43, 0.25);
+  color: #3e1208;
+  font-weight: 700;
+  animation:
+    maintenanceEnter 320ms ease-out,
+    maintenanceGlowLight 2.4s ease-in-out infinite;
+}
+
+:global([data-theme="light"]) .maintenanceBanner strong {
+  color: #7a210f;
+}
+
+:global([data-theme="light"]) .maintenanceBanner::after {
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.68) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  width: 38%;
+  animation: maintenanceSweepLight 3.8s ease-in-out infinite;
+}
+
+@keyframes maintenanceEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes maintenanceSweep {
+  0% {
+    left: -40%;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  55% {
+    left: 120%;
+    opacity: 0.9;
+  }
+  100% {
+    left: 120%;
+    opacity: 0;
+  }
+}
+
+@keyframes maintenanceSweepLight {
+  0% {
+    left: -50%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  60% {
+    left: 125%;
+    opacity: 1;
+  }
+  100% {
+    left: 125%;
+    opacity: 0;
+  }
+}
+
+@keyframes maintenanceGlow {
+  0% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--accent-red) 20%, transparent) inset,
+      0 0 10px color-mix(in srgb, var(--accent-red) 20%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--accent-red) 38%, transparent) inset,
+      0 0 24px color-mix(in srgb, var(--accent-red) 40%, transparent);
+  }
+  100% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--accent-red) 20%, transparent) inset,
+      0 0 10px color-mix(in srgb, var(--accent-red) 20%, transparent);
+  }
+}
+
+@keyframes maintenanceGlowLight {
+  0% {
+    transform: translateY(0);
+    box-shadow:
+      0 0 0 1px rgba(171, 45, 17, 0.20) inset,
+      0 0 10px rgba(217, 74, 43, 0.24);
+  }
+  50% {
+    transform: translateY(-1px);
+    box-shadow:
+      0 0 0 1px rgba(171, 45, 17, 0.35) inset,
+      0 0 22px rgba(217, 74, 43, 0.42);
+  }
+  100% {
+    transform: translateY(0);
+    box-shadow:
+      0 0 0 1px rgba(171, 45, 17, 0.20) inset,
+      0 0 10px rgba(217, 74, 43, 0.24);
+  }
 }

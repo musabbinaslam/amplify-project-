@@ -157,6 +157,16 @@
   z-index: 90;
 }
 
+.inboxPanelOpen {
+  animation: inboxDropIn 220ms ease-out;
+  transform-origin: top left;
+}
+
+.inboxPanelClose {
+  animation: inboxDropOut 170ms ease-in forwards;
+  transform-origin: top left;
+}
+
 .inboxHeader {
   display: flex;
   align-items: center;
@@ -202,6 +212,22 @@
   background: color-mix(in srgb, var(--brand-dim) 35%, transparent);
 }
 
+.inboxItemNew {
+  animation: inboxItemEnter 420ms ease-out;
+}
+
+.bellIcon {
+  transform-origin: 50% 10%;
+}
+
+.bellAnimated .bellIcon {
+  animation: bellRing 900ms ease-in-out;
+}
+
+.badgeAnimated {
+  animation: badgePulse 900ms ease-in-out;
+}
+
 .itemTitle {
   font-size: 13px;
   font-weight: 700;
@@ -223,5 +249,55 @@
   padding: 14px;
   color: var(--text-tertiary);
   font-size: 13px;
+}
+
+@keyframes inboxDropIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes inboxDropOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+@keyframes inboxItemEnter {
+  0% {
+    opacity: 0;
+    transform: translateX(-8px);
+    filter: brightness(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    filter: brightness(1);
+  }
+}
+
+@keyframes bellRing {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(12deg); }
+  30% { transform: rotate(-10deg); }
+  45% { transform: rotate(8deg); }
+  60% { transform: rotate(-6deg); }
+  75% { transform: rotate(3deg); }
+}
+
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); }
+  35% { transform: scale(1.22); }
+  65% { transform: scale(0.95); }
 }
 
