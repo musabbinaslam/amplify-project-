@@ -139,8 +139,16 @@ exports.handleCallCompleted = async (req, res) => {
     } finally {
       if (resolvedAgentId) {
         try {
-            await agentManager.clearActiveCall(resolvedAgentId);
-            await agentManager.releaseAgent(resolvedAgentId);
+            const activeRow = await agentManager.getActiveCall(resolvedAgentId);
+            if (activeRow?.callSid && CallSid && String(activeRow.callSid) !== String(CallSid)) {
+                console.warn(
+                  `[Router] Skip stale completion release for ${resolvedAgentId}: callback sid ${CallSid} != active sid ${activeRow.callSid}`,
+                );
+            } else {
+                await agentManager.clearActiveCall(resolvedAgentId);
+                const agentState = await agentManager.getAgentState(resolvedAgentId);
+                await agentManager.releaseAgent(resolvedAgentId, agentState?.sessionId || null);
+            }
         } catch (e) {
             console.warn('[Router] release after completion failed:', e.message);
         }
