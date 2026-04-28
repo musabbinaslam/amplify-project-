@@ -606,6 +606,9 @@ async function getOverviewLite(req, res) {
   try {
     const overview = await agentManager.getOverview();
     const activeCalls = await agentManager.listActiveCalls();
+    const routingDiagnostics = agentManager.getRoutingDiagnostics
+      ? agentManager.getRoutingDiagnostics()
+      : null;
     const nameMap = await buildUserNameMap([
       ...(overview.agents || []).map((a) => a.id),
       ...activeCalls.map((c) => c.agentId),
@@ -629,6 +632,7 @@ async function getOverviewLite(req, res) {
         generatedAt: new Date().toISOString(),
         source: 'redis.agentPool+activeCalls',
       },
+      routingDiagnostics,
       liveCalls: activeCalls.map((row) => ({
         ...row,
         agentName: nameMap.get(row.agentId) || row.agentId,

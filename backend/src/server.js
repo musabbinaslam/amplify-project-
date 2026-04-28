@@ -68,11 +68,10 @@ const startEngine = async () => {
     // Agents whose browser crashed / network died stop sending heartbeats.
     // Their heartbeat key (TTL 60s) expires, but they stay in the sorted set
     // until a call comes in to evict them at routing time.
-    // This job proactively evicts them every 2 minutes so the agent count
+    // This job proactively evicts them every 5 minutes so the agent count
     // stays accurate even during quiet periods with no inbound calls.
     const { CAMPAIGN_CONFIG } = require('./config/pricing');
     const agentManager = require('./services/agentManager');
-    const { redisClient } = require('./config/redis');
 
     async function runGhostCleanup() {
         try {
@@ -86,7 +85,6 @@ const startEngine = async () => {
                     console.log(`[Ghost Cleanup] Evicted stale agent: ${agentId}`);
                 }
                 console.log(`[Ghost Cleanup] ✅ Swept ${ghosts.length} ghost agent(s) from pool`);
-                
                 // Broadcast updated count to all connected frontends
                 const count = await agentManager.getTotalAvailableCount();
                 io.emit('stats:agent_count', count || 0);
@@ -96,9 +94,9 @@ const startEngine = async () => {
         }
     }
 
-    // Run immediately on boot, then every 2 minutes
+    // Run immediately on boot, then every 5 minutes
     runGhostCleanup();
-    const ghostCleanupInterval = setInterval(runGhostCleanup, 2 * 60 * 1000);
+    const ghostCleanupInterval = setInterval(runGhostCleanup, 5 * 60 * 1000);
 
     // Apply global rate limiting to all /api routes
     app.use('/api/', globalRateLimiter);
