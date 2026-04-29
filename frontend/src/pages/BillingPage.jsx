@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { DollarSign, Clock, RefreshCw, CheckCircle2, Award, X, AlertCircle, Gift } from 'lucide-react';
+import { DollarSign, Clock, RefreshCw, CheckCircle2, X, AlertCircle, Gift, Wallet, TrendingUp } from 'lucide-react';
 import classes from './BillingPage.module.css';
 import { stripeService } from '../services/stripeService';
 import { referralService } from '../services/referralService';
@@ -49,8 +49,6 @@ const BillingPage = () => {
           // Backward compatibility for checkouts created before session_id was added.
           setSuccessMsg('Payment successful! Credits are being processed.');
         }
-      } else if (params.get('subscription') === 'success') {
-        setSuccessMsg('Subscription successful! Your plan is now active.');
       }
 
       await fetchWallet();
@@ -95,38 +93,6 @@ const BillingPage = () => {
     }
   };
 
-  const handleSubscribe = async (planId) => {
-    if (checkoutInFlightRef.current) return;
-    checkoutInFlightRef.current = true;
-    setCheckoutLoading(true);
-    setErrorMsg('');
-    try {
-      const { url } = await stripeService.createSubscription(planId);
-      window.location.href = url; // Redirect to Stripe Checkout
-    } catch (err) {
-      console.error(err);
-      setErrorMsg(err.message);
-      setCheckoutLoading(false);
-      checkoutInFlightRef.current = false;
-    }
-  };
-
-  const handleCancelSubscription = async () => {
-    if (!confirm('Are you sure you want to cancel your subscription? You will still receive credits for the current billing cycle.')) return;
-    
-    setCheckoutLoading(true);
-    try {
-      await stripeService.cancelSubscription();
-      setSuccessMsg('Subscription canceled successfully.');
-      await fetchWallet();
-    } catch (err) {
-      console.error(err);
-      setErrorMsg(err.message);
-    } finally {
-      setCheckoutLoading(false);
-    }
-  };
-
   const formatMoney = (cents) => `$${(cents / 100).toFixed(2)}`;
 
   if (loading) {
@@ -134,7 +100,13 @@ const BillingPage = () => {
   }
 
   const balance = wallet?.balance || 0;
-  const plan = wallet?.plan || 'paygo';
+  const totalCreditsAdded = transactions
+    .filter((t) => t.type === 'credit')
+    .reduce((sum, t) => sum + Math.abs(Number(t.amountCents || 0)), 0);
+  const totalSpent = transactions
+    .filter((t) => t.type !== 'credit')
+    .reduce((sum, t) => sum + Math.abs(Number(t.amountCents || 0)), 0);
+  const lastTopup = transactions.find((t) => t.type === 'credit');
 
   return (
     <div className={classes.billingPage}>
@@ -155,7 +127,7 @@ const BillingPage = () => {
         <div className={classes.sectionTop}>
           <div className={classes.sectionHeader}>
             <h3><DollarSign size={20} className={classes.blueIcon} /> Account Balance</h3>
-            <p>Your current credit balance for taking calls</p>
+            <p>Your wallet summary and quick top-up actions</p>
           </div>
           <button className={classes.addCreditsBtn} onClick={() => setShowTopupModal(true)}>+ Add Credits</button>
         </div>
@@ -169,9 +141,23 @@ const BillingPage = () => {
               </div>
             )}
           </div>
-          <div className={classes.balanceSubtleStat}>
-            <span>Current Mode</span>
-            <b>{plan === 'paygo' ? 'Pay-as-you-go' : plan === 'silver' ? 'Silver' : 'Gold'}</b>
+        </div>
+
+        <div className={classes.statsGrid}>
+          <div className={classes.statCard}>
+            <Wallet size={16} />
+            <span>Credits Added</span>
+            <strong>{formatMoney(totalCreditsAdded)}</strong>
+          </div>
+          <div className={classes.statCard}>
+            <TrendingUp size={16} />
+            <span>Total Spent</span>
+            <strong>{formatMoney(totalSpent)}</strong>
+          </div>
+          <div className={classes.statCard}>
+            <Clock size={16} />
+            <span>Last Top-up</span>
+            <strong>{lastTopup ? new Date(lastTopup.createdAt).toLocaleDateString() : 'No top-up yet'}</strong>
           </div>
         </div>
       </section>
@@ -216,64 +202,6 @@ const BillingPage = () => {
             </table>
           </div>
         )}
-      </section>
-
-      <section className={classes.sectionBox}>
-         <div className={classes.sectionHeader}>
-            <h3><Award size={20} className={classes.goldIcon} /> Subscription Plans</h3>
-            <p>Subscribe for weekly credits and lower call rates</p>
-         </div>
-
-         <div className={classes.currentPlan}>
-            <div className={classes.planBadge}></div>
-            <div className={classes.currentPlanMeta}>
-              <b>Current Plan: {plan === 'silver' ? 'Silver' : plan === 'gold' ? 'Gold' : 'Pay-as-you-go'}</b>
-              <span>{plan === 'paygo' ? '$55 per call • No commitment' : plan === 'silver' ? '$500/week • $50/call' : '$1000/week • $45/call'}</span>
-            </div>
-            {plan !== 'paygo' && (
-               <button className={classes.cancelBtn} onClick={handleCancelSubscription} disabled={checkoutLoading}>Cancel subscription</button>
-            )}
-         </div>
-
-         <div className={classes.planList}>
-            <div className={`${classes.planCard} ${plan === 'silver' ? classes.activePlanCard : ''}`}>
-               <div className={classes.planTitleRow}>
-                  <div className={classes.planNameGroup}>
-                     <Award size={24} className={classes.silverIcon} />
-                     <div>
-                        <h4>Silver Plan</h4>
-                        <p>$500/week • Auto-renews</p>
-                     </div>
-                  </div>
-                  {plan !== 'silver' && <button className={classes.subscribeBtn} disabled={checkoutLoading} onClick={() => handleSubscribe('silver')}>Subscribe</button>}
-                  {plan === 'silver' && <span className={classes.activeBadge}><CheckCircle2 size={14}/> Active</span>}
-               </div>
-               <div className={classes.planFeatures}>
-                  <span><CheckCircle2 size={14} className={classes.greenIcon} /> $50/call</span>
-                  <span><CheckCircle2 size={14} className={classes.greenIcon} /> Save $5/call</span>
-                  <span><CheckCircle2 size={14} className={classes.greenIcon} /> $500 weekly credits</span>
-               </div>
-            </div>
-
-            <div className={`${classes.planCard} ${classes.bestValue} ${plan === 'gold' ? classes.activePlanCard : ''}`}>
-               <div className={classes.planTitleRow}>
-                  <div className={classes.planNameGroup}>
-                     <Award size={24} className={classes.goldIcon} />
-                     <div>
-                        <h4>Gold Plan</h4>
-                        <p>$1000/week • Auto-renews</p>
-                     </div>
-                  </div>
-                  {plan !== 'gold' && <button className={classes.subscribeBtn} disabled={checkoutLoading} onClick={() => handleSubscribe('gold')}>Subscribe</button>}
-                  {plan === 'gold' && <span className={classes.activeBadge}><CheckCircle2 size={14}/> Active</span>}
-               </div>
-               <div className={classes.planFeatures}>
-                  <span><CheckCircle2 size={14} className={classes.greenIcon} /> $45/call</span>
-                  <span><CheckCircle2 size={14} className={classes.greenIcon} /> Save $10/call</span>
-                  <span><CheckCircle2 size={14} className={classes.greenIcon} /> $1000 weekly credits</span>
-               </div>
-            </div>
-         </div>
       </section>
 
       {showTopupModal && (

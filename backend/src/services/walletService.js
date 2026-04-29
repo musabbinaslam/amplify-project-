@@ -16,7 +16,7 @@ function toSafeDocId(id) {
 
 /**
  * Get the wallet object for a user.
- * Returns { balance, plan, stripeCustomerId, stripeSubscriptionId }
+ * Returns { balance, stripeCustomerId }
  */
 async function getWallet(uid) {
   const ref = userRef(uid);
@@ -25,9 +25,7 @@ async function getWallet(uid) {
   const data = snap.exists ? snap.data() : {};
   return {
     balance: data.wallet?.balance || 0,
-    plan: data.wallet?.plan || 'paygo',
     stripeCustomerId: data.wallet?.stripeCustomerId || null,
-    stripeSubscriptionId: data.wallet?.stripeSubscriptionId || null,
   };
 }
 
@@ -43,7 +41,7 @@ async function getBalance(uid) {
  * Add credits to a user's wallet (atomic increment).
  * @param {string} uid
  * @param {number} amountCents - positive integer (in cents)
- * @param {string} source - 'stripe_checkout' | 'subscription_renewal' | 'manual'
+ * @param {string} source - 'stripe_checkout' | 'manual'
  * @param {object} metadata - { sessionId, invoiceId, idempotencyKey, etc. }
  */
 async function addCredits(uid, amountCents, source = 'manual', metadata = {}) {
@@ -201,7 +199,6 @@ function descriptionForSource(source, amountCents) {
   const dollars = `$${(amountCents / 100).toFixed(2)}`;
   switch (source) {
     case 'stripe_checkout': return `Credit top-up — ${dollars}`;
-    case 'subscription_renewal': return `Subscription credit — ${dollars}`;
     case 'manual': return `Manual credit — ${dollars}`;
     case 'referral_discount': return `Referral discount bonus — ${dollars}`;
     default: return `Credit added — ${dollars}`;
