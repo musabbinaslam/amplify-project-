@@ -52,29 +52,6 @@ export const stripeService = {
       throw new Error(message);
     }
     return parseJsonOrThrow(res, 'Verify checkout API returned invalid JSON');
-  },
-  createSubscription: async (planId) => {
-    const res = await fetch(`${API_URL}/api/stripe/create-subscription`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({ planId })
-    });
-    if (!res.ok) {
-      const message = await safeErrorMessage(res, 'Failed to create subscription');
-      throw new Error(message);
-    }
-    return parseJsonOrThrow(res, 'Subscription API returned invalid JSON');
-  },
-  cancelSubscription: async () => {
-    const res = await fetch(`${API_URL}/api/stripe/cancel-subscription`, {
-      method: 'POST',
-      headers: getHeaders()
-    });
-    if (!res.ok) {
-      const message = await safeErrorMessage(res, 'Failed to cancel subscription');
-      throw new Error(message);
-    }
-    return parseJsonOrThrow(res, 'Cancel API returned invalid JSON');
   }
 };
 

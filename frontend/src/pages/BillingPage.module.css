@@ -40,19 +40,18 @@
 }
 
 .blueIcon { color: var(--accent-blue); }
-.goldIcon { color: var(--accent-yellow); }
-.silverIcon { color: var(--text-tertiary); }
 .greenIcon { color: var(--accent-green); }
 
 .balanceRow {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 14px;
+  align-items: flex-start;
+  gap: 20px;
 }
 
 .balanceMeta {
   min-width: 0;
+  flex: 1;
 }
 
 .balanceAmount {
@@ -63,6 +62,7 @@
   letter-spacing: -0.02em;
   line-height: 1;
 }
+
 
 .lowBalanceWarning {
   display: flex;
@@ -88,6 +88,35 @@
 .addCreditsBtn:hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 16px var(--brand-glow);
+}
+
+.statsGrid {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.statCard {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-container);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.statCard strong {
+  color: var(--text-primary);
+  font-size: 16px;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .balanceSubtleStat {
@@ -164,173 +193,13 @@
   font-weight: 500;
 }
 
-.currentPlan {
-  background: var(--surface-container);
-  border: 1px solid var(--border-subtle);
-  border-radius: 14px;
-  padding: 14px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.planBadge {
-  width: 16px;
-  height: 16px;
-  background: var(--accent-cyan);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 0 10px rgba(0, 227, 253, 0.3);
-  flex-shrink: 0;
-}
-
-.currentPlanMeta {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
-  flex: 1;
-}
-
-.currentPlanMeta b {
-  color: var(--text-primary);
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.currentPlanMeta span {
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.cancelBtn {
-  background: transparent;
-  color: var(--accent-red, #ff4d4f);
-  border: 1px solid var(--accent-red, #ff4d4f);
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.cancelBtn:hover {
-  background: rgba(255, 77, 79, 0.1);
-}
-
-.planList {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-
-.planCard {
-  background: var(--surface-container);
-  border: 1px solid var(--border-subtle);
-  border-radius: 16px;
-  padding: 18px;
-  transition: all 0.18s ease-out;
-}
-
-.planCard:hover {
-  transform: translateY(-1px);
-  background: var(--surface-container-high);
-  border-color: var(--border-strong);
-}
-
-.bestValue {
-  border-color: color-mix(in srgb, var(--accent-yellow) 38%, var(--border-subtle));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-yellow) 20%, transparent);
-}
-
-.activePlanCard {
-  border-color: var(--brand-text);
-  background: color-mix(in srgb, var(--brand-text) 5%, var(--surface-container));
-}
-
-.planTitleRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 14px;
-  gap: 10px;
-}
-
-.planNameGroup {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.planNameGroup h4 {
-  color: var(--text-primary);
-  font-size: 17px;
-  font-weight: 700;
-  margin-bottom: 2px;
-}
-
-.planNameGroup p {
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.subscribeBtn {
-  background: var(--surface-container-high);
-  color: var(--text-primary);
-  padding: 8px 14px;
-  border-radius: 10px;
-  border: 1px solid var(--border-subtle);
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.18s ease-out;
-  white-space: nowrap;
-}
-
-.subscribeBtn:hover {
-  border-color: color-mix(in srgb, var(--brand-text) 45%, var(--border-subtle));
-  color: var(--brand-text);
-}
-
-.activeBadge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--brand-text);
-  font-weight: 700;
-  font-size: 14px;
-  padding: 8px 16px;
-  background: color-mix(in srgb, var(--brand-text) 15%, transparent);
-  border-radius: var(--radius-full);
-}
-
-.planFeatures {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-}
-
-.planFeatures span {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 500;
-  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 7px 10px;
-}
-
 @media (max-width: 980px) {
-  .planList {
-    grid-template-columns: 1fr;
+  .balanceRow {
+    flex-direction: column;
   }
 
-  .balanceRow {
-    align-items: flex-start;
+  .statsGrid {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
@@ -355,20 +224,17 @@
     gap: 10px;
   }
 
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
   .balanceAmount {
     font-size: 38px;
   }
 
   .addCreditsBtn,
-  .refreshBtn,
-  .subscribeBtn {
+  .refreshBtn {
     min-height: 38px;
-  }
-
-  .currentPlanMeta {
-    flex-direction: column;
-    gap: 3px;
-    align-items: flex-start;
   }
 }
 

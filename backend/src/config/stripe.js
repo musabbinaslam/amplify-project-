@@ -17,20 +17,4 @@ const CREDIT_TIERS = [
   { id: 'tier_1000', label: '$1,000', amountCents: 100000 },
 ];
 
-// Subscription plan config
-const PLANS = {
-  silver: {
-    name: 'Silver Plan',
-    stripePriceId: process.env.STRIPE_PRICE_SILVER || null,
-    weeklyAmountCents: 50000,   // $500 worth of credits per cycle
-    callRate: 50,               // $50/call
-  },
-  gold: {
-    name: 'Gold Plan',
-    stripePriceId: process.env.STRIPE_PRICE_GOLD || null,
-    weeklyAmountCents: 100000,  // $1000 worth of credits per cycle
-    callRate: 45,               // $45/call
-  },
-};
-
-module.exports = { stripe, CREDIT_TIERS, PLANS };
+module.exports = { stripe, CREDIT_TIERS };

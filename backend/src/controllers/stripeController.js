@@ -1,4 +1,4 @@
-const { stripe, CREDIT_TIERS, PLANS } = require('../config/stripe');
+const { stripe, CREDIT_TIERS } = require('../config/stripe');
 const walletService = require('../services/walletService');
 const referralService = require('../services/referralService');
 const admin = require('../config/firebaseAdmin');
@@ -174,82 +174,6 @@ exports.verifyCheckout = async (req, res) => {
 };
 
 /**
- * POST /api/stripe/create-subscription
- * Creates a Stripe Checkout session in subscription mode.
- */
-exports.createSubscription = async (req, res) => {
-  if (!stripe) return res.status(503).json({ error: 'Stripe not configured' });
-
-  const { planId } = req.body; // 'silver' or 'gold'
-  const plan = PLANS[planId];
-  if (!plan) {
-    return res.status(400).json({ error: 'Invalid plan. Must be "silver" or "gold".' });
-  }
-
-  if (!plan.stripePriceId) {
-    return res.status(503).json({ error: `Stripe Price ID not configured for ${plan.name}. Set STRIPE_PRICE_${planId.toUpperCase()} in .env` });
-  }
-
-  try {
-    // Check if user already has an active subscription
-    const wallet = await walletService.getWallet(req.user.uid);
-    if (wallet.stripeSubscriptionId) {
-      return res.status(400).json({ error: 'You already have an active subscription. Cancel it first before switching plans.' });
-    }
-
-    const customerId = await getOrCreateCustomer(req.user.uid, req.user.email);
-
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      customer: customerId,
-      line_items: [{ price: plan.stripePriceId, quantity: 1 }],
-      metadata: {
-        uid: req.user.uid,
-        type: 'subscription',
-        planId,
-      },
-      subscription_data: {
-        metadata: {
-          uid: req.user.uid,
-          planId,
-        },
-      },
-      success_url: `${CLIENT_URL}/app/billing?subscription=success`,
-      cancel_url: `${CLIENT_URL}/app/billing?subscription=cancelled`,
-    });
-
-    res.json({ url: session.url });
-  } catch (err) {
-    console.error('[Stripe] Subscription error:', err.message);
-    res.status(500).json({ error: 'Failed to create subscription session' });
-  }
-};
-
-/**
- * POST /api/stripe/cancel-subscription
- * Cancels the user's active subscription at period end.
- */
-exports.cancelSubscription = async (req, res) => {
-  if (!stripe) return res.status(503).json({ error: 'Stripe not configured' });
-
-  try {
-    const wallet = await walletService.getWallet(req.user.uid);
-    if (!wallet.stripeSubscriptionId) {
-      return res.status(400).json({ error: 'No active subscription found' });
-    }
-
-    await stripe.subscriptions.update(wallet.stripeSubscriptionId, {
-      cancel_at_period_end: true,
-    });
-
-    res.json({ success: true, message: 'Subscription will cancel at the end of the current billing period.' });
-  } catch (err) {
-    console.error('[Stripe] Cancel subscription error:', err.message);
-    res.status(500).json({ error: 'Failed to cancel subscription' });
-  }
-};
-
-/**
  * GET /api/stripe/wallet
  * Returns wallet balance + recent transactions for the authenticated user.
  */
@@ -259,8 +183,6 @@ exports.getWalletInfo = async (req, res) => {
     const transactions = await walletService.getTransactions(req.user.uid, 50);
     res.json({
       balance: wallet.balance,
-      plan: wallet.plan,
-      stripeSubscriptionId: wallet.stripeSubscriptionId || null,
       transactions,
     });
   } catch (err) {
@@ -308,21 +230,6 @@ exports.handleWebhook = async (req, res) => {
       case 'checkout.session.completed': {
         const session = event.data.object;
         await handleCheckoutCompleted(session);
-        break;
-      }
-      case 'invoice.paid': {
-        const invoice = event.data.object;
-        await handleInvoicePaid(invoice);
-        break;
-      }
-      case 'customer.subscription.updated': {
-        const subscription = event.data.object;
-        await handleSubscriptionUpdated(subscription);
-        break;
-      }
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object;
-        await handleSubscriptionDeleted(subscription);
         break;
       }
       default:
@@ -417,60 +324,3 @@ async function hasCreditTransactionForSession(uid, sessionId) {
   return !snap.empty;
 }
 
-async function handleInvoicePaid(invoice) {
-  // Subscription renewal — add credits
-  const subscriptionId = invoice.subscription;
-  if (!subscriptionId) return;
-
-  try {
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-    const uid = subscription.metadata?.uid;
-    const planId = subscription.metadata?.planId;
-
-    if (!uid || !planId) {
-      console.warn('[Stripe] invoice.paid: Missing uid/planId in subscription metadata');
-      return;
-    }
-
-    const plan = PLANS[planId];
-    if (!plan) return;
-
-    const idempotencyKey = `stripe_inv_${invoice.id}`;
-
-    await walletService.addCredits(uid, plan.weeklyAmountCents, 'subscription_renewal', {
-      idempotencyKey,
-      invoiceId: invoice.id,
-      subscriptionId,
-      planId,
-    });
-
-    console.log(`[Stripe] ✅ Subscription invoice paid. Added $${(plan.weeklyAmountCents / 100).toFixed(2)} credits for user ${uid} (${plan.name})`);
-  } catch (err) {
-    console.error('[Stripe] Error processing invoice.paid:', err.message);
-  }
-}
-
-async function handleSubscriptionUpdated(subscription) {
-  const uid = subscription.metadata?.uid;
-  const planId = subscription.metadata?.planId;
-  if (!uid) return;
-
-  await walletService.updateWalletMeta(uid, {
-    plan: planId || 'paygo',
-    stripeSubscriptionId: subscription.id,
-  });
-
-  console.log(`[Stripe] Subscription updated for user ${uid}: ${planId || 'unknown'}`);
-}
-
-async function handleSubscriptionDeleted(subscription) {
-  const uid = subscription.metadata?.uid;
-  if (!uid) return;
-
-  await walletService.updateWalletMeta(uid, {
-    plan: 'paygo',
-    stripeSubscriptionId: null,
-  });
-
-  console.log(`[Stripe] Subscription deleted for user ${uid} — reverted to pay-as-you-go`);
-}
