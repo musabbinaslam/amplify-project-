@@ -1,0 +1,326 @@
+.pageContainer {
+  display: flex;
+  height: 100%;
+  background-color: var(--surface);
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 300px;
+  min-width: 300px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface-container-low);
+  transition: margin-left 0.3s ease;
+}
+
+.sidebar.collapsed {
+  margin-left: -300px;
+}
+
+.sidebarHeader {
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebarTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.newNoteBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background-color: var(--brand-solid);
+  color: var(--brand-on);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.newNoteBtn:hover:not(:disabled) {
+  background-color: var(--brand);
+  transform: translateY(-1px);
+}
+
+.newNoteBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.notesList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.noteItem {
+  padding: 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: transparent;
+  border: 1px solid transparent;
+  text-align: left;
+}
+
+.noteItem:hover {
+  background-color: var(--surface-container-high);
+}
+
+.noteItem.active {
+  background-color: var(--brand-dim);
+  border-color: var(--brand-glow);
+}
+
+.noteItemTitle {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.noteItemDate {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.emptyState {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+.mainContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.editorHeader {
+  padding: 24px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+
+.editorHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.toggleSidebarBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggleSidebarBtn:hover {
+  background: var(--surface-container-high);
+  color: var(--text-primary);
+}
+
+.noteTitleInput {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 600;
+  outline: none;
+  width: 100%;
+}
+
+.noteTitleInput::placeholder {
+  color: var(--text-tertiary);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.statusText {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.spinnerSmall {
+  animation: spin 1s linear infinite;
+}
+
+.saveBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.saveBtn:hover:not(:disabled) {
+  background-color: var(--surface-container-high);
+}
+
+.saveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deleteContainer {
+  position: relative;
+  display: inline-block;
+}
+
+.deleteBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background-color: transparent;
+  color: var(--text-tertiary);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.deleteBtn:hover, .deleteBtn.active {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #EF4444;
+}
+
+.deleteConfirmPopover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background: var(--surface-container-highest);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.deleteConfirmText {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.deleteConfirmYes {
+  background: #EF4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.deleteConfirmYes:hover {
+  background: #DC2626;
+}
+
+.deleteConfirmNo {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  padding: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.deleteConfirmNo:hover {
+  color: var(--text-primary);
+}
+
+.editorContainer {
+  flex: 1;
+  padding: 0;
+  display: flex;
+}
+
+.textArea {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  padding: 32px;
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1.6;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  resize: none;
+  outline: none;
+}
+
+.textArea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.noNoteSelected {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  gap: 16px;
+}
+
+.noNoteIcon {
+  color: var(--border);
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
