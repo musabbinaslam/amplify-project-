@@ -7,6 +7,7 @@ import AppShell from './components/layout/AppShell';
 import PageLoader from './components/ui/PageLoader';
 import ErrorFallback from './components/ui/ErrorFallback';
 import useAuthStore from './store/authStore';
+import { auth } from './config/firebase';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
@@ -33,13 +34,19 @@ import DialerOverlay from './components/ui/DialerOverlay';
 
 const ProtectedRoute = () => {
   const token = useAuthStore((s) => s.token);
-  if (!token) return <Navigate to="/login" replace />;
+  const loading = useAuthStore((s) => s.loading);
+  const hasFirebaseSession = Boolean(auth?.currentUser);
+  if (loading) return <PageLoader fullScreen />;
+  if (!token || !hasFirebaseSession) return <Navigate to="/login" replace />;
   return <AppShell />;
 };
 
 const GuestRoute = ({ children }) => {
   const token = useAuthStore((s) => s.token);
-  if (token) return <Navigate to="/app" replace />;
+  const loading = useAuthStore((s) => s.loading);
+  const hasFirebaseSession = Boolean(auth?.currentUser);
+  if (loading) return <PageLoader fullScreen />;
+  if (token && hasFirebaseSession) return <Navigate to="/app" replace />;
   return children;
 };
 

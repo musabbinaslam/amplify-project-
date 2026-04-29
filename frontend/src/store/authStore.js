@@ -42,11 +42,20 @@ const useAuthStore = create((set, get) => ({
   user: null,
   token: null,
   loading: true,
+  googleLoginValidationInProgress: false,
 
   initAuth: () => {
     return new Promise((resolve) => {
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        const isGoogleValidationInProgress = get().googleLoginValidationInProgress;
         if (firebaseUser) {
+          // Prevent transient auth-state redirects during Login-page Google validation.
+          // We only commit user/token after googleSignIn() verifies account eligibility.
+          if (isGoogleValidationInProgress) {
+            set({ loading: false });
+            resolve();
+            return;
+          }
           const token = await firebaseUser.getIdToken();
           const existingMeta = get().user?.meta;
           const role = await loadUserRole(firebaseUser.uid);
@@ -109,27 +118,56 @@ const useAuthStore = create((set, get) => ({
 
   /** Login page only: reject first-time Google users (must use Sign up first). */
   googleSignIn: async () => {
-    const result = await signInWithPopup(auth, googleProvider);
-    const info = getAdditionalUserInfo(result);
+    set({ googleLoginValidationInProgress: true });
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const info = getAdditionalUserInfo(result);
+      const rejectGoogleLogin = async () => {
+        // Clear local auth state immediately to prevent GuestRoute/redirect race.
+        set({ user: null, token: null, googleLoginValidationInProgress: false });
+        try {
+          await signOut(auth);
+        } catch {
+          // ignore signOut errors here; local auth state is already cleared
+        }
+        const err = new Error('No account found for this Google account. Please sign up first.');
+        err.code = 'auth/no-account-yet';
+        throw err;
+      };
 
-    if (info?.isNewUser) {
-      try {
-        await deleteUser(result.user);
-      } catch {
-        await signOut(auth);
+      if (info?.isNewUser) {
+        try {
+          await deleteUser(result.user);
+        } catch {
+          // ignore; we still reject by local clear + signOut below
+        }
+        await rejectGoogleLogin();
       }
-      const err = new Error('No account found for this Google account. Please sign up first.');
-      err.code = 'auth/no-account-yet';
+
+      const token = await result.user.getIdToken();
+      const existing = await getProfile(result.user.uid);
+      if (!existing) {
+        // Existing Firebase user but no app profile/onboarding document.
+        await rejectGoogleLogin();
+      }
+      const needsOnboarding = !existing?.onboarding?.completedAt;
+      if (needsOnboarding) {
+        // Login page should reject onboarding-incomplete Google users.
+        await rejectGoogleLogin();
+      }
+      const role = await loadUserRole(result.user.uid);
+
+      set({
+        user: { ...mapFirebaseUser(result.user), role },
+        token,
+        googleLoginValidationInProgress: false,
+      });
+      return { needsOnboarding, user: result.user };
+    } catch (err) {
+      // Clear validation lock for popup errors/cancellations and other failures.
+      set({ googleLoginValidationInProgress: false });
       throw err;
     }
-
-    const token = await result.user.getIdToken();
-    const existing = await getProfile(result.user.uid);
-    const needsOnboarding = !existing?.onboarding?.completedAt;
-    const role = await loadUserRole(result.user.uid);
-
-    set({ user: { ...mapFirebaseUser(result.user), role }, token });
-    return { needsOnboarding, user: result.user };
   },
 
   saveGoogleOnboarding: async (formData) => {
