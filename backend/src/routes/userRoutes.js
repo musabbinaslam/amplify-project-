@@ -11,6 +11,10 @@ const {
   postRegenerateApiKey,
   getSlugAvailability,
   getActivity,
+  getNotifications,
+  patchNotificationRead,
+  patchNotificationsReadAll,
+  getMaintenance,
   getQaSummary,
   getQaTrend,
   getQaScorecards,
@@ -23,7 +27,20 @@ const {
   getAiCoachingPlan,
   patchAiCoachingTask,
   getAiCoachingImpact,
+  listNotes,
+  createNote,
+  updateNote,
+  deleteNote,
+  listCustomScripts,
+  createCustomScript,
+  uploadCustomScript,
+  updateCustomScript,
+  deleteCustomScript,
 } = require('../controllers/userController');
+const multer = require('multer');
+const os = require('os');
+
+const upload = multer({ dest: os.tmpdir() });
 
 const router = express.Router();
 
@@ -34,6 +51,10 @@ router.get('/me/bootstrap', getMeBootstrap);
 router.patch('/me', patchMe);
 router.get('/me/slug-availability', getSlugAvailability);
 router.get('/me/activity', getActivity);
+router.get('/me/notifications', getNotifications);
+router.patch('/me/notifications/read-all', patchNotificationsReadAll);
+router.patch('/me/notifications/:id/read', patchNotificationRead);
+router.get('/me/maintenance', getMaintenance);
 router.get('/me/qa/summary', getQaSummary);
 router.get('/me/qa/trend', getQaTrend);
 router.get('/me/qa/scorecards', getQaScorecards);
@@ -48,7 +69,17 @@ router.patch('/me/ai-training/coaching-plan/tasks/:taskId', aiTrainingWriteLimit
 router.get('/me/ai-training/coaching-plan/impact', aiTrainingReadLimiter, getAiCoachingImpact);
 router.patch('/me/settings', patchSettings);
 router.patch('/me/scripts/:scriptId', patchScript);
+router.get('/me/notes', listNotes);
+router.post('/me/notes', createNote);
+router.put('/me/notes/:noteId', updateNote);
+router.delete('/me/notes/:noteId', deleteNote);
 router.post('/me/api-key', postApiKey);
 router.post('/me/api-key/regenerate', postRegenerateApiKey);
+
+router.get('/me/custom-scripts', listCustomScripts);
+router.post('/me/custom-scripts', createCustomScript);
+router.post('/me/custom-scripts/upload', upload.single('file'), uploadCustomScript);
+router.put('/me/custom-scripts/:scriptId', updateCustomScript);
+router.delete('/me/custom-scripts/:scriptId', deleteCustomScript);
 
 module.exports = router;

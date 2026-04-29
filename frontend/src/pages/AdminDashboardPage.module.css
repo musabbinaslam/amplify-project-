@@ -329,6 +329,53 @@
   gap: 8px;
 }
 
+.notificationGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 12px;
+}
+
+.notificationForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  background: var(--surface-container);
+  height: 100%;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.notificationForm .primaryBtn {
+  margin-top: auto;
+  width: 100%;
+  justify-content: center;
+}
+
+.textarea {
+  min-height: 108px;
+  resize: vertical;
+  padding: 11px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-container);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--brand-text);
+}
+
 .input:focus,
 .select:focus {
   outline: none;
@@ -484,6 +531,11 @@
   .didForm {
     grid-template-columns: 1fr 1fr;
   }
+
+  .notificationGrid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
 }
 
 @media (max-width: 760px) {
@@ -503,6 +555,10 @@
   .searchInput {
     min-width: 0;
     width: 100%;
+  }
+
+  .formRow {
+    grid-template-columns: 1fr;
   }
 
   .liveCallRow {

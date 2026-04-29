@@ -13,7 +13,7 @@ const FIREBASE_ERROR_MAP = {
   'auth/user-disabled': 'This account has been disabled',
   'auth/invalid-email': 'Invalid email address',
   'auth/no-account-yet':
-    'No account found for this Google account. Please sign up first. Use Sign up below.',
+    'No account found for this Google account. Please use Sign up with Google first.',
 };
 
 const getFirebaseErrorMessage = (error) => {

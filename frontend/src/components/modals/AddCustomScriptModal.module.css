@@ -1,0 +1,220 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+
+.header {
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--text-primary);
+}
+
+.closeBtn {
+  background: transparent;
+  color: var(--text-tertiary);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.closeBtn:hover {
+  background: var(--surface-container-high);
+  color: var(--text-primary);
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-container-low);
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+  background: var(--surface-container);
+}
+
+.tab.activeTab {
+  color: var(--brand-text);
+  border-bottom-color: var(--brand-solid);
+  background: var(--surface);
+}
+
+.body {
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.formGroup label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-container);
+  color: var(--text-primary);
+  font-size: 15px;
+}
+
+.textarea {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-container);
+  color: var(--text-primary);
+  font-size: 15px;
+  min-height: 200px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.input:focus, .textarea:focus {
+  border-color: var(--brand-text);
+  outline: none;
+}
+
+.submitBtn {
+  width: 100%;
+  padding: 14px;
+  background: var(--brand-solid);
+  color: var(--brand-on);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.submitBtn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.submitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.uploadBox {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 24px;
+  background: var(--surface-container);
+}
+
+.uploadBox:hover {
+  border-color: var(--brand-solid);
+  background: var(--surface-container-high);
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.uploadIcon {
+  color: var(--brand-text);
+  margin-bottom: 16px;
+}
+
+.uploadTitle {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.uploadSub {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.fileName {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--brand-text);
+  margin: 0;
+  word-break: break-all;
+  text-align: center;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}

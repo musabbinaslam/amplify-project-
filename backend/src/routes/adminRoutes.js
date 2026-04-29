@@ -25,5 +25,8 @@ router.get('/referrals/search', adminController.searchReferrals);
 router.patch('/referrals/:referralId/status', adminController.updateReferralStatus);
 router.post('/referrals/grant-discount', adminController.grantDiscount);
 router.post('/referrals/revoke-discount', adminController.revokeDiscount);
+router.post('/notifications/broadcast', adminController.postBroadcastNotification);
+router.get('/maintenance', adminController.getMaintenance);
+router.patch('/maintenance', adminController.patchMaintenance);
 
 module.exports = router;

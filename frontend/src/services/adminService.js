@@ -54,3 +54,15 @@ export function patchAdminDid(id, body) {
 export function deleteAdminDid(id) {
   return apiFetch(`/api/admin/dids/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
+
+export function postAdminBroadcastNotification(body) {
+  return apiFetch('/api/admin/notifications/broadcast', { method: 'POST', body });
+}
+
+export function getAdminMaintenanceState() {
+  return apiFetch('/api/admin/maintenance', { method: 'GET' });
+}
+
+export function patchAdminMaintenanceState(body) {
+  return apiFetch('/api/admin/maintenance', { method: 'PATCH', body });
+}

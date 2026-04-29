@@ -7,6 +7,18 @@ import { io } from 'socket.io-client';
 import { apiFetch } from './apiClient';
 
 const API_URL = () => getApiBaseUrl();
+const HEARTBEAT_INTERVAL_MS = 45000;
+
+function createLiveSessionId(identity) {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `${identity}:${crypto.randomUUID()}`;
+    }
+  } catch (_) {
+    // no-op fallback below
+  }
+  return `${identity}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+}
 
 /**
  * Apply persisted mic/speaker + DSP prefs from Firestore-backed store to Twilio AudioHelper.
@@ -51,6 +63,7 @@ async function applyTwilioDeviceAudio(device) {
 
 export const initializeTwilioDevice = async (passedIdentity, campaign, licensedStates = []) => {
   const store = useDialerStore.getState();
+  const liveSessionId = createLiveSessionId(passedIdentity || 'agent');
 
   try {
     if (passedIdentity) {
@@ -72,16 +85,21 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
         socket.emit('agent:go_live', {
           campaign,
           agentId: passedIdentity,
-          licensedStates
+          licensedStates,
+          sessionId: liveSessionId,
         });
+        socket._agentSessionId = liveSessionId;
 
         // 1.1 Heartbeat to prevent Redis ghost agents
         if (socket._heartbeatInterval) clearInterval(socket._heartbeatInterval);
         socket._heartbeatInterval = setInterval(() => {
             if (socket.connected) {
-                socket.emit('agent:heartbeat', { agentId: passedIdentity });
+                socket.emit('agent:heartbeat', {
+                  agentId: passedIdentity,
+                  sessionId: socket._agentSessionId || liveSessionId,
+                });
             }
-        }, 30000);
+        }, HEARTBEAT_INTERVAL_MS);
         // Don't resolve here — wait for live_confirmed or go_live_error from backend
       });
 
@@ -165,12 +183,12 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
 
       call.on('cancel', () => {
         if (call._durationInterval) clearInterval(call._durationInterval);
-        socket.emit('agent:release');
+        socket.emit('agent:release', { sessionId: socket._agentSessionId || liveSessionId });
         store.resetCallState();
       });
       call.on('reject', () => {
         if (call._durationInterval) clearInterval(call._durationInterval);
-        socket.emit('agent:release');
+        socket.emit('agent:release', { sessionId: socket._agentSessionId || liveSessionId });
         store.resetCallState();
       });
       call.on('error', () => {
@@ -189,7 +207,7 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
 
         call.on('disconnect', () => {
           if (call._durationInterval) clearInterval(call._durationInterval);
-          socket.emit('agent:release');
+          socket.emit('agent:release', { sessionId: socket._agentSessionId || liveSessionId });
 
           store.resetCallState();
         });
@@ -231,7 +249,7 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       if (socket._heartbeatInterval) clearInterval(socket._heartbeatInterval);
 
       // Tell backend to remove from routing pool
-      socket.emit('agent:go_offline');
+      socket.emit('agent:go_offline', { sessionId: socket._agentSessionId || liveSessionId });
 
       // Destroy Twilio Device so no more calls can ring through
       try { device.destroy(); } catch (_) { /* ignore */ }

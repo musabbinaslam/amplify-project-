@@ -9,6 +9,12 @@ const {
   addActivity,
   listActivity,
 } = require('../services/userDataService');
+const {
+  listUserNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  getMaintenanceState,
+} = require('../services/notificationService');
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const AI_TRAINING_CACHE_TTL_MS = 30 * 1000;
@@ -524,6 +530,54 @@ async function getActivity(req, res) {
   } catch (err) {
     console.error('[Users] getActivity:', err.message);
     res.status(500).json({ error: err.message || 'Failed to load activity' });
+  }
+}
+
+async function getNotifications(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  try {
+    const out = await listUserNotifications(req.user.uid, req.query || {});
+    res.json(out);
+  } catch (err) {
+    console.error('[Users] getNotifications:', err.message);
+    const status = /must/i.test(err.message) ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to load notifications' });
+  }
+}
+
+async function patchNotificationRead(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  const notificationId = String(req.params.id || '').trim();
+  if (!notificationId) return res.status(400).json({ error: 'Notification id is required' });
+  try {
+    const out = await markNotificationRead(req.user.uid, notificationId);
+    res.json(out);
+  } catch (err) {
+    console.error('[Users] patchNotificationRead:', err.message);
+    const status = err.message === 'Notification not found' ? 404 : (/must|required/i.test(err.message) ? 400 : 500);
+    res.status(status).json({ error: err.message || 'Failed to mark notification as read' });
+  }
+}
+
+async function patchNotificationsReadAll(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  try {
+    const out = await markAllNotificationsRead(req.user.uid);
+    res.json(out);
+  } catch (err) {
+    console.error('[Users] patchNotificationsReadAll:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to mark all notifications as read' });
+  }
+}
+
+async function getMaintenance(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  try {
+    const maintenance = await getMaintenanceState();
+    res.json({ maintenance });
+  } catch (err) {
+    console.error('[Users] getMaintenance:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to load maintenance state' });
   }
 }
 
@@ -1082,6 +1136,246 @@ async function getAiCoachingImpact(req, res) {
   }
 }
 
+async function listNotes(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  try {
+    const db = getDb();
+    const snap = await db.collection('users').doc(req.user.uid).collection('notes')
+      .orderBy('updatedAt', 'desc')
+      .limit(100)
+      .get();
+    
+    const notes = snap.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        title: data.title || '',
+        text: data.text || '',
+        updatedAt: serializeFirestoreData(data.updatedAt)
+      };
+    });
+    res.json({ notes });
+  } catch (err) {
+    console.error('[Users] listNotes:', err.message);
+    res.status(500).json({ error: 'Failed to load notes' });
+  }
+}
+
+async function createNote(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  try {
+    const db = getDb();
+    const newNoteRef = db.collection('users').doc(req.user.uid).collection('notes').doc();
+    
+    const noteData = {
+      title: 'New Note',
+      text: '',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    await newNoteRef.set(noteData);
+    
+    res.json({
+      id: newNoteRef.id,
+      title: noteData.title,
+      text: noteData.text,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('[Users] createNote:', err.message);
+    res.status(500).json({ error: 'Failed to create note' });
+  }
+}
+
+async function updateNote(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  const { noteId } = req.params;
+  const { title, text } = req.body;
+  
+  if (!noteId) return res.status(400).json({ error: 'Note ID required' });
+  
+  try {
+    const db = getDb();
+    const updates = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+    if (typeof title === 'string') updates.title = title.substring(0, 100);
+    if (typeof text === 'string') updates.text = text.substring(0, 500000);
+    
+    await db.collection('users').doc(req.user.uid).collection('notes').doc(noteId).set(updates, { merge: true });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Users] updateNote:', err.message);
+    res.status(500).json({ error: 'Failed to update note' });
+  }
+}
+
+async function deleteNote(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  const { noteId } = req.params;
+  
+  if (!noteId) return res.status(400).json({ error: 'Note ID required' });
+  
+  try {
+    const db = getDb();
+    await db.collection('users').doc(req.user.uid).collection('notes').doc(noteId).delete();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Users] deleteNote:', err.message);
+    res.status(500).json({ error: 'Failed to delete note' });
+  }
+}
+
+async function listCustomScripts(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  try {
+    const db = getDb();
+    const snap = await db.collection('users').doc(req.user.uid).collection('customScripts')
+      .orderBy('updatedAt', 'desc')
+      .limit(100)
+      .get();
+    
+    const scripts = snap.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        title: data.title || 'Untitled Script',
+        text: data.text || '',
+        updatedAt: serializeFirestoreData(data.updatedAt)
+      };
+    });
+    res.json({ scripts });
+  } catch (err) {
+    console.error('[Users] listCustomScripts:', err.message);
+    res.status(500).json({ error: 'Failed to load custom scripts' });
+  }
+}
+
+async function createCustomScript(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  const { title, text } = req.body;
+  
+  try {
+    const db = getDb();
+    const newRef = db.collection('users').doc(req.user.uid).collection('customScripts').doc();
+    
+    const docData = {
+      title: title || 'New Custom Script',
+      text: text || '',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    await newRef.set(docData);
+    
+    res.json({
+      id: newRef.id,
+      title: docData.title,
+      text: docData.text,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('[Users] createCustomScript:', err.message);
+    res.status(500).json({ error: 'Failed to create script' });
+  }
+}
+
+async function updateCustomScript(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  const { scriptId } = req.params;
+  const { title, text } = req.body;
+  
+  if (!scriptId) return res.status(400).json({ error: 'Script ID required' });
+  
+  try {
+    const db = getDb();
+    const updates = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+    if (typeof title === 'string') updates.title = title.substring(0, 200);
+    if (typeof text === 'string') updates.text = text.substring(0, 1000000);
+    
+    await db.collection('users').doc(req.user.uid).collection('customScripts').doc(scriptId).set(updates, { merge: true });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Users] updateCustomScript:', err.message);
+    res.status(500).json({ error: 'Failed to update script' });
+  }
+}
+
+async function deleteCustomScript(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  const { scriptId } = req.params;
+  
+  if (!scriptId) return res.status(400).json({ error: 'Script ID required' });
+  
+  try {
+    const db = getDb();
+    await db.collection('users').doc(req.user.uid).collection('customScripts').doc(scriptId).delete();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Users] deleteCustomScript:', err.message);
+    res.status(500).json({ error: 'Failed to delete script' });
+  }
+}
+
+const fs = require('fs');
+const pdfParse = require('pdf-parse');
+const mammoth = require('mammoth');
+
+async function uploadCustomScript(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  
+  const { originalname, path: tempPath, mimetype } = req.file;
+  let parsedText = '';
+  
+  try {
+    const fileBuffer = fs.readFileSync(tempPath);
+    
+    if (mimetype === 'application/pdf') {
+      const data = await pdfParse(fileBuffer);
+      parsedText = data.text;
+    } else if (
+      mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+      originalname.endsWith('.docx')
+    ) {
+      const result = await mammoth.extractRawText({ buffer: fileBuffer });
+      parsedText = result.value;
+    } else {
+      throw new Error('Unsupported file type. Please upload a PDF or DOCX file.');
+    }
+    
+    // Create new script
+    const db = getDb();
+    const newRef = db.collection('users').doc(req.user.uid).collection('customScripts').doc();
+    
+    const title = originalname.replace(/\.[^/.]+$/, ""); // strip extension
+    
+    const docData = {
+      title: title || 'Uploaded Script',
+      text: parsedText || '',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    await newRef.set(docData);
+    
+    // Clean up temp file
+    fs.unlinkSync(tempPath);
+    
+    res.json({
+      id: newRef.id,
+      title: docData.title,
+      text: docData.text,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('[Users] uploadCustomScript:', err.message);
+    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    res.status(500).json({ error: err.message || 'Failed to process file' });
+  }
+}
 module.exports = {
   getMe,
   getMeBootstrap,
@@ -1092,6 +1386,10 @@ module.exports = {
   postRegenerateApiKey,
   getSlugAvailability,
   getActivity,
+  getNotifications,
+  patchNotificationRead,
+  patchNotificationsReadAll,
+  getMaintenance,
   getQaSummary,
   getQaTrend,
   getQaScorecards,
@@ -1104,4 +1402,13 @@ module.exports = {
   getAiCoachingPlan,
   patchAiCoachingTask,
   getAiCoachingImpact,
+  listNotes,
+  createNote,
+  updateNote,
+  deleteNote,
+  listCustomScripts,
+  createCustomScript,
+  uploadCustomScript,
+  updateCustomScript,
+  deleteCustomScript,
 };
