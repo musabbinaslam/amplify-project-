@@ -6,7 +6,7 @@ import {
   Play, Phone, LayoutDashboard, List, FileText,
   DollarSign, MapPin, Box, User, HeadphonesIcon,
   MessageSquare, Gift, Settings, LogOut,
-  ChevronLeft, ChevronRight, CheckCircle2, Shield,
+  ChevronLeft, ChevronRight, CheckCircle2, Shield, FileEdit
 } from 'lucide-react';
 import classes from './Sidebar.module.css';
 
@@ -16,6 +16,7 @@ const navItems = [
   { path: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/app/call-logs', label: 'Call Logs', icon: List },
   { path: '/app/script', label: 'Script', icon: FileText },
+  { path: '/app/notes', label: 'Notes', icon: FileEdit },
   { path: '/app/billing', label: 'Billing', icon: DollarSign },
   { path: '/app/licensed-states', label: 'Licensed States', icon: MapPin },
   { path: '/app/leads', label: 'Leads', icon: Box, badge: 'Beta', disabled: true, teaser: true },

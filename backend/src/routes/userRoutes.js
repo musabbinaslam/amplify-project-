@@ -27,7 +27,20 @@ const {
   getAiCoachingPlan,
   patchAiCoachingTask,
   getAiCoachingImpact,
+  listNotes,
+  createNote,
+  updateNote,
+  deleteNote,
+  listCustomScripts,
+  createCustomScript,
+  uploadCustomScript,
+  updateCustomScript,
+  deleteCustomScript,
 } = require('../controllers/userController');
+const multer = require('multer');
+const os = require('os');
+
+const upload = multer({ dest: os.tmpdir() });
 
 const router = express.Router();
 
@@ -56,7 +69,17 @@ router.patch('/me/ai-training/coaching-plan/tasks/:taskId', aiTrainingWriteLimit
 router.get('/me/ai-training/coaching-plan/impact', aiTrainingReadLimiter, getAiCoachingImpact);
 router.patch('/me/settings', patchSettings);
 router.patch('/me/scripts/:scriptId', patchScript);
+router.get('/me/notes', listNotes);
+router.post('/me/notes', createNote);
+router.put('/me/notes/:noteId', updateNote);
+router.delete('/me/notes/:noteId', deleteNote);
 router.post('/me/api-key', postApiKey);
 router.post('/me/api-key/regenerate', postRegenerateApiKey);
+
+router.get('/me/custom-scripts', listCustomScripts);
+router.post('/me/custom-scripts', createCustomScript);
+router.post('/me/custom-scripts/upload', upload.single('file'), uploadCustomScript);
+router.put('/me/custom-scripts/:scriptId', updateCustomScript);
+router.delete('/me/custom-scripts/:scriptId', deleteCustomScript);
 
 module.exports = router;

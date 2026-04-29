@@ -23,6 +23,7 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
 
 const ScriptPage = lazy(() => import('./pages/ScriptPage'));
+const NotesPage = lazy(() => import('./pages/NotesPage'));
 const LeadsPage = lazy(() => Promise.resolve({ default: () => <div><h2 style={{color: 'white'}}>Leads (Beta)</h2></div> }));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ReferralProgramPage = lazy(() => import('./pages/ReferralProgramPage'));
@@ -96,6 +97,9 @@ const AnimatedRoutes = () => {
           } />
           <Route path="script" element={
             <Suspense fallback={<PageLoader />}><ScriptPage /></Suspense>
+          } />
+          <Route path="notes" element={
+            <Suspense fallback={<PageLoader />}><NotesPage /></Suspense>
           } />
           <Route path="billing" element={
             <Suspense fallback={<PageLoader />}><BillingPage /></Suspense>
