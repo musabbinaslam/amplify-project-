@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Wallet, Moon, Sun, Bell } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
@@ -22,7 +23,9 @@ const Topbar = ({
   const [isInboxOpen, setIsInboxOpen] = useState(false);
   const [isInboxClosing, setIsInboxClosing] = useState(false);
   const [isBellAnimating, setIsBellAnimating] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState(null);
   const inboxRef = useRef(null);
+  const notificationModalRef = useRef(null);
   const { callState } = useDialerStore();
   
   const isOnline = callState !== 'offline' && callState !== 'error';
@@ -66,6 +69,25 @@ const Topbar = ({
     const timer = window.setTimeout(() => setIsBellAnimating(false), 1100);
     return () => window.clearTimeout(timer);
   }, [notificationTick]);
+
+  useEffect(() => {
+    if (!selectedNotification) return undefined;
+    const onEsc = (event) => {
+      if (event.key === 'Escape') setSelectedNotification(null);
+    };
+    const onOutside = (event) => {
+      if (!notificationModalRef.current) return;
+      if (!notificationModalRef.current.contains(event.target)) {
+        setSelectedNotification(null);
+      }
+    };
+    document.addEventListener('keydown', onEsc);
+    document.addEventListener('mousedown', onOutside);
+    return () => {
+      document.removeEventListener('keydown', onEsc);
+      document.removeEventListener('mousedown', onOutside);
+    };
+  }, [selectedNotification]);
 
   // Format pathname to Title Case for the header
   const getPageTitle = (pathname) => {
@@ -153,7 +175,10 @@ const Topbar = ({
                       className={`${classes.inboxItem} ${!row.read ? classes.inboxItemUnread : ''} ${
                         latestNotificationId && row.id === latestNotificationId ? classes.inboxItemNew : ''
                       }`}
-                      onClick={() => row.id && onMarkRead && onMarkRead(row.id)}
+                      onClick={() => {
+                        if (row.id && onMarkRead) onMarkRead(row.id);
+                        setSelectedNotification(row);
+                      }}
                     >
                       <span className={classes.itemTitle}>{row.title || 'Notification'}</span>
                       <span className={classes.itemBody}>{row.body || ''}</span>
@@ -183,6 +208,27 @@ const Topbar = ({
           {isOnline ? 'Online' : 'Offline'}
         </div>
       </div>
+      {selectedNotification ? createPortal(
+        <div className={classes.notificationModalBackdrop}>
+          <div className={classes.notificationModal} ref={notificationModalRef}>
+            <div className={classes.notificationModalHeader}>
+              <h3>{selectedNotification.title || 'Notification'}</h3>
+              <button
+                type="button"
+                className={classes.notificationCloseBtn}
+                onClick={() => setSelectedNotification(null)}
+              >
+                Close
+              </button>
+            </div>
+            <div className={classes.notificationModalMeta}>
+              <span>{formatTime(selectedNotification.createdAt || selectedNotification.createdAtIso)}</span>
+              <span>{String(selectedNotification.type || 'general').replace(/_/g, ' ')}</span>
+            </div>
+            <p className={classes.notificationModalBody}>{selectedNotification.body || 'No description available.'}</p>
+          </div>
+        </div>
+      , document.body) : null}
     </header>
   );
 };

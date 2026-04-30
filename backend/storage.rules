@@ -1,0 +1,19 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Deny everything by default.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // User-owned files under users/{uid}/...
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Admin-only uploads under admin/...
+    match /admin/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.token.admin == true;
+    }
+  }
+}

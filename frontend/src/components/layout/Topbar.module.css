@@ -251,6 +251,75 @@
   font-size: 13px;
 }
 
+.notificationModalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, black 44%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 120;
+  padding: 20px;
+}
+
+.notificationModal {
+  width: min(560px, 100%);
+  max-height: min(74vh, 700px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-container-low);
+  box-shadow: 0 14px 34px color-mix(in srgb, black 30%, transparent);
+  padding: 16px;
+}
+
+.notificationModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.notificationModalHeader h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.notificationCloseBtn {
+  border: 1px solid var(--border);
+  background: var(--surface-container);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.notificationCloseBtn:hover {
+  background: var(--surface-container-high);
+  color: var(--text-primary);
+}
+
+.notificationModalMeta {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.notificationModalBody {
+  margin: 14px 0 0;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  line-height: 1.55;
+  font-size: 14px;
+}
+
 @keyframes inboxDropIn {
   0% {
     opacity: 0;
@@ -299,5 +368,12 @@
   0%, 100% { transform: scale(1); }
   35% { transform: scale(1.22); }
   65% { transform: scale(0.95); }
+}
+
+@media (max-width: 760px) {
+  .notificationModal {
+    padding: 14px;
+    border-radius: 12px;
+  }
 }
 
