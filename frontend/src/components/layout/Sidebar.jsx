@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useUIStore } from '../../store/uiStore';
 import useAuthStore from '../../store/authStore';
+import useDialerStore from '../../store/useDialerStore';
 import {
   Play, Phone, LayoutDashboard, List, FileText,
   DollarSign, MapPin, Box, User, HeadphonesIcon,
@@ -55,6 +56,14 @@ const Sidebar = () => {
   }, [role]);
 
   const handleLogout = async () => {
+    // Take the agent offline first — removes from Redis pool & destroys Twilio device
+    // immediately, so calls stop routing BEFORE the Firebase session is cleared.
+    const dialerState = useDialerStore.getState();
+    if (dialerState.callState !== 'offline') {
+      dialerState.goOffline();
+      // Give the socket a moment to flush the agent:go_offline event to the backend
+      await new Promise((r) => setTimeout(r, 300));
+    }
     await logout();
     navigate('/login');
   };
