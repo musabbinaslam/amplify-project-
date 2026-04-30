@@ -29,6 +29,16 @@ import useAuthStore from '../store/authStore';
 import PageLoader from '../components/ui/PageLoader';
 import classes from './AdminDashboardPage.module.css';
 
+const toLocalDateTimeInput = (value) => {
+  if (!value) return '';
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+};
+
+const nowLocalInput = () => toLocalDateTimeInput(new Date());
+
 const AdminDashboardPage = () => {
   const refreshUserRole = useAuthStore((s) => s.refreshUserRole);
   const [rangePreset, setRangePreset] = useState('7d');
@@ -164,8 +174,8 @@ const AdminDashboardPage = () => {
         active: Boolean(m.active),
         title: m.title || '',
         message: m.message || '',
-        startsAt: m.startsAt ? String(m.startsAt).slice(0, 16) : '',
-        endsAt: m.endsAt ? String(m.endsAt).slice(0, 16) : '',
+        startsAt: toLocalDateTimeInput(m.startsAt),
+        endsAt: toLocalDateTimeInput(m.endsAt),
       });
     } catch (err) {
       toast.error(err.message || 'Failed to load maintenance state');
@@ -278,6 +288,14 @@ const AdminDashboardPage = () => {
       return;
     }
     try {
+      const now = Date.now();
+      if (broadcastForm.expiresAt) {
+        const expiresMs = new Date(broadcastForm.expiresAt).getTime();
+        if (!Number.isFinite(expiresMs) || expiresMs < now) {
+          toast.error('Broadcast expiry must be in the future');
+          return;
+        }
+      }
       const payload = {
         title: broadcastForm.title.trim(),
         body: broadcastForm.body.trim(),
@@ -295,12 +313,30 @@ const AdminDashboardPage = () => {
   const handleSaveMaintenance = async (e) => {
     e.preventDefault();
     try {
+      const isActive = Boolean(maintenanceForm.active);
+      const now = Date.now();
+      const startsMs = maintenanceForm.startsAt ? new Date(maintenanceForm.startsAt).getTime() : null;
+      const endsMs = maintenanceForm.endsAt ? new Date(maintenanceForm.endsAt).getTime() : null;
+
+      if (isActive && maintenanceForm.startsAt && (!Number.isFinite(startsMs) || startsMs < now)) {
+        toast.error('Maintenance start time must be in the future');
+        return;
+      }
+      if (isActive && maintenanceForm.endsAt && (!Number.isFinite(endsMs) || endsMs < now)) {
+        toast.error('Maintenance end time must be in the future');
+        return;
+      }
+      if (isActive && startsMs && endsMs && startsMs > endsMs) {
+        toast.error('Maintenance end time must be after start time');
+        return;
+      }
+
       const payload = {
-        active: Boolean(maintenanceForm.active),
-        title: maintenanceForm.title.trim(),
-        message: maintenanceForm.message.trim(),
-        startsAt: maintenanceForm.startsAt ? new Date(maintenanceForm.startsAt).toISOString() : null,
-        endsAt: maintenanceForm.endsAt ? new Date(maintenanceForm.endsAt).toISOString() : null,
+        active: isActive,
+        title: isActive ? maintenanceForm.title.trim() : '',
+        message: isActive ? maintenanceForm.message.trim() : '',
+        startsAt: isActive && maintenanceForm.startsAt ? new Date(maintenanceForm.startsAt).toISOString() : null,
+        endsAt: isActive && maintenanceForm.endsAt ? new Date(maintenanceForm.endsAt).toISOString() : null,
       };
       await patchAdminMaintenanceState(payload);
       toast.success(maintenanceForm.active ? 'Maintenance update published' : 'Maintenance mode turned off');
@@ -747,6 +783,7 @@ const AdminDashboardPage = () => {
                 className={classes.input}
                 value={broadcastForm.expiresAt}
                 onChange={(e) => setBroadcastForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
+                min={nowLocalInput()}
               />
             </div>
             <button type="submit" className={classes.primaryBtn}>Send broadcast</button>
@@ -779,12 +816,14 @@ const AdminDashboardPage = () => {
                 className={classes.input}
                 value={maintenanceForm.startsAt}
                 onChange={(e) => setMaintenanceForm((prev) => ({ ...prev, startsAt: e.target.value }))}
+                min={nowLocalInput()}
               />
               <input
                 type="datetime-local"
                 className={classes.input}
                 value={maintenanceForm.endsAt}
                 onChange={(e) => setMaintenanceForm((prev) => ({ ...prev, endsAt: e.target.value }))}
+                min={maintenanceForm.startsAt || nowLocalInput()}
               />
             </div>
             <button type="submit" className={classes.primaryBtn}>

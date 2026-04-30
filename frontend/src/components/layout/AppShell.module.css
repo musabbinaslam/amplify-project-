@@ -33,10 +33,11 @@
 }
 
 .maintenanceBanner {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 10px;
-  padding: 12px 20px;
+  gap: 14px;
+  padding: 10px 20px;
   position: relative;
   overflow: hidden;
   background: linear-gradient(
@@ -49,8 +50,8 @@
     0 0 0 1px color-mix(in srgb, var(--accent-red) 25%, transparent) inset,
     0 0 20px color-mix(in srgb, var(--accent-red) 28%, transparent);
   color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 500;
   animation:
     maintenanceEnter 320ms ease-out,
     maintenanceGlow 2.8s ease-in-out infinite;
@@ -60,6 +61,57 @@
   color: #fff;
   letter-spacing: 0.01em;
   text-transform: uppercase;
+  font-size: 12px;
+}
+
+.maintenanceMain {
+  display: flex;
+  flex-direction: column;
+}
+
+.maintenanceMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  font-size: 11px;
+  color: color-mix(in srgb, var(--text-primary) 78%, transparent);
+  text-align: center;
+}
+
+.maintenanceMeta b {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.maintenanceTimer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 5px 10px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent-red) 38%, var(--border));
+  background: color-mix(in srgb, var(--accent-red) 20%, var(--surface-container-low));
+  min-width: 114px;
+}
+
+.maintenanceTimer span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+}
+
+.maintenanceTimer strong {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.activeTimer {
+  background: color-mix(in srgb, var(--accent-orange) 24%, var(--surface-container-low));
+  border-color: color-mix(in srgb, var(--accent-orange) 45%, var(--border));
 }
 
 .maintenanceBanner::after {
@@ -95,6 +147,19 @@
   animation:
     maintenanceEnter 320ms ease-out,
     maintenanceGlowLight 2.4s ease-in-out infinite;
+}
+
+:global([data-theme="light"]) .maintenanceMain span,
+:global([data-theme="light"]) .maintenanceMeta {
+  color: #5e2a1f;
+}
+
+:global([data-theme="light"]) .maintenanceMeta b {
+  color: #3e1208;
+}
+
+:global([data-theme="light"]) .maintenanceTimer {
+  background: rgba(255, 255, 255, 0.5);
 }
 
 :global([data-theme="light"]) .maintenanceBanner strong {
@@ -179,21 +244,30 @@
 
 @keyframes maintenanceGlowLight {
   0% {
-    transform: translateY(0);
     box-shadow:
       0 0 0 1px rgba(171, 45, 17, 0.20) inset,
       0 0 10px rgba(217, 74, 43, 0.24);
   }
   50% {
-    transform: translateY(-1px);
     box-shadow:
       0 0 0 1px rgba(171, 45, 17, 0.35) inset,
       0 0 22px rgba(217, 74, 43, 0.42);
   }
   100% {
-    transform: translateY(0);
     box-shadow:
       0 0 0 1px rgba(171, 45, 17, 0.20) inset,
       0 0 10px rgba(217, 74, 43, 0.24);
+  }
+}
+
+@media (max-width: 1100px) {
+  .maintenanceBanner {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .maintenanceTimer {
+    align-items: flex-start;
   }
 }

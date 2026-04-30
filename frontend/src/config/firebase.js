@@ -7,6 +7,7 @@ let firebaseApp = null;
 let auth = null;
 let googleProvider = null;
 let analytics = null;
+let appCheck = null;
 
 function parseJsonConfig(text, status) {
   const trimmed = String(text || '').trim();
@@ -56,6 +57,25 @@ export async function initFirebase() {
   auth = getAuth(firebaseApp);
   googleProvider = new GoogleAuthProvider();
 
+  // App Check is optional but strongly recommended before enforcing in Firebase Console.
+  // Set VITE_FIREBASE_APPCHECK_SITE_KEY in frontend env (stage/prod specific).
+  const appCheckSiteKey = (import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY || '').trim();
+  if (appCheckSiteKey) {
+    try {
+      const { initializeAppCheck, ReCaptchaV3Provider } = await import('firebase/app-check');
+      appCheck = initializeAppCheck(firebaseApp, {
+        provider: new ReCaptchaV3Provider(appCheckSiteKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+    } catch (err) {
+      console.warn('[Firebase] App Check initialization failed:', err?.message || err);
+    }
+  } else {
+    console.warn(
+      '[Firebase] App Check site key is missing (VITE_FIREBASE_APPCHECK_SITE_KEY). App Check remains disabled on this client.',
+    );
+  }
+
   // Analytics is optional and only available in supported browser environments.
   if (config.measurementId) {
     try {
@@ -68,4 +88,4 @@ export async function initFirebase() {
   }
 }
 
-export { auth, googleProvider, analytics };
+export { auth, googleProvider, analytics, appCheck };
