@@ -1151,6 +1151,7 @@ async function listNotes(req, res) {
         id: doc.id,
         title: data.title || '',
         text: data.text || '',
+        textHtml: data.textHtml || '',
         updatedAt: serializeFirestoreData(data.updatedAt)
       };
     });
@@ -1170,6 +1171,7 @@ async function createNote(req, res) {
     const noteData = {
       title: 'New Note',
       text: '',
+      textHtml: '',
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
@@ -1180,6 +1182,7 @@ async function createNote(req, res) {
       id: newNoteRef.id,
       title: noteData.title,
       text: noteData.text,
+      textHtml: noteData.textHtml,
       updatedAt: new Date().toISOString()
     });
   } catch (err) {
@@ -1191,7 +1194,7 @@ async function createNote(req, res) {
 async function updateNote(req, res) {
   if (!ensureAdmin(req, res)) return;
   const { noteId } = req.params;
-  const { title, text } = req.body;
+  const { title, text, textHtml } = req.body;
   
   if (!noteId) return res.status(400).json({ error: 'Note ID required' });
   
@@ -1200,6 +1203,7 @@ async function updateNote(req, res) {
     const updates = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
     if (typeof title === 'string') updates.title = title.substring(0, 100);
     if (typeof text === 'string') updates.text = text.substring(0, 500000);
+    if (typeof textHtml === 'string') updates.textHtml = textHtml.substring(0, 1000000);
     
     await db.collection('users').doc(req.user.uid).collection('notes').doc(noteId).set(updates, { merge: true });
     res.json({ success: true });
