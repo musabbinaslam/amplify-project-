@@ -7,6 +7,7 @@ import {
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
+import useDialerStore from '../store/useDialerStore';
 import { useThemeStore, DEFAULT_BRAND } from '../store/themeStore';
 import { exportUserData, revokeAllSessions } from '../services/settingsService';
 import { saveProfile, getProfile } from '../services/profileService';
@@ -322,6 +323,11 @@ const SettingsPage = () => {
     try {
       await revokeAllSessions(token);
       toast.success('All sessions revoked — logging out');
+      // Take agent offline immediately before the logout fires
+      const dialerState = useDialerStore.getState();
+      if (dialerState.callState !== 'offline') {
+        dialerState.goOffline();
+      }
       setTimeout(() => logout(), 1000);
     } catch (err) {
       toast.error(err.message || 'Failed to revoke sessions');
