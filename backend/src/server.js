@@ -147,6 +147,9 @@ const startEngine = async () => {
         if (err?.type === 'entity.too.large') {
           return res.status(413).json({ error: 'Payload too large. Please upload a smaller image.' });
         }
+        if (typeof err?.message === 'string' && err.message.startsWith('CORS blocked for origin:')) {
+          return res.status(403).json({ error: 'Forbidden origin' });
+        }
         console.error('SERVER CRASH PREVENTED:', err.stack);
         res.status(500).json({ error: 'Internal Server Error' });
     });

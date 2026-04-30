@@ -24,6 +24,7 @@ const AppShell = () => {
   const [maintenance, setMaintenance] = useState(null);
   const [notificationTick, setNotificationTick] = useState(0);
   const [latestNotificationId, setLatestNotificationId] = useState(null);
+  const [nowTs, setNowTs] = useState(Date.now());
   const unreadCount = useMemo(
     () => notifications.filter((row) => !row.read).length,
     [notifications],
@@ -105,15 +106,78 @@ const AppShell = () => {
     };
   }, [user?.uid]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowTs(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const maintenanceView = useMemo(() => {
+    if (!maintenance) return null;
+    const startMs = maintenance.startsAt ? new Date(maintenance.startsAt).getTime() : null;
+    const endMs = maintenance.endsAt ? new Date(maintenance.endsAt).getTime() : null;
+    const isUpcoming = !maintenance.active && startMs && startMs > nowTs;
+    const isActive = Boolean(maintenance.active);
+    if (!isActive && !isUpcoming) return null;
+
+    const formatAbsolute = (value) => {
+      if (!value) return 'TBD';
+      const dt = new Date(value);
+      if (Number.isNaN(dt.getTime())) return 'TBD';
+      return dt.toLocaleString();
+    };
+
+    const formatDuration = (startValue, endValue) => {
+      if (!startValue || !endValue) return 'TBD';
+      const diff = new Date(endValue).getTime() - new Date(startValue).getTime();
+      if (!Number.isFinite(diff) || diff <= 0) return 'TBD';
+      const mins = Math.floor(diff / 60000);
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      if (h && m) return `${h}h ${m}m`;
+      if (h) return `${h}h`;
+      return `${m}m`;
+    };
+
+    const formatCountdown = (targetMs) => {
+      if (!targetMs || targetMs <= nowTs) return '00:00:00';
+      const remaining = Math.floor((targetMs - nowTs) / 1000);
+      const h = String(Math.floor(remaining / 3600)).padStart(2, '0');
+      const m = String(Math.floor((remaining % 3600) / 60)).padStart(2, '0');
+      const s = String(remaining % 60).padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    };
+
+    const countdownTarget = isActive ? endMs : startMs;
+    return {
+      title: maintenance.title || 'Scheduled Maintenance',
+      startLabel: formatAbsolute(maintenance.startsAt),
+      endLabel: formatAbsolute(maintenance.endsAt),
+      downtimeLabel: formatDuration(maintenance.startsAt, maintenance.endsAt),
+      countdownLabel: isActive ? 'Ends in' : 'Starts in',
+      countdownValue: formatCountdown(countdownTarget),
+      active: isActive,
+    };
+  }, [maintenance, nowTs]);
+
   return (
     <div className={classes.appContainer}>
       <div className={classes.mainLayout}>
         <Sidebar />
         <div className={`${classes.contentWrapper} ${isSidebarCollapsed ? classes.collapsed : ''}`}>
-          {maintenance?.active ? (
+          {maintenanceView ? (
             <div className={classes.maintenanceBanner}>
-              <strong>{maintenance.title || 'Maintenance update'}</strong>
-              <span>{maintenance.message || 'Scheduled maintenance in progress.'}</span>
+              <div className={classes.maintenanceMain}>
+                <strong>{maintenanceView.title}</strong>
+              </div>
+              <div className={classes.maintenanceMeta}>
+                <span><b>Start:</b> {maintenanceView.startLabel}</span>
+                <span><b>End:</b> {maintenanceView.endLabel}</span>
+                <span><b>Downtime:</b> {maintenanceView.downtimeLabel}</span>
+              </div>
+              <div className={`${classes.maintenanceTimer} ${maintenanceView.active ? classes.activeTimer : ''}`}>
+                <span>{maintenanceView.countdownLabel}</span>
+                <strong>{maintenanceView.countdownValue}</strong>
+              </div>
             </div>
           ) : null}
           <Topbar

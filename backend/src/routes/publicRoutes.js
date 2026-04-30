@@ -1,12 +1,36 @@
 const express = require('express');
 
 const router = express.Router();
+const allowedFirebaseConfigOrigins = (process.env.FIREBASE_CONFIG_ALLOWED_ORIGINS || process.env.CLIENT_URLS || process.env.CLIENT_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+function getRequestOrigin(req) {
+  const originHeader = req.headers.origin ? String(req.headers.origin).trim() : '';
+  if (originHeader) return originHeader;
+  const refererHeader = req.headers.referer ? String(req.headers.referer).trim() : '';
+  if (!refererHeader) return '';
+  try {
+    return new URL(refererHeader).origin;
+  } catch {
+    return '';
+  }
+}
 
 /**
  * Public Firebase web SDK config (same values as Firebase console Web app).
  * Not a secret; kept on server so the frontend repo does not need VITE_FIREBASE_*.
  */
 router.get('/firebase-config', (req, res) => {
+  // Optional hardening: only serve Firebase web config to approved frontend origins.
+  if (allowedFirebaseConfigOrigins.length) {
+    const requestOrigin = getRequestOrigin(req);
+    if (!requestOrigin || !allowedFirebaseConfigOrigins.includes(requestOrigin)) {
+      return res.status(403).json({ error: 'Forbidden origin' });
+    }
+  }
+
   const apiKey = process.env.FIREBASE_API_KEY;
   const authDomain = process.env.FIREBASE_AUTH_DOMAIN;
   const projectId = process.env.FIREBASE_PROJECT_ID;
