@@ -13,6 +13,7 @@ router.get('/firebase-config', (req, res) => {
   const storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
   const messagingSenderId = process.env.FIREBASE_MESSAGING_SENDER_ID;
   const appId = process.env.FIREBASE_APP_ID;
+  const measurementId = process.env.FIREBASE_MEASUREMENT_ID;
 
   if (!apiKey || !authDomain || !projectId || !appId) {
     return res.status(503).json({
@@ -27,6 +28,7 @@ router.get('/firebase-config', (req, res) => {
     storageBucket: storageBucket || '',
     messagingSenderId: messagingSenderId || '',
     appId,
+    measurementId: measurementId || '',
   });
 });
 
