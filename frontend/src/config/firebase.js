@@ -1,10 +1,12 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAnalytics, isSupported as isAnalyticsSupported } from 'firebase/analytics';
 import { getApiBaseUrl } from './apiBase';
 
 let firebaseApp = null;
 let auth = null;
 let googleProvider = null;
+let analytics = null;
 
 function parseJsonConfig(text, status) {
   const trimmed = String(text || '').trim();
@@ -49,9 +51,21 @@ export async function initFirebase() {
     storageBucket: config.storageBucket,
     messagingSenderId: config.messagingSenderId,
     appId: config.appId,
+    ...(config.measurementId ? { measurementId: config.measurementId } : {}),
   });
   auth = getAuth(firebaseApp);
   googleProvider = new GoogleAuthProvider();
+
+  // Analytics is optional and only available in supported browser environments.
+  if (config.measurementId) {
+    try {
+      if (await isAnalyticsSupported()) {
+        analytics = getAnalytics(firebaseApp);
+      }
+    } catch (err) {
+      console.warn('[Firebase] Analytics disabled:', err?.message || err);
+    }
+  }
 }
 
-export { auth, googleProvider };
+export { auth, googleProvider, analytics };
