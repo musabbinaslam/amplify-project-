@@ -8,6 +8,7 @@ import PageLoader from './components/ui/PageLoader';
 import ErrorFallback from './components/ui/ErrorFallback';
 import useAuthStore from './store/authStore';
 import { auth } from './config/firebase';
+import { useDeploymentWatcher } from './hooks/useDeploymentWatcher';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
@@ -151,6 +152,7 @@ const AnimatedRoutes = () => {
 };
 
 function App() {
+  useDeploymentWatcher();
   return (
     <Router>
       <ErrorBoundary FallbackComponent={ErrorFallback}>
