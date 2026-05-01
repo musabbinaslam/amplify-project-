@@ -1,19 +1,15 @@
 .stickySaveBar {
-  position: sticky;
-  bottom: 12px;
-  z-index: 30;
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  border-radius: var(--radius-xl);
-  padding: 10px 14px;
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.14);
+  position: static;
+  z-index: auto;
+  background: var(--surface-container);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 12px;
+  margin-top: 14px;
   animation: unsavedSlideUp 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -46,7 +42,7 @@
 
 .saveBarText {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
   margin-right: 8px;
   position: relative;
@@ -100,7 +96,7 @@
 }
 
 .saveBarGhostBtn {
-  background: color-mix(in srgb, var(--surface-container-highest) 72%, transparent);
+  background: var(--surface-container-high);
   color: var(--text-primary);
   border: 1px solid var(--border);
 }

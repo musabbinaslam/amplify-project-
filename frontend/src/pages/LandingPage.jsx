@@ -117,7 +117,7 @@ const LandingPage = () => {
       <nav className={classes.navbar}>
         <div className={classes.navInner}>
           <Link to="/" className={classes.navLogo}>
-            <img src="/favicon.svg" alt="Callsflow logo" className={classes.logoImg} loading="eager" decoding="async" />
+            <img src="/logo.png" alt="Callsflow logo" className={classes.logoImg} loading="eager" decoding="async" />
             <span className={classes.logoText}>CALLSFLOW</span>
           </Link>
 
@@ -391,7 +391,7 @@ const LandingPage = () => {
         <div className={classes.footerInner}>
           <div className={classes.footerBrand}>
             <div className={classes.navLogo}>
-              <img src="/favicon.svg" alt="Callsflow logo" className={classes.logoImg} loading="eager" decoding="async" />
+              <img src="/logo.png" alt="Callsflow logo" className={classes.logoImg} loading="eager" decoding="async" />
               <span className={classes.logoText}>CALLSFLOW</span>
             </div>
             <p>Real-time insurance call routing for licensed agents.</p>
