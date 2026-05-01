@@ -65,6 +65,7 @@ const ReferralRedirect = () => {
 };
 
 const AnimatedRoutes = () => {
+  useDeploymentWatcher();
   return (
     <>
       <DialerOverlay />
@@ -152,7 +153,6 @@ const AnimatedRoutes = () => {
 };
 
 function App() {
-  useDeploymentWatcher();
   return (
     <Router>
       <ErrorBoundary FallbackComponent={ErrorFallback}>
