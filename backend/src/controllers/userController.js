@@ -230,6 +230,201 @@ function buildWelcomeEmailText({ name, dashboardUrl }) {
   ].join('\n');
 }
 
+function resolveAdminSignupNotifyEmail() {
+  return String(process.env.ADMIN_SIGNUP_NOTIFY_EMAIL || 'admin@callsflow.io').trim();
+}
+
+function formatSignupProvider(rawProvider) {
+  const v = String(rawProvider || '').trim().toLowerCase();
+  if (!v) return 'Unknown';
+  if (v === 'google.com' || v === 'google') return 'Google';
+  if (v === 'password' || v === 'email') return 'Email/Password';
+  if (v === 'phone') return 'Phone';
+  if (v === 'github.com') return 'GitHub';
+  if (v === 'apple.com') return 'Apple';
+  return v;
+}
+
+function buildAdminSignupAlertHtml({
+  name,
+  email,
+  uid,
+  provider,
+  completedAt,
+}) {
+  const BRAND = '#25f425';
+  const BRAND_DARK = '#18a818';
+  const BG = '#f4f6f5';
+  const CARD = '#ffffff';
+  const INK = '#0e0e0e';
+  const INK_SOFT = '#4b5563';
+  const MUTED = '#6b7280';
+  const BORDER = '#e5e7eb';
+  const HEADER_BG = '#0e0e0e';
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>New CallsFlow Signup</title>
+</head>
+<body style="margin:0; padding:0; background:${BG}; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:${INK}; -webkit-font-smoothing:antialiased;">
+  <div style="display:none; font-size:0; line-height:0; max-height:0; max-width:0; opacity:0; overflow:hidden;">
+    New CallsFlow signup: ${escapeHtml(name)} (${escapeHtml(email)}).
+  </div>
+
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${BG}; padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px; width:100%;">
+          <tr>
+            <td style="padding:0 4px 18px 4px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td align="left" style="font-size:0; line-height:0;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="display:inline-block; vertical-align:middle;">
+                      <tr>
+                        <td style="width:34px; height:34px; background:${BRAND}; border-radius:9px; vertical-align:middle; text-align:center; line-height:34px;">
+                          <span style="display:inline-block; width:0; height:0; border-top:7px solid transparent; border-bottom:7px solid transparent; border-left:11px solid ${INK}; vertical-align:middle; margin-left:2px;"></span>
+                        </td>
+                        <td style="padding-left:10px; vertical-align:middle; font-size:17px; font-weight:800; letter-spacing:1.5px; color:${INK};">
+                          CALLSFLOW
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${CARD}; border-radius:18px; overflow:hidden; box-shadow:0 4px 24px rgba(14,14,14,0.06); border:1px solid ${BORDER};">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${HEADER_BG};">
+                <tr>
+                  <td style="padding:36px 40px 28px 40px; color:#ffffff;">
+                    <div style="font-size:12px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:${BRAND}; margin-bottom:12px;">
+                      Signup notification
+                    </div>
+                    <div style="font-size:26px; line-height:1.25; font-weight:700; color:#ffffff; margin-bottom:6px;">
+                      New user just signed up
+                    </div>
+                    <div style="font-size:14px; line-height:1.55; color:#adaaaa;">
+                      A new account was created on CallsFlow.
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="padding:30px 40px 0 40px;">
+                    <p style="margin:0 0 18px 0; font-size:15px; color:${INK_SOFT};">
+                      Signup details:
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 40px 0 40px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${BG}; border:1px solid ${BORDER}; border-left:3px solid ${BRAND_DARK}; border-radius:10px;">
+                      <tr>
+                        <td style="padding:18px 20px;">
+                          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                            <tr>
+                              <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED};">
+                                Name
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:14px; font-size:14px; font-weight:600; color:${INK};">
+                                ${escapeHtml(name)}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
+                                Email
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:14px; font-size:14px; font-weight:600; color:${INK};">
+                                ${escapeHtml(email)}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
+                                Provider
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:14px; font-size:14px; font-weight:600; color:${INK};">
+                                ${escapeHtml(provider)}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
+                                UID
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:14px; font-size:13px; color:${INK_SOFT}; font-family:'SFMono-Regular',Menlo,Consolas,monospace; word-break:break-all;">
+                                ${escapeHtml(uid)}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
+                                Completed
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="font-size:14px; color:${INK_SOFT};">
+                                ${escapeHtml(completedAt)}
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:24px 40px 36px 40px; font-size:14px; line-height:1.6; color:${INK_SOFT};">
+                    This is an automated signup alert from CallsFlow.<br/>
+                    <strong style="color:${INK};">— CallsFlow System</strong>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 8px 0 8px; text-align:center; font-size:12px; line-height:1.6; color:${MUTED};">
+              You are receiving this because you're configured for CallsFlow signup alerts.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+function buildAdminSignupAlertText({
+  name,
+  email,
+  uid,
+  provider,
+  completedAt,
+}) {
+  return [
+    'New CallsFlow signup',
+    '',
+    `Name: ${name}`,
+    `Email: ${email}`,
+    `UID: ${uid}`,
+    `Provider: ${provider}`,
+    `Completed: ${completedAt}`,
+  ].join('\n');
+}
+
 function parseRange(query) {
   const now = new Date();
   const end = query.to ? new Date(`${query.to}T23:59:59.999Z`) : now;
@@ -622,9 +817,43 @@ async function postWelcomeEmail(req, res) {
       html: buildWelcomeEmailHtml({ name, dashboardUrl }),
     });
 
-    await mergeUserDoc(req.user.uid, {
+    const adminRecipient = resolveAdminSignupNotifyEmail();
+    const signupMeta = {
+      name,
+      email: recipient,
+      uid: req.user?.uid || '',
+      provider: formatSignupProvider(
+        req.user?.signInProvider ||
+        req.user?.provider ||
+        req.user?.authProvider ||
+        existingProfile?.provider ||
+        existingProfile?.authProvider
+      ),
+      completedAt: new Date().toISOString(),
+    };
+    let adminSignupNotified = false;
+    if (adminRecipient) {
+      try {
+        await sendMail({
+          to: adminRecipient,
+          from: SMTP_USER ? `"CallsFlow" <${SMTP_USER}>` : undefined,
+          subject: `New signup: ${recipient}`,
+          text: buildAdminSignupAlertText(signupMeta),
+          html: buildAdminSignupAlertHtml(signupMeta),
+        });
+        adminSignupNotified = true;
+      } catch (notifyErr) {
+        console.warn('[Users] Admin signup notification failed:', notifyErr?.message || notifyErr);
+      }
+    }
+
+    const emailAuditUpdates = {
       welcomeEmailSentAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    };
+    if (adminSignupNotified) {
+      emailAuditUpdates.adminSignupNotifiedAt = admin.firestore.FieldValue.serverTimestamp();
+    }
+    await mergeUserDoc(req.user.uid, emailAuditUpdates);
 
     return res.json({ success: true, alreadySent: false });
   } catch (err) {
