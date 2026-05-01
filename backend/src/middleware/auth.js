@@ -21,10 +21,12 @@ const verifyFirebaseToken = async (req, res, next) => {
 
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
+    const signInProvider = decoded?.firebase?.sign_in_provider || null;
     req.user = {
       uid: decoded.uid,
       email: decoded.email,
       name: decoded.name || decoded.email,
+      signInProvider,
     };
     next();
   } catch (err) {
