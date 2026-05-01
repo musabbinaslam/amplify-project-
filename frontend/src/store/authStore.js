@@ -12,10 +12,11 @@ import {
   EmailAuthProvider,
   deleteUser,
   sendPasswordResetEmail,
+  sendEmailVerification,
   getAdditionalUserInfo,
 } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase';
-import { getProfile, saveProfile } from '../services/profileService';
+import { getProfile, saveProfile, sendWelcomeEmail } from '../services/profileService';
 import { useThemeStore } from './themeStore';
 
 const mapFirebaseUser = (firebaseUser) => ({
@@ -90,6 +91,18 @@ const useAuthStore = create((set, get) => ({
       },
     });
     const role = saved?.role === 'admin' ? 'admin' : 'agent';
+
+    try {
+      await sendEmailVerification(credential.user);
+    } catch (err) {
+      console.warn('[Auth] Failed to send verification email:', err?.message || err);
+    }
+
+    try {
+      await sendWelcomeEmail();
+    } catch (err) {
+      console.warn('[Auth] Failed to trigger welcome email:', err?.message || err);
+    }
 
     set({
       user: { ...mapFirebaseUser(credential.user), name: fullName, role },
@@ -183,6 +196,12 @@ const useAuthStore = create((set, get) => ({
         completedAt: new Date().toISOString(),
       },
     });
+
+    try {
+      await sendWelcomeEmail();
+    } catch (err) {
+      console.warn('[Auth] Failed to trigger welcome email after Google onboarding:', err?.message || err);
+    }
   },
 
   logout: async () => {
