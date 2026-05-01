@@ -1,7 +1,22 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
 
 const ErrorFallback = ({ error, resetErrorBoundary }) => {
+  useEffect(() => {
+    const isChunkLoadFailed = error?.message && (
+      error.message.includes('Failed to fetch dynamically imported module') ||
+      error.message.includes('Importing a module script failed')
+    );
+    
+    if (isChunkLoadFailed) {
+      const hasReloaded = sessionStorage.getItem('chunk_failed_reload');
+      if (!hasReloaded) {
+        sessionStorage.setItem('chunk_failed_reload', 'true');
+        window.location.reload();
+      }
+    }
+  }, [error]);
+
   return (
     <div style={{ 
       padding: '24px', background: 'rgba(239, 68, 68, 0.1)', 
@@ -16,7 +31,10 @@ const ErrorFallback = ({ error, resetErrorBoundary }) => {
         {error.message}
       </pre>
       <button 
-        onClick={resetErrorBoundary}
+        onClick={() => {
+          sessionStorage.removeItem('chunk_failed_reload');
+          window.location.reload();
+        }}
         style={{ background: '#ef4444', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', alignSelf: 'flex-start', fontWeight: 'bold' }}
       >
         Try again
