@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
 const MAX_CHUNK_RETRIES = 3;
-const RETRY_DELAY_MS = 1500;
 
 function isChunkError(error) {
   const msg = error?.message || '';
@@ -17,67 +16,24 @@ function isChunkError(error) {
 const ErrorFallback = ({ error, resetErrorBoundary }) => {
   const [retrying, setRetrying] = useState(false);
   const chunkFailed = isChunkError(error);
+  const retries = Number(sessionStorage.getItem('chunk_retries') || '0');
 
-  useEffect(() => {
+  // ── Silent auto-reload for stale chunk errors ─────────────────────────────
+  // useLayoutEffect fires BEFORE the browser paints — user sees nothing.
+  useLayoutEffect(() => {
     if (!chunkFailed) return;
-
-    const retries = Number(sessionStorage.getItem('chunk_retries') || '0');
     if (retries < MAX_CHUNK_RETRIES) {
       sessionStorage.setItem('chunk_retries', String(retries + 1));
-      const timer = setTimeout(() => {
-        window.location.reload();
-      }, RETRY_DELAY_MS * (retries + 1)); // back-off: 1.5s, 3s, 4.5s
-      return () => clearTimeout(timer);
+      window.location.reload();
+    } else {
+      // Exhausted retries — clear counter so manual reload starts fresh
+      sessionStorage.removeItem('chunk_retries');
     }
-    // Exhausted retries — clear so next manual reload starts fresh
-    sessionStorage.removeItem('chunk_retries');
-  }, [chunkFailed]);
+  }, [chunkFailed, retries]);
 
-  const handleManualReload = () => {
-    sessionStorage.removeItem('chunk_retries');
-    setRetrying(true);
-    window.location.reload();
-  };
+  // While reload is in flight, render nothing so user sees no flash
+  if (chunkFailed && retries < MAX_CHUNK_RETRIES) return null;
 
-  // ── Stale-deployment / chunk-load error UI ────────────────────────────────
-  if (chunkFailed) {
-    return (
-      <div style={{
-        padding: '28px 24px',
-        background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(59,130,246,0.06))',
-        border: '1px solid rgba(16,185,129,0.25)',
-        borderRadius: '14px',
-        color: 'white',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '14px',
-        maxWidth: '480px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <RefreshCw size={22} style={{ color: '#10b981' }} />
-          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>New version available</h3>
-        </div>
-        <p style={{ margin: 0, fontSize: '14px', color: '#9ca3af', lineHeight: 1.6 }}>
-          CallsFlow was just updated. Your browser has a stale copy of the app.
-          Click below to reload and get the latest version instantly.
-        </p>
-        <button
-          onClick={handleManualReload}
-          disabled={retrying}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            background: '#10b981', color: 'white', border: 'none',
-            padding: '10px 20px', borderRadius: '8px', cursor: 'pointer',
-            alignSelf: 'flex-start', fontWeight: 700, fontSize: '14px',
-            opacity: retrying ? 0.7 : 1,
-          }}
-        >
-          <RefreshCw size={15} />
-          {retrying ? 'Reloading…' : 'Reload App'}
-        </button>
-      </div>
-    );
-  }
 
   // ── Generic error UI ───────────────────────────────────────────────────────
   return (
