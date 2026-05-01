@@ -2,88 +2,104 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Phone, LayoutDashboard, Shield, DollarSign, Brain, MapPin,
-  ChevronDown, ArrowRight, Zap, Users, BarChart3, Play,
-  Calendar, Clock, Video, Sun, Moon,
+  ArrowRight,
+  BarChart3,
+  CheckCircle2,
+  ChevronDown,
+  Moon,
+  Phone,
+  PlayCircle,
+  ShieldCheck,
+  Sun,
+  Timer,
+  Users,
+  Zap,
 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import classes from './LandingPage.module.css';
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
+  hidden: { opacity: 0, y: 26 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.52, ease: 'easeOut' } },
 };
 
 const stagger = {
-  visible: { transition: { staggerChildren: 0.12 } },
+  visible: { transition: { staggerChildren: 0.1 } },
 };
 
-const STATS = [
-  { value: '1,000+', label: 'Active Agents' },
-  { value: '50,000+', label: 'Calls Connected' },
-  { value: '5', label: 'Insurance Verticals' },
+const QUICK_PROOF = [
+  { value: '2.7 min', label: 'Average time to first routed call' },
+  { value: '100%', label: 'Consumer-initiated inbound calls' },
+  { value: '0%', label: 'Recycled lead resells' },
+  { value: '24/7', label: 'Real-time routing engine uptime' },
 ];
 
-const TRUST_ITEMS = [
-  'Licensed Agents Network',
-  'TCPA Aware Workflows',
-  'HIPAA-Ready Handling',
-  'Insurance Community',
-  'As Seen In',
-];
+const TRUST_CHIPS = ['TCPA aware workflows', 'Exclusive call sessions', 'Built for licensed agents', 'Transparent call billing'];
 
-const STEPS = [
-  { icon: Users, title: 'Create Your Account', desc: 'Sign up in under two minutes. Select your licensed states and preferred verticals.' },
-  { icon: Phone, title: 'Receive Inbound Calls', desc: 'Our routing engine matches you with high-intent leads in real time. No cold calling.' },
-  { icon: DollarSign, title: 'Close & Earn', desc: 'Convert calls into policies and earn commissions. Track everything from your dashboard.' },
-];
-
-const LEAD_FLOW = [
+const HOW_IT_WORKS = [
   {
-    title: 'Targeted Insurance Ads',
-    desc: 'We run intent-based campaigns to reach consumers actively searching for insurance help in your selected verticals.',
+    icon: Zap,
+    title: 'We Generate Intent',
+    desc: 'CallsFlow runs vertical-specific campaigns to attract people actively looking for insurance help now.',
   },
   {
-    title: 'Consumer Click + Pre-Call Intent',
-    desc: 'Consumers click through and submit key intent details before requesting to speak with a licensed agent.',
+    icon: Phone,
+    title: 'Consumer Calls Live',
+    desc: 'The caller requests to speak with an agent and is routed in real time based on state, vertical, and availability.',
   },
   {
-    title: 'Real-Time Inbound Transfer',
-    desc: 'Qualified callers are matched by state, vertical, and availability, then routed to online agents in real time.',
+    icon: BarChart3,
+    title: 'You Answer and Close',
+    desc: 'Take the call directly in-browser, close the policy, and track every conversation from your dashboard.',
   },
 ];
 
-const FEATURES = [
-  { icon: Zap, title: 'Real-Time Call Routing', desc: 'Intelligent matching connects the right lead to the right agent based on state, vertical, and availability.' },
-  { icon: BarChart3, title: 'Live Dashboard', desc: 'Monitor your performance, call volume, conversion rates, and earnings in real time.' },
-  { icon: Shield, title: 'Multiple Verticals', desc: 'Final Expense, ACA, Medicare, and more. Choose the verticals that match your expertise.' },
-  { icon: DollarSign, title: 'Transparent Payouts', desc: 'See exactly what you earn on every call. No hidden fees, no surprises.' },
-  { icon: Brain, title: 'AI Training Tools', desc: 'AI-powered call scripts and training resources to help you close more deals.' },
-  { icon: MapPin, title: 'Licensed State Management', desc: 'Manage your licensed states easily. Only receive calls for states where you are licensed.' },
+const VERTICAL_PRICING = [
+  { name: 'Final Expense', price: '$35', buffer: '10s', detail: 'High-intent burial and whole life callers.' },
+  { name: 'ACA', price: '$42', buffer: '10s', detail: 'Consumers actively shopping health plan options.' },
+  { name: 'Medicare', price: '$48', buffer: '10s', detail: 'Inbound seniors requesting plan guidance.' },
+  { name: 'Spanish Final Expense', price: '$39', buffer: '10s', detail: 'Dedicated Spanish-speaking inbound demand.' },
 ];
 
-const VERTICALS = [
-  { name: 'Final Expense', desc: 'Help families secure affordable burial and end-of-life coverage with whole life policies.' },
-  { name: 'Spanish Final Expense', desc: 'Serve the Spanish-speaking market with dedicated final expense leads and scripts.' },
-  { name: 'ACA', desc: 'Connect individuals and families with Affordable Care Act health insurance plans.' },
-  { name: 'Medicare', desc: 'Guide seniors through Medicare Advantage, Supplement, and Part D plan options.' },
-  { name: 'Leads', desc: 'Access our lead marketplace for additional prospecting beyond inbound calls.' },
+const COMPARE_ROWS = [
+  ['Call exclusivity', '100% exclusive', 'Usually shared', 'Self-generated only'],
+  ['Speed to conversation', 'Minutes', 'Hours to days', 'Manual outreach'],
+  ['TCPA risk profile', 'Consumer initiated', 'Mixed sources', 'High if not managed'],
+  ['Workflow complexity', 'Plug-and-play', 'List cleanup + dialing', 'Full outbound setup'],
+  ['Pay model', 'Conversation-first', 'Per lead file', 'Labor + tools'],
+];
+
+const ONBOARDING_STEPS = [
+  'Create your account and complete agent profile',
+  'Select states and insurance verticals you want',
+  'Add wallet balance and go online',
+  'Receive live inbound calls and close',
 ];
 
 const FAQ_ITEMS = [
-  { q: 'How do I start receiving calls?', a: 'After creating your account, select your licensed states and preferred verticals. Once approved, toggle your status to "Online" and calls will be routed to you automatically.' },
-  { q: 'What equipment do I need?', a: 'Just a computer with a stable internet connection and a modern web browser. Our built-in WebRTC dialer handles everything — no phone line or softphone needed.' },
-  { q: 'How does billing work?', a: 'You purchase call credits through your dashboard. Each inbound call deducts from your balance. You only pay for calls you actually receive.' },
-  { q: 'Can I choose which verticals I work?', a: 'Absolutely. You can select one or multiple verticals during signup and change them anytime from your profile settings.' },
-  { q: 'Is there a minimum commitment?', a: 'No long-term contracts. You can go online and offline whenever you want. Use the platform on your own schedule.' },
-  { q: 'What states are supported?', a: 'We support all 50 US states. You will only receive calls for states where you hold an active insurance license.' },
+  {
+    q: 'Do I pay for recycled or shared leads?',
+    a: 'No. CallsFlow routes live conversations. The platform is built around conversation-first billing, not bulk lead reselling.',
+  },
+  {
+    q: 'How fast can I start receiving calls?',
+    a: 'Most agents complete onboarding in minutes. Once your profile and funding are ready, you can go online and start receiving routed calls.',
+  },
+  {
+    q: 'Can I control what calls I get?',
+    a: 'Yes. You select verticals and licensed states, and routing respects your availability and preferences.',
+  },
+  {
+    q: 'Do I need separate dialer software?',
+    a: 'No additional softphone is required. Calls are handled through the in-browser workflow.',
+  },
 ];
 
 const FAQItem = ({ item, isOpen, onToggle }) => (
   <div className={classes.faqItem}>
     <button className={classes.faqQuestion} onClick={onToggle}>
       <span>{item.q}</span>
-      <ChevronDown className={`${classes.faqChevron} ${isOpen ? classes.faqChevronOpen : ''}`} size={20} />
+      <ChevronDown className={`${classes.faqChevron} ${isOpen ? classes.faqChevronOpen : ''}`} size={18} />
     </button>
     <div className={`${classes.faqAnswer} ${isOpen ? classes.faqAnswerOpen : ''}`}>
       <p>{item.a}</p>
@@ -94,113 +110,90 @@ const FAQItem = ({ item, isOpen, onToggle }) => (
 const LandingPage = () => {
   const [openFaq, setOpenFaq] = useState(null);
   const { theme, toggleTheme } = useUIStore();
+  const bookingUrl = import.meta.env.VITE_CALENDLY_URL || '#';
 
   return (
-    <div className={classes.page}>
-      {/* Navbar */}
+    <div id="top" className={classes.page}>
       <nav className={classes.navbar}>
         <div className={classes.navInner}>
           <Link to="/" className={classes.navLogo}>
-            <img
-              src="/logo.png"
-              alt="Callsflow logo"
-              className={classes.logoImg}
-              loading="eager"
-              decoding="async"
-            />
+            <img src="/logo.png" alt="Callsflow logo" className={classes.logoImg} loading="eager" decoding="async" />
             <span className={classes.logoText}>CALLSFLOW</span>
           </Link>
 
           <div className={classes.navLinks}>
-            <a href="#how-it-works" className={classes.navLink}>How It Works</a>
-            <a href="#lead-source" className={classes.navLink}>Lead Source</a>
-            <a href="#features" className={classes.navLink}>Features</a>
-            <a href="#verticals" className={classes.navLink}>Verticals</a>
+            <a href="#top" className={classes.navLink}>Home</a>
+            <a href="#how-it-works" className={classes.navLink}>How it Works</a>
+            <a href="#pricing" className={classes.navLink}>Pricing</a>
+            <a href="#comparison" className={classes.navLink}>Why CallsFlow</a>
             <a href="#faq" className={classes.navLink}>FAQ</a>
-            <a href="#book-call" className={classes.navLink}>Book a Call</a>
           </div>
 
           <div className={classes.navActions}>
-            <button className={classes.themeToggle} onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            <button
+              className={classes.themeToggle}
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
             <Link to="/login" className={classes.navBtnGhost}>Log In</Link>
-            <Link to="/signup" className={classes.navBtnFilled}>Get Started</Link>
+            <Link to="/signup" className={classes.navBtnFilled}>Create Account</Link>
           </div>
         </div>
       </nav>
 
-      {/* Hero */}
       <section className={classes.hero}>
-        <div className={classes.heroGlow} />
+        <div className={classes.heroGridOverlay} />
         <motion.div
-          className={classes.heroContent}
+          className={classes.heroInner}
           initial="hidden"
           animate="visible"
           variants={stagger}
         >
+          <motion.span className={classes.eyebrow} variants={fadeUp}>Built for agents who close, not chase</motion.span>
           <motion.h1 className={classes.heroTitle} variants={fadeUp}>
-            Turn Inbound Calls<br />Into Commission
+            The Fastest Way to Get<br />
+            Ready-to-Buy Insurance Calls
           </motion.h1>
           <motion.p className={classes.heroSubtitle} variants={fadeUp}>
-            Stop cold calling. Start closing. CallsFlow routes high-intent insurance
-            leads directly to your browser — so you can focus on what you do best.
+            CallsFlow routes exclusive consumer-initiated inbound calls to licensed agents in real time.
+            No cold lists. No recycled leads. Just live conversations you can close.
           </motion.p>
-          <motion.div className={classes.heroCtas} variants={fadeUp}>
+          <motion.div className={classes.heroActions} variants={fadeUp}>
             <Link to="/signup" className={classes.ctaPrimary}>
-              Start Taking Calls Today <ArrowRight size={18} />
+              Create Account <ArrowRight size={16} />
             </Link>
-            <a href="#how-it-works" className={classes.ctaSecondary}>
-              <Play size={16} /> See How It Works
+            <a href={bookingUrl} target="_blank" rel="noreferrer" className={classes.ctaSecondary}>
+              <PlayCircle size={16} /> Book Demo Call
             </a>
           </motion.div>
-          <motion.p className={classes.heroUrgency} variants={fadeUp}>
-            Limited onboarding spots this week.
-          </motion.p>
+          <motion.div className={classes.heroTrustRow} variants={fadeUp}>
+            {TRUST_CHIPS.map((chip) => (
+              <span key={chip} className={classes.trustChip}>{chip}</span>
+            ))}
+          </motion.div>
         </motion.div>
       </section>
 
-      {/* Stats */}
-      <section className={classes.stats}>
-        <div className={classes.statsInner}>
-          {STATS.map((stat) => (
+      <section className={classes.proofSection}>
+        <div className={classes.proofGrid}>
+          {QUICK_PROOF.map((item) => (
             <motion.div
-              key={stat.label}
-              className={classes.statItem}
+              key={item.label}
+              className={classes.proofCard}
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, margin: '-50px' }}
               variants={fadeUp}
             >
-              <span className={classes.statValue}>{stat.value}</span>
-              <span className={classes.statLabel}>{stat.label}</span>
+              <span className={classes.proofValue}>{item.value}</span>
+              <span className={classes.proofLabel}>{item.label}</span>
             </motion.div>
           ))}
         </div>
       </section>
 
-      {/* Trusted By */}
-      <section className={classes.trustSection}>
-        <div className={classes.trustInner}>
-          <p className={classes.trustHeading}>Trusted by industry professionals</p>
-          <div className={classes.trustGrid}>
-            {TRUST_ITEMS.map((item) => (
-              <motion.div
-                key={item}
-                className={classes.trustItem}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: '-50px' }}
-                variants={fadeUp}
-              >
-                {item}
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works */}
       <section id="how-it-works" className={classes.section}>
         <motion.div
           className={classes.sectionInner}
@@ -210,30 +203,25 @@ const LandingPage = () => {
           variants={stagger}
         >
           <motion.div className={classes.sectionHeader} variants={fadeUp}>
-            <span className={classes.sectionTag}>How It Works</span>
-            <h2 className={classes.sectionTitle}>Three steps to your first call</h2>
+            <span className={classes.sectionTag}>How it Works</span>
+            <h2 className={classes.sectionTitle}>Three steps from click to closed deal</h2>
             <p className={classes.sectionSubtitle}>
-              Getting started takes minutes, not days. Here is exactly how the platform works.
+              A simple flow designed for speed. You can be online and receiving calls without rebuilding your stack.
             </p>
           </motion.div>
-
           <div className={classes.stepsGrid}>
-            {STEPS.map((step, i) => (
-              <motion.div key={step.title} className={classes.stepCard} variants={fadeUp}>
-                <div className={classes.stepNumber}>{i + 1}</div>
-                <div className={classes.stepIconWrap}>
-                  <step.icon size={24} />
-                </div>
+            {HOW_IT_WORKS.map((step, index) => (
+              <motion.article key={step.title} className={classes.stepCard} variants={fadeUp}>
+                <div className={classes.stepIcon}><step.icon size={18} /></div>
                 <h3>{step.title}</h3>
                 <p>{step.desc}</p>
-              </motion.div>
+              </motion.article>
             ))}
           </div>
         </motion.div>
       </section>
 
-      {/* Lead Source */}
-      <section id="lead-source" className={classes.section}>
+      <section id="pricing" className={classes.section}>
         <motion.div
           className={classes.sectionInner}
           initial="hidden"
@@ -242,61 +230,33 @@ const LandingPage = () => {
           variants={stagger}
         >
           <motion.div className={classes.sectionHeader} variants={fadeUp}>
-            <span className={classes.sectionTag}>Lead Source</span>
-            <h2 className={classes.sectionTitle}>How inbound calls are generated</h2>
+            <span className={classes.sectionTag}>Vertical Pricing</span>
+            <h2 className={classes.sectionTitle}>Transparent pricing by insurance line</h2>
             <p className={classes.sectionSubtitle}>
-              You should know exactly where calls come from before you spend. Here is the end-to-end funnel.
+              You know what you pay before you answer. The buffer marks the minimum connected call duration for billing.
             </p>
           </motion.div>
 
-          <div className={classes.leadFlowGrid}>
-            {LEAD_FLOW.map((step, i) => (
-              <motion.div key={step.title} className={classes.leadFlowCard} variants={fadeUp}>
-                <div className={classes.leadFlowTop}>
-                  <span className={classes.leadFlowIndex}>0{i + 1}</span>
-                  {i < LEAD_FLOW.length - 1 ? <ArrowRight size={16} className={classes.leadFlowArrow} /> : null}
+          <div className={classes.pricingGrid}>
+            {VERTICAL_PRICING.map((item) => (
+              <motion.article key={item.name} className={classes.pricingCard} variants={fadeUp}>
+                <h3>{item.name}</h3>
+                <div className={classes.priceRow}>
+                  <span className={classes.price}>{item.price}</span>
+                  <span className={classes.priceUnit}>per connected call</span>
                 </div>
-                <h3>{step.title}</h3>
-                <p>{step.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      </section>
-
-      {/* Features */}
-      <section id="features" className={classes.section}>
-        <motion.div
-          className={classes.sectionInner}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-80px' }}
-          variants={stagger}
-        >
-          <motion.div className={classes.sectionHeader} variants={fadeUp}>
-            <span className={classes.sectionTag}>Features</span>
-            <h2 className={classes.sectionTitle}>Everything you need to succeed</h2>
-            <p className={classes.sectionSubtitle}>
-              A complete platform built for insurance agents who want to scale their business with inbound calls.
-            </p>
-          </motion.div>
-
-          <div className={classes.featuresGrid}>
-            {FEATURES.map((feat) => (
-              <motion.div key={feat.title} className={classes.featureCard} variants={fadeUp}>
-                <div className={classes.featureIconWrap}>
-                  <feat.icon size={22} />
+                <p className={classes.pricingDetail}>{item.detail}</p>
+                <div className={classes.bufferBadge}>
+                  <Timer size={14} />
+                  <span>{item.buffer} buffer</span>
                 </div>
-                <h3>{feat.title}</h3>
-                <p>{feat.desc}</p>
-              </motion.div>
+              </motion.article>
             ))}
           </div>
         </motion.div>
       </section>
 
-      {/* Verticals */}
-      <section id="verticals" className={classes.section}>
+      <section id="comparison" className={classes.section}>
         <motion.div
           className={classes.sectionInner}
           initial="hidden"
@@ -305,25 +265,80 @@ const LandingPage = () => {
           variants={stagger}
         >
           <motion.div className={classes.sectionHeader} variants={fadeUp}>
-            <span className={classes.sectionTag}>Verticals</span>
-            <h2 className={classes.sectionTitle}>Choose your specialty</h2>
-            <p className={classes.sectionSubtitle}>
-              We support multiple insurance verticals so you can work in the areas where you are licensed and experienced.
-            </p>
+            <span className={classes.sectionTag}>Why CallsFlow</span>
+            <h2 className={classes.sectionTitle}>Conversation-first beats lead-chasing</h2>
           </motion.div>
 
-          <div className={classes.verticalsGrid}>
-            {VERTICALS.map((v) => (
-              <motion.div key={v.name} className={classes.verticalCard} variants={fadeUp}>
-                <h3>{v.name}</h3>
-                <p>{v.desc}</p>
-              </motion.div>
+          <motion.div className={classes.compareTable} variants={fadeUp}>
+            <div className={classes.compareHead}>
+              <span>Category</span>
+              <span>CallsFlow</span>
+              <span>Shared Leads</span>
+              <span>Cold Calling</span>
+            </div>
+            {COMPARE_ROWS.map((row) => (
+              <div className={classes.compareRow} key={row[0]}>
+                <span>{row[0]}</span>
+                <span className={classes.callsflowValue}>{row[1]}</span>
+                <span>{row[2]}</span>
+                <span>{row[3]}</span>
+              </div>
             ))}
+          </motion.div>
+        </motion.div>
+      </section>
+
+      <section id="book-call" className={classes.section}>
+        <motion.div
+          className={classes.sectionInner}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-80px' }}
+          variants={stagger}
+        >
+          <div className={classes.onboardingWrap}>
+            <motion.div className={classes.onboardingPanel} variants={fadeUp}>
+              <span className={classes.sectionTag}>Onboarding Flow</span>
+              <h2 className={classes.sectionTitle}>Go live in under 15 minutes</h2>
+              <ul className={classes.onboardingList}>
+                {ONBOARDING_STEPS.map((step) => (
+                  <li key={step}>
+                    <CheckCircle2 size={16} />
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className={classes.onboardingMeta}>
+                <span><Users size={14} /> Built for licensed agents</span>
+                <span><ShieldCheck size={14} /> Compliance aware setup</span>
+              </div>
+            </motion.div>
+
+            <motion.div className={classes.demoCard} variants={fadeUp}>
+              <h3>Book a 10-min Demo</h3>
+              <p>Choose any open time and book instantly through Calendly.</p>
+              <div className={classes.slotPanel}>
+                <div className={classes.slotPanelHead}>
+                  <span>Today</span>
+                  <span>Pakistan Time</span>
+                </div>
+                <div className={classes.slotGrid}>
+                  <span className={classes.slotPill}>2:00 PM</span>
+                  <span className={classes.slotPill}>2:30 PM</span>
+                  <span className={classes.slotPill}>3:00 PM</span>
+                  <span className={classes.slotPill}>4:30 PM</span>
+                  <span className={classes.slotPill}>6:00 PM</span>
+                  <span className={classes.slotPill}>7:30 PM</span>
+                </div>
+              </div>
+              <a href={bookingUrl} target="_blank" rel="noreferrer" className={classes.ctaPrimary}>
+                View Live Slots on Calendly <ArrowRight size={16} />
+              </a>
+            </motion.div>
           </div>
         </motion.div>
       </section>
 
-      {/* FAQ */}
       <section id="faq" className={classes.section}>
         <motion.div
           className={classes.sectionInner}
@@ -334,176 +349,65 @@ const LandingPage = () => {
         >
           <motion.div className={classes.sectionHeader} variants={fadeUp}>
             <span className={classes.sectionTag}>FAQ</span>
-            <h2 className={classes.sectionTitle}>Common questions</h2>
+            <h2 className={classes.sectionTitle}>Questions agents ask before joining</h2>
           </motion.div>
-
           <motion.div className={classes.faqList} variants={fadeUp}>
-            {FAQ_ITEMS.map((item, i) => (
+            {FAQ_ITEMS.map((item, index) => (
               <FAQItem
-                key={i}
+                key={item.q}
                 item={item}
-                isOpen={openFaq === i}
-                onToggle={() => setOpenFaq(openFaq === i ? null : i)}
+                isOpen={openFaq === index}
+                onToggle={() => setOpenFaq(openFaq === index ? null : index)}
               />
             ))}
           </motion.div>
         </motion.div>
       </section>
 
-      {/* Book a Call */}
-      <section id="book-call" className={classes.section}>
-        <motion.div
-          className={classes.sectionInner}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-80px' }}
-          variants={stagger}
-        >
-          <div className={classes.bookingGrid}>
-            <motion.div className={classes.bookingText} variants={fadeUp}>
-              <h2 className={classes.bookingHeading}>
-                See If You're a Fit for{' '}
-                <span className={classes.bookingHighlight}>Inbound Calls</span>
-              </h2>
-              <p className={classes.bookingSubtitle}>
-                Book a quick call with our team. We'll walk you through exactly
-                how it works and see if you're a good match for our network.
-              </p>
-              <p className={classes.bookingUrgency}>
-                Spots fill fast each week. Next onboarding window closes soon.
-              </p>
-
-              <div className={classes.bookingBullets}>
-                <div className={classes.bookingBullet}>
-                  <div className={classes.bookingBulletIcon}><Phone size={18} /></div>
-                  <span>Live inbound calls transferred in real-time</span>
-                </div>
-                <div className={classes.bookingBullet}>
-                  <div className={classes.bookingBulletIcon}><MapPin size={18} /></div>
-                  <span>Choose which states you want to receive calls from</span>
-                </div>
-                <div className={classes.bookingBullet}>
-                  <div className={classes.bookingBulletIcon}><Zap size={18} /></div>
-                  <span>Simple onboarding — start receiving calls fast</span>
-                </div>
-              </div>
-
-              <p className={classes.bookingDisclaimer}>
-                Limited capacity. We only work with agents who are serious about growth.
-              </p>
-            </motion.div>
-
-            <motion.div className={classes.bookingCard} variants={fadeUp}>
-              <div className={classes.bookingCardHeader}>
-                <Video size={20} className={classes.bookingCardIcon} />
-                <div>
-                  <h3>10-Min Onboarding Call</h3>
-                  <p>Google Meet</p>
-                </div>
-              </div>
-
-              <div className={classes.bookingCardDetails}>
-                <div className={classes.bookingCardDetail}>
-                  <Clock size={15} />
-                  <span>10 Minutes</span>
-                </div>
-                <div className={classes.bookingCardDetail}>
-                  <Calendar size={15} />
-                  <span>Pick a time that works for you</span>
-                </div>
-              </div>
-
-              <div className={classes.bookingCalendar}>
-                <div className={classes.bookingCalendarHead}>
-                  <span className={classes.bookingCalendarMonth}>April 2026</span>
-                </div>
-                <div className={classes.bookingCalendarDays}>
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-                    <span key={d} className={classes.bookingDayLabel}>{d}</span>
-                  ))}
-                </div>
-                <div className={classes.bookingCalendarGrid}>
-                  {Array.from({ length: 30 }, (_, i) => (
-                    <span
-                      key={i}
-                      className={`${classes.bookingDay} ${i + 1 === 3 ? classes.bookingDayActive : ''}`}
-                    >
-                      {i + 1}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <p className={classes.bookingCardNote}>
-                Scheduling widget will be connected here
-              </p>
-            </motion.div>
-          </div>
-        </motion.div>
-      </section>
-
-      {/* Final CTA */}
       <section className={classes.finalCta}>
-        <div className={classes.finalCtaGlow} />
         <motion.div
           className={classes.finalCtaContent}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: '-80px' }}
+          viewport={{ once: true, margin: '-70px' }}
           variants={stagger}
         >
-          <motion.h2 variants={fadeUp}>Ready to start closing this week?</motion.h2>
+          <motion.h2 variants={fadeUp}>Ready to replace lead-chasing with live conversations?</motion.h2>
           <motion.p variants={fadeUp}>
-            Do not wait on stale leads. Secure your onboarding spot and start taking inbound calls now.
+            Join CallsFlow, go online, and start receiving exclusive inbound calls routed to your license map.
           </motion.p>
-          <motion.div variants={fadeUp}>
+          <motion.div className={classes.finalActions} variants={fadeUp}>
             <Link to="/signup" className={classes.ctaPrimary}>
-              Claim My Spot <ArrowRight size={18} />
+              Create Account <ArrowRight size={16} />
             </Link>
+            <a href={bookingUrl} target="_blank" rel="noreferrer" className={classes.ctaSecondary}>
+              Book Demo
+            </a>
           </motion.div>
         </motion.div>
       </section>
 
-      {/* Footer */}
       <footer className={classes.footer}>
         <div className={classes.footerInner}>
           <div className={classes.footerBrand}>
             <div className={classes.navLogo}>
-              <img
-                src="/logo.png"
-                alt="Callsflow logo"
-                className={classes.logoImg}
-                loading="eager"
-                decoding="async"
-              />
+              <img src="/logo.png" alt="Callsflow logo" className={classes.logoImg} loading="eager" decoding="async" />
               <span className={classes.logoText}>CALLSFLOW</span>
             </div>
-            <p className={classes.footerTagline}>Inbound insurance calls for agents.</p>
+            <p>Real-time insurance call routing for licensed agents.</p>
           </div>
-
-          <div className={classes.footerColumns}>
-            <div className={classes.footerCol}>
-              <h4>Product</h4>
-              <a href="#how-it-works">How It Works</a>
-              <a href="#lead-source">Lead Source</a>
-              <a href="#features">Features</a>
-              <a href="#verticals">Verticals</a>
-              <a href="#faq">FAQ</a>
-              <a href="#book-call">Book a Call</a>
-            </div>
-            <div className={classes.footerCol}>
-              <h4>Account</h4>
-              <Link to="/login">Log In</Link>
-              <Link to="/signup">Sign Up</Link>
-            </div>
-            <div className={classes.footerCol}>
-              <h4>Legal</h4>
-              <a href="#">Privacy Policy</a>
-              <a href="#">Terms of Service</a>
-            </div>
+          <div className={classes.footerLinks}>
+            <a href="#how-it-works">How it Works</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#comparison">Why CallsFlow</a>
+            <a href="#faq">FAQ</a>
+          </div>
+          <div className={classes.footerLinks}>
+            <Link to="/login">Log In</Link>
+            <Link to="/signup">Create Account</Link>
+            <a href={bookingUrl} target="_blank" rel="noreferrer">Book Demo</a>
           </div>
         </div>
-
         <div className={classes.footerBottom}>
           <p>&copy; {new Date().getFullYear()} CallsFlow. All rights reserved.</p>
         </div>

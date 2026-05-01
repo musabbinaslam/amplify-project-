@@ -5,6 +5,7 @@ const {
   getMe,
   getMeBootstrap,
   patchMe,
+  postWelcomeEmail,
   patchSettings,
   patchScript,
   postApiKey,
@@ -49,6 +50,7 @@ router.use(verifyFirebaseToken);
 router.get('/me', getMe);
 router.get('/me/bootstrap', getMeBootstrap);
 router.patch('/me', patchMe);
+router.post('/me/welcome-email', postWelcomeEmail);
 router.get('/me/slug-availability', getSlugAvailability);
 router.get('/me/activity', getActivity);
 router.get('/me/notifications', getNotifications);
