@@ -122,9 +122,18 @@ const ReferralProgramPage = () => {
               Referral Program
             </h1>
             <p className={classes.heroSubtitle}>
-              Share your code with friends. When they sign up, make a payment, and go live,{' '}
-              <strong>you get {config.discountPercent}% off</strong> your next purchase.
+              Share your code with a fellow agent. When they sign up, top up at least{' '}
+              <strong>$500</strong>, and complete their first call —{' '}
+              <strong>you earn a {config.discountPercent}% discount</strong> on your next purchase.
             </p>
+            <div className={classes.chainNotice}>
+              <span className={classes.chainIcon}>🔗</span>
+              <span>
+                <strong>One referral, one reward.</strong> Each person you refer earns you one{' '}
+                20% discount. Once that discount is used, share your link with the next person to
+                keep the chain going!
+              </span>
+            </div>
           </div>
 
           <div className={classes.codeBlock}>
@@ -266,8 +275,8 @@ const ReferralProgramPage = () => {
           <div className={classes.stepConnector} />
           <div className={classes.stepCard}>
             <div className={classes.stepNumber}>2</div>
-            <h4>Make Payment</h4>
-            <p>They make their first top-up payment (min $50)</p>
+            <h4>Top Up $500+</h4>
+            <p>They make a qualifying top-up of at least <strong>$500</strong></p>
           </div>
           <div className={classes.stepConnector} />
           <div className={classes.stepCard}>
@@ -306,10 +315,12 @@ const ReferralProgramPage = () => {
         </div>
         {[
           { q: 'What does "going live" mean?', a: 'Going live means completing your first inbound call that lasts at least 30 seconds. Short or missed calls don\'t count.' },
+          { q: 'How does the one-referral, one-reward policy work?', a: 'Each person you successfully refer earns you exactly one 20% discount on your next top-up. Once that discount is used (or expires), simply share your link with a new person to earn your next discount. The more people you refer, the more discounts you unlock — one at a time!' },
+          { q: 'What is the minimum top-up for my referral to count?', a: 'The person you refer must make a qualifying top-up of at least $500. Top-ups below this amount will not activate your reward.' },
           { q: 'When does my discount expire?', a: `Your referral discount expires ${config.expiryDays} days after your referred friend goes live. Use it before then!` },
           { q: 'Can I transfer my discount?', a: 'No. Referral discounts are non-transferable and can only be used by you (the referrer) on your own account.' },
           { q: 'Is there a cash value?', a: 'No. The discount is applied as bonus wallet credits after your discounted purchase. It has no cash value and cannot be withdrawn.' },
-          { q: 'How many people can I refer?', a: 'You can refer up to 100 people. Each person can only use one referral code.' },
+          { q: 'How many people can I refer?', a: 'You can refer up to 100 people. Each person can only use one referral code, and each successful referral earns you one 20% discount.' },
         ].map((faq, i) => (
           <div key={i} className={classes.faqItem}>
             <button className={classes.faqQuestion} onClick={() => setFaqOpen(faqOpen === i ? null : i)}>

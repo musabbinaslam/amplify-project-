@@ -18,7 +18,7 @@ const REFERRAL_CONFIG = {
   discountMultiplier: 1.0,      // multiply discountPercent for campaigns (e.g. 1.5 → 30%)
 
   // ── Qualifying Thresholds ──────────────────────────────────────────
-  minQualifyingSpendCents: 5000,        // $50 — matches smallest top-up tier
+  minQualifyingSpendCents: 50000,       // $500 — minimum top-up to qualify a referral
   minGoLiveCallDurationSec: 30,         // "goes live" = first completed call ≥ 30s
   discountAppliesTo: ['credit_topup'],  // future: add 'subscription'
 

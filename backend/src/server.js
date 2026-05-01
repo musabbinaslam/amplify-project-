@@ -4,7 +4,7 @@ const cors = require('cors');
 const { Server } = require('socket.io');
 require('dotenv').config();
 
-const { connectRedis } = require('./config/redis');
+const { connectRedis, redisClient } = require('./config/redis');
 const voiceRoutes = require('./routes/voiceRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const supportRoutes = require('./routes/supportRoutes');
