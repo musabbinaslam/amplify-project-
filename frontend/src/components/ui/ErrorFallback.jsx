@@ -1,5 +1,5 @@
-import React, { useLayoutEffect, useState } from 'react';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import React, { useLayoutEffect } from 'react';
+import { AlertCircle } from 'lucide-react';
 
 const MAX_CHUNK_RETRIES = 3;
 
@@ -13,40 +13,84 @@ function isChunkError(error) {
   );
 }
 
+// ── Neutral full-screen loader shown during chunk-error reloads ──────────────
+// Looks like the normal app loading state — user never sees red.
+const ChunkReloadScreen = ({ exhausted, onManualReload }) => (
+  <div style={{
+    position: 'fixed', inset: 0,
+    background: '#0a0a0f',
+    display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center',
+    gap: '16px', zIndex: 9999,
+  }}>
+    {!exhausted ? (
+      <>
+        <div style={{
+          width: 36, height: 36, borderRadius: '50%',
+          border: '3px solid rgba(255,255,255,0.08)',
+          borderTopColor: '#10b981',
+          animation: 'spin 0.8s linear infinite',
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, margin: 0 }}>Loading…</p>
+      </>
+    ) : (
+      <>
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, margin: 0 }}>
+          Having trouble loading. Try a hard refresh.
+        </p>
+        <button
+          onClick={onManualReload}
+          style={{
+            background: '#10b981', color: '#fff', border: 'none',
+            padding: '10px 22px', borderRadius: '8px',
+            cursor: 'pointer', fontWeight: 700, fontSize: 14,
+          }}
+        >
+          Reload
+        </button>
+      </>
+    )}
+  </div>
+);
+
 const ErrorFallback = ({ error, resetErrorBoundary }) => {
-  const [retrying, setRetrying] = useState(false);
   const chunkFailed = isChunkError(error);
   const retries = Number(sessionStorage.getItem('chunk_retries') || '0');
+  const exhausted = retries >= MAX_CHUNK_RETRIES;
 
-  // ── Silent auto-reload for stale chunk errors ─────────────────────────────
-  // useLayoutEffect fires BEFORE the browser paints — user sees nothing.
   useLayoutEffect(() => {
     if (!chunkFailed) return;
-    if (retries < MAX_CHUNK_RETRIES) {
+    if (!exhausted) {
       sessionStorage.setItem('chunk_retries', String(retries + 1));
       window.location.reload();
     } else {
-      // Exhausted retries — clear counter so manual reload starts fresh
       sessionStorage.removeItem('chunk_retries');
     }
-  }, [chunkFailed, retries]);
+  }, [chunkFailed, exhausted, retries]);
 
-  // While reload is in flight, render nothing so user sees no flash
-  if (chunkFailed && retries < MAX_CHUNK_RETRIES) return null;
+  // ── Chunk error: always show neutral loader, never red ───────────────────
+  if (chunkFailed) {
+    return (
+      <ChunkReloadScreen
+        exhausted={exhausted}
+        onManualReload={() => {
+          sessionStorage.removeItem('chunk_retries');
+          window.location.reload();
+        }}
+      />
+    );
+  }
 
-
-  // ── Generic error UI ───────────────────────────────────────────────────────
+  // ── Generic (non-chunk) error: show red error box ────────────────────────
   return (
     <div style={{
       padding: '24px',
       background: 'rgba(239, 68, 68, 0.1)',
       border: '1px solid rgba(239, 68, 68, 0.3)',
-      borderRadius: '12px',
-      color: 'white',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '16px',
-      maxWidth: '600px',
+      borderRadius: '12px', color: 'white',
+      display: 'flex', flexDirection: 'column',
+      gap: '16px', maxWidth: '600px',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444' }}>
         <AlertCircle size={24} />
@@ -74,3 +118,4 @@ const ErrorFallback = ({ error, resetErrorBoundary }) => {
 };
 
 export default ErrorFallback;
+
