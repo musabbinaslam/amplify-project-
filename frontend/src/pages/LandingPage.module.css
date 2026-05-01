@@ -24,13 +24,14 @@
 }
 
 .navInner {
+  position: relative;
   max-width: 1180px;
   margin: 0 auto;
   padding: 0 24px;
   height: 70px;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
 }
 
 .navLogo {
@@ -48,25 +49,29 @@
 .logoImg {
   position: relative;
   z-index: 1;
-  width: 34px;
-  height: 34px;
-  border-radius: 0;
-  object-fit: contain;
-  transform: none;
-  box-shadow: none;
+  width: 52px;
+  height: 84px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  display: block;
+  filter: drop-shadow(0 0 14px var(--brand-glow));
+  margin-top: 5px;
 }
 
 .logoText {
   color: var(--text-primary);
-  font-size: 18px;
-  letter-spacing: -0.02em;
+  font-size: 19px;
+  letter-spacing: -0.01em;
   font-weight: 800;
+  text-transform: uppercase;
 }
 
 .navLinks {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   gap: 28px;
-  justify-self: center;
 }
 
 .navLink {
@@ -83,7 +88,6 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  justify-self: end;
 }
 
 .themeToggle {
