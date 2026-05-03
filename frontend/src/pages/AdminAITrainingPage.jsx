@@ -7,10 +7,13 @@ import {
   getAdminAiAgentPlans,
   getAdminAiCoachingOverview,
 } from '../services/adminService';
+import { motion } from 'framer-motion';
 import PageLoader from '../components/ui/PageLoader';
+import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import classes from './AdminAITrainingPage.module.css';
 
 const AdminAITrainingPage = () => {
+  const presets = useSubtlePageMotion();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [overview, setOverview] = useState(null);
@@ -63,16 +66,21 @@ const AdminAITrainingPage = () => {
   if (loading && !overview) return <PageLoader />;
 
   return (
-    <section className={classes.page}>
-      <header className={classes.header}>
+    <motion.section
+      className={classes.page}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.header className={classes.header} variants={presets.child}>
         <div className={classes.icon}><ShieldCheck size={22} /></div>
         <div>
           <h2>Admin AI Coaching Visibility</h2>
           <p>Track coaching adherence, risk, and outcome movement across agents.</p>
         </div>
-      </header>
+      </motion.header>
 
-      <div className={classes.controls}>
+      <motion.div className={classes.controls} variants={presets.child}>
         <input
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
@@ -92,26 +100,30 @@ const AdminAITrainingPage = () => {
           <RefreshCw size={14} className={loading ? classes.spin : ''} />
           Refresh
         </button>
-      </div>
+      </motion.div>
 
-      {error && <div className={classes.error}>{error}</div>}
+      {error && (
+        <motion.div className={classes.error} variants={presets.child}>
+          {error}
+        </motion.div>
+      )}
 
-      <div className={classes.stats}>
-        <article>
+      <motion.div className={classes.stats} variants={presets.statsStrip}>
+        <motion.article variants={presets.child}>
           <span>Total Agents</span>
           <strong>{overview?.summary?.totalAgents ?? '—'}</strong>
-        </article>
-        <article>
+        </motion.article>
+        <motion.article variants={presets.child}>
           <span>High Risk</span>
           <strong>{overview?.summary?.highRiskAgents ?? '—'}</strong>
-        </article>
-        <article>
+        </motion.article>
+        <motion.article variants={presets.child}>
           <span>Avg Completion</span>
           <strong>{Math.round((overview?.summary?.avgCompletionRate || 0) * 100)}%</strong>
-        </article>
-      </div>
+        </motion.article>
+      </motion.div>
 
-      <div className={classes.gridTwo}>
+      <motion.div className={classes.gridTwo} variants={presets.child}>
         <div className={classes.tableWrap}>
           <h3>Status Distribution</h3>
           {!statusRows.length ? <p>No plan statuses yet.</p> : (
@@ -136,9 +148,9 @@ const AdminAITrainingPage = () => {
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
-      <div className={classes.tableWrap}>
+      <motion.div className={classes.tableWrap} variants={presets.child}>
         {loading ? <p>Loading coaching plans...</p> : null}
         {!loading && rows.length === 0 ? <p>No matching agent plans.</p> : null}
         {!!rows.length && (
@@ -177,9 +189,9 @@ const AdminAITrainingPage = () => {
             </tbody>
           </table>
         )}
-      </div>
+      </motion.div>
 
-      <div className={classes.tableWrap}>
+      <motion.div className={classes.tableWrap} variants={presets.child}>
         <h3>Agent Drilldown</h3>
         {!selectedRow ? (
           <p>Select an agent row to view trend and risk breakdown.</p>
@@ -224,9 +236,9 @@ const AdminAITrainingPage = () => {
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
 
-      <div className={classes.tableWrap}>
+      <motion.div className={classes.tableWrap} variants={presets.child}>
         <h3>High-Risk Agents</h3>
         {!overview?.highRiskAgents?.length ? <p>No high-risk agents currently.</p> : (
           <div className={classes.highRiskList}>
@@ -244,8 +256,8 @@ const AdminAITrainingPage = () => {
             ))}
           </div>
         )}
-      </div>
-    </section>
+      </motion.div>
+    </motion.section>
   );
 };
 

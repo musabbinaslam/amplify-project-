@@ -1,17 +1,27 @@
 import React from 'react';
 import { Play } from 'lucide-react';
+import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
+import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import classes from './WelcomePage.module.css';
 
 const WelcomePage = () => {
   const user = useAuthStore((s) => s.user);
+  const presets = useSubtlePageMotion();
 
   return (
-    <div className={classes.welcomePage}>
-      <h1 className={classes.title}>Welcome, {user?.name || 'Agent'}! 👋</h1>
-      <p className={classes.subtitle}>Get started by watching our platform tutorial below.</p>
-      
-      <div className={classes.videoContainer}>
+    <motion.div
+      className={classes.welcomePage}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div variants={presets.child}>
+        <h1 className={classes.title}>Welcome, {user?.name || 'Agent'}! 👋</h1>
+        <p className={classes.subtitle}>Get started by watching our platform tutorial below.</p>
+      </motion.div>
+
+      <motion.div className={classes.videoContainer} variants={presets.child}>
         <div className={classes.videoHeader}>
           <Play size={24} className={classes.playIcon} />
           <div>
@@ -29,8 +39,8 @@ const WelcomePage = () => {
            {/* Mock thumbnail for UI */}
            <img src="https://placehold.co/800x450/0a0f1e/1e2d45?text=Video+Player" alt="Video thumbnail" className={classes.thumbnail} />
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

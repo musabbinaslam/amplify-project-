@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
+import { routeOutletMotion } from '../../motion/appMotion';
 import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import Sidebar from './Sidebar';
@@ -19,6 +20,8 @@ import classes from './AppShell.module.css';
 const AppShell = () => {
   const { isSidebarCollapsed } = useUIStore();
   const location = useLocation();
+  const reduceMotion = useReducedMotion();
+  const outletMotion = useMemo(() => routeOutletMotion(reduceMotion), [reduceMotion]);
   const user = useAuthStore((s) => s.user);
   const [notifications, setNotifications] = useState([]);
   const [maintenance, setMaintenance] = useState(null);
@@ -191,10 +194,8 @@ const AppShell = () => {
           <main className={classes.mainContent}>
             <motion.div
               key={location.pathname}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
               style={{ width: '100%', height: '100%' }}
+              {...outletMotion}
             >
               <Outlet />
             </motion.div>

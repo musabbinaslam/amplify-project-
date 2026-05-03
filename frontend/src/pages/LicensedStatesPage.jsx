@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
 import { MapPin, Info } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import classes from './LicensedStatesPage.module.css';
 
 const REGIONS = [
@@ -84,14 +86,20 @@ const REGIONS = [
 ];
 
 const LicensedStatesPage = () => {
+  const presets = useSubtlePageMotion();
   const totalStates = useMemo(
     () => REGIONS.reduce((sum, region) => sum + region.states.length, 0),
     []
   );
 
   return (
-    <div className={classes.container}>
-      <div className={classes.header}>
+    <motion.div
+      className={classes.container}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div className={classes.header} variants={presets.child}>
         <div className={classes.iconBox}><MapPin size={24} /></div>
         <div className={classes.headerContent}>
           <h2>Licensed States</h2>
@@ -103,11 +111,16 @@ const LicensedStatesPage = () => {
             <span className={classes.metaChip}>No profile sync</span>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className={classes.regionGrid}>
+      <motion.div className={classes.regionGrid} variants={presets.grid}>
         {REGIONS.map((region) => (
-          <section key={region.id} className={classes.regionPanel} aria-labelledby={`region-${region.id}`}>
+          <motion.section
+            key={region.id}
+            className={classes.regionPanel}
+            aria-labelledby={`region-${region.id}`}
+            variants={presets.child}
+          >
             <div className={classes.regionPanelHeader}>
               <h3 id={`region-${region.id}`} className={classes.regionTitle}>{region.label}</h3>
               <span className={classes.regionCount}>{region.states.length} states</span>
@@ -128,17 +141,17 @@ const LicensedStatesPage = () => {
                 </div>
               ))}
             </div>
-          </section>
+          </motion.section>
         ))}
-      </div>
+      </motion.div>
 
-      <div className={classes.infoBox}>
+      <motion.div className={classes.infoBox} variants={presets.child}>
         <Info size={16} className={classes.infoIcon} />
         <p>
           This page shows the state catalog only. No profile state updates are made here.
         </p>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Cropper from 'react-easy-crop';
 import { User, Camera, Copy, Check, Link2, Key, Loader2, X, Eye, EyeOff, RefreshCw, Upload, Trash2, ShieldCheck, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
+import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { getProfileBootstrap, saveProfile, regenerateApiKey, checkSlugAvailability, getProfileActivity } from '../services/profileService';
 import {
   COUNTRY_DIAL_CODES,
@@ -70,6 +72,7 @@ async function getCroppedImage(src, pixelCrop) {
 }
 
 const ProfilePage = () => {
+  const presets = useSubtlePageMotion();
   const user = useAuthStore((s) => s.user);
   const updateAvatar = useAuthStore((s) => s.updateAvatar);
   const updateName = useAuthStore((s) => s.updateName);
@@ -314,13 +317,19 @@ const ProfilePage = () => {
   const maskedApiKey = apiKey ? `${apiKey.slice(0, 6)}••••••••${apiKey.slice(-4)}` : '';
 
   return (
-    <div className={classes.profilePage}>
-      <div className={classes.header}>
+    <>
+    <motion.div
+      className={classes.profilePage}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div className={classes.header} variants={presets.child}>
         <div className={classes.iconBox}><User size={24} /></div>
         <div><h2>Profile & Landing Page</h2><p>Customize your public profile for lead capture</p></div>
-      </div>
+      </motion.div>
 
-      <div className={classes.twoCol}>
+      <motion.div className={classes.twoCol} variants={presets.child}>
         <div className={classes.mainBox}>
           <h3>Your Profile</h3>
           <div className={classes.avatarRow}>
@@ -422,9 +431,9 @@ const ProfilePage = () => {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className={classes.integrationBox}>
+      <motion.div className={classes.integrationBox} variants={presets.child}>
         <h3>Integration & Links</h3>
         <div className={classes.integrationRow}>
           <div className={classes.integrationLabel}><Link2 size={16} /><span>Webhook URL</span><span className={classes.badge}>For Integrations</span></div>
@@ -442,9 +451,9 @@ const ProfilePage = () => {
             <button type="button" className={classes.regenBtn} onClick={() => setShowRegenerateConfirm(true)}><RefreshCw size={14} /> Regenerate Key</button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className={classes.auditBox}>
+      <motion.div className={classes.auditBox} variants={presets.child}>
         <div className={classes.auditHeader}>
           <h3>Audit & Activity</h3>
           <button
@@ -468,7 +477,9 @@ const ProfilePage = () => {
             {activity.length === 0 ? <p className={classes.noData}>No activity yet.</p> : activity.map((it) => <div className={classes.timelineItem} key={it.id}><ShieldCheck size={16} /><div><p>{it.message}</p><span>{it.createdAt ? new Date(it.createdAt).toLocaleString() : 'Now'}</span></div></div>)}
           </div>
         </div>
-      </div>
+      </motion.div>
+
+    </motion.div>
 
       <UnsavedChangesBar
         visible={isDirty}
@@ -511,7 +522,7 @@ const ProfilePage = () => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

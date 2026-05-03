@@ -12,7 +12,9 @@ import {
   updateAiCoachingTask,
 } from '../services/aiTrainingService';
 import { useUIStore } from '../store/uiStore';
+import { motion } from 'framer-motion';
 import PageLoader from '../components/ui/PageLoader';
+import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import classes from './AITrainingPage.module.css';
 
 function fmtDate(iso) {
@@ -29,6 +31,7 @@ function fmtDuration(sec) {
 }
 
 const AITrainingPage = () => {
+  const presets = useSubtlePageMotion();
   const isSidebarCollapsed = useUIStore((s) => s.isSidebarCollapsed);
   const [range, setRange] = useState('7d');
   const [loading, setLoading] = useState(true);
@@ -162,75 +165,82 @@ const AITrainingPage = () => {
   if (loading && !summary) return <PageLoader />;
 
   return (
-    <div className={classes.page}>
-      <div className={classes.header}>
-        <div className={classes.iconBox}><Brain size={24} /></div>
-        <div>
-          <h2>AI Training</h2>
-          <p>Post-call scorecards, targeted drills, and coaching progress</p>
+    <motion.div
+      className={classes.page}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div variants={presets.child}>
+        <div className={classes.header}>
+          <div className={classes.iconBox}><Brain size={24} /></div>
+          <div>
+            <h2>AI Training</h2>
+            <p>Post-call scorecards, targeted drills, and coaching progress</p>
+          </div>
         </div>
-      </div>
 
-      <div className={classes.topBar}>
-        <div className={classes.rangePills}>
-          {AI_RANGE_PRESETS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              className={`${classes.pillBtn} ${range === p ? classes.pillBtnActive : ''}`}
-              onClick={() => setRange(p)}
-            >
-              {p === '7d' ? 'Last 7d' : p === '30d' ? 'Last 30d' : 'Last 90d'}
+        <div className={classes.topBar}>
+          <div className={classes.rangePills}>
+            {AI_RANGE_PRESETS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                className={`${classes.pillBtn} ${range === p ? classes.pillBtnActive : ''}`}
+                onClick={() => setRange(p)}
+              >
+                {p === '7d' ? 'Last 7d' : p === '30d' ? 'Last 30d' : 'Last 90d'}
+              </button>
+            ))}
+          </div>
+          <div className={classes.topActions}>
+            <button type="button" className={classes.refreshBtn} onClick={load} disabled={loading}>
+              <RefreshCw size={16} className={loading ? classes.spin : ''} />
+              Refresh
             </button>
-          ))}
+            <button
+              type="button"
+              className={classes.refreshBtn}
+              onClick={() => load({ refreshPlan: true })}
+              disabled={loading}
+            >
+              Regenerate Plan
+            </button>
+          </div>
         </div>
-        <div className={classes.topActions}>
-          <button type="button" className={classes.refreshBtn} onClick={load} disabled={loading}>
-            <RefreshCw size={16} className={loading ? classes.spin : ''} />
-            Refresh
-          </button>
-          <button
-            type="button"
-            className={classes.refreshBtn}
-            onClick={() => load({ refreshPlan: true })}
-            disabled={loading}
-          >
-            Regenerate Plan
-          </button>
-        </div>
-      </div>
 
-      {error && (
-        <div className={classes.errorBar}>
-          <span>{error}</span>
-          <button type="button" className={classes.retryBtn} onClick={load}>Retry</button>
-        </div>
-      )}
+        {error && (
+          <div className={classes.errorBar}>
+            <span>{error}</span>
+            <button type="button" className={classes.retryBtn} onClick={load}>Retry</button>
+          </div>
+        )}
+      </motion.div>
 
-      <div className={classes.statsGrid}>
-        <div className={classes.statCard}>
+      <motion.div className={classes.statsGrid} variants={presets.statsStrip}>
+        <motion.div className={classes.statCard} variants={presets.child}>
           <div className={classes.statIcon}><Target size={18} /></div>
           <span className={classes.statLabel}>Average Score</span>
           <span className={classes.statValue}>{summary?.avgScore ?? '—'}<span className={classes.statMax}>/100</span></span>
-        </div>
-        <div className={classes.statCard}>
+        </motion.div>
+        <motion.div className={classes.statCard} variants={presets.child}>
           <div className={classes.statIcon}><ClipboardCheck size={18} /></div>
           <span className={classes.statLabel}>Reviewed Calls</span>
           <span className={classes.statValue}>{summary?.reviewedCalls ?? '—'}</span>
-        </div>
-        <div className={classes.statCard}>
+        </motion.div>
+        <motion.div className={classes.statCard} variants={presets.child}>
           <div className={classes.statIcon}><TrendingUp size={18} /></div>
           <span className={classes.statLabel}>Improvement</span>
           <span className={classes.statValue}>{summary?.improvementPct ?? '—'}%</span>
-        </div>
-        <div className={classes.statCard}>
+        </motion.div>
+        <motion.div className={classes.statCard} variants={presets.child}>
           <div className={classes.statIcon}><Clock3 size={18} /></div>
           <span className={classes.statLabel}>Pending Drills</span>
           <span className={classes.statValue}>{summary?.pendingDrills ?? '—'}</span>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      <div className={classes.card}>
+      <motion.div className={classes.card} variants={presets.child}>
         <div className={classes.cardHead}>
           <h3>Training Progress Trend</h3>
         </div>
@@ -254,9 +264,9 @@ const AITrainingPage = () => {
             </LineChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </motion.div>
 
-      <div className={classes.twoCol}>
+      <motion.div className={classes.twoCol} variants={presets.child}>
         <div className={classes.card}>
           <div className={classes.cardHead}>
             <h3><Filter size={16} /> Scorecards</h3>
@@ -348,9 +358,9 @@ const AITrainingPage = () => {
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
-      <div className={classes.card}>
+      <motion.div className={classes.card} variants={presets.child}>
         <div className={classes.cardHead}>
           <h3>Recommended Drills</h3>
         </div>
@@ -375,9 +385,9 @@ const AITrainingPage = () => {
             ))}
           </div>
         )}
-      </div>
+      </motion.div>
 
-      <div className={classes.twoCol}>
+      <motion.div className={classes.twoCol} variants={presets.child}>
         <div className={classes.card}>
           <div className={classes.cardHead}><h3>Guided Improvement Plan</h3></div>
           {!coachingPlan?.focusAreas?.length ? (
@@ -419,9 +429,9 @@ const AITrainingPage = () => {
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
-      <div className={classes.card}>
+      <motion.div className={classes.card} variants={presets.child}>
         <div className={classes.cardHead}><h3>Task Checklist</h3></div>
         {!coachingTasks.length ? (
           <p className={classes.empty}>No coaching tasks yet.</p>
@@ -451,8 +461,8 @@ const AITrainingPage = () => {
             ))}
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

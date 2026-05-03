@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DollarSign, Clock, RefreshCw, CheckCircle2, X, AlertCircle, Gift, Wallet, TrendingUp } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import classes from './BillingPage.module.css';
 import { stripeService } from '../services/stripeService';
 import { referralService } from '../services/referralService';
@@ -15,6 +17,7 @@ const TOPUP_TIERS = [
 ];
 
 const BillingPage = () => {
+  const presets = useSubtlePageMotion();
   const location = useLocation();
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
@@ -109,21 +112,29 @@ const BillingPage = () => {
   const lastTopup = transactions.find((t) => t.type === 'credit');
 
   return (
-    <div className={classes.billingPage}>
-      {errorMsg && <div className={classes.errorBanner}><AlertCircle size={16}/> {errorMsg}</div>}
-      {successMsg && <div className={classes.successBanner}><CheckCircle2 size={16}/> {successMsg}</div>}
+    <>
+    <motion.div
+      className={classes.billingPage}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div variants={presets.child}>
+        {errorMsg && <div className={classes.errorBanner}><AlertCircle size={16}/> {errorMsg}</div>}
+        {successMsg && <div className={classes.successBanner}><CheckCircle2 size={16}/> {successMsg}</div>}
 
-      {discount?.hasDiscount && !discount.expired && (
-        <div className={classes.successBanner} style={{ gap: 10 }}>
-          <Gift size={18} />
-          <span>
-            <strong>{discount.percent}% referral discount active!</strong> Your next top-up will be discounted.
-            {discount.expiresAt && ` Expires ${new Date(discount.expiresAt).toLocaleDateString()}.`}
-          </span>
-        </div>
-      )}
+        {discount?.hasDiscount && !discount.expired && (
+          <div className={classes.successBanner} style={{ gap: 10 }}>
+            <Gift size={18} />
+            <span>
+              <strong>{discount.percent}% referral discount active!</strong> Your next top-up will be discounted.
+              {discount.expiresAt && ` Expires ${new Date(discount.expiresAt).toLocaleDateString()}.`}
+            </span>
+          </div>
+        )}
+      </motion.div>
 
-      <section className={classes.sectionBox}>
+      <motion.section className={classes.sectionBox} variants={presets.child}>
         <div className={classes.sectionTop}>
           <div className={classes.sectionHeader}>
             <h3><DollarSign size={20} className={classes.blueIcon} /> Account Balance</h3>
@@ -160,9 +171,9 @@ const BillingPage = () => {
             <strong>{lastTopup ? new Date(lastTopup.createdAt).toLocaleDateString() : 'No top-up yet'}</strong>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className={classes.sectionBox}>
+      <motion.section className={classes.sectionBox} variants={presets.child}>
         <div className={classes.sectionTop}>
           <div>
             <h3><Clock size={20} /> Transaction History</h3>
@@ -202,7 +213,8 @@ const BillingPage = () => {
             </table>
           </div>
         )}
-      </section>
+      </motion.section>
+    </motion.div>
 
       {showTopupModal && (
         <div className={classes.modalOverlay} onClick={() => setShowTopupModal(false)}>
@@ -242,7 +254,7 @@ const BillingPage = () => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
