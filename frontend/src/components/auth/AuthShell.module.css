@@ -1,0 +1,123 @@
+.page {
+  --auth-grid-line: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px 40px;
+  position: relative;
+  overflow-x: hidden;
+  background:
+    radial-gradient(1100px 620px at 22% -8%, color-mix(in srgb, var(--brand-dim) 85%, transparent), transparent 58%),
+    radial-gradient(780px 480px at 92% 12%, color-mix(in srgb, var(--accent-cyan) 16%, transparent), transparent 62%),
+    radial-gradient(520px 380px at 8% 88%, color-mix(in srgb, var(--brand-dim) 45%, transparent), transparent 55%),
+    var(--surface);
+}
+
+.gridOverlay {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--auth-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--auth-grid-line) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.42;
+  mask-image: radial-gradient(ellipse 85% 70% at 50% 45%, #000 20%, transparent 72%);
+  pointer-events: none;
+}
+
+.aurora {
+  position: absolute;
+  width: min(90vw, 520px);
+  height: min(90vw, 520px);
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle at 50% 50%,
+    color-mix(in srgb, var(--brand-dim) 55%, transparent) 0%,
+    transparent 68%
+  );
+  filter: blur(48px);
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+.inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+}
+
+.card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  border-radius: calc(var(--radius-xl) + 4px);
+  padding: 1px;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--text-primary) 14%, transparent),
+    color-mix(in srgb, var(--text-primary) 5%, transparent) 45%,
+    color-mix(in srgb, var(--brand) 22%, transparent)
+  );
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.35),
+    0 0 0 1px color-mix(in srgb, var(--text-primary) 6%, transparent),
+    0 24px 80px color-mix(in srgb, var(--brand-glow) 35%, transparent);
+}
+
+[data-theme='light'] .card {
+  box-shadow:
+    0 4px 28px rgba(14, 14, 14, 0.08),
+    0 0 0 1px color-mix(in srgb, var(--text-primary) 8%, transparent),
+    0 20px 64px color-mix(in srgb, var(--brand-glow) 28%, transparent);
+}
+
+.cardWide {
+  max-width: 520px;
+}
+
+.cardBody {
+  position: relative;
+  border-radius: var(--radius-xl);
+  padding: 38px 32px 40px;
+  background: color-mix(in srgb, var(--surface-container-low) 78%, transparent);
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+}
+
+.cardBody::before {
+  content: '';
+  position: absolute;
+  top: 14px;
+  left: 28px;
+  right: 28px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--brand-solid) 24%,
+    var(--accent-cyan) 76%,
+    transparent
+  );
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+[data-theme='light'] .cardBody {
+  background: color-mix(in srgb, #ffffff 86%, var(--surface-container-low));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora {
+    opacity: 0.35;
+    filter: blur(32px);
+  }
+}
