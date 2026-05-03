@@ -25,8 +25,10 @@ import {
   getAdminMaintenanceState,
   patchAdminMaintenanceState,
 } from '../services/adminService';
+import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
 import PageLoader from '../components/ui/PageLoader';
+import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import classes from './AdminDashboardPage.module.css';
 
 const toLocalDateTimeInput = (value) => {
@@ -40,6 +42,7 @@ const toLocalDateTimeInput = (value) => {
 const nowLocalInput = () => toLocalDateTimeInput(new Date());
 
 const AdminDashboardPage = () => {
+  const presets = useSubtlePageMotion();
   const refreshUserRole = useAuthStore((s) => s.refreshUserRole);
   const [rangePreset, setRangePreset] = useState('7d');
   const [loading, setLoading] = useState(true); // initial shell
@@ -372,8 +375,13 @@ const AdminDashboardPage = () => {
   const byCampaign = overview?.byCampaign || {};
 
   return (
-    <div className={classes.page}>
-      <div className={classes.header}>
+    <motion.div
+      className={classes.page}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div className={classes.header} variants={presets.child}>
         <div className={classes.iconBox}>
           <Shield size={24} />
         </div>
@@ -381,9 +389,9 @@ const AdminDashboardPage = () => {
           <h1 className={classes.title}>Admin</h1>
           <p className={classes.subtitle}>Owner analytics, live operations, and routing control center</p>
         </div>
-      </div>
+      </motion.div>
 
-      <section className={classes.card}>
+      <motion.section className={classes.card} variants={presets.child}>
         <div className={classes.cardTopRow}>
           <h2 className={classes.cardTitle}>Summary ({rangePreset === 'today' ? 'Today' : rangePreset === '30d' ? 'Last 30 days' : 'Last 7 days'})</h2>
           <div className={classes.filterRow}>
@@ -434,32 +442,32 @@ const AdminDashboardPage = () => {
             Updated: {analyticsMeta?.generatedAt ? new Date(analyticsMeta.generatedAt).toLocaleTimeString() : '—'}
           </span>
         </div>
-      </section>
+      </motion.section>
 
-      <div className={classes.grid}>
-        <div className={classes.statCard}>
+      <motion.div className={classes.grid} variants={presets.statsStrip}>
+        <motion.div className={classes.statCard} variants={presets.child}>
           <Users size={18} className={classes.statIcon} />
           <span className={classes.statLabel}>Live agents</span>
           <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (overview?.totalAgents ?? 0)}</span>
-        </div>
-        <div className={classes.statCard}>
+        </motion.div>
+        <motion.div className={classes.statCard} variants={presets.child}>
           <Radio size={18} className={classes.statIcon} />
           <span className={classes.statLabel}>Available</span>
           <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (pool.available?.length ?? 0)}</span>
-        </div>
-        <div className={classes.statCard}>
+        </motion.div>
+        <motion.div className={classes.statCard} variants={presets.child}>
           <Phone size={18} className={classes.statIcon} />
           <span className={classes.statLabel}>Ringing</span>
           <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (pool.ringing?.length ?? 0)}</span>
-        </div>
-        <div className={classes.statCard}>
+        </motion.div>
+        <motion.div className={classes.statCard} variants={presets.child}>
           <Phone size={18} className={classes.statIcon} />
           <span className={classes.statLabel}>Busy</span>
           <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (pool.busy?.length ?? 0)}</span>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      <section className={classes.card}>
+      <motion.section className={classes.card} variants={presets.child}>
         <h2 className={classes.cardTitle}>Live operations</h2>
         <div className={classes.liveCallsWrap}>
           <h3 className={classes.subTitle}><CalendarDays size={14} /> Live calls</h3>
@@ -509,9 +517,9 @@ const AdminDashboardPage = () => {
             ))
           )}
         </div>
-      </section>
+      </motion.section>
 
-      <section className={classes.card}>
+      <motion.section className={classes.card} variants={presets.child}>
         <h2 className={classes.cardTitle}>Call trends</h2>
         <div className={classes.chartWrap}>
           {analyticsLoading ? (
@@ -531,9 +539,9 @@ const AdminDashboardPage = () => {
             </ResponsiveContainer>
           )}
         </div>
-      </section>
+      </motion.section>
 
-      <section className={classes.card}>
+      <motion.section className={classes.card} variants={presets.child}>
         <h2 className={classes.cardTitle}>Active agents</h2>
         <div className={classes.tableWrap}>
           <table className={classes.table}>
@@ -578,9 +586,9 @@ const AdminDashboardPage = () => {
             </tbody>
           </table>
         </div>
-      </section>
+      </motion.section>
 
-      <section className={classes.card}>
+      <motion.section className={classes.card} variants={presets.child}>
         <h2 className={classes.cardTitle}>Campaign performance</h2>
         <div className={classes.tableWrap}>
           <table className={classes.table}>
@@ -621,9 +629,9 @@ const AdminDashboardPage = () => {
             </tbody>
           </table>
         </div>
-      </section>
+      </motion.section>
 
-      <section className={classes.card}>
+      <motion.section className={classes.card} variants={presets.child}>
         <div className={classes.cardTopRow}>
           <h2 className={classes.cardTitle}>Agent performance</h2>
           <input
@@ -677,9 +685,9 @@ const AdminDashboardPage = () => {
             </tbody>
           </table>
         </div>
-      </section>
+      </motion.section>
 
-      <section className={classes.card}>
+      <motion.section className={classes.card} variants={presets.child}>
         <div className={classes.cardTopRow}>
           <h2 className={classes.cardTitle}>Drilldown</h2>
           {(selectedCampaign || selectedAgent) ? (
@@ -749,9 +757,9 @@ const AdminDashboardPage = () => {
             </div>
           </>
         )}
-      </section>
+      </motion.section>
 
-      <section className={classes.card}>
+      <motion.section className={classes.card} variants={presets.child}>
         <h2 className={classes.cardTitle}>Notifications & maintenance</h2>
         <div className={classes.notificationGrid}>
           <form className={classes.notificationForm} onSubmit={handleSendBroadcast}>
@@ -831,9 +839,9 @@ const AdminDashboardPage = () => {
             </button>
           </form>
         </div>
-      </section>
+      </motion.section>
 
-      <section className={classes.card}>
+      <motion.section className={classes.card} variants={presets.child}>
         <h2 className={classes.cardTitle}>Phone numbers → campaign</h2>
         <p className={classes.hint}>
           Incoming Twilio calls use the called number to resolve the campaign when no query/body campaign is set.
@@ -928,8 +936,8 @@ const AdminDashboardPage = () => {
             </tbody>
           </table>
         </div>
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 };
 

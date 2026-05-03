@@ -5,8 +5,10 @@ import {
   Palette, RotateCcw, Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
+import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import useDialerStore from '../store/useDialerStore';
 import { useThemeStore, DEFAULT_BRAND } from '../store/themeStore';
 import { exportUserData, revokeAllSessions } from '../services/settingsService';
@@ -29,6 +31,7 @@ const BRAND_PRESETS = [
 const HEX_RE = /^#[0-9a-f]{6}$/i;
 
 const SettingsPage = () => {
+  const presets = useSubtlePageMotion();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
@@ -415,17 +418,23 @@ const SettingsPage = () => {
   })();
 
   return (
-    <div className={classes.settingsPage}>
-      <div className={classes.header}>
+    <>
+    <motion.div
+      className={classes.settingsPage}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div className={classes.header} variants={presets.child}>
         <div className={classes.iconBox}><Settings size={24} /></div>
         <div>
           <h2>Settings</h2>
           <p>Manage your devices and privacy</p>
           {!isDirty && savedLabel && <p className={classes.savedLabelInline}>{savedLabel}</p>}
         </div>
-      </div>
+      </motion.div>
 
-      <div className={classes.twoCol}>
+      <motion.div className={classes.twoCol} variants={presets.child}>
         {/* ── Audio Devices (left) ── */}
         <div className={classes.card}>
           <h3><Mic size={18} /> Audio Devices</h3>
@@ -598,10 +607,9 @@ const SettingsPage = () => {
             </button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* ── Appearance ── */}
-      <div className={classes.card}>
+      <motion.div className={classes.card} variants={presets.child}>
         <div className={classes.appearanceHeader}>
           <div>
             <h3 className={classes.appearanceTitle}>
@@ -735,11 +743,10 @@ const SettingsPage = () => {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* ── Danger Zone ── */}
       {isPasswordUser && (
-        <div className={`${classes.card} ${classes.dangerCard}`}>
+        <motion.div className={`${classes.card} ${classes.dangerCard}`} variants={presets.child}>
           <h3><Trash2 size={18} /> Danger Zone</h3>
           <p className={classes.dangerText}>
             Permanently delete your account and all associated data. This action cannot be undone.
@@ -795,8 +802,10 @@ const SettingsPage = () => {
               </div>
             </div>
           )}
-        </div>
+        </motion.div>
       )}
+
+    </motion.div>
 
       <UnsavedChangesBar
         visible={isDirty}
@@ -804,7 +813,7 @@ const SettingsPage = () => {
         onSave={handleSaveChanges}
         saving={saving}
       />
-    </div>
+    </>
   );
 };
 

@@ -4,7 +4,9 @@ import {
   Circle, AlertTriangle, Loader2, Save, Plus, Trash2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
+import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { SCRIPTS, SCRIPT_OPTIONS } from '../data/scriptData';
 import { loadScriptData, saveScriptData } from '../services/scriptService';
 import { apiFetch } from '../services/apiClient';
@@ -24,6 +26,7 @@ const ICON_MAP = {
 };
 
 const ScriptPage = () => {
+  const presets = useSubtlePageMotion();
   const user = useAuthStore((s) => s.user);
   const [selectedScript, setSelectedScript] = useState('final-expense-en');
   const [values, setValues] = useState({});
@@ -354,8 +357,14 @@ const ScriptPage = () => {
   const customScriptObj = isCustom ? customScripts.find(s => `custom_${s.id}` === selectedScript) : null;
 
   return (
-    <div className={classes.page}>
-      <div className={classes.topBar}>
+    <>
+    <motion.div
+      className={classes.page}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div className={classes.topBar} variants={presets.child}>
         <div className={classes.selectorWrap}>
           <span className={classes.selectorLabel}>Script:</span>
           <CustomSelect
@@ -371,10 +380,10 @@ const ScriptPage = () => {
           {saving ? <Loader2 size={16} className={classes.spinner} /> : <Save size={16} />}
           {saving ? 'Saving...' : 'Save'}
         </button>
-      </div>
+      </motion.div>
 
       {isCustom ? (
-        <div className={classes.customScriptContainer}>
+        <motion.div className={classes.customScriptContainer} variants={presets.child}>
           <div className={classes.scriptHeaderRow}>
             <div className={classes.scriptTitleLeft}>
               <h1>{customScriptObj?.title?.toUpperCase()}</h1>
@@ -393,23 +402,24 @@ const ScriptPage = () => {
               saveTimeoutRef.current = setTimeout(handleSave, 2000);
             }}
           />
-        </div>
+        </motion.div>
       ) : (
-        <>
+        <motion.div variants={presets.child}>
           <div className={classes.scriptTitle}>
             <h1>{script?.title?.toUpperCase()} CALL SCRIPT</h1>
             <p>{script?.subtitle}</p>
           </div>
           {script?.sections?.map(renderSection)}
-        </>
+        </motion.div>
       )}
-      
-      <AddCustomScriptModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onScriptAdded={handleCustomScriptAdded} 
+    </motion.div>
+
+      <AddCustomScriptModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onScriptAdded={handleCustomScriptAdded}
       />
-    </div>
+    </>
   );
 };
 

@@ -20,9 +20,11 @@ import {
   Pilcrow,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 import { getApiBaseUrl } from '../config/apiBase';
 import useAuthStore from '../store/authStore';
 import PageLoader from '../components/ui/PageLoader';
+import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import classes from './NotesPage.module.css';
 
 const EMPTY_EDITOR_HTML = '<p><br></p>';
@@ -71,6 +73,7 @@ function htmlToPlainText(html = '') {
 }
 
 const NotesPage = () => {
+  const presets = useSubtlePageMotion();
   const token = useAuthStore((s) => s.token);
   
   const [notes, setNotes] = useState([]);
@@ -337,10 +340,13 @@ const NotesPage = () => {
   }
 
   return (
-    <div className={classes.pageContainer}>
-      
-      {/* Sidebar Panel */}
-      <div className={`${classes.sidebar} ${!isSidebarOpen ? classes.collapsed : ''}`}>
+    <motion.div
+      className={classes.pageContainer}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div className={`${classes.sidebar} ${!isSidebarOpen ? classes.collapsed : ''}`} variants={presets.child}>
         <div className={classes.sidebarHeader}>
           <div className={classes.sidebarMeta}>
             <p className={classes.sidebarCount}>{sortedNotes.length} notes</p>
@@ -375,10 +381,9 @@ const NotesPage = () => {
             ))
           )}
         </div>
-      </div>
+      </motion.div>
 
-      {/* Editor Panel */}
-      <div className={classes.mainContent}>
+      <motion.div className={classes.mainContent} variants={presets.child}>
         {activeNote ? (
           <>
             <div className={classes.editorHeader}>
@@ -495,9 +500,8 @@ const NotesPage = () => {
             <button className={classes.emptyActionBtn} onClick={createNote}>Create note</button>
           </div>
         )}
-      </div>
-      
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
