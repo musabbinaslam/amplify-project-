@@ -416,20 +416,25 @@ const NotesPage = () => {
                 <button className={classes.toolBtn} onClick={() => runCommand('removeFormat')} title="Clear formatting"><Eraser size={14} /></button>
               </div>
               <div className={classes.actions}>
-                {isSaving ? (
-                  <span className={classes.statusText}>
-                    <Loader size={14} className={classes.spinnerSmall} /> Saving...
-                  </span>
-                ) : (
-                  <button 
-                    className={classes.saveBtn}
-                    onClick={handleManualSave}
-                    disabled={isSaving}
-                  >
-                    <Save size={14} />
-                    Save Note
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className={classes.saveBtn}
+                  onClick={handleManualSave}
+                  disabled={isSaving}
+                  aria-busy={isSaving}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader size={14} className={classes.spinnerSmall} aria-hidden />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save size={14} aria-hidden />
+                      <span>Save Note</span>
+                    </>
+                  )}
+                </button>
                 <div className={classes.deleteContainer} ref={deleteContainerRef}>
                   <button 
                     className={`${classes.deleteBtn} ${showDeleteConfirm ? classes.active : ''}`} 
