@@ -5,8 +5,10 @@ import {
   Award, ChevronDown, ChevronUp, AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 import { referralService } from '../services/referralService';
 import PageLoader from '../components/ui/PageLoader';
+import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import classes from './ReferralProgramPage.module.css';
 
 const STATUS_LABELS = {
@@ -37,6 +39,7 @@ const STAGE_MAP = {
 };
 
 const ReferralProgramPage = () => {
+  const presets = useSubtlePageMotion();
   const [dashboard, setDashboard] = useState(null);
   const [discount, setDiscount] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
@@ -90,31 +93,49 @@ const ReferralProgramPage = () => {
   };
 
   if (loading) return <PageLoader />;
-  if (!dashboard) return <div className={classes.page}><p className={classes.errorText}>Failed to load referral data.</p></div>;
+  if (!dashboard) {
+    return (
+      <motion.div
+        className={classes.page}
+        variants={presets.root}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.p className={classes.errorText} variants={presets.child}>
+          Failed to load referral data.
+        </motion.p>
+      </motion.div>
+    );
+  }
 
   const { code, shareUrl, stats, recent, config } = dashboard;
 
   return (
-    <div className={classes.page}>
-      {/* ── Discount Banner (for referrer) ── */}
-      {discount?.hasDiscount && !discount.expired && (
-        <div className={classes.discountBanner}>
-          <Gift size={20} />
-          <div>
-            <strong>You have a {discount.percent}% discount ready for your next top-up!</strong>
-            <span> Expires {new Date(discount.expiresAt).toLocaleDateString()}.</span>
+    <motion.div
+      className={classes.page}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div variants={presets.child}>
+        {discount?.hasDiscount && !discount.expired && (
+          <div className={classes.discountBanner}>
+            <Gift size={20} />
+            <div>
+              <strong>You have a {discount.percent}% discount ready for your next top-up!</strong>
+              <span> Expires {new Date(discount.expiresAt).toLocaleDateString()}.</span>
+            </div>
           </div>
-        </div>
-      )}
-      {discount?.expired && (
-        <div className={classes.expiredBanner}>
-          <AlertCircle size={18} />
-          <span>Your referral discount expired. Check back for future promotions.</span>
-        </div>
-      )}
+        )}
+        {discount?.expired && (
+          <div className={classes.expiredBanner}>
+            <AlertCircle size={18} />
+            <span>Your referral discount expired. Check back for future promotions.</span>
+          </div>
+        )}
+      </motion.div>
 
-      {/* ── Hero Card ── */}
-      <section className={classes.heroCard}>
+      <motion.section className={classes.heroCard} variants={presets.child}>
         <div className={classes.heroContent}>
           <div className={classes.heroTextBlock}>
             <h1 className={classes.heroTitle}>
@@ -122,9 +143,18 @@ const ReferralProgramPage = () => {
               Referral Program
             </h1>
             <p className={classes.heroSubtitle}>
-              Share your code with friends. When they sign up, make a payment, and go live,{' '}
-              <strong>you get {config.discountPercent}% off</strong> your next purchase.
+              Share your code with a fellow agent. When they sign up, top up at least{' '}
+              <strong>$500</strong>, and complete their first call —{' '}
+              <strong>you earn a {config.discountPercent}% discount</strong> on your next purchase.
             </p>
+            <div className={classes.chainNotice}>
+              <span className={classes.chainIcon}>🔗</span>
+              <span>
+                <strong>One referral, one reward.</strong> Each person you refer earns you one{' '}
+                20% discount. Once that discount is used, share your link with the next person to
+                keep the chain going!
+              </span>
+            </div>
           </div>
 
           <div className={classes.codeBlock}>
@@ -170,35 +200,33 @@ const ReferralProgramPage = () => {
             </button>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      {/* ── Stats Row ── */}
-      <section className={classes.statsRow}>
-        <div className={classes.statCard}>
+      <motion.section className={classes.statsRow} variants={presets.statsStrip}>
+        <motion.div className={classes.statCard} variants={presets.child}>
           <div className={classes.statIconWrap}><Users size={22} className={classes.statIcon} /></div>
           <div className={classes.statMeta}>
             <span className={classes.statValue}>{stats.signups}</span>
             <span className={classes.statLabel}>Total Signups</span>
           </div>
-        </div>
-        <div className={classes.statCard}>
+        </motion.div>
+        <motion.div className={classes.statCard} variants={presets.child}>
           <div className={classes.statIconWrap}><TrendingUp size={22} className={classes.statIcon} /></div>
           <div className={classes.statMeta}>
             <span className={classes.statValue}>{stats.qualified}</span>
             <span className={classes.statLabel}>Qualified</span>
           </div>
-        </div>
-        <div className={classes.statCard}>
+        </motion.div>
+        <motion.div className={classes.statCard} variants={presets.child}>
           <div className={classes.statIconWrap}><Clock size={22} className={classes.statIcon} /></div>
           <div className={classes.statMeta}>
             <span className={classes.statValue}>{stats.pending}</span>
             <span className={classes.statLabel}>Pending</span>
           </div>
-        </div>
-      </section>
+        </motion.div>
+      </motion.section>
 
-      {/* ── Activity Table ── */}
-      <section className={classes.sectionBox}>
+      <motion.section className={classes.sectionBox} variants={presets.child}>
         <div className={classes.sectionHeader}>
           <h3><Users size={20} /> Referral Activity</h3>
           <p>Track your referrals and their progress</p>
@@ -249,10 +277,9 @@ const ReferralProgramPage = () => {
             </table>
           </div>
         )}
-      </section>
+      </motion.section>
 
-      {/* ── How It Works ── */}
-      <section className={classes.sectionBox}>
+      <motion.section className={classes.sectionBox} variants={presets.child}>
         <div className={classes.sectionHeader}>
           <h3><Gift size={20} /> How It Works</h3>
           <p>Three simple steps to earn your discount</p>
@@ -266,8 +293,8 @@ const ReferralProgramPage = () => {
           <div className={classes.stepConnector} />
           <div className={classes.stepCard}>
             <div className={classes.stepNumber}>2</div>
-            <h4>Make Payment</h4>
-            <p>They make their first top-up payment (min $50)</p>
+            <h4>Top Up $500+</h4>
+            <p>They make a qualifying top-up of at least <strong>$500</strong></p>
           </div>
           <div className={classes.stepConnector} />
           <div className={classes.stepCard}>
@@ -276,11 +303,10 @@ const ReferralProgramPage = () => {
             <p>They complete their first call — you get {config.discountPercent}% off your next purchase!</p>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      {/* ── Leaderboard ── */}
       {leaderboard.length > 0 && (
-        <section className={classes.sectionBox}>
+        <motion.section className={classes.sectionBox} variants={presets.child}>
           <div className={classes.sectionHeader}>
             <h3><Award size={20} className={classes.goldIcon} /> Top Referrers</h3>
             <p>Agents who have made the most successful referrals</p>
@@ -296,20 +322,21 @@ const ReferralProgramPage = () => {
               </div>
             ))}
           </div>
-        </section>
+        </motion.section>
       )}
 
-      {/* ── FAQ ── */}
-      <section className={classes.sectionBox}>
+      <motion.section className={classes.sectionBox} variants={presets.child}>
         <div className={classes.sectionHeader}>
           <h3>FAQ & Terms</h3>
         </div>
         {[
           { q: 'What does "going live" mean?', a: 'Going live means completing your first inbound call that lasts at least 30 seconds. Short or missed calls don\'t count.' },
+          { q: 'How does the one-referral, one-reward policy work?', a: 'Each person you successfully refer earns you exactly one 20% discount on your next top-up. Once that discount is used (or expires), simply share your link with a new person to earn your next discount. The more people you refer, the more discounts you unlock — one at a time!' },
+          { q: 'What is the minimum top-up for my referral to count?', a: 'The person you refer must make a qualifying top-up of at least $500. Top-ups below this amount will not activate your reward.' },
           { q: 'When does my discount expire?', a: `Your referral discount expires ${config.expiryDays} days after your referred friend goes live. Use it before then!` },
           { q: 'Can I transfer my discount?', a: 'No. Referral discounts are non-transferable and can only be used by you (the referrer) on your own account.' },
           { q: 'Is there a cash value?', a: 'No. The discount is applied as bonus wallet credits after your discounted purchase. It has no cash value and cannot be withdrawn.' },
-          { q: 'How many people can I refer?', a: 'You can refer up to 100 people. Each person can only use one referral code.' },
+          { q: 'How many people can I refer?', a: 'You can refer up to 100 people. Each person can only use one referral code, and each successful referral earns you one 20% discount.' },
         ].map((faq, i) => (
           <div key={i} className={classes.faqItem}>
             <button className={classes.faqQuestion} onClick={() => setFaqOpen(faqOpen === i ? null : i)}>
@@ -319,8 +346,8 @@ const ReferralProgramPage = () => {
             {faqOpen === i && <p className={classes.faqAnswer}>{faq.a}</p>}
           </div>
         ))}
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 };
 

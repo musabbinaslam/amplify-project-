@@ -18,7 +18,9 @@ import {
   validateAttachments,
   SUPPORT_ATTACHMENT_LIMITS,
 } from '../services/supportService';
+import { motion } from 'framer-motion';
 import CustomSelect from '../components/ui/CustomSelect';
+import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import classes from './SupportPage.module.css';
 
 function formatBytes(bytes = 0) {
@@ -37,6 +39,7 @@ const WELCOME_MESSAGE = {
 const CATEGORIES = ['Billing', 'Technical', 'Account', 'Other'];
 
 const SupportPage = () => {
+  const presets = useSubtlePageMotion();
   const user = useAuthStore((s) => s.user);
   const getIdToken = useAuthStore((s) => s.getIdToken);
   const [messages, setMessages] = useState([WELCOME_MESSAGE]);
@@ -168,16 +171,21 @@ const SupportPage = () => {
   const userInitial = user?.name?.charAt(0)?.toUpperCase() || 'U';
 
   return (
-    <div className={classes.supportPage}>
-      <div className={classes.header}>
+    <motion.div
+      className={classes.supportPage}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div className={classes.header} variants={presets.child}>
         <div className={classes.iconBox}><MessageSquare size={24} /></div>
         <div>
           <h2>Support</h2>
           <p>Get help from Agent Calls Bot and our support team</p>
         </div>
-      </div>
+      </motion.div>
 
-      <div className={classes.twoCol}>
+      <motion.div className={classes.twoCol} variants={presets.child}>
         <div className={classes.chatContainer}>
           <div className={classes.messageList}>
             {messages.map((msg) => (
@@ -357,8 +365,8 @@ const SupportPage = () => {
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

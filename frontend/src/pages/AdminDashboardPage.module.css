@@ -257,16 +257,27 @@
   color: var(--text-primary);
 }
 
+/* Keep table cells as table-cell — display:flex/inline-flex on <td> breaks column layout
+   and creates a huge gap between the first column and the rest. */
 .agentCell {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 2px;
+  vertical-align: top;
+}
+
+.agentCell strong {
+  display: block;
+  line-height: 1.25;
+}
+
+.agentCell .agentSubId {
+  display: block;
+  margin-top: 2px;
 }
 
 .agentSubId {
   font-size: 12px;
   color: var(--text-tertiary);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  word-break: break-all;
 }
 
 .mono {

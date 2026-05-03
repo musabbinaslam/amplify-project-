@@ -1,14 +1,17 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Activity, Phone, PhoneCall, Target, CheckCircle2, DollarSign, Clock, Percent, Loader2, ChevronDown } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Activity, Phone, PhoneCall, Target, CheckCircle2, DollarSign, Clock, Loader2, ChevronDown } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import { getProfile } from '../services/profileService';
 import { fetchDashboardLogs, fetchCampaignPricing } from '../services/dashboardService';
 import PageLoader from '../components/ui/PageLoader';
+import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
+import { dropdownPanelMotion, EASE_SMOOTH } from '../motion/appMotion';
 import classes from './DashboardPage.module.css';
 
+/* eslint-disable react/prop-types -- StatCard/CampaignCard are local presentation helpers */
 const PERIOD_OPTIONS = ['This Week', 'This Month', 'Last 30 Days'];
 
 const CAMPAIGN_DESCRIPTIONS = {
@@ -105,29 +108,35 @@ const DISP_CLS = {
   Answered: 'dispCallback',
 };
 
-const StatCard = ({ title, value, icon: Icon }) => (
-  <motion.div
-    className={classes.statCard}
-    whileHover={{ y: -4, boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
-    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-  >
-    <div className={classes.statHeader}>
-      <span className={classes.statTitle}>{title}</span>
-      <div className={classes.iconWrapper}>
-        <Icon size={18} />
+const StatCard = ({ title, value, icon: Icon, variants }) => {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      className={classes.statCard}
+      variants={variants}
+      whileHover={reduceMotion ? undefined : { y: -2 }}
+      transition={{ duration: 0.2, ease: EASE_SMOOTH }}
+    >
+      <div className={classes.statHeader}>
+        <span className={classes.statTitle}>{title}</span>
+        <div className={classes.iconWrapper}>
+          <Icon size={18} />
+        </div>
       </div>
-    </div>
-    <div className={classes.statValue}>{value}</div>
-  </motion.div>
-);
+      <div className={classes.statValue}>{value}</div>
+    </motion.div>
+  );
+};
 
-const CampaignCard = ({ title, desc, price, buffer }) => {
+const CampaignCard = ({ title, desc, price, buffer, variants }) => {
   const unit = 'call';
+  const reduceMotion = useReducedMotion();
   return (
     <motion.div
       className={classes.campaignCard}
-      whileHover={{ scale: 1.02, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}
-      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+      variants={variants}
+      whileHover={reduceMotion ? undefined : { y: -2 }}
+      transition={{ duration: 0.2, ease: EASE_SMOOTH }}
     >
       <div className={classes.campaignHeader}>
         <DollarSign size={16} className={classes.blueIcon} />
@@ -149,13 +158,15 @@ const CampaignCard = ({ title, desc, price, buffer }) => {
 const DashboardPage = () => {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const reduceMotion = useReducedMotion();
+  const presets = useSubtlePageMotion();
+  const dropdownMotion = useMemo(() => dropdownPanelMotion(reduceMotion), [reduceMotion]);
   const [period, setPeriod] = useState('This Week');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [profile, setProfile] = useState(null);
   const [logs, setLogs] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [campaignsLoading, setCampaignsLoading] = useState(true);
@@ -194,12 +205,11 @@ const DashboardPage = () => {
       try {
         if (showSpinner) setLoading(true);
         const { startDate, endDate } = computePeriodRange(period);
-        const [profileRes, logsRes] = await Promise.all([
+        const [, logsRes] = await Promise.all([
           getProfile(user.uid),
           fetchDashboardLogs({ startDate, endDate, limit: 1000 }),
         ]);
         if (cancelled) return;
-        setProfile(profileRes || {});
         setLogs(Array.isArray(logsRes) ? logsRes : []);
         setError(null);
       } catch (err) {
@@ -283,31 +293,36 @@ const DashboardPage = () => {
   if (loading) return <PageLoader />;
 
   return (
-    <div className={classes.dashboard}>
+    <motion.div
+      className={classes.dashboard}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
       {error && (
         <div className={classes.errorBanner}>
           {error}
         </div>
       )}
 
-      <div className={classes.sectionStats}>
-        <StatCard title="Today's Calls" value={loading ? '…' : String(metrics.todayCalls)} icon={PhoneCall} />
-        <StatCard title={period} value={loading ? '…' : String(metrics.totalCalls)} icon={Phone} />
-        <StatCard title="Answer Rate" value={loading ? '…' : `${metrics.answerRate}%`} icon={Activity} />
-        <StatCard title="Conversions" value={loading ? '…' : String(metrics.sales)} icon={CheckCircle2} />
-      </div>
+      <motion.div className={classes.sectionStats} variants={presets.statsStrip}>
+        <StatCard title="Today's Calls" value={loading ? '…' : String(metrics.todayCalls)} icon={PhoneCall} variants={presets.child} />
+        <StatCard title={period} value={loading ? '…' : String(metrics.totalCalls)} icon={Phone} variants={presets.child} />
+        <StatCard title="Answer Rate" value={loading ? '…' : `${metrics.answerRate}%`} icon={Activity} variants={presets.child} />
+        <StatCard title="Conversions" value={loading ? '…' : String(metrics.sales)} icon={CheckCircle2} variants={presets.child} />
+      </motion.div>
 
-      <div className={classes.campaignSection}>
+      <motion.div className={classes.campaignSection} variants={presets.child}>
         <div className={classes.sectionHeader}>
           <h3>Campaign Pricing</h3>
-          <button className={classes.dollarBtn}><DollarSign size={16} /></button>
+          <button type="button" className={classes.dollarBtn}><DollarSign size={16} /></button>
         </div>
         {campaignsLoading ? (
           <div className={classes.sectionLoading}>
             <Loader2 size={16} className={classes.spinner} /> Loading campaign pricing…
           </div>
         ) : (
-          <div className={classes.campaignGrid}>
+          <motion.div className={classes.campaignGrid} variants={presets.grid}>
             {campaignCards.map((c) => (
               <CampaignCard
                 key={c.id}
@@ -315,43 +330,55 @@ const DashboardPage = () => {
                 desc={CAMPAIGN_DESCRIPTIONS[c.id] || ''}
                 price={c.price}
                 buffer={c.buffer}
+                variants={presets.child}
               />
             ))}
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
 
-      <div className={classes.performanceHeader}>
+      <motion.div className={classes.performanceHeader} variants={presets.child}>
         <h3><Activity size={18} /> Performance Stats</h3>
         <div className={classes.customDropdown} ref={dropdownRef}>
           <button
+            type="button"
             className={classes.dropdownTrigger}
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            aria-expanded={isDropdownOpen}
+            aria-haspopup="listbox"
           >
             {period}
             <ChevronDown size={16} className={`${classes.dropdownIcon} ${isDropdownOpen ? classes.open : ''}`} />
           </button>
 
-          {isDropdownOpen && (
-            <div className={classes.dropdownMenu}>
-              {PERIOD_OPTIONS.map((opt) => (
-                <div
-                  key={opt}
-                  className={`${classes.dropdownItem} ${period === opt ? classes.activeItem : ''}`}
-                  onClick={() => {
-                    setPeriod(opt);
-                    setIsDropdownOpen(false);
-                  }}
-                >
-                  {opt}
-                </div>
-              ))}
-            </div>
-          )}
+          <AnimatePresence>
+            {isDropdownOpen && (
+              <motion.div
+                className={classes.dropdownMenu}
+                role="listbox"
+                {...dropdownMotion}
+              >
+                {PERIOD_OPTIONS.map((opt) => (
+                  <div
+                    key={opt}
+                    role="option"
+                    aria-selected={period === opt}
+                    className={`${classes.dropdownItem} ${period === opt ? classes.activeItem : ''}`}
+                    onClick={() => {
+                      setPeriod(opt);
+                      setIsDropdownOpen(false);
+                    }}
+                  >
+                    {opt}
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      </div>
+      </motion.div>
 
-      <div className={classes.perfStatsGrid}>
+      <motion.div className={classes.perfStatsGrid} variants={presets.child}>
         <div className={classes.statCard}>
           <div className={classes.statHeader}>
             <span className={classes.statTitle}>Spend</span>
@@ -380,9 +407,9 @@ const DashboardPage = () => {
           </div>
           <div className={classes.statSub}>Percentage of answered calls that converted</div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className={classes.chartSection}>
+      <motion.div className={classes.chartSection} variants={presets.child}>
         <div className={classes.chartHeader}>
           <div className={classes.chartTitleBox}>
             <div className={classes.chartIcon}><Target size={16} /></div>
@@ -422,9 +449,9 @@ const DashboardPage = () => {
             </ResponsiveContainer>
           )}
         </div>
-      </div>
+      </motion.div>
 
-      <div className={classes.callsSection}>
+      <motion.div className={classes.callsSection} variants={presets.child}>
         <div className={classes.sectionHeader}>
           <h3>Recent Calls</h3>
           <button className={classes.viewAllBtn} onClick={() => navigate('/app/call-logs')}>View All</button>
@@ -475,8 +502,8 @@ const DashboardPage = () => {
             </table>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

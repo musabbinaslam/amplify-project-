@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play, Pause, Pencil, SkipBack, SkipForward, Volume2, VolumeX, Download } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { apiFetch } from '../services/apiClient';
+import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { auth } from '../config/firebase';
 import CustomSelect from '../components/ui/CustomSelect';
 import PageLoader from '../components/ui/PageLoader';
@@ -351,6 +353,7 @@ const RecordingModal = ({ log, onClose }) => {
 };
 
 const CallLogsPage = () => {
+  const presets = useSubtlePageMotion();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [callLogs, setCallLogs] = useState([]);
@@ -504,8 +507,14 @@ const CallLogsPage = () => {
   if (initialLoading) return <PageLoader />;
 
   return (
-    <div className={classes.callLogs}>
-      <div className={classes.header}>
+    <>
+    <motion.div
+      className={classes.callLogs}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div className={classes.header} variants={presets.child}>
         <div>
           <h2>All Call Logs</h2>
           <p className={classes.subtitle}>Review and manage your recent calls</p>
@@ -519,40 +528,40 @@ const CallLogsPage = () => {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-      </div>
+      </motion.div>
 
-      <div className={classes.statsRow}>
-        <div className={classes.statCard}>
+      <motion.div className={classes.statsRow} variants={presets.statsStrip}>
+        <motion.div className={classes.statCard} variants={presets.child}>
           <Phone size={18} />
           <div>
             <span className={classes.statValue}>{stats.total}</span>
             <span className={classes.statLabel}>Total Calls</span>
           </div>
-        </div>
-        <div className={classes.statCard}>
+        </motion.div>
+        <motion.div className={classes.statCard} variants={presets.child}>
           <PhoneIncoming size={18} />
           <div>
             <span className={classes.statValue}>{stats.completed}</span>
             <span className={classes.statLabel}>Completed</span>
           </div>
-        </div>
-        <div className={classes.statCard}>
+        </motion.div>
+        <motion.div className={classes.statCard} variants={presets.child}>
           <PhoneMissed size={18} />
           <div>
             <span className={classes.statValue}>{stats.missed}</span>
             <span className={classes.statLabel}>Missed</span>
           </div>
-        </div>
-        <div className={classes.statCard}>
+        </motion.div>
+        <motion.div className={classes.statCard} variants={presets.child}>
           <span className={classes.statIcon}>$</span>
           <div>
             <span className={classes.statValue}>{stats.sold}</span>
             <span className={classes.statLabel}>Sold</span>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      <div className={classes.filters}>
+      <motion.div className={classes.filters} variants={presets.child}>
         <div className={classes.filterGroup}>
           <div className={classes.filterTabs}>
             {FILTER_OPTIONS.map((opt) => (
@@ -590,9 +599,9 @@ const CallLogsPage = () => {
         </div>
 
         <span className={classes.totalCalls}>{filtered.length} calls</span>
-      </div>
+      </motion.div>
 
-      <div className={classes.tableWrap}>
+      <motion.div className={classes.tableWrap} variants={presets.child}>
         {loading ? (
           <div className={classes.emptyState}>
             <Loader size={20} className={classes.spinner} />
@@ -732,15 +741,16 @@ const CallLogsPage = () => {
             )}
           </>
         )}
-      </div>
+      </motion.div>
+    </motion.div>
 
       {activeRecording && (
-        <RecordingModal 
-          log={activeRecording} 
-          onClose={() => setActiveRecording(null)} 
+        <RecordingModal
+          log={activeRecording}
+          onClose={() => setActiveRecording(null)}
         />
       )}
-    </div>
+    </>
   );
 };
 

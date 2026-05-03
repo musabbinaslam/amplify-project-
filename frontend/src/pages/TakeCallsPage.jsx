@@ -4,7 +4,9 @@ import {
   ChevronLeft, PhoneOff, Activity, ShieldCheck, Users,
   PhoneIncoming, DollarSign, Clock, Phone, CheckCircle2, MapPin
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import classes from './TakeCallsPage.module.css';
 import { initializeTwilioDevice } from '../services/twilioService';
 import useDialerStore from '../store/useDialerStore';
@@ -528,6 +530,7 @@ const CallHistory = ({ logs }) => {
 
 // ─── Main Page Component ─────────────────────────────────────────────────────
 const TakeCallsPage = () => {
+  const presets = useSubtlePageMotion();
   const { callState, activeCampaign, agentIdentity, licensedStates, leadData, hangUp, goOffline } = useDialerStore();
   const user = useAuthStore((s) => s.user);
   const [step, setStep] = useState(1);
@@ -593,31 +596,35 @@ const TakeCallsPage = () => {
     const remainingBudget = walletBalance / 100;
 
     return (
-      <div className={classes.page}>
-        <div className={`${classes.activeDialerLayout} ${isRinging ? classes.blurred : ''}`}>
-          <div className={classes.pageHeader}>
+      <motion.div
+        className={`${classes.page} ${classes.activeDialerLayout} ${isRinging ? classes.blurred : ''}`}
+        variants={presets.root}
+        initial="hidden"
+        animate="visible"
+      >
+          <motion.div className={classes.pageHeader} variants={presets.child}>
             <div>
               <h1>Take Calls</h1>
               <p>Monitor live status and handle inbound calls in real time.</p>
             </div>
-          </div>
+          </motion.div>
 
-          <div className={classes.topStatsRow}>
-            <div className={classes.statBox}>
+          <motion.div className={classes.topStatsRow} variants={presets.statsStrip}>
+            <motion.div className={classes.statBox} variants={presets.child}>
               <div className={classes.statLabel}>Agent Name</div>
               <div className={classes.statValue}>{user?.name || agentIdentity || '---'}</div>
-            </div>
-            <div className={classes.statBox}>
+            </motion.div>
+            <motion.div className={classes.statBox} variants={presets.child}>
               <div className={classes.statLabel}>Campaign</div>
               <div className={classes.statValue}>{activeCampaign?.replace(/_/g, ' ').toUpperCase() || '---'}</div>
-            </div>
-            <div className={classes.statBox}>
+            </motion.div>
+            <motion.div className={classes.statBox} variants={presets.child}>
               <div className={classes.statLabel}>Remaining Budget</div>
               <div className={`${classes.statValue} ${classes.budgetGreen}`}>${remainingBudget.toFixed(2)}</div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
-          <div className={classes.liveStatusCard}>
+          <motion.div className={classes.liveStatusCard} variants={presets.child}>
             <div className={classes.pulsingGlow} />
             <div className={classes.liveBadge}><div className={classes.liveDot} />Dialer Active</div>
 
@@ -634,38 +641,42 @@ const TakeCallsPage = () => {
                 : <button className={classes.dangerBtn} onClick={goOffline}><PhoneOff size={18} /> Pause & Go Offline</button>
               }
             </div>
-          </div>
+          </motion.div>
 
           {licensedStates && licensedStates.length > 0 && (
-            <div className={classes.liveStatesCard}>
+            <motion.div className={classes.liveStatesCard} variants={presets.child}>
               <span className={classes.liveStatesLabel}><MapPin size={12} /> Licensed States</span>
               <div className={classes.liveStateChips}>
                 {licensedStates.map(s => (
                   <span key={s} className={classes.liveStateChip}>{s}</span>
                 ))}
               </div>
-            </div>
+            </motion.div>
           )}
 
-          <div className={classes.activeLogsSection}>
+          <motion.div className={classes.activeLogsSection} variants={presets.child}>
             <CallHistory logs={history} />
-          </div>
-        </div>
-      </div>
+          </motion.div>
+      </motion.div>
     );
   }
 
   // ── Setup Wizard View ────────────────────────────────────────────────────
   return (
-    <div className={classes.page}>
-      <div className={classes.pageHeader}>
+    <motion.div
+      className={classes.page}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div className={classes.pageHeader} variants={presets.child}>
         <div>
           <h1>Take Calls</h1>
           <p>Complete setup to start receiving inbound calls.</p>
         </div>
-      </div>
+      </motion.div>
 
-      <div className={classes.wizardShell}>
+      <motion.div className={classes.wizardShell} variants={presets.child}>
         <div className={classes.wizardHeader}>
           <span className={classes.stepCount}>Step {step} of 4: {titles[step - 1]}</span>
           <div className={classes.stepDots}>
@@ -680,13 +691,23 @@ const TakeCallsPage = () => {
         </div>
 
         <div className={classes.stepContent}>
-          {step === 1 && <StepOne onNext={() => setStep(2)} />}
-          {step === 2 && <StepTwo onNext={(sel) => { setCampaign(sel); setStep(3); }} onBack={() => setStep(1)} />}
-          {step === 3 && <StepThree onNext={(states) => { setWizardStates(states); setStep(4); }} onBack={() => setStep(2)} />}
-          {step === 4 && <StepFour onBack={() => setStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} />}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={step}
+              variants={presets.child}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+            >
+              {step === 1 && <StepOne onNext={() => setStep(2)} />}
+              {step === 2 && <StepTwo onNext={(sel) => { setCampaign(sel); setStep(3); }} onBack={() => setStep(1)} />}
+              {step === 3 && <StepThree onNext={(states) => { setWizardStates(states); setStep(4); }} onBack={() => setStep(2)} />}
+              {step === 4 && <StepFour onBack={() => setStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} />}
+            </motion.div>
+          </AnimatePresence>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node -e \"const fs=require('fs');fs.writeFileSync('public/version.json',JSON.stringify({buildId:process.env.VERCEL_GIT_COMMIT_SHA||('local-'+Date.now())}))\" && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@sentry/react": "^10.51.0",
     "@tanstack/react-query": "^5.96.0",
     "@twilio/voice-sdk": "^2.18.1",
     "@vercel/analytics": "^2.0.1",

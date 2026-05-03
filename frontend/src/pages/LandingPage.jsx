@@ -55,10 +55,12 @@ const HOW_IT_WORKS = [
 ];
 
 const VERTICAL_PRICING = [
-  { name: 'Final Expense', price: '$35', buffer: '10s', detail: 'High-intent burial and whole life callers.' },
-  { name: 'ACA', price: '$42', buffer: '10s', detail: 'Consumers actively shopping health plan options.' },
-  { name: 'Medicare', price: '$48', buffer: '10s', detail: 'Inbound seniors requesting plan guidance.' },
-  { name: 'Spanish Final Expense', price: '$39', buffer: '10s', detail: 'Dedicated Spanish-speaking inbound demand.' },
+  { name: 'FE Transfers',         price: '$35', buffer: '120s', detail: 'Live-transferred Final Expense callers ready to speak with an agent.' },
+  { name: 'FE Inbounds',          price: '$45', buffer: '90s',  detail: 'Direct inbound Final Expense calls from high-intent consumers.' },
+  { name: 'Medicare Transfers',   price: '$25', buffer: '120s', detail: 'Live-transferred Medicare callers seeking plan guidance.' },
+  { name: 'Medicare Inbounds (1)',price: '$35', buffer: '90s',  detail: 'Inbound seniors actively requesting Medicare plan information.' },
+  { name: 'Medicare Inbounds (2)',price: '$18', buffer: '15s',  detail: 'Short-buffer Medicare inbounds — high volume, low friction.' },
+  { name: 'ACA Transfers',        price: '$30', buffer: '120s', detail: 'Live-transferred ACA shoppers comparing health plan options.' },
 ];
 
 const COMPARE_ROWS = [
