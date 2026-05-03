@@ -1,8 +1,9 @@
+require('./instrument');
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const { Server } = require('socket.io');
-require('dotenv').config();
+const Sentry = require('@sentry/node');
 
 const { connectRedis, redisClient } = require('./config/redis');
 const voiceRoutes = require('./routes/voiceRoutes');
@@ -142,6 +143,10 @@ const startEngine = async () => {
 
     app.get('/health', (req, res) => res.json({ status: 'Engine Active' }));
 
+    if (process.env.SENTRY_DSN) {
+      Sentry.setupExpressErrorHandler(app);
+    }
+
     // Global Error Catcher
     app.use((err, req, res, next) => {
         if (err?.type === 'entity.too.large') {
@@ -197,7 +202,11 @@ startEngine().catch(err => {
 // Prevent Redis ECONNRESET or any other unhandled error from crashing the server
 process.on('uncaughtException', (err) => {
     console.error('[Process] Uncaught Exception (server kept alive):', err.message);
+    if (process.env.SENTRY_DSN) Sentry.captureException(err);
 });
 process.on('unhandledRejection', (reason) => {
     console.error('[Process] Unhandled Rejection (server kept alive):', reason);
+    if (!process.env.SENTRY_DSN) return;
+    if (reason instanceof Error) Sentry.captureException(reason);
+    else Sentry.captureMessage(String(reason), 'error');
 });
