@@ -1,4 +1,5 @@
-import React, { useLayoutEffect } from 'react';
+import React, { useEffect, useLayoutEffect } from 'react';
+import * as Sentry from '@sentry/react';
 import { AlertCircle } from 'lucide-react';
 
 const MAX_CHUNK_RETRIES = 3;
@@ -58,6 +59,11 @@ const ErrorFallback = ({ error, resetErrorBoundary }) => {
   const chunkFailed = isChunkError(error);
   const retries = Number(sessionStorage.getItem('chunk_retries') || '0');
   const exhausted = retries >= MAX_CHUNK_RETRIES;
+
+  useEffect(() => {
+    if (chunkFailed || !import.meta.env.VITE_SENTRY_DSN) return;
+    Sentry.captureException(error);
+  }, [chunkFailed, error]);
 
   useLayoutEffect(() => {
     if (!chunkFailed) return;
