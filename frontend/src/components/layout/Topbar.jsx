@@ -40,10 +40,23 @@ const Topbar = ({
         console.error('Failed to fetch balance', err);
       }
     };
+
+    const handleWalletUpdate = (e) => {
+      if (e.detail !== undefined) {
+        setBalanceCents(e.detail);
+      } else {
+        fetchBalance();
+      }
+    };
+
     if (user) {
       fetchBalance();
       const interval = setInterval(fetchBalance, 60000);
-      return () => clearInterval(interval);
+      window.addEventListener('wallet_updated', handleWalletUpdate);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('wallet_updated', handleWalletUpdate);
+      };
     }
   }, [user]);
 
