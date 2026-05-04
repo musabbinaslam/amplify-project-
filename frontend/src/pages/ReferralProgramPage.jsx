@@ -147,6 +147,14 @@ const ReferralProgramPage = () => {
               <strong>$500</strong>, and complete their first call —{' '}
               <strong>you earn a {config.discountPercent}% discount</strong> on your next purchase.
             </p>
+            
+            <div style={{ marginTop: '16px', background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)', padding: '12px 16px', borderRadius: '8px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <AlertCircle size={20} color="#eab308" />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <strong style={{ color: '#eab308', fontSize: '14px' }}>Monthly Limit: {stats.monthCount} / {config.maxReferralsPerMonth} Referrals Used</strong>
+                <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px' }}>You can successfully refer up to {config.maxReferralsPerMonth} new agents per calendar month.</span>
+              </div>
+            </div>
             <div className={classes.chainNotice}>
               <span className={classes.chainIcon}>🔗</span>
               <span>
@@ -336,7 +344,7 @@ const ReferralProgramPage = () => {
           { q: 'When does my discount expire?', a: `Your referral discount expires ${config.expiryDays} days after your referred friend goes live. Use it before then!` },
           { q: 'Can I transfer my discount?', a: 'No. Referral discounts are non-transferable and can only be used by you (the referrer) on your own account.' },
           { q: 'Is there a cash value?', a: 'No. The discount is applied as bonus wallet credits after your discounted purchase. It has no cash value and cannot be withdrawn.' },
-          { q: 'How many people can I refer?', a: 'You can refer up to 100 people. Each person can only use one referral code, and each successful referral earns you one 20% discount.' },
+          { q: 'How many people can I refer?', a: `You can successfully refer up to ${config.maxReferralsPerMonth} people per calendar month. Each person can only use one referral code, and each successful referral earns you one ${config.discountPercent}% discount.` },
         ].map((faq, i) => (
           <div key={i} className={classes.faqItem}>
             <button className={classes.faqQuestion} onClick={() => setFaqOpen(faqOpen === i ? null : i)}>
