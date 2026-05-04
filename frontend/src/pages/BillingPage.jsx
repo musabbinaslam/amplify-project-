@@ -72,6 +72,7 @@ const BillingPage = () => {
       const data = await stripeService.getWallet();
       setWallet(data);
       setTransactions(data.transactions || []);
+      window.dispatchEvent(new CustomEvent('wallet_updated', { detail: data.balance }));
     } catch (err) {
       console.error(err);
       setErrorMsg('Failed to load wallet information.');
