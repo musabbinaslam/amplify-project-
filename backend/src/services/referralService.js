@@ -166,6 +166,12 @@ async function claimReferral(refereeUid, referralCode) {
     throw new Error('This referral code has reached its maximum usage limit');
   }
 
+  const now = new Date();
+  const currentMonthKey = `signups_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}`;
+  if ((referrerStats[currentMonthKey] || 0) >= REFERRAL_CONFIG.maxReferralsPerMonth) {
+    throw new Error(`This referral code has reached its monthly limit of ${REFERRAL_CONFIG.maxReferralsPerMonth} uses.`);
+  }
+
   // ── Write in a transaction ──
   await db.runTransaction(async (t) => {
     // Re-read inside transaction
@@ -196,7 +202,10 @@ async function claimReferral(refereeUid, referralCode) {
 
     // Increment referrer's signup count
     t.set(userRef(referrerUid), {
-      referralStats: { signups: FieldValue.increment(1) },
+      referralStats: { 
+        signups: FieldValue.increment(1),
+        [currentMonthKey]: FieldValue.increment(1)
+      },
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
   });
@@ -456,6 +465,10 @@ async function getReferralDashboard(uid) {
   const data = snap.data() || {};
   const stats = data.referralStats || { signups: 0, qualified: 0 };
 
+  const now = new Date();
+  const currentMonthKey = `signups_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const currentMonthCount = stats[currentMonthKey] || 0;
+
   // Get recent referrals
   const referralsSnap = await userRef(uid)
     .collection('referrals')
@@ -490,11 +503,13 @@ async function getReferralDashboard(uid) {
       signups: stats.signups || 0,
       qualified: stats.qualified || 0,
       pending: pendingCount,
+      monthCount: currentMonthCount,
     },
     recent,
     config: {
       discountPercent: Math.round(REFERRAL_CONFIG.discountPercent * REFERRAL_CONFIG.discountMultiplier),
       expiryDays: REFERRAL_CONFIG.discountExpiryDays,
+      maxReferralsPerMonth: REFERRAL_CONFIG.maxReferralsPerMonth,
     },
   };
 }
