@@ -24,6 +24,7 @@ const REFERRAL_CONFIG = {
 
   // ── Anti-Abuse ─────────────────────────────────────────────────────
   maxReferralsPerUser: 100,             // cap how many people one user can refer
+  maxReferralsPerMonth: 2,              // max signups per month per code
   resolveRateLimitPerMinute: 10,        // rate limit on /resolve/:code
 };
 
