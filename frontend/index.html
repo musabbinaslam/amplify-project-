@@ -17,14 +17,12 @@
       :root {
         --sp-bg: #0e0e0e;
         --sp-logo: #25f425;
-        --sp-triangle: #0e0e0e;
         --sp-shadow: rgba(37, 244, 37, 0.3);
         --sp-track: rgba(255,255,255,0.06);
       }
       [data-theme="light"] {
         --sp-bg: #fafafa;
         --sp-logo: #18a818;
-        --sp-triangle: #fafafa;
         --sp-shadow: rgba(24, 168, 24, 0.25);
         --sp-track: rgba(0,0,0,0.08);
       }
@@ -41,18 +39,12 @@
       #splash.hidden { opacity: 0; pointer-events: none; }
       
       .splash-logo-wrap { animation: sp-pulse 2s ease-in-out infinite; }
-      .splash-logo-icon {
-        width: 48px; height: 48px;
-        background: var(--sp-logo);
-        border-radius: 8px;
-        display: flex; align-items: center; justify-content: center;
-        box-shadow: 0 0 16px var(--sp-shadow);
-      }
-      .splash-logo-triangle {
-        width: 0; height: 0;
-        border-left: 9px solid transparent;
-        border-right: 9px solid transparent;
-        border-bottom: 15px solid var(--sp-triangle);
+      .splash-logo-img {
+        width: 80px;
+        height: 150px;
+        object-fit: contain;
+        object-position: center;
+        display: block;
       }
 
       @keyframes sp-pulse {
@@ -81,9 +73,7 @@
     <!-- Instant splash shown before any JS loads -->
     <div id="splash">
       <div class="splash-logo-wrap">
-        <div class="splash-logo-icon">
-          <span class="splash-logo-triangle"></span>
-        </div>
+        <img class="splash-logo-img" src="/logo.png" alt="Callsflow logo" />
       </div>
       <div class="bar-track"><div class="bar-fill"></div></div>
     </div>

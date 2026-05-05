@@ -28,13 +28,14 @@
 }
 
 .logoImg {
-  width: 43px;
-  height: 70px;
-  border-radius: var(--radius-sm);
-  object-fit: cover;
+  width: 80px;
+  height: 150px;
+  border-radius: 0;
+  object-fit: contain;
+  object-position: center;
   display: block;
   filter: drop-shadow(0 0 14px var(--brand-glow));
-  margin-top: 5px;
+  margin-top: 0;
 }
 
 @keyframes logoPulse {
