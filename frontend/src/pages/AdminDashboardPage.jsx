@@ -579,7 +579,7 @@ const AdminDashboardPage = () => {
                     <td>{a.campaignId}</td>
                     <td><span className={classes.statusPill}>{a.pool}</span></td>
                     <td><span className={classes.statusPill}>{a.status}</span></td>
-                    <td>{a.licensedStates?.length || 0}</td>
+                    <td>{Array.isArray(a.licensedStates) && a.licensedStates.length > 0 ? a.licensedStates.join(', ') : 'None'}</td>
                   </tr>
                 ))
               )}
