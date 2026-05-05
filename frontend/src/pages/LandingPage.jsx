@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   ArrowRight,
   BarChart3,
@@ -17,15 +17,6 @@ import {
 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import classes from './LandingPage.module.css';
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 26 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.52, ease: 'easeOut' } },
-};
-
-const stagger = {
-  visible: { transition: { staggerChildren: 0.1 } },
-};
 
 const QUICK_PROOF = [
   { value: '2.7 min', label: 'Average time to first routed call' },
@@ -113,9 +104,47 @@ const LandingPage = () => {
   const [openFaq, setOpenFaq] = useState(null);
   const { theme, toggleTheme } = useUIStore();
   const bookingUrl = import.meta.env.VITE_CALENDLY_URL || '#';
+  const reduceMotion = useReducedMotion();
+
+  const fadeUp = {
+    hidden: { opacity: 0, y: reduceMotion ? 0 : 24 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: reduceMotion
+        ? { duration: 0.15 }
+        : { duration: 0.62, ease: [0.22, 1, 0.36, 1] },
+    },
+  };
+
+  const stagger = {
+    hidden: {},
+    visible: {
+      transition: reduceMotion
+        ? { staggerChildren: 0.02, delayChildren: 0 }
+        : { staggerChildren: 0.1, delayChildren: 0.08 },
+    },
+  };
+
+  const pageEnter = {
+    hidden: { opacity: 0, y: reduceMotion ? 0 : 10 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: reduceMotion
+        ? { duration: 0.18 }
+        : { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+    },
+  };
 
   return (
-    <div id="top" className={classes.page}>
+    <motion.div
+      id="top"
+      className={classes.page}
+      initial="hidden"
+      animate="visible"
+      variants={pageEnter}
+    >
       <nav className={classes.navbar}>
         <div className={classes.navInner}>
           <Link to="/" className={classes.navLogo}>
@@ -414,7 +443,7 @@ const LandingPage = () => {
           <p>&copy; {new Date().getFullYear()} CallsFlow. All rights reserved.</p>
         </div>
       </footer>
-    </div>
+    </motion.div>
   );
 };
 

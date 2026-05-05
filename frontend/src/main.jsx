@@ -8,7 +8,6 @@ import useAuthStore from './store/authStore';
 import { useUIStore } from './store/uiStore';
 import { useThemeStore } from './store/themeStore';
 import { initFirebase } from './config/firebase';
-import PageLoader from './components/ui/PageLoader';
 import './index.css';
 
 if (import.meta.env.VITE_SENTRY_DSN) {
@@ -29,9 +28,11 @@ useUIStore.getState().initTheme();
 useThemeStore.getState().initBrand();
 
 const queryClient = new QueryClient();
+const MIN_SPLASH_MS = 1200;
 
 const AuthInit = ({ children }) => {
   const [ready, setReady] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
   const initAuth = useAuthStore((s) => s.initAuth);
 
   useEffect(() => {
@@ -47,14 +48,30 @@ const AuthInit = ({ children }) => {
     })();
   }, [initAuth]);
 
-  if (!ready) return <PageLoader fullScreen />;
+  useEffect(() => {
+    if (!ready) return;
+    const splash = document.getElementById('splash');
+    if (!splash) {
+      setSplashDone(true);
+      return;
+    }
 
-  // Dismiss the instant HTML splash once React is ready
-  const splash = document.getElementById('splash');
-  if (splash) {
-    splash.classList.add('hidden');
-    setTimeout(() => splash.remove(), 400);
-  }
+    const splashStartedAt = window.__SPLASH_START__ || Date.now();
+    const elapsed = Date.now() - splashStartedAt;
+    const waitMs = Math.max(0, MIN_SPLASH_MS - elapsed);
+
+    const hideTimer = window.setTimeout(() => {
+      splash.classList.add('hidden');
+      window.setTimeout(() => {
+        splash.remove();
+        setSplashDone(true);
+      }, 400);
+    }, waitMs);
+
+    return () => window.clearTimeout(hideTimer);
+  }, [ready]);
+
+  if (!ready || !splashDone) return null;
 
   return children;
 };
