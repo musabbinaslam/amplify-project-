@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  Shield, Users, Phone, Radio, RefreshCw, Trash2, Plus, CalendarDays, CircleDollarSign, Activity,
+  Shield, Users, Phone, Radio, RefreshCw, Trash2, Plus, CalendarDays, CircleDollarSign, Activity, Play
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -29,6 +29,7 @@ import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
 import PageLoader from '../components/ui/PageLoader';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
+import { RecordingModal } from './CallLogsPage';
 import classes from './AdminDashboardPage.module.css';
 
 const toLocalDateTimeInput = (value) => {
@@ -59,6 +60,7 @@ const AdminDashboardPage = () => {
   const [drilldownLoading, setDrilldownLoading] = useState(false);
   const [drilldown, setDrilldown] = useState(null);
   const [agentSearch, setAgentSearch] = useState('');
+  const [activeRecording, setActiveRecording] = useState(null);
   const [didForm, setDidForm] = useState({
     phoneE164: '',
     campaignId: '',
@@ -755,6 +757,74 @@ const AdminDashboardPage = () => {
                 </ResponsiveContainer>
               )}
             </div>
+            {drilldown.recentLogs && drilldown.recentLogs.length > 0 && (
+              <div className={classes.tableWrap} style={{marginTop: '24px'}}>
+                <h3 className={classes.subTitle}>Recent Calls</h3>
+                <table className={classes.table}>
+                  <thead>
+                    <tr>
+                      <th>Agent</th>
+                      <th>Campaign</th>
+                      <th>Duration</th>
+                      <th>Status</th>
+                      <th>Disposition</th>
+                      <th>Cost</th>
+                      <th>Recording (QA)</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drilldown.recentLogs.map((log) => (
+                      <tr key={log.id}>
+                        <td className={classes.agentCell}>
+                          <strong>{selectedAgent ? getAgentName({ agentId: log.agentId }) : log.agentId}</strong>
+                        </td>
+                        <td>{log.campaign}</td>
+                        <td>{log.duration}s</td>
+                        <td>
+                          {log.isBillable ? (
+                            <span className={`${classes.statusPill} ${classes.dispSold}`}>Sold</span>
+                          ) : log.status === 'completed' ? (
+                            <span className={`${classes.statusPill} ${classes.dispAnswered}`}>Answered</span>
+                          ) : (
+                            <span className={`${classes.statusPill} ${classes.dispMissed}`}>Missed</span>
+                          )}
+                        </td>
+                        <td>
+                          {log.disposition === 'sold' ? (
+                            <span className={`${classes.statusPill} ${classes.dispSold}`}>Sold</span>
+                          ) : log.disposition === 'callback' ? (
+                            <span className={`${classes.statusPill} ${classes.dispAnswered}`}>Call back</span>
+                          ) : log.disposition === 'not_interested' ? (
+                            <span className={`${classes.statusPill} ${classes.dispMissed}`}>Not Interested</span>
+                          ) : log.disposition === 'busy' ? (
+                            <span className={`${classes.statusPill} ${classes.dispMissed}`}>Busy</span>
+                          ) : log.disposition === 'policy_closed' ? (
+                            <span className={`${classes.statusPill} ${classes.dispAnswered}`} style={{borderColor: 'var(--brand-text)'}}>Policy Closed</span>
+                          ) : (
+                            <span className={classes.muted}>—</span>
+                          )}
+                        </td>
+                        <td>{log.cost > 0 ? `$${log.cost.toFixed(2)}` : '—'}</td>
+                        <td>
+                          {log.recordingUrl ? (
+                            <button 
+                              style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--brand-accent)', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                              onClick={() => setActiveRecording(log)}
+                            >
+                              <Play size={12} /> Play
+                            </button>
+                          ) : (
+                            <span className={classes.muted}>—</span>
+                          )}
+                        </td>
+                        <td className={classes.muted}>{new Date(log.createdAt).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
       </motion.section>
@@ -937,6 +1007,7 @@ const AdminDashboardPage = () => {
           </table>
         </div>
       </motion.section>
+      {activeRecording && <RecordingModal log={activeRecording} onClose={() => setActiveRecording(null)} />}
     </motion.div>
   );
 };
