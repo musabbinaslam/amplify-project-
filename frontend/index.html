@@ -9,6 +9,7 @@
     <meta name="description" content="AgentCalls is a SaaS CRM dialer platform for insurance agents to receive and manage inbound leads in real time." />
 <script>
       (function() {
+        window.__SPLASH_START__ = Date.now();
         var theme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', theme);
       })();
@@ -16,17 +17,23 @@
     <style>
       :root {
         --sp-bg: #0e0e0e;
+        --sp-surface: rgba(22, 24, 28, 0.72);
+        --sp-border: rgba(255, 255, 255, 0.08);
         --sp-logo: #25f425;
-        --sp-triangle: #0e0e0e;
         --sp-shadow: rgba(37, 244, 37, 0.3);
         --sp-track: rgba(255,255,255,0.06);
+        --sp-text: rgba(255, 255, 255, 0.88);
+        --sp-sub: rgba(255, 255, 255, 0.52);
       }
       [data-theme="light"] {
         --sp-bg: #fafafa;
+        --sp-surface: rgba(255, 255, 255, 0.76);
+        --sp-border: rgba(0, 0, 0, 0.08);
         --sp-logo: #18a818;
-        --sp-triangle: #fafafa;
         --sp-shadow: rgba(24, 168, 24, 0.25);
         --sp-track: rgba(0,0,0,0.08);
+        --sp-text: rgba(0, 0, 0, 0.86);
+        --sp-sub: rgba(0, 0, 0, 0.56);
       }
 
       /* Instant splash — renders before React JS even loads */
@@ -34,25 +41,59 @@
       #splash {
         position: fixed; inset: 0; z-index: 99999;
         display: flex; align-items: center; justify-content: center;
-        flex-direction: column; gap: 28px;
         background: var(--sp-bg);
         transition: opacity 0.35s ease-out;
       }
       #splash.hidden { opacity: 0; pointer-events: none; }
-      
-      .splash-logo-wrap { animation: sp-pulse 2s ease-in-out infinite; }
-      .splash-logo-icon {
-        width: 48px; height: 48px;
-        background: var(--sp-logo);
-        border-radius: 8px;
-        display: flex; align-items: center; justify-content: center;
-        box-shadow: 0 0 16px var(--sp-shadow);
+
+      .splash-shell {
+        width: min(360px, calc(100vw - 40px));
+        border-radius: 20px;
+        padding: 26px 22px 20px;
+        background: var(--sp-surface);
+        border: 1px solid var(--sp-border);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow: 0 16px 44px rgba(0, 0, 0, 0.28);
       }
-      .splash-logo-triangle {
-        width: 0; height: 0;
-        border-left: 9px solid transparent;
-        border-right: 9px solid transparent;
-        border-bottom: 15px solid var(--sp-triangle);
+      .splash-brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+      .splash-logo-wrap {
+        width: 52px;
+        height: 98px;
+        animation: sp-pulse 2s ease-in-out infinite;
+        transform-origin: center center;
+        will-change: transform, opacity;
+      }
+      .splash-logo-img {
+        width: 52px;
+        height: 98px;
+        object-fit: contain;
+        object-position: center;
+        display: block;
+      }
+      .splash-copy {
+        transform: translateZ(0);
+        backface-visibility: hidden;
+      }
+      .splash-title {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        color: var(--sp-text);
+        line-height: 1.1;
+      }
+      .splash-subtitle {
+        margin: 2px 0 0;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--sp-sub);
       }
 
       @keyframes sp-pulse {
@@ -61,12 +102,12 @@
       }
       
       #splash .bar-track {
-        width: 160px; height: 3px;
+        width: 100%; height: 4px;
         background: var(--sp-track);
-        border-radius: 4px; overflow: hidden;
+        border-radius: 999px; overflow: hidden;
       }
       #splash .bar-fill {
-        width: 40%; height: 100%; border-radius: 4px;
+        width: 36%; height: 100%; border-radius: 999px;
         background: var(--sp-logo);
         box-shadow: 0 0 8px var(--sp-shadow);
         animation: sp-slide 1.4s ease-in-out infinite;
@@ -80,12 +121,18 @@
   <body>
     <!-- Instant splash shown before any JS loads -->
     <div id="splash">
-      <div class="splash-logo-wrap">
-        <div class="splash-logo-icon">
-          <span class="splash-logo-triangle"></span>
+      <div class="splash-shell">
+        <div class="splash-brand">
+          <div class="splash-logo-wrap">
+            <img class="splash-logo-img" src="/logo.png" alt="Callsflow logo" />
+          </div>
+          <div class="splash-copy">
+            <p class="splash-title">CALLSFLOW</p>
+            <p class="splash-subtitle">Connecting your workspace...</p>
+          </div>
         </div>
+        <div class="bar-track"><div class="bar-fill"></div></div>
       </div>
-      <div class="bar-track"><div class="bar-fill"></div></div>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
