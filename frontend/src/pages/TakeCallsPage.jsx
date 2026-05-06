@@ -507,10 +507,12 @@ const DispositionModal = ({ callSid, onComplete }) => {
     if (!selected) return;
     setSubmitting(true);
     try {
-      await apiFetch(`/api/voice/logs/${callSid}`, {
-        method: 'PATCH',
-        body: { disposition: selected }
-      });
+      if (callSid !== 'test-sid') {
+        await apiFetch(`/api/voice/logs/${callSid}`, {
+          method: 'PATCH',
+          body: { disposition: selected }
+        });
+      }
       toast.success('Disposition saved');
       onComplete();
     } catch (err) {
@@ -711,7 +713,7 @@ const TakeCallsPage = () => {
                 : 'You are connected to the CallsFlow engine. Stand by for inbound calls.'}
             </p>
 
-            <div className={classes.actionButtons}>
+            <div className={classes.actionButtons} style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
               {callState === 'active'
                 ? <button className={`${classes.dangerBtn} ${classes.hangUpBtn}`} onClick={hangUp}><PhoneOff size={18} /> End Call</button>
                 : <button className={classes.dangerBtn} onClick={goOffline}><PhoneOff size={18} /> Pause & Go Offline</button>
@@ -793,6 +795,15 @@ const TakeCallsPage = () => {
           </AnimatePresence>
         </div>
       </motion.div>
+      {pendingDispositionCall && (
+        <DispositionModal 
+          callSid={pendingDispositionCall} 
+          onComplete={() => {
+            clearPendingDisposition();
+            fetchData();
+          }} 
+        />
+      )}
     </motion.div>
   );
 };
