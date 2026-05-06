@@ -42,7 +42,7 @@ function formatRecordingDate(iso) {
   });
 }
 
-const RecordingModal = ({ log, onClose }) => {
+export const RecordingModal = ({ log, onClose }) => {
   const recordingUrl = log?.recordingUrl;
 
   const [streamUrl, setStreamUrl] = useState(null);
@@ -442,6 +442,7 @@ const CallLogsPage = () => {
   // Determine disposition for display.
   const getDisposition = (log) => {
     if (log.isBillable) return 'Sold';
+    if (log.disposition) return log.disposition; // custom disposition
     if (log.status === 'missed') return 'Missed';
     if (log.status === 'completed' && log.duration > 0) return 'Answered';
     return 'No Answer';
@@ -494,7 +495,7 @@ const CallLogsPage = () => {
     const total = callLogs.length;
     const completed = callLogs.filter((c) => c.status === 'completed').length;
     const missed = callLogs.filter((c) => c.status === 'missed').length;
-    const sold = callLogs.filter((c) => c.disposition === 'sold').length;
+    const sold = callLogs.filter((c) => c.isBillable).length;
     return { total, completed, missed, sold };
   }, [callLogs]);
 
@@ -619,6 +620,7 @@ const CallLogsPage = () => {
                   <th>Type</th>
                   <th>Duration</th>
                   <th>Status</th>
+                  <th>Disposition</th>
                   <th>Cost</th>
                   <th>Recording</th>
                   <th>Date</th>
@@ -654,20 +656,31 @@ const CallLogsPage = () => {
                       </td>
                       <td>
                         <div className={classes.statusCell}>
-                          {log.disposition === 'sold' ? (
+                          {log.isBillable ? (
                             <span className={`${classes.dispBadge} ${classes.dispSold}`}>
                               <DollarSign size={12} /> SOLD {log.saleAmount ? `($${Number(log.saleAmount).toFixed(0)})` : ''}
                             </span>
-                          ) : log.disposition === 'callback' ? (
-                            <span className={`${classes.dispBadge} ${classes.dispAnswered}`}>Callback</span>
-                          ) : log.disposition === 'not_interested' ? (
-                            <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Not Interested</span>
-                          ) : log.disposition === 'no_answer' ? (
-                            <span className={`${classes.dispBadge} ${classes.dispMissed}`}>No Answer</span>
                           ) : log.status === 'missed' ? (
                             <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Missed</span>
                           ) : (
-                            <span className={`${classes.dispBadge} ${classes.dispAnswered}`}>{disposition}</span>
+                            <span className={`${classes.dispBadge} ${classes.dispAnswered}`}>Answered</span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div className={classes.statusCell}>
+                          {log.isBillable ? (
+                            <span className={`${classes.dispBadge} ${classes.dispSold}`}>Sold</span>
+                          ) : log.disposition === 'callback' ? (
+                            <span className={`${classes.dispBadge} ${classes.dispAnswered}`}>Call back</span>
+                          ) : log.disposition === 'not_interested' ? (
+                            <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Not Interested</span>
+                          ) : log.disposition === 'busy' ? (
+                            <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Busy</span>
+                          ) : log.disposition === 'policy_closed' ? (
+                            <span className={`${classes.dispBadge} ${classes.dispAnswered}`} style={{borderColor: 'var(--brand-text)'}}>Policy Closed</span>
+                          ) : (
+                            <span className={classes.scoreDash}>—</span>
                           )}
                         </div>
                       </td>

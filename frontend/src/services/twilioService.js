@@ -207,8 +207,9 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
 
         call.on('disconnect', () => {
           if (call._durationInterval) clearInterval(call._durationInterval);
-          socket.emit('agent:release', { sessionId: socket._agentSessionId || liveSessionId });
-
+          // Instead of releasing the agent here, we set the pending disposition call.
+          // The agent remains in WRAP_UP mode on the backend until they submit the disposition.
+          useDialerStore.getState().setPendingDisposition(call.parameters.CallSid);
           store.resetCallState();
         });
       });

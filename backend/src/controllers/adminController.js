@@ -60,6 +60,8 @@ function normalizeCall(doc) {
     duration: Number(data.duration || 0),
     isBillable: Boolean(data.isBillable),
     cost: Number(data.cost || 0),
+    disposition: data.disposition || null,
+    recordingUrl: data.recordingUrl || null,
     createdAt,
   };
 }
@@ -733,12 +735,37 @@ async function getAnalyticsDrilldown(req, res) {
     if (existing.length) {
       const rollup = buildDrilldownFromDailyDocs(type, id, existing);
       if (rollup.summary.calls > 0) {
+        // Daily docs don't have individual logs, so we'll just return empty recentLogs here
+        // If the admin needs logs, we should probably fetch them from the database
+        // But for now, we'll fetch the most recent 50 logs from firestore directly
+        const rows = await readLogsInRange(from, end);
+        const filtered = rows.filter((r) => (
+          type === 'campaign' ? String(r.campaign || '').toLowerCase() === id.toLowerCase() : String(r.agentId || '').toLowerCase() === id.toLowerCase()
+        ));
+        const recentLogs = filtered
+          .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')))
+          .slice(-50)
+          .reverse()
+          .map(r => ({
+            id: r.id,
+            createdAt: r.createdAt,
+            agentId: r.agentId,
+            campaign: r.campaignLabel || r.campaign,
+            duration: r.duration,
+            status: r.status,
+            isBillable: r.isBillable,
+            cost: r.cost,
+            disposition: r.disposition,
+            recordingUrl: r.recordingUrl || null
+          }));
+
         return res.json({
           type,
           id,
           summary: rollup.summary,
           outcomes: rollup.outcomes,
           trend: rollup.trend,
+          recentLogs,
           meta: {
             generatedAt: new Date().toISOString(),
             source: 'adminMetrics.daily',
@@ -791,6 +818,18 @@ async function getAnalyticsDrilldown(req, res) {
       },
       outcomes,
       trend,
+      recentLogs: limited.slice(-50).reverse().map(r => ({
+        id: r.id,
+        createdAt: r.createdAt,
+        agentId: r.agentId,
+        campaign: r.campaignLabel || r.campaign,
+        duration: r.duration,
+        status: r.status,
+        isBillable: r.isBillable,
+        cost: r.cost,
+        disposition: r.disposition,
+        recordingUrl: r.recordingUrl || null
+      })),
       meta: {
         generatedAt: new Date().toISOString(),
         source: 'firestore.users.callLogs.fanout',

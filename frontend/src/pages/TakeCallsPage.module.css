@@ -574,7 +574,7 @@
 .logsHeader,
 .logItem {
   display: grid;
-  grid-template-columns: 2fr 2fr 1.2fr 1.5fr;
+  grid-template-columns: 2fr 2fr 1.2fr 1fr 1.5fr;
   gap: 10px;
   align-items: center;
 }
@@ -698,6 +698,38 @@
 .blurred {
   filter: blur(7px) brightness(0.6);
   pointer-events: none;
+}
+
+.dispositionModal {
+  width: min(420px, calc(100vw - 28px));
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  background: var(--surface-container-low);
+  padding: 24px;
+  text-align: center;
+}
+.dispositionModal h3 { margin: 0 0 6px; font-size: 20px; }
+.dispositionModal p { margin: 0 0 16px; color: var(--text-secondary); font-size: 14px; }
+.dispositionOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.dispositionOptionBtn {
+  border: 1px solid var(--border);
+  background: var(--surface-container-high);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.dispositionSelected {
+  border-color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-dim) 30%, transparent);
 }
 
 @media (max-width: 900px) {
