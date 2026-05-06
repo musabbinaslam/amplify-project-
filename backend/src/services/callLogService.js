@@ -218,13 +218,34 @@ class CallLogService {
         try {
             const db = getDb();
             const callLogsRef = db.collection('users').doc(uid).collection('callLogs');
-            const existing = await callLogsRef.where('callSid', '==', callSid).limit(1).get();
-            if (existing.empty) return false;
-            
-            await callLogsRef.doc(existing.docs[0].id).set({
+
+            // Search by callSid first, then by dialCallSid (agent leg SID)
+            let existing = await callLogsRef.where('callSid', '==', callSid).limit(1).get();
+            if (existing.empty) {
+                existing = await callLogsRef.where('dialCallSid', '==', callSid).limit(1).get();
+            }
+
+            if (!existing.empty) {
+                // Found it — merge disposition into the existing record
+                await callLogsRef.doc(existing.docs[0].id).set({
+                    ...updates,
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+                console.log(`[Firestore] ✅ Disposition merged for callSid ${callSid}`);
+                return true;
+            }
+
+            // Call log not yet saved by Twilio's callback — create a stub now.
+            // When the callback arrives it will merge into this document.
+            console.warn(`[Firestore] ⚠️ No log found for ${callSid}, creating disposition stub for uid ${uid}`);
+            await callLogsRef.add({
+                callSid,
+                agentId: uid,
+                status: 'completed',
                 ...updates,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            }, { merge: true });
+            });
             return true;
         } catch (err) {
             console.error(`[Firestore] Failed to update call log ${callSid}:`, err.message);
