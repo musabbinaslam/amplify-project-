@@ -145,12 +145,18 @@ exports.handleCallCompleted = async (req, res) => {
                   `[Router] Skip stale completion release for ${resolvedAgentId}: callback sid ${CallSid} != active sid ${activeRow.callSid}`,
                 );
             } else {
-                await agentManager.clearActiveCall(resolvedAgentId);
-                const agentState = await agentManager.getAgentState(resolvedAgentId);
-                await agentManager.releaseAgent(resolvedAgentId, agentState?.sessionId || null);
+                if (DialCallStatus === 'completed') {
+                    // Call answered. Put agent in wrap-up to fill out disposition.
+                    await agentManager.setAgentWrapUp(resolvedAgentId);
+                } else {
+                    // Call missed/failed. Release immediately.
+                    await agentManager.clearActiveCall(resolvedAgentId);
+                    const agentState = await agentManager.getAgentState(resolvedAgentId);
+                    await agentManager.releaseAgent(resolvedAgentId, agentState?.sessionId || null);
+                }
             }
         } catch (e) {
-            console.warn('[Router] release after completion failed:', e.message);
+            console.warn('[Router] release/wrapup after completion failed:', e.message);
         }
       }
     }
@@ -277,5 +283,38 @@ exports.proxyRecording = async (req, res) => {
         if (!res.headersSent) {
             res.status(500).json({ error: 'Failed to load recording' });
         }
+    }
+};
+
+/**
+ * Update call log (e.g., disposition)
+ */
+exports.updateCallLog = async (req, res) => {
+    try {
+        const { callSid } = req.params;
+        const { disposition } = req.body;
+        const uid = req.user.uid;
+
+        if (!callSid || !disposition) {
+            return res.status(400).json({ error: 'callSid and disposition are required' });
+        }
+
+        // 1. Update Firestore
+        const success = await callLogService.updateCallLogBySid(uid, callSid, { disposition });
+        if (!success) {
+            return res.status(404).json({ error: 'Call log not found or failed to update' });
+        }
+
+        // 2. Release agent back into the pool (end of WRAP_UP phase)
+        await agentManager.clearActiveCall(uid);
+        const agentState = await agentManager.getAgentState(uid);
+        if (agentState) {
+            await agentManager.releaseAgent(uid, agentState.sessionId || null);
+        }
+
+        res.json({ success: true, message: 'Disposition saved' });
+    } catch (err) {
+        console.error('[Voice] updateCallLog error:', err.message);
+        res.status(500).json({ error: 'Failed to update call log' });
     }
 };

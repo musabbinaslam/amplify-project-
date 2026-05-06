@@ -491,6 +491,65 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
   );
 };
 
+// ─── Post-Call Disposition Modal ─────────────────────────────────────────────
+const DispositionModal = ({ callSid, onComplete }) => {
+  const [selected, setSelected] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  
+  const options = [
+    { id: 'not_interested', label: 'Not interested' },
+    { id: 'callback', label: 'Call back' },
+    { id: 'busy', label: 'Busy' },
+    { id: 'policy_closed', label: 'Policy Closed' }
+  ];
+
+  const handleSubmit = async () => {
+    if (!selected) return;
+    setSubmitting(true);
+    try {
+      await apiFetch(`/api/voice/logs/${callSid}`, {
+        method: 'PATCH',
+        body: { disposition: selected }
+      });
+      toast.success('Disposition saved');
+      onComplete();
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to save disposition. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className={classes.callOverlay}>
+      <div className={classes.dispositionModal}>
+        <h3>Call Completed</h3>
+        <p>Please select a disposition for the call that just ended.</p>
+        <div className={classes.dispositionOptions}>
+          {options.map(opt => (
+            <button
+              key={opt.id}
+              className={`${classes.dispositionOptionBtn} ${selected === opt.id ? classes.dispositionSelected : ''}`}
+              onClick={() => setSelected(opt.id)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <button 
+          className={classes.primaryBtn} 
+          onClick={handleSubmit}
+          disabled={!selected || submitting}
+          style={{ width: '100%' }}
+        >
+          {submitting ? 'Saving...' : 'Submit & Ready'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ─── Call History Table ──────────────────────────────────────────────────────
 const CallHistory = ({ logs }) => {
   if (!logs || logs.length === 0) {
@@ -504,6 +563,7 @@ const CallHistory = ({ logs }) => {
         <span className={classes.colCaller}>Caller</span>
         <span className={classes.colDuration}>Duration</span>
         <span className={classes.colStatus}>Status</span>
+        <span className={classes.colStatus}>Disposition</span>
       </div>
       <div className={classes.logsList}>
         {logs.map((log) => (
@@ -514,12 +574,28 @@ const CallHistory = ({ logs }) => {
             </div>
             <div className={classes.colDuration}><Clock size={14} />{Math.floor(log.duration / 60)}:{(log.duration % 60).toString().padStart(2, '0')}</div>
             <div className={classes.colStatus}>
-              {log.isBillable
-                ? <span className={classes.badgeSale}><DollarSign size={12} /> SALE (${log.cost})</span>
-                : log.status === 'completed'
-                  ? <span className={classes.badgeAnswered}>Answered</span>
-                  : <span className={classes.badgeMissed}>Missed</span>
-              }
+              {log.isBillable ? (
+                <span className={classes.badgeSale}><DollarSign size={12} /> SALE (${log.cost})</span>
+              ) : log.status === 'completed' ? (
+                <span className={classes.badgeAnswered}>Answered</span>
+              ) : (
+                <span className={classes.badgeMissed}>Missed</span>
+              )}
+            </div>
+            <div className={classes.colStatus}>
+              {log.isBillable ? (
+                <span className={classes.badgeSale}>Sold</span>
+              ) : log.disposition === 'callback' ? (
+                <span className={classes.badgeAnswered}>Call back</span>
+              ) : log.disposition === 'not_interested' ? (
+                <span className={classes.badgeMissed} style={{color: 'var(--text-secondary)'}}>Not Interested</span>
+              ) : log.disposition === 'busy' ? (
+                <span className={classes.badgeMissed} style={{color: 'var(--text-secondary)'}}>Busy</span>
+              ) : log.disposition === 'policy_closed' ? (
+                <span className={classes.badgeSale} style={{borderColor: 'var(--brand-text)'}}>Policy Closed</span>
+              ) : (
+                <span style={{color: 'var(--text-muted)'}}>—</span>
+              )}
             </div>
           </div>
         ))}
@@ -531,7 +607,7 @@ const CallHistory = ({ logs }) => {
 // ─── Main Page Component ─────────────────────────────────────────────────────
 const TakeCallsPage = () => {
   const presets = useSubtlePageMotion();
-  const { callState, activeCampaign, agentIdentity, licensedStates, leadData, hangUp, goOffline } = useDialerStore();
+  const { callState, activeCampaign, agentIdentity, licensedStates, leadData, hangUp, goOffline, pendingDispositionCall, clearPendingDisposition } = useDialerStore();
   const user = useAuthStore((s) => s.user);
   const [step, setStep] = useState(1);
   const [campaign, setCampaign] = useState('');
@@ -657,6 +733,16 @@ const TakeCallsPage = () => {
           <motion.div className={classes.activeLogsSection} variants={presets.child}>
             <CallHistory logs={history} />
           </motion.div>
+
+          {pendingDispositionCall && (
+            <DispositionModal 
+              callSid={pendingDispositionCall} 
+              onComplete={() => {
+                clearPendingDisposition();
+                fetchData(); // refresh history to show disposition immediately
+              }} 
+            />
+          )}
       </motion.div>
     );
   }

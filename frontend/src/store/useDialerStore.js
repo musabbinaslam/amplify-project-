@@ -17,6 +17,7 @@ const useDialerStore = create((set, get) => ({
   callDuration: 0,
   incomingCallerId: null,
   leadData: null,
+  pendingDispositionCall: null,
 
   // Lifecycle handle for live-applying audio settings to the Twilio device.
   // Set by twilioService after device registration, invoked on teardown.
@@ -59,6 +60,8 @@ const useDialerStore = create((set, get) => ({
   },
   setMuted: (muted) => set({ isMuted: muted }),
   setCallDuration: (duration) => set({ callDuration: duration }),
+  setPendingDisposition: (callSid) => set({ pendingDispositionCall: callSid }),
+  clearPendingDisposition: () => set({ pendingDispositionCall: null }),
 
   // Cleanup
   resetCallState: () => set({ 

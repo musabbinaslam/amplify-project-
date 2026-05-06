@@ -366,6 +366,20 @@ class AgentManager {
       await redisClient.hDel('activecalls:data', agentId);
    }
 
+   async setAgentWrapUp(agentId) {
+      if (!agentId) return;
+      await redisClient.sRem('agents:busy', agentId);
+      
+      const rawStr = await redisClient.hGet('agents:data', agentId);
+      if (rawStr) {
+         const data = JSON.parse(rawStr);
+         data.status = 'WRAP_UP';
+         data.lastSeenAt = Date.now().toString();
+         await redisClient.hSet('agents:data', agentId, JSON.stringify(data));
+      }
+      console.log(`[Router] 📝 Agent ${agentId} entered WRAP_UP (disposition pending)`);
+   }
+
    async getActiveCall(agentId) {
       if (!agentId) return null;
       const rawStr = await redisClient.hGet('activecalls:data', agentId);

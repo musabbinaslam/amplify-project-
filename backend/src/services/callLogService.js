@@ -212,6 +212,25 @@ class CallLogService {
             return false;
         }
     }
+
+    async updateCallLogBySid(uid, callSid, updates) {
+        if (!admin || !uid || !callSid) return false;
+        try {
+            const db = getDb();
+            const callLogsRef = db.collection('users').doc(uid).collection('callLogs');
+            const existing = await callLogsRef.where('callSid', '==', callSid).limit(1).get();
+            if (existing.empty) return false;
+            
+            await callLogsRef.doc(existing.docs[0].id).set({
+                ...updates,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true });
+            return true;
+        } catch (err) {
+            console.error(`[Firestore] Failed to update call log ${callSid}:`, err.message);
+            return false;
+        }
+    }
 }
 
 module.exports = new CallLogService();
