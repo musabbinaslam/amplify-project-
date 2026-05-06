@@ -251,7 +251,15 @@ async function buildUserNameMap(agentIds = []) {
   snaps.forEach((snap) => {
     if (!snap.exists) return;
     const data = snap.data() || {};
-    const candidate = data.fullName || data.name || data.email || null;
+    const firstLast = [data.firstName, data.lastName].filter(Boolean).join(' ').trim();
+    const candidate =
+      data.fullName ||
+      data.displayName ||
+      data.name ||
+      data.agentName ||
+      firstLast ||
+      data.email ||
+      null;
     if (candidate) map.set(snap.id, candidate);
   });
   const missing = ids.filter((id) => !map.has(id));
