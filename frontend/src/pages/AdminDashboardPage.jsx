@@ -59,6 +59,8 @@ const AdminDashboardPage = () => {
   const [selectedAgent, setSelectedAgent] = useState('');
   const [drilldownLoading, setDrilldownLoading] = useState(false);
   const [drilldown, setDrilldown] = useState(null);
+  const [drilldownSortOrder, setDrilldownSortOrder] = useState('desc');
+  const [drilldownDay, setDrilldownDay] = useState('');
   const [agentSearch, setAgentSearch] = useState('');
   const [activeRecording, setActiveRecording] = useState(null);
   const [didForm, setDidForm] = useState({
@@ -368,6 +370,49 @@ const AdminDashboardPage = () => {
       return name.includes(query) || id.includes(query);
     });
   }, [agentStats, agentSearch, getAgentId, getAgentName]);
+
+  const agentNameById = useMemo(() => {
+    const out = new Map();
+    (agentStats || []).forEach((row) => {
+      const id = getAgentId(row);
+      const name = getAgentName(row);
+      if (id && name) out.set(id, name);
+    });
+    (overview?.agents || []).forEach((row) => {
+      const id = getAgentId(row);
+      const name = getAgentName(row);
+      if (id && name && !out.has(id)) out.set(id, name);
+    });
+    (liveCalls || []).forEach((row) => {
+      const id = getAgentId(row);
+      const name = getAgentName(row);
+      if (id && name && !out.has(id)) out.set(id, name);
+    });
+    return out;
+  }, [agentStats, overview?.agents, liveCalls, getAgentId, getAgentName]);
+
+  const filteredSortedDrilldownLogs = useMemo(() => {
+    const all = Array.isArray(drilldown?.recentLogs) ? [...drilldown.recentLogs] : [];
+    const dayFiltered = drilldownDay
+      ? all.filter((log) => {
+          const dt = new Date(log?.createdAt || 0);
+          if (Number.isNaN(dt.getTime())) return false;
+          const localY = dt.getFullYear();
+          const localM = String(dt.getMonth() + 1).padStart(2, '0');
+          const localD = String(dt.getDate()).padStart(2, '0');
+          return `${localY}-${localM}-${localD}` === drilldownDay;
+        })
+      : all;
+
+    dayFiltered.sort((a, b) => {
+      const aTs = new Date(a?.createdAt || 0).getTime();
+      const bTs = new Date(b?.createdAt || 0).getTime();
+      const aSafe = Number.isFinite(aTs) ? aTs : 0;
+      const bSafe = Number.isFinite(bTs) ? bTs : 0;
+      return drilldownSortOrder === 'asc' ? aSafe - bSafe : bSafe - aSafe;
+    });
+    return dayFiltered;
+  }, [drilldown?.recentLogs, drilldownDay, drilldownSortOrder]);
 
   if (loading && !overview) {
     return <PageLoader />;
@@ -694,6 +739,33 @@ const AdminDashboardPage = () => {
           <h2 className={classes.cardTitle}>Drilldown</h2>
           {(selectedCampaign || selectedAgent) ? (
             <div className={classes.filterRow}>
+              <select
+                className={`${classes.select} ${classes.drilldownSortSelect}`}
+                style={{ width: 'auto', minWidth: '170px' }}
+                value={drilldownSortOrder}
+                onChange={(e) => setDrilldownSortOrder(e.target.value)}
+                aria-label="Sort drilldown logs by date"
+              >
+                <option value="desc">Date: newest first</option>
+                <option value="asc">Date: oldest first</option>
+              </select>
+              <input
+                type="date"
+                className={classes.input}
+                style={{ width: 'auto', minWidth: '160px' }}
+                value={drilldownDay}
+                onChange={(e) => setDrilldownDay(e.target.value)}
+                aria-label="Filter drilldown logs by specific day"
+              />
+              {drilldownDay ? (
+                <button
+                  type="button"
+                  className={classes.filterBtn}
+                  onClick={() => setDrilldownDay('')}
+                >
+                  Clear day
+                </button>
+              ) : null}
               <span className={classes.statusPill}>
                 {selectedCampaign ? `Campaign: ${selectedCampaign}` : `Agent: ${selectedAgent}`}
               </span>
@@ -774,10 +846,13 @@ const AdminDashboardPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {drilldown.recentLogs.map((log) => (
+                    {filteredSortedDrilldownLogs.map((log) => (
                       <tr key={log.id}>
                         <td className={classes.agentCell}>
-                          <strong>{selectedAgent ? getAgentName({ agentId: log.agentId }) : log.agentId}</strong>
+                          <strong>{log.agentName || agentNameById.get(log.agentId) || log.agentId || 'Unknown'}</strong>
+                          {(log.agentName || agentNameById.get(log.agentId)) && (log.agentName || agentNameById.get(log.agentId)) !== log.agentId ? (
+                            <span className={classes.agentSubId}>{log.agentId}</span>
+                          ) : null}
                         </td>
                         <td>{log.campaign}</td>
                         <td>{log.duration}s</td>
@@ -821,6 +896,11 @@ const AdminDashboardPage = () => {
                         <td className={classes.muted}>{new Date(log.createdAt).toLocaleString()}</td>
                       </tr>
                     ))}
+                    {filteredSortedDrilldownLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className={classes.muted}>No calls found for selected day.</td>
+                      </tr>
+                    ) : null}
                   </tbody>
                 </table>
               </div>
