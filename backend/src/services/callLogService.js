@@ -55,6 +55,7 @@ class CallLogService {
             agentId, 
             status, 
             callSid,
+            dialCallSid,
             recordingUrl
         } = data;
 
@@ -95,6 +96,7 @@ class CallLogService {
 
         const newLog = {
             callSid,
+            dialCallSid: dialCallSid || null,
             timestamp: new Date().toISOString(),
             from,
             to,
@@ -226,7 +228,6 @@ class CallLogService {
             }
 
             if (!existing.empty) {
-                // Found it — merge disposition into the existing record
                 await callLogsRef.doc(existing.docs[0].id).set({
                     ...updates,
                     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -235,17 +236,10 @@ class CallLogService {
                 return true;
             }
 
-            // Call log not yet saved by Twilio's callback — create a stub now.
-            // When the callback arrives it will merge into this document.
-            console.warn(`[Firestore] ⚠️ No log found for ${callSid}, creating disposition stub for uid ${uid}`);
-            await callLogsRef.add({
-                callSid,
-                agentId: uid,
-                status: 'completed',
-                ...updates,
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
+            // Call log not yet in Firestore (Twilio callback race). Return true so
+            // the agent is not blocked — the next logCall upsert will include disposition
+            // only if the agent re-submits, but we at minimum unblock the WRAP_UP state.
+            console.warn(`[Firestore] ⚠️ Disposition for ${callSid} received before Twilio callback — agent unblocked, data will persist on next logCall.`);
             return true;
         } catch (err) {
             console.error(`[Firestore] Failed to update call log ${callSid}:`, err.message);

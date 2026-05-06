@@ -112,11 +112,11 @@ exports.handleIncomingCall = async (req, res) => {
  */
 exports.handleCallCompleted = async (req, res) => {
     const { campaign, agentId } = req.query;
-    const { From, To, DialCallDuration, DialCallStatus, CallSid, FromState, RecordingUrl } = req.body;
+    const { From, To, DialCallDuration, DialCallStatus, DialCallSid, CallSid, FromState, RecordingUrl } = req.body;
 
     const isRejectedOrMissed = ['busy', 'no-answer', 'failed', 'cancel'].includes(DialCallStatus);
 
-    console.log(`[Twilio] Call Completed: ${CallSid}. Duration: ${DialCallDuration}s. Status: ${DialCallStatus}${isRejectedOrMissed ? ' (agent rejected/missed)' : ''}. Recording: ${RecordingUrl ? 'Yes' : 'No'}`);
+    console.log(`[Twilio] Call Completed: ${CallSid}. DialSid: ${DialCallSid}. Duration: ${DialCallDuration}s. Status: ${DialCallStatus}${isRejectedOrMissed ? ' (agent rejected/missed)' : ''}. Recording: ${RecordingUrl ? 'Yes' : 'No'}`);
 
     let savedLog = null;
     let resolvedAgentId = agentId || null;
@@ -132,6 +132,7 @@ exports.handleCallCompleted = async (req, res) => {
             agentId: resolvedAgentId,
             status: DialCallStatus === 'completed' ? 'completed' : 'missed',
             callSid: CallSid,
+            dialCallSid: DialCallSid || null,
             recordingUrl: RecordingUrl || null
         });
     } catch (err) {
