@@ -574,7 +574,7 @@
 .logsHeader,
 .logItem {
   display: grid;
-  grid-template-columns: 2fr 2fr 1.2fr 1.5fr;
+  grid-template-columns: 2fr 2fr 1.2fr 1fr 1.5fr;
   gap: 10px;
   align-items: center;
 }
