@@ -60,6 +60,7 @@ const AdminDashboardPage = () => {
   const [drilldownLoading, setDrilldownLoading] = useState(false);
   const [drilldown, setDrilldown] = useState(null);
   const [drilldownSortOrder, setDrilldownSortOrder] = useState('desc');
+  const [drilldownSortField, setDrilldownSortField] = useState('date');
   const [drilldownDay, setDrilldownDay] = useState('');
   const [agentSearch, setAgentSearch] = useState('');
   const [activeRecording, setActiveRecording] = useState(null);
@@ -405,6 +406,12 @@ const AdminDashboardPage = () => {
       : all;
 
     dayFiltered.sort((a, b) => {
+      if (drilldownSortField === 'duration') {
+        const aDur = Number(a?.duration || 0);
+        const bDur = Number(b?.duration || 0);
+        return drilldownSortOrder === 'asc' ? aDur - bDur : bDur - aDur;
+      }
+      // default: sort by date
       const aTs = new Date(a?.createdAt || 0).getTime();
       const bTs = new Date(b?.createdAt || 0).getTime();
       const aSafe = Number.isFinite(aTs) ? aTs : 0;
@@ -412,7 +419,7 @@ const AdminDashboardPage = () => {
       return drilldownSortOrder === 'asc' ? aSafe - bSafe : bSafe - aSafe;
     });
     return dayFiltered;
-  }, [drilldown?.recentLogs, drilldownDay, drilldownSortOrder]);
+  }, [drilldown?.recentLogs, drilldownDay, drilldownSortOrder, drilldownSortField]);
 
   if (loading && !overview) {
     return <PageLoader />;
@@ -741,13 +748,23 @@ const AdminDashboardPage = () => {
             <div className={classes.filterRow}>
               <select
                 className={`${classes.select} ${classes.drilldownSortSelect}`}
-                style={{ width: 'auto', minWidth: '170px' }}
+                style={{ width: 'auto', minWidth: '140px' }}
+                value={drilldownSortField}
+                onChange={(e) => setDrilldownSortField(e.target.value)}
+                aria-label="Sort drilldown logs by field"
+              >
+                <option value="date">Sort: Date</option>
+                <option value="duration">Sort: Duration</option>
+              </select>
+              <select
+                className={`${classes.select} ${classes.drilldownSortSelect}`}
+                style={{ width: 'auto', minWidth: '130px' }}
                 value={drilldownSortOrder}
                 onChange={(e) => setDrilldownSortOrder(e.target.value)}
-                aria-label="Sort drilldown logs by date"
+                aria-label="Sort drilldown logs order"
               >
-                <option value="desc">Date: newest first</option>
-                <option value="asc">Date: oldest first</option>
+                <option value="desc">{drilldownSortField === 'duration' ? 'Longest first' : 'Newest first'}</option>
+                <option value="asc">{drilldownSortField === 'duration' ? 'Shortest first' : 'Oldest first'}</option>
               </select>
               <input
                 type="date"
