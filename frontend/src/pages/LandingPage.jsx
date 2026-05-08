@@ -257,9 +257,10 @@ const LandingPage = () => {
         </motion.div>
       </section>
 
-      <section id="pricing" className={classes.section}>
+      <section className={classes.section}>
         <motion.div
-          className={classes.sectionInner}
+          id="pricing"
+          className={`${classes.sectionInner} ${classes.pricingAnchor}`}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-80px' }}
