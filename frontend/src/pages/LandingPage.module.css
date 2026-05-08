@@ -235,6 +235,55 @@
   color: var(--text-primary);
 }
 
+.bookingPulseBorder {
+  --booking-btn-bg: var(--surface-container);
+  --trace-angle: 0deg;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  box-shadow: 0 0 0 1px rgba(255, 55, 55, 0.12), 0 0 10px rgba(255, 55, 55, 0.14);
+  text-shadow: 0 0 10px rgba(255, 55, 55, 0.3);
+  background:
+    linear-gradient(var(--booking-btn-bg), var(--booking-btn-bg)) padding-box,
+    conic-gradient(
+      from var(--trace-angle),
+      transparent 0deg,
+      transparent 330deg,
+      rgba(255, 55, 55, 0.98) 340deg,
+      rgba(255, 55, 55, 0.98) 355deg,
+      transparent 360deg
+    ) border-box;
+  animation: bookingBorderTrace 1.7s linear infinite;
+}
+
+.bookingPulseBorder:focus-visible {
+  outline: 2px solid rgba(255, 71, 71, 0.95);
+  outline-offset: 3px;
+}
+
+@keyframes bookingBorderTrace {
+  to {
+    --trace-angle: 1turn;
+  }
+}
+
+@property --trace-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.ctaPrimary.bookingPulseBorder {
+  --booking-btn-bg: var(--brand-solid);
+}
+
+.ctaSecondary.bookingPulseBorder {
+  --booking-btn-bg: var(--surface-container);
+}
+
+.ctaSecondary.bookingPulseBorder:hover {
+  --booking-btn-bg: var(--surface-container-high);
+}
+
 .heroTrustRow {
   margin-top: 26px;
   display: flex;
@@ -525,6 +574,26 @@
   color: var(--text-secondary);
 }
 
+.demoInfo {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.demoInfoPill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--brand-text) 25%, var(--lp-border-soft));
+  background: color-mix(in srgb, var(--brand-dim) 20%, transparent);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 7px 10px;
+}
+
 .demoCard .ctaPrimary {
   margin-top: 12px;
   width: 100%;
@@ -548,23 +617,26 @@
   letter-spacing: 0.06em;
 }
 
-.slotGrid {
+.slotInfoList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.slotPill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.slotInfoItem {
   min-height: 36px;
+  display: flex;
+  align-items: center;
   border-radius: 9px;
   border: 1px solid color-mix(in srgb, var(--brand-text) 25%, var(--lp-border-soft));
-  background: color-mix(in srgb, var(--brand-dim) 40%, transparent);
-  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-dim) 24%, transparent);
+  color: var(--text-primary);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
+  line-height: 1.45;
+  padding: 8px 10px;
 }
 
 .faqList {
@@ -698,6 +770,16 @@
   font-size: 14px;
 }
 
+.footerLinks .bookingPulseBorder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 9px 12px;
+  border-radius: 12px;
+  --booking-btn-bg: var(--surface-container);
+}
+
 .footerLinks a:hover {
   color: var(--brand-text);
 }
@@ -782,11 +864,19 @@
     width: 100%;
   }
 
-  .slotGrid {
-    grid-template-columns: 1fr;
-  }
-
   .navBtnGhost {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bookingPulseBorder {
+    animation: none;
+    border-color: rgba(255, 55, 55, 0.88);
+    box-shadow: 0 0 0 1px rgba(255, 55, 55, 0.12), 0 0 8px rgba(255, 55, 55, 0.12);
+    text-shadow: 0 0 8px rgba(255, 55, 55, 0.24);
+    background:
+      linear-gradient(var(--booking-btn-bg), var(--booking-btn-bg)) padding-box,
+      linear-gradient(rgba(255, 55, 55, 0.88), rgba(255, 55, 55, 0.88)) border-box;
   }
 }
