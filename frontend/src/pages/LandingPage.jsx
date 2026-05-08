@@ -195,7 +195,12 @@ const LandingPage = () => {
             <Link to="/signup" className={classes.ctaPrimary}>
               Create Account <ArrowRight size={16} />
             </Link>
-            <a href={bookingUrl} target="_blank" rel="noreferrer" className={classes.ctaSecondary}>
+            <a
+              href={bookingUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={`${classes.ctaSecondary} ${classes.bookingPulseBorder}`}
+            >
               <PlayCircle size={16} /> Book Demo Call
             </a>
           </motion.div>
@@ -252,9 +257,10 @@ const LandingPage = () => {
         </motion.div>
       </section>
 
-      <section id="pricing" className={classes.section}>
+      <section className={classes.section}>
         <motion.div
-          className={classes.sectionInner}
+          id="pricing"
+          className={`${classes.sectionInner} ${classes.pricingAnchor}`}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-80px' }}
@@ -346,23 +352,18 @@ const LandingPage = () => {
             </motion.div>
 
             <motion.div className={classes.demoCard} variants={fadeUp}>
-              <h3>Book a 10-min Demo</h3>
+              <h3>Book a 45-min Demo</h3>
               <p>Choose any open time and book instantly through Calendly.</p>
-              <div className={classes.slotPanel}>
-                <div className={classes.slotPanelHead}>
-                  <span>Today</span>
-                  <span>Pakistan Time</span>
-                </div>
-                <div className={classes.slotGrid}>
-                  <span className={classes.slotPill}>2:00 PM</span>
-                  <span className={classes.slotPill}>2:30 PM</span>
-                  <span className={classes.slotPill}>3:00 PM</span>
-                  <span className={classes.slotPill}>4:30 PM</span>
-                  <span className={classes.slotPill}>6:00 PM</span>
-                  <span className={classes.slotPill}>7:30 PM</span>
-                </div>
+              <div className={classes.demoInfo}>
+                <span className={classes.demoInfoPill}>Live availability shown on Calendly</span>
+                <span className={classes.demoInfoPill}>45-minute strategy call</span>
               </div>
-              <a href={bookingUrl} target="_blank" rel="noreferrer" className={classes.ctaPrimary}>
+              <a
+                href={bookingUrl}
+                target="_blank"
+                rel="noreferrer"
+                className={`${classes.ctaPrimary} ${classes.bookingPulseBorder}`}
+              >
                 View Live Slots on Calendly <ArrowRight size={16} />
               </a>
             </motion.div>
@@ -411,7 +412,12 @@ const LandingPage = () => {
             <Link to="/signup" className={classes.ctaPrimary}>
               Create Account <ArrowRight size={16} />
             </Link>
-            <a href={bookingUrl} target="_blank" rel="noreferrer" className={classes.ctaSecondary}>
+            <a
+              href={bookingUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={`${classes.ctaSecondary} ${classes.bookingPulseBorder}`}
+            >
               Book Demo
             </a>
           </motion.div>
@@ -436,7 +442,7 @@ const LandingPage = () => {
           <div className={classes.footerLinks}>
             <Link to="/login">Log In</Link>
             <Link to="/signup">Create Account</Link>
-            <a href={bookingUrl} target="_blank" rel="noreferrer">Book Demo</a>
+            <a href={bookingUrl} target="_blank" rel="noreferrer" className={classes.bookingPulseBorder}>Book Demo</a>
           </div>
         </div>
         <div className={classes.footerBottom}>
