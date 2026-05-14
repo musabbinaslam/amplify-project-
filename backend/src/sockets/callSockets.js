@@ -109,6 +109,10 @@ exports.setupCallSockets = (io) => {
         socket.on('agent:release', async (payload = {}) => {
             if (socket.agentId) {
                 const expectedSession = String(payload?.sessionId || socket.agentSessionId || '').trim() || null;
+                // Always clear active-call record before releasing back to the pool.
+                // Without this, the agent is re-added as AVAILABLE while activecalls:data
+                // still has their entry — next routed call gets dropped immediately.
+                await agentManager.clearActiveCall(socket.agentId);
                 await agentManager.releaseAgent(socket.agentId, expectedSession);
                 await broadcastAgentCount(io);
             }

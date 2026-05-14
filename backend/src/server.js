@@ -77,16 +77,27 @@ const startEngine = async () => {
     async function runGhostCleanup() {
         try {
             const cutoff = Date.now() - 65000; // 65 seconds
-            // Get all agents whose last heartbeat was older than the cutoff
+
+            // ── Pass 1: evict agents whose heartbeat sorted-set score is stale ──
             const ghosts = await redisClient.zRangeByScore('agents:heartbeats', 0, cutoff);
-            
             if (ghosts && ghosts.length > 0) {
                 for (const agentId of ghosts) {
                     await agentManager.removeAgent(agentId);
                     console.log(`[Ghost Cleanup] Evicted stale agent: ${agentId}`);
                 }
                 console.log(`[Ghost Cleanup] ✅ Swept ${ghosts.length} ghost agent(s) from pool`);
-                // Broadcast updated count to all connected frontends
+            }
+
+            // ── Pass 2: sweep activecalls:data for agents with no heartbeat key ──
+            // Catches agents that were IN_CALL when they disconnected and whose
+            // heartbeat key has expired but whose call record was never cleaned up.
+            const staleCallsEvicted = await agentManager.evictStaleActiveCalls();
+            if (staleCallsEvicted > 0) {
+                console.log(`[Ghost Cleanup] 🧹 Evicted ${staleCallsEvicted} orphaned active-call record(s)`);
+            }
+
+            if ((ghosts && ghosts.length > 0) || staleCallsEvicted > 0) {
+                // Broadcast updated agent count to all connected frontends
                 const count = await agentManager.getTotalAvailableCount();
                 io.emit('stats:agent_count', count || 0);
             }

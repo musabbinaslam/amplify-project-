@@ -125,6 +125,9 @@ class AgentManager {
       }
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sRem('agents:busy', agentId);
+      // Also clear any orphaned active-call record from a prior session so the
+      // agent never starts a new session already showing as IN_CALL.
+      await redisClient.hDel('activecalls:data', agentId);
 
       const campaign       = payload.campaign || payload.campaignId || 'fe_transfers';
       const licensedStates = payload.licensedStates || [];
@@ -174,6 +177,9 @@ class AgentManager {
       await redisClient.zRem('agents:heartbeats', agentId);
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sRem('agents:busy', agentId);
+      // Clear any stale active-call record so a logged-out agent
+      // does not continue to appear as IN_CALL on the admin dashboard.
+      await redisClient.hDel('activecalls:data', agentId);
       console.log(`[Redis] ❌ Agent Offline: ${agentId}`);
       return true;
    }
@@ -313,6 +319,11 @@ class AgentManager {
          console.log(`[Presence] Ignoring release for ${agentId} due to session mismatch`);
          return false;
       }
+
+      // Always clear the active-call record atomically before re-entering the pool.
+      // This prevents the "AVAILABLE but IN_CALL" split-state that causes dropped calls.
+      await redisClient.hDel('activecalls:data', agentId);
+
       if (data?.campaignId) {
          // Score = current timestamp → this agent goes to back of LRU queue
          await redisClient.zAdd(this.poolKey(data.campaignId), {
@@ -418,15 +429,50 @@ class AgentManager {
       ]);
       const agentIds = [...new Set([...(busyIds || []), ...(keyedIds || [])])];
       if (!agentIds.length) return [];
-      
-      const rows = agentIds.map((id) => {
+
+      // ── Self-healing: evict agents with no heartbeat unless they're in WRAP_UP ──
+      // WRAP_UP agents have submitted their call but are filling disposition — their
+      // heartbeat key may have expired (120s TTL) but they are NOT ghosts.
+      // Only evict if: no heartbeat AND status is not WRAP_UP.
+      const heartbeatChecks = await Promise.all(
+         agentIds.map(async (id) => {
+            const hb = await redisClient.get(`agent:heartbeat:${id}`);
+            if (hb) return { id, alive: true };
+            // No heartbeat — check if they're in a legitimate WRAP_UP state
+            const agentStr = allAgentsStr[id];
+            const agentStatus = agentStr ? JSON.parse(agentStr).status : null;
+            const isWrapUp = agentStatus === 'WRAP_UP';
+            return { id, alive: isWrapUp }; // treat WRAP_UP as alive even without heartbeat
+         })
+      );
+      const ghostIds = heartbeatChecks.filter((c) => !c.alive).map((c) => c.id);
+      if (ghostIds.length > 0) {
+         await Promise.all(
+            ghostIds.map((id) => Promise.all([
+               redisClient.hDel('activecalls:data', id),
+               redisClient.sRem('agents:busy', id),
+               redisClient.sRem('agents:ringing', id),
+               redisClient.hDel('agents:data', id),
+            ]))
+         );
+         console.log(`[listActiveCalls] 🧹 Self-healed ${ghostIds.length} ghost active-call(s): ${ghostIds.join(', ')}`);
+      }
+      const liveIds = heartbeatChecks.filter((c) => c.alive).map((c) => c.id);
+
+      const rows = liveIds.map((id) => {
          const rowStr = allActiveCallsStr[id];
          const agentStr = allAgentsStr[id];
          if (!rowStr) return null;
-         
+
          const row = JSON.parse(rowStr);
          const agent = agentStr ? JSON.parse(agentStr) : {};
-         
+
+         // Always use the agent's real status — but if it is somehow AVAILABLE
+         // while the call record exists, override to IN_CALL. An entry in
+         // activecalls:data is the authoritative source of truth for call state.
+         const rawStatus = agent.status || 'IN_CALL';
+         const displayStatus = rawStatus === 'AVAILABLE' ? 'IN_CALL' : rawStatus;
+
          const startedAtMs = row.startedAt ? new Date(row.startedAt).getTime() : NaN;
          return {
             agentId:     id,
@@ -436,11 +482,11 @@ class AgentManager {
             campaignId:  row.campaignId || agent.campaignId || null,
             startedAt:   row.startedAt || null,
             durationSec: Number.isNaN(startedAtMs) ? 0 : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000)),
-            status:      agent.status  || 'IN_CALL',
+            status:      displayStatus,
             state:       row.state     || 'in_call',
          };
       });
-      
+
       return rows.filter(Boolean);
    }
 
@@ -495,19 +541,32 @@ class AgentManager {
          }
 
          const campaignId = raw.campaignId || 'unknown';
-         const row = {
-            id,
-            agentId:       raw.agentId || id,
-            campaignId,
-            status:        raw.status  || 'UNKNOWN',
-            licensedStates,
-            pool: pool.available.includes(id)
+         const poolSlot = pool.available.includes(id)
                ? 'available'
                : pool.ringing.includes(id)
                   ? 'ringing'
                   : pool.busy.includes(id)
                      ? 'busy'
-                     : 'unknown',
+                     : 'unknown';
+
+         // Derive authoritative status from pool membership — agents:data.status
+         // can be stale (e.g., still AVAILABLE after a mid-flight state change).
+         // Pool set membership is the ground truth.
+         const derivedStatus = poolSlot === 'busy'
+            ? 'IN_CALL'
+            : poolSlot === 'ringing'
+               ? 'RINGING'
+               : poolSlot === 'available'
+                  ? 'AVAILABLE'
+                  : raw.status || 'UNKNOWN';
+
+         const row = {
+            id,
+            agentId:       raw.agentId || id,
+            campaignId,
+            status:        derivedStatus,
+            licensedStates,
+            pool:          poolSlot,
          };
          agents.push(row);
          byCampaign[campaignId] = (byCampaign[campaignId] || 0) + 1;
@@ -536,6 +595,44 @@ class AgentManager {
          evicted += 1;
          this.markDiagnostic('ghostEvicted');
       }
+      return evicted;
+   }
+
+   /**
+    * Sweeps the activecalls:data hash for orphaned entries — agents that have an
+    * active-call record but no live heartbeat key. Called by the server's 5-min
+    * ghost cleanup job as a catch-all safety net.
+    * Returns the number of orphaned entries that were evicted.
+    */
+   async evictStaleActiveCalls() {
+      const allCalls = await redisClient.hGetAll('activecalls:data');
+      if (!allCalls || !Object.keys(allCalls).length) return 0;
+
+      let evicted = 0;
+      await Promise.all(
+         Object.keys(allCalls).map(async (agentId) => {
+            const hb = await redisClient.get(`agent:heartbeat:${agentId}`);
+            if (hb) return; // agent is alive — skip
+
+            // No heartbeat — but spare WRAP_UP agents (filling disposition after call).
+            // Their heartbeat TTL can expire during wrap-up and they are NOT ghosts.
+            const agentStr = await redisClient.hGet('agents:data', agentId);
+            const agentStatus = agentStr ? JSON.parse(agentStr).status : null;
+            if (agentStatus === 'WRAP_UP') return; // legitimate transient state
+
+            // No heartbeat + not WRAP_UP → ghost. Wipe all related state.
+            await Promise.all([
+               redisClient.hDel('activecalls:data', agentId),
+               redisClient.sRem('agents:busy', agentId),
+               redisClient.sRem('agents:ringing', agentId),
+               redisClient.hDel('agents:data', agentId),
+               redisClient.zRem('agents:heartbeats', agentId),
+            ]);
+            console.log(`[evictStaleActiveCalls] 🧹 Evicted ghost from activecalls:data: ${agentId}`);
+            evicted += 1;
+            this.markDiagnostic('ghostEvicted');
+         })
+      );
       return evicted;
    }
 }

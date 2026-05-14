@@ -24,6 +24,7 @@ import {
   postAdminBroadcastNotification,
   getAdminMaintenanceState,
   patchAdminMaintenanceState,
+  forceRemoveAgent,
 } from '../services/adminService';
 import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
@@ -83,6 +84,7 @@ const AdminDashboardPage = () => {
     startsAt: '',
     endsAt: '',
   });
+  const [forceRemoveAgentId, setForceRemoveAgentId] = useState('');
 
   const getRange = useCallback(() => {
     const now = new Date();
@@ -317,6 +319,31 @@ const AdminDashboardPage = () => {
       toast.error(err.message || 'Failed to send broadcast');
     }
   };
+
+  const handleForceRemoveAgent = async (e) => {
+    e.preventDefault();
+    const agentId = forceRemoveAgentId.trim();
+    if (!agentId) {
+      toast.error('Agent ID is required');
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to FORCE remove agent ${agentId} from the pool? This will clear all their active sessions and call states.`)) {
+      return;
+    }
+    try {
+      const out = await forceRemoveAgent(agentId);
+      if (out.success) {
+        toast.success(`Agent ${agentId} has been removed from the pool.`);
+        setForceRemoveAgentId('');
+        await loadShell(); // Refresh to show they are gone
+      } else {
+        toast.error('Failed to remove agent');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Error removing agent');
+    }
+  };
+
 
   const handleSaveMaintenance = async (e) => {
     e.preventDefault();
@@ -606,18 +633,19 @@ const AdminDashboardPage = () => {
                 <th>Pool</th>
                 <th>Status</th>
                 <th>Licensed States</th>
+                <th />
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <>
-                  <tr><td colSpan={5} className={classes.muted}>Loading…</td></tr>
-                  <tr><td colSpan={5}><div className={classes.skeletonRow} /></td></tr>
-                  <tr><td colSpan={5}><div className={classes.skeletonRow} /></td></tr>
+                  <tr><td colSpan={6} className={classes.muted}>Loading…</td></tr>
+                  <tr><td colSpan={6}><div className={classes.skeletonRow} /></td></tr>
+                  <tr><td colSpan={6}><div className={classes.skeletonRow} /></td></tr>
                 </>
               ) : (overview?.agents || []).length === 0 ? (
                 <tr>
-                  <td colSpan={5} className={classes.muted}>
+                  <td colSpan={6} className={classes.muted}>
                     No agents online
                   </td>
                 </tr>
@@ -634,6 +662,29 @@ const AdminDashboardPage = () => {
                     <td><span className={classes.statusPill}>{a.pool}</span></td>
                     <td><span className={classes.statusPill}>{a.status}</span></td>
                     <td>{Array.isArray(a.licensedStates) && a.licensedStates.length > 0 ? a.licensedStates.join(', ') : 'None'}</td>
+                    <td className={classes.actions}>
+                      <button
+                        type="button"
+                        className={classes.dangerBtn}
+                        style={{ padding: '4px 8px' }}
+                        title="Force remove agent from pool"
+                        onClick={async () => {
+                          const agentId = a.id;
+                          if (!window.confirm(`FORCE remove ${getAgentName(a)} (${agentId})?`)) return;
+                          try {
+                            const out = await forceRemoveAgent(agentId);
+                            if (out.success) {
+                              toast.success('Agent removed');
+                              await loadShell();
+                            }
+                          } catch (err) {
+                            toast.error(err.message || 'Error');
+                          }
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -924,6 +975,28 @@ const AdminDashboardPage = () => {
             )}
           </>
         )}
+      </motion.section>
+
+      <motion.section className={classes.card} variants={presets.child}>
+        <h2 className={classes.cardTitle}>Agent Emergency Management</h2>
+        <p className={classes.hint}>
+          If an agent is "stuck" in a call or appears online when they aren't, enter their Agent ID here to manually evict them from all active pools and records.
+        </p>
+        <form className={classes.didForm} style={{ gridTemplateColumns: '1fr auto', alignItems: 'end' }} onSubmit={handleForceRemoveAgent}>
+          <div className={classes.formField}>
+            <label>Agent ID</label>
+            <input
+              className={classes.input}
+              placeholder="e.g. h4L9bs2BgXMPT9KrX56mSJbbKnW2"
+              value={forceRemoveAgentId}
+              onChange={(e) => setForceRemoveAgentId(e.target.value)}
+            />
+          </div>
+          <button type="submit" className={classes.dangerBtn} style={{ height: '42px', padding: '0 20px' }}>
+            <Trash2 size={16} />
+            Force remove from pool
+          </button>
+        </form>
       </motion.section>
 
       <motion.section className={classes.card} variants={presets.child}>

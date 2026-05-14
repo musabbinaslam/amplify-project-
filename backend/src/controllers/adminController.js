@@ -725,6 +725,22 @@ async function getLiveCalls(req, res) {
   }
 }
 
+async function forceRemoveAgent(req, res) {
+  try {
+    const { agentId } = req.params;
+    if (!agentId || !agentId.trim()) {
+      return res.status(400).json({ error: 'agentId is required' });
+    }
+    const removed = await agentManager.removeAgent(agentId.trim());
+    const adminUid = req.user?.uid || 'unknown';
+    console.log(`[Admin] 🚨 Force-removed agent ${agentId} by admin ${adminUid}`);
+    res.json({ success: true, agentId: agentId.trim(), removed });
+  } catch (err) {
+    console.error('[Admin] forceRemoveAgent:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to remove agent' });
+  }
+}
+
 async function getAnalyticsDrilldown(req, res) {
   try {
     const { from, end } = parseRange(req.query || {});
@@ -1081,6 +1097,7 @@ module.exports = {
   getOverviewLite,
   getAnalyticsBundle,
   getLiveCalls,
+  forceRemoveAgent,
   getAnalyticsDrilldown,
   getAiCoachingOverview,
   getAiCoachingAgentPlans,
