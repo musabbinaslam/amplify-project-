@@ -260,7 +260,7 @@ async function buildUserMetaMap(agentIds = []) {
       firstLast ||
       data.email ||
       null;
-    const phone = data.phoneNumber || data.phone || null;
+    const phone = data.phoneNumber || data.phone || data.onboarding?.phone || null;
     if (candidate || phone) map.set(snap.id, { name: candidate, phone });
   });
   const missing = ids.filter((id) => !map.has(id));
