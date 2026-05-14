@@ -657,6 +657,13 @@ const AdminDashboardPage = () => {
                       {getAgentName(a) !== getAgentId(a) ? (
                         <span className={classes.agentSubId}>{getAgentId(a)}</span>
                       ) : null}
+                      {a.phone ? (
+                        <a href={`tel:${a.phone}`} className={classes.agentPhone}>
+                          {a.phone}
+                        </a>
+                      ) : (
+                        <span className={classes.agentPhone} style={{ opacity: 0.5 }}>No phone</span>
+                      )}
                     </td>
                     <td>{a.campaignId}</td>
                     <td><span className={classes.statusPill}>{a.pool}</span></td>

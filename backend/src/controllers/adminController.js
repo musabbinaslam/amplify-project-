@@ -241,7 +241,7 @@ function ratio(a, b) {
   return b ? Number((a / b).toFixed(4)) : 0;
 }
 
-async function buildUserNameMap(agentIds = []) {
+async function buildUserMetaMap(agentIds = []) {
   const ids = [...new Set((agentIds || []).filter(Boolean))];
   if (!ids.length) return new Map();
   const db = getDb();
@@ -260,7 +260,8 @@ async function buildUserNameMap(agentIds = []) {
       firstLast ||
       data.email ||
       null;
-    if (candidate) map.set(snap.id, candidate);
+    const phone = data.phoneNumber || data.phone || null;
+    if (candidate || phone) map.set(snap.id, { name: candidate, phone });
   });
   const missing = ids.filter((id) => !map.has(id));
   if (missing.length) {
@@ -272,10 +273,14 @@ async function buildUserNameMap(agentIds = []) {
       // eslint-disable-next-line no-await-in-loop
       const out = await admin.auth().getUsers(chunk.map((uid) => ({ uid })));
       out.users.forEach((u) => {
-        map.set(u.uid, u.displayName || u.email || u.uid);
+        const existing = map.get(u.uid) || {};
+        map.set(u.uid, {
+          name: existing.name || u.displayName || u.email || u.uid,
+          phone: existing.phone || u.phoneNumber || null,
+        });
       });
       chunk.forEach((uid) => {
-        if (!map.has(uid)) map.set(uid, uid);
+        if (!map.has(uid)) map.set(uid, { name: uid, phone: null });
       });
     }
   }
@@ -583,12 +588,13 @@ async function getAnalyticsBundle(req, res) {
         },
       };
     }
-    const nameMap = await buildUserNameMap((payload.agents || []).map((a) => a.agentId));
+    const metaMap = await buildUserMetaMap((payload.agents || []).map((a) => a.agentId));
     const enrichedPayload = {
       ...payload,
       agents: (payload.agents || []).map((a) => ({
         ...a,
-        agentName: nameMap.get(a.agentId) || a.agentId,
+        agentName: metaMap.get(a.agentId)?.name || a.agentId,
+        phone: metaMap.get(a.agentId)?.phone || null,
       })),
     };
 
@@ -619,7 +625,7 @@ async function getOverviewLite(req, res) {
     const routingDiagnostics = agentManager.getRoutingDiagnostics
       ? agentManager.getRoutingDiagnostics()
       : null;
-    const nameMap = await buildUserNameMap([
+    const metaMap = await buildUserMetaMap([
       ...(overview.agents || []).map((a) => a.id),
       ...activeCalls.map((c) => c.agentId),
     ]);
@@ -627,7 +633,8 @@ async function getOverviewLite(req, res) {
       totalAgents: overview.totalAgents || 0,
       agents: (overview.agents || []).map((a) => ({
         ...a,
-        displayName: nameMap.get(a.id) || a.id,
+        displayName: metaMap.get(a.id)?.name || a.id,
+        phone: metaMap.get(a.id)?.phone || null,
       })),
       pool: overview.pool || { available: [], ringing: [], busy: [] },
       byCampaign: overview.byCampaign || {},
@@ -645,7 +652,8 @@ async function getOverviewLite(req, res) {
       routingDiagnostics,
       liveCalls: activeCalls.map((row) => ({
         ...row,
-        agentName: nameMap.get(row.agentId) || row.agentId,
+        agentName: metaMap.get(row.agentId)?.name || row.agentId,
+        phone: metaMap.get(row.agentId)?.phone || null,
       })),
     });
   } catch (err) {
@@ -707,11 +715,12 @@ async function deleteDid(req, res) {
 async function getLiveCalls(req, res) {
   try {
     const rows = await agentManager.listActiveCalls();
-    const nameMap = await buildUserNameMap(rows.map((r) => r.agentId));
+    const metaMap = await buildUserMetaMap(rows.map((r) => r.agentId));
     res.json({
       rows: rows.map((r) => ({
         ...r,
-        agentName: nameMap.get(r.agentId) || r.agentId,
+        agentName: metaMap.get(r.agentId)?.name || r.agentId,
+        phone: metaMap.get(r.agentId)?.phone || null,
       })),
       meta: {
         generatedAt: new Date().toISOString(),
