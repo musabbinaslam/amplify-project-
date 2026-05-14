@@ -263,7 +263,10 @@ async function buildUserMetaMap(agentIds = []) {
     const phone = data.phoneNumber || data.phone || data.onboarding?.phone || null;
     if (candidate || phone) map.set(snap.id, { name: candidate, phone });
   });
-  const missing = ids.filter((id) => !map.has(id));
+  const missing = ids.filter((id) => {
+    const entry = map.get(id);
+    return !entry || !entry.name || !entry.phone;
+  });
   if (missing.length) {
     const chunks = [];
     for (let i = 0; i < missing.length; i += 100) {
@@ -275,12 +278,14 @@ async function buildUserMetaMap(agentIds = []) {
       out.users.forEach((u) => {
         const existing = map.get(u.uid) || {};
         map.set(u.uid, {
-          name: existing.name || u.displayName || u.email || u.uid,
+          name: existing.name || u.displayName || u.email || null,
           phone: existing.phone || u.phoneNumber || null,
         });
       });
       chunk.forEach((uid) => {
-        if (!map.has(uid)) map.set(uid, { name: uid, phone: null });
+        const existing = map.get(uid) || {};
+        if (!existing.name) existing.name = uid;
+        map.set(uid, existing);
       });
     }
   }
