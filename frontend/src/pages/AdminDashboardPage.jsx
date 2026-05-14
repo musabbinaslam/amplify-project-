@@ -781,10 +781,25 @@ const AdminDashboardPage = () => {
                     }}
                   >
                     <td className={classes.agentCell}>
-                      <strong>{getAgentName(row)}</strong>
-                      {getAgentName(row) !== getAgentId(row) ? (
-                        <span className={classes.agentSubId}>{getAgentId(row)}</span>
-                      ) : null}
+                      <details 
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <summary style={{ listStyle: 'none' }} title="Tap to view phone number">
+                          <strong>{getAgentName(row)}</strong>
+                          {getAgentName(row) !== getAgentId(row) ? (
+                            <span className={classes.agentSubId}>{getAgentId(row)}</span>
+                          ) : null}
+                        </summary>
+                        <div style={{ marginTop: '6px' }}>
+                          {row.phone ? (
+                            <a href={`tel:${row.phone}`} className={classes.agentPhone} onClick={(e) => e.stopPropagation()}>
+                              {row.phone}
+                            </a>
+                          ) : (
+                            <span className={classes.agentPhone} style={{ opacity: 0.5 }} onClick={(e) => e.stopPropagation()}>No phone</span>
+                          )}
+                        </div>
+                      </details>
                     </td>
                     <td>{row.calls}</td>
                     <td>{Math.round((row.answerRate || 0) * 100)}%</td>
@@ -842,7 +857,9 @@ const AdminDashboardPage = () => {
                 </button>
               ) : null}
               <span className={classes.statusPill}>
-                {selectedCampaign ? `Campaign: ${selectedCampaign}` : `Agent: ${selectedAgent}`}
+                {selectedCampaign 
+                  ? `Campaign: ${selectedCampaign}` 
+                  : `Agent: ${overview?.agents?.find(a => a.id === selectedAgent)?.displayName || agentStats?.find(a => a.agentId === selectedAgent)?.agentName || selectedAgent}`}
               </span>
               <button
                 type="button"
@@ -924,10 +941,23 @@ const AdminDashboardPage = () => {
                     {filteredSortedDrilldownLogs.map((log) => (
                       <tr key={log.id}>
                         <td className={classes.agentCell}>
-                          <strong>{log.agentName || agentNameById.get(log.agentId) || log.agentId || 'Unknown'}</strong>
-                          {(log.agentName || agentNameById.get(log.agentId)) && (log.agentName || agentNameById.get(log.agentId)) !== log.agentId ? (
-                            <span className={classes.agentSubId}>{log.agentId}</span>
-                          ) : null}
+                          <details style={{ cursor: 'pointer' }}>
+                            <summary style={{ listStyle: 'none' }} title="Tap to view phone number">
+                              <strong>{getAgentName(log)}</strong>
+                              {getAgentName(log) !== getAgentId(log) ? (
+                                <span className={classes.agentSubId}>{getAgentId(log)}</span>
+                              ) : null}
+                            </summary>
+                            <div style={{ marginTop: '6px' }}>
+                              {log.phone ? (
+                                <a href={`tel:${log.phone}`} className={classes.agentPhone}>
+                                  {log.phone}
+                                </a>
+                              ) : (
+                                <span className={classes.agentPhone} style={{ opacity: 0.5 }}>No phone</span>
+                              )}
+                            </div>
+                          </details>
                         </td>
                         <td>{log.campaign}</td>
                         <td>{log.duration}s</td>
