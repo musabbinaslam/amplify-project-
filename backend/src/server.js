@@ -12,6 +12,7 @@ const supportRoutes = require('./routes/supportRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const qaRoutes = require('./routes/qaRoutes');
 const { setupCallSockets } = require('./sockets/callSockets');
 const { verifyFirebaseToken } = require('./middleware/auth');
 const { globalRateLimiter } = require('./middleware/security');
@@ -121,6 +122,9 @@ const startEngine = async () => {
 
     // Admin dashboard (Firebase + Firestore role admin)
     app.use('/api/admin', adminRoutes);
+
+    // QA dashboard (read-only analytics + agent emergency management, role: 'qa' or 'admin')
+    app.use('/api/qa', qaRoutes);
     
     // Mount all voice routes (/token, /incoming-call, /call-completed, /logs)
     app.use('/api/voice', voiceRoutes);

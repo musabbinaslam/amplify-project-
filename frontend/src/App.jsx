@@ -32,6 +32,10 @@ const ReferralProgramPage = lazy(() => import('./pages/ReferralProgramPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const AdminAITrainingPage = lazy(() => import('./pages/AdminAITrainingPage'));
 
+const QaDashboardPage = lazy(() => import('./pages/QaDashboardPage'));
+const QaAITrainingPage = lazy(() => import('./pages/QaAITrainingPage'));
+
+
 import DialerOverlay from './components/ui/DialerOverlay';
 
 const ProtectedRoute = () => {
@@ -49,6 +53,13 @@ const GuestRoute = ({ children }) => {
   const hasFirebaseSession = Boolean(auth?.currentUser);
   if (loading) return <PageLoader fullScreen />;
   if (token && hasFirebaseSession) return <Navigate to="/app" replace />;
+  return children;
+};
+
+
+const QaOnly = ({ children }) => {
+  const role = useAuthStore((s) => s.user?.role);
+  if (role !== 'admin' && role !== 'qa') return <Navigate to="/app" replace />;
   return children;
 };
 
@@ -145,6 +156,22 @@ const AnimatedRoutes = () => {
               </AdminOnly>
             </Suspense>
           } />
+          
+          <Route path="qa" element={
+            <Suspense fallback={<PageLoader />}>
+              <QaOnly>
+                <QaDashboardPage />
+              </QaOnly>
+            </Suspense>
+          } />
+          <Route path="qa/ai-training" element={
+            <Suspense fallback={<PageLoader />}>
+              <QaOnly>
+                <QaAITrainingPage />
+              </QaOnly>
+            </Suspense>
+          } />
+
           <Route path="*" element={<div><h2 style={{color: 'white'}}>404 Not Found</h2></div>} />
         </Route>
       </Routes>
