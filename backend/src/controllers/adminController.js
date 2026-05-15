@@ -783,11 +783,16 @@ async function getAnalyticsDrilldown(req, res) {
         const recentLogs = filtered
           .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')))
           .slice(-50)
-          .reverse()
-          .map(r => ({
+          .reverse();
+
+        const metaMap = await buildUserMetaMap(recentLogs.map((r) => r.agentId));
+
+        const enrichedLogs = recentLogs.map(r => ({
             id: r.id,
             createdAt: r.createdAt,
             agentId: r.agentId,
+            agentName: metaMap.get(r.agentId)?.name || r.agentId,
+            phone: metaMap.get(r.agentId)?.phone || null,
             campaign: r.campaignLabel || r.campaign,
             duration: r.duration,
             status: r.status,
@@ -795,7 +800,7 @@ async function getAnalyticsDrilldown(req, res) {
             cost: r.cost,
             disposition: r.disposition,
             recordingUrl: r.recordingUrl || null
-          }));
+        }));
 
         return res.json({
           type,
@@ -803,7 +808,7 @@ async function getAnalyticsDrilldown(req, res) {
           summary: rollup.summary,
           outcomes: rollup.outcomes,
           trend: rollup.trend,
-          recentLogs,
+          recentLogs: enrichedLogs,
           meta: {
             generatedAt: new Date().toISOString(),
             source: 'adminMetrics.daily',
