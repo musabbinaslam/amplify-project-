@@ -33,7 +33,8 @@ async function loadUserRole(uid) {
     if (profile?.brandColor) {
       try { useThemeStore.getState().hydrateFromProfile(profile.brandColor); } catch {}
     }
-    return profile?.role === 'admin' ? 'admin' : 'agent';
+    const r = profile?.role;
+    return r === 'admin' ? 'admin' : r === 'qa' ? 'qa' : 'agent';
   } catch {
     return 'agent';
   }

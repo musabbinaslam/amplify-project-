@@ -7,7 +7,7 @@ import {
   Play, Phone, LayoutDashboard, List, FileText,
   DollarSign, MapPin, Box, User, HeadphonesIcon,
   MessageSquare, Gift, Settings, LogOut,
-  ChevronLeft, ChevronRight, CheckCircle2, Shield, FileEdit
+  ChevronLeft, ChevronRight, CheckCircle2, Shield, FileEdit, ShieldCheck
 } from 'lucide-react';
 import classes from './Sidebar.module.css';
 
@@ -52,7 +52,22 @@ const Sidebar = () => {
         icon: Shield,
       });
     }
+    
+    if (role === 'qa') {
+      base.splice(base.length - 1, 0, {
+        path: '/app/qa',
+        label: 'QA Dashboard',
+        icon: ShieldCheck,
+        end: true,
+      });
+      base.splice(base.length - 1, 0, {
+        path: '/app/qa/ai-training',
+        label: 'QA AI Training',
+        icon: ShieldCheck,
+      });
+    }
     return base;
+  
   }, [role]);
 
   const handleLogout = async () => {
