@@ -14,6 +14,9 @@ router.post('/incoming-call', webhookCallLimiter, validateTwilioWebhook, voiceCo
 // Handle call completion for billing (Secured)
 router.post('/call-completed', webhookCallLimiter, validateTwilioWebhook, voiceController.handleCallCompleted);
 
+// Dial leg status (answered / completed) — promotes IN_CALL without browser socket
+router.post('/dial-status', webhookCallLimiter, validateTwilioWebhook, voiceController.handleDialStatus);
+
 // Fetch history (authenticated — per-user from Firestore)
 router.get('/logs', verifyFirebaseToken, voiceController.getLogs);
 
