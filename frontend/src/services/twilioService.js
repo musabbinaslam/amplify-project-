@@ -155,7 +155,10 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
 
     device.on('error', (twilioError) => {
       console.error('Twilio Device Error:', twilioError);
-      store.setCallState('error');
+      const cs = useDialerStore.getState().callState;
+      if (cs !== 'active' && cs !== 'ringing') {
+        store.setCallState('error');
+      }
     });
 
     // Handle token rotation automatically before it expires (1hr limit)
@@ -183,8 +186,12 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
 
       const callerId = call.parameters.From;
       const callSid = call.parameters.CallSid || call.parameters.callSid || null;
-      if (socket.connected) {
-        socket.emit('agent:call_incoming', {
+      const emitCallDelivered = (eventName) => {
+        if (!socket.connected) {
+          console.warn(`[Twilio] Socket disconnected — cannot emit ${eventName}; server dial-status will promote IN_CALL`);
+          return;
+        }
+        socket.emit(eventName, {
           agentId: passedIdentity,
           sessionId: socket._agentSessionId || liveSessionId,
           callSid,
@@ -192,7 +199,8 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
           to: call.parameters.To || null,
           campaignId: campaign,
         });
-      }
+      };
+      emitCallDelivered('agent:call_incoming');
       store.setIncomingCall(call, callerId);
 
       call.on('cancel', () => {
@@ -210,6 +218,7 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       });
 
       call.on('accept', () => {
+        emitCallDelivered('agent:call_accepted');
         store.setCallState('active');
         store.setActiveCall(call);
 

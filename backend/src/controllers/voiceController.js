@@ -83,12 +83,23 @@ exports.handleIncomingCall = async (req, res) => {
           startedAt: new Date().toISOString(),
           retryCount,
         });
+        const dialStatusQs = new URLSearchParams({
+          campaign: String(campaign),
+          agentId: String(available.id),
+          retryCount: String(retryCount),
+          parentCallSid: String(parentCallSid),
+        });
         const dial = twiml.dial({
           action: `/api/voice/call-completed?campaign=${campaign}&agentId=${available.id}&retryCount=${retryCount}`,
           method: 'POST',
           timeout: 20,
           answerOnBridge: true,
-          record: 'record-from-answer'
+          record: 'record-from-answer',
+          // Server-side promotion to IN_CALL when Twilio bridges the client leg.
+          // Does not depend on the browser socket (agent:call_incoming).
+          statusCallback: `/api/voice/dial-status?${dialStatusQs.toString()}`,
+          statusCallbackEvent: 'initiated ringing answered completed',
+          statusCallbackMethod: 'POST',
         });
         
         dial.client(available.id);
@@ -110,6 +121,58 @@ exports.handleIncomingCall = async (req, res) => {
 
   res.set('Content-Type', 'text/xml');
   res.send(twiml.toString());
+};
+
+/**
+ * Twilio Dial statusCallback — promotes agent to IN_CALL when the client leg is answered.
+ * Without this, agents stay in Redis RINGING if the browser socket never emits call_incoming.
+ */
+exports.handleDialStatus = async (req, res) => {
+  const { campaign, agentId } = req.query;
+  const event = String(req.body.StatusCallbackEvent || '').toLowerCase();
+  const callStatus = String(req.body.CallStatus || '').toLowerCase();
+  const callSid = String(req.body.CallSid || req.query.parentCallSid || '').trim();
+
+  if (!agentId) {
+    return res.sendStatus(200);
+  }
+
+  console.log(
+    `[Twilio] Dial status: agent=${agentId} event=${event || 'n/a'} callStatus=${callStatus || 'n/a'} sid=${callSid || 'n/a'}`,
+  );
+
+  try {
+    const isAnswered =
+      event === 'answered' ||
+      callStatus === 'in-progress' ||
+      callStatus === 'answered';
+
+    if (isAnswered) {
+      await agentManager.confirmCallDelivered(agentId, {
+        callSid,
+        from: req.body.From,
+        to: req.body.To,
+        campaignId: campaign,
+      });
+    } else {
+      const terminal =
+        ['completed', 'busy', 'no-answer', 'failed', 'canceled', 'cancelled'].includes(event) ||
+        ['busy', 'no-answer', 'failed', 'canceled', 'cancelled'].includes(callStatus);
+      if (terminal) {
+        const active = await agentManager.getActiveCall(agentId);
+        if (!active) {
+          await agentManager.clearActiveCall(agentId);
+          const agentState = await agentManager.getAgentState(agentId);
+          await agentManager.releaseAgent(agentId, agentState?.sessionId || null);
+          console.log(`[Twilio] Dial status released agent ${agentId} (${event || callStatus}) — never bridged`);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Twilio] handleDialStatus:', err.message);
+  }
+
+  return res.sendStatus(200);
 };
 
 /**

@@ -107,7 +107,7 @@ exports.setupCallSockets = (io) => {
 
 
 
-        socket.on('agent:call_incoming', async (payload = {}) => {
+        const handleCallDelivered = async (payload = {}) => {
             const agentId = String(payload.agentId || socket.agentId || '').trim();
             if (!agentId) return;
             try {
@@ -118,9 +118,12 @@ exports.setupCallSockets = (io) => {
                     campaignId: payload.campaignId,
                 });
             } catch (e) {
-                console.warn('[Socket] agent:call_incoming failed:', e.message);
+                console.warn('[Socket] call delivery confirm failed:', e.message);
             }
-        });
+        };
+
+        socket.on('agent:call_incoming', handleCallDelivered);
+        socket.on('agent:call_accepted', handleCallDelivered);
 
         socket.on('agent:heartbeat', async (payload) => {
             const identity = payload?.agentId || socket.agentId;

@@ -352,12 +352,21 @@ class AgentManager {
     */
    async confirmCallDelivered(agentId, payload = {}) {
       if (!agentId) return false;
-      const pendingRaw = await redisClient.get(`agent:pendingcall:${agentId}`);
-      const pending = pendingRaw ? JSON.parse(pendingRaw) : {};
-      const callSid = String(payload.callSid || pending.callSid || '').trim();
-      if (callSid && pending.callSid && String(pending.callSid) !== callSid) {
-         console.warn(`[Router] call_incoming sid mismatch for ${agentId}: pending=${pending.callSid} got=${callSid}`);
-         return false;
+      let pending = {};
+      try {
+         const pendingRaw = await redisClient.get(`agent:pendingcall:${agentId}`);
+         pending = pendingRaw ? JSON.parse(pendingRaw) : {};
+      } catch {
+         pending = {};
+      }
+      const clientSid = String(payload.callSid || '').trim();
+      // Server stores the parent inbound SID; Twilio Client "incoming" often sends the
+      // child leg SID — do not block confirmation on mismatch or agents stay RINGING forever.
+      const callSid = String(pending.callSid || clientSid || '').trim();
+      if (callSid && clientSid && pending.callSid && String(pending.callSid) !== clientSid) {
+         console.warn(
+           `[Router] call_incoming sid note for ${agentId}: parent=${pending.callSid} client=${clientSid} (using parent for routing state)`,
+         );
       }
       await this.upsertActiveCall(agentId, {
          callSid,
@@ -444,6 +453,7 @@ class AgentManager {
 
    async setAgentWrapUp(agentId) {
       if (!agentId) return;
+      await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sRem('agents:busy', agentId);
       
       const rawStr = await redisClient.hGet('agents:data', agentId);
@@ -655,10 +665,10 @@ class AgentManager {
          const isWrapUp = raw.status === 'WRAP_UP';
          const poolSlot = pool.available.includes(id)
                ? 'available'
-               : pool.ringing.includes(id)
-                  ? 'ringing'
-                  : pool.busy.includes(id)
-                     ? 'busy'
+               : pool.busy.includes(id)
+                  ? 'busy'
+                  : pool.ringing.includes(id)
+                     ? 'ringing'
                      : isWrapUp
                         ? 'wrap_up'
                         : 'unknown';
