@@ -96,14 +96,10 @@ class AgentManager {
          this.markDiagnostic('rejectedNoHeartbeat');
          return { ok: false, reason: 'no-heartbeat' };
       }
-      if (options.requireVoiceReady) {
-         const socketRegistry = require('../sockets/socketRegistry');
-         const voiceReady = await this.hasVoiceReady(id);
-         const socketLive = socketRegistry.isAgentConnected(id);
-         if (!voiceReady || !socketLive) {
-            this.markDiagnostic('rejectedVoiceNotReady');
-            return { ok: false, reason: voiceReady ? 'socket-disconnected' : 'voice-not-ready' };
-         }
+      // Redis voice_ready only (not in-memory socket map — breaks behind load balancers).
+      if (options.requireVoiceReady && !(await this.hasVoiceReady(id))) {
+         this.markDiagnostic('rejectedVoiceNotReady');
+         return { ok: false, reason: 'voice-not-ready' };
       }
       const dataStr = await redisClient.hGet('agents:data', id);
       const data = dataStr ? JSON.parse(dataStr) : null;
@@ -114,9 +110,30 @@ class AgentManager {
       if (data.campaignId && String(data.campaignId) !== String(campaignId)) {
          return { ok: false, reason: 'campaign-mismatch' };
       }
-      if (options.requireAvailable && String(data.status || '').toUpperCase() !== 'AVAILABLE') {
-         this.markDiagnostic('rejectedWrongStatus');
-         return { ok: false, reason: 'wrong-status' };
+      if (options.requireAvailable) {
+         const inPool = await redisClient.zScore(this.poolKey(campaignId), id);
+         if (inPool == null) {
+            this.markDiagnostic('rejectedNotInPool');
+            return { ok: false, reason: 'not-in-pool' };
+         }
+         const busy = await redisClient.sIsMember('agents:busy', id);
+         if (busy) {
+            this.markDiagnostic('rejectedBusy');
+            return { ok: false, reason: 'busy' };
+         }
+         const hasPending = await this.getPendingCall(id);
+         if (hasPending?.callSid) {
+            this.markDiagnostic('rejectedRinging');
+            return { ok: false, reason: 'ringing' };
+         }
+         if (await redisClient.sIsMember('agents:ringing', id)) {
+            await redisClient.sRem('agents:ringing', id);
+            data.status = 'AVAILABLE';
+            await redisClient.hSet('agents:data', id, JSON.stringify(data));
+         } else if (String(data.status || '').toUpperCase() !== 'AVAILABLE') {
+            data.status = 'AVAILABLE';
+            await redisClient.hSet('agents:data', id, JSON.stringify(data));
+         }
       }
       if (data.sessionId && String(heartbeat) !== String(data.sessionId)) {
          this.markDiagnostic('rejectedSessionMismatch');
@@ -252,10 +269,9 @@ class AgentManager {
                if (presence.reason === 'no-heartbeat' || presence.reason === 'session-mismatch' || presence.reason === 'missing-agent-data') {
                   await redisClient.hDel('agents:data', id);
                   this.markDiagnostic('ghostEvicted');
-               } else if (presence.reason === 'voice-not-ready' || presence.reason === 'socket-disconnected') {
-                  // In Redis pool but Twilio Client not reachable — skip until they re-register
-                  await this.clearVoiceReady(id);
-                  console.log(`[Router] 📵 Agent ${id} skipped — browser/Twilio client not ready for dial`);
+               } else if (presence.reason === 'voice-not-ready') {
+                  // Skip this routing attempt only — keep agent in pool for the next call.
+                  console.log(`[Router] 📵 Agent ${id} skipped — Twilio client not ready (still in pool)`);
                }
                return null;
             }
@@ -268,11 +284,12 @@ class AgentManager {
       // 3. Filter by licensed state (if a caller state is provided)
       let eligible = agentDataList;
       if (callerState) {
+         const stateKey = String(callerState).trim().toUpperCase();
          eligible = agentDataList.filter((agent) => {
             try {
                const states = JSON.parse(agent.licensedStates || '[]');
                // Empty array = licensed in all states (no restriction)
-               return states.length === 0 || states.includes(callerState.toUpperCase());
+               return states.length === 0 || states.includes(stateKey);
             } catch {
                return true; // Parse failure → don't block routing
             }
@@ -309,6 +326,9 @@ class AgentManager {
          console.log(`[Router] ⚡ Race: agent ${agent.id} already taken, trying next...`);
       }
 
+      console.log(
+        `[Router] ❌ No lock for "${campaignId}" state=${callerState || 'ANY'} — ${agentDataList.length} in pool, ${eligible.length} eligible after filters`,
+      );
       return null;
    }
 
@@ -603,6 +623,9 @@ class AgentManager {
       let released = 0;
       await Promise.all(ringingIds.map(async (agentId) => {
          if (exceptAgentId && agentId === exceptAgentId) return;
+         const onCall = await redisClient.hGet('activecalls:data', agentId);
+         if (onCall) return;
+         if (await redisClient.sIsMember('agents:busy', agentId)) return;
          const pending = await this.getPendingCall(agentId);
          const sameCall = pending?.callSid && String(pending.callSid).trim() === target;
          const ghostRinging = !pending;

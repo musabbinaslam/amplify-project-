@@ -4,6 +4,7 @@ const { VoiceResponse } = twilio.twiml;
 const agentManager = require('../services/agentManager');
 const callLogService = require('../services/callLogService');
 const phoneRouteService = require('../services/phoneRouteService');
+const { normalizeCallerState } = require('../utils/phoneUtils');
 const { dispatchQaInsightJob } = require('../queues/qaQueue');
 
 /** Absolute URL for Twilio webhooks (relative URLs break statusCallback on some hosts). */
@@ -52,9 +53,8 @@ exports.generateToken = (req, res) => {
 exports.handleIncomingCall = async (req, res) => {
   const twiml = new VoiceResponse();
   
-  // Safe extraction to prevent crashes
   const fromNumber = (req.body && req.body.From) || 'Unknown Caller';
-  let callerState = (req.body && req.body.FromState) || null; // fallback to Twilio Area Code State
+  let callerState = normalizeCallerState(req.body?.FromState, fromNumber);
   const queryCampaign = req.query && req.query.campaign;
   const bodyCampaign = req.body && req.body.campaign;
   let campaign = queryCampaign || bodyCampaign;
