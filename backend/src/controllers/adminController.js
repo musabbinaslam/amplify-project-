@@ -62,6 +62,7 @@ function normalizeCall(doc) {
     cost: Number(data.cost || 0),
     disposition: data.disposition || null,
     recordingUrl: data.recordingUrl || null,
+    recordingSid: data.recordingSid || null,
     createdAt,
   };
 }
@@ -745,10 +746,12 @@ async function forceRemoveAgent(req, res) {
     if (!agentId || !agentId.trim()) {
       return res.status(400).json({ error: 'agentId is required' });
     }
-    const removed = await agentManager.removeAgent(agentId.trim());
+    // Use forceReleaseAgent: if agent has data, put them back to AVAILABLE
+    // (clears the ghost IN_CALL/WRAP_UP state). If no data exists, fully removes them.
+    const result = await agentManager.forceReleaseAgent(agentId.trim());
     const adminUid = req.user?.uid || 'unknown';
-    console.log(`[Admin] 🚨 Force-removed agent ${agentId} by admin ${adminUid}`);
-    res.json({ success: true, agentId: agentId.trim(), removed });
+    console.log(`[Admin] 🚨 Force-${result.action} agent ${agentId} by admin ${adminUid}`);
+    res.json({ success: true, agentId: agentId.trim(), ...result });
   } catch (err) {
     console.error('[Admin] forceRemoveAgent:', err.message);
     res.status(500).json({ error: err.message || 'Failed to remove agent' });
@@ -799,7 +802,8 @@ async function getAnalyticsDrilldown(req, res) {
             isBillable: r.isBillable,
             cost: r.cost,
             disposition: r.disposition,
-            recordingUrl: r.recordingUrl || null
+            recordingUrl: r.recordingUrl || null,
+            recordingSid: r.recordingSid || null,
         }));
 
         return res.json({
@@ -871,7 +875,8 @@ async function getAnalyticsDrilldown(req, res) {
         isBillable: r.isBillable,
         cost: r.cost,
         disposition: r.disposition,
-        recordingUrl: r.recordingUrl || null
+        recordingUrl: r.recordingUrl || null,
+        recordingSid: r.recordingSid || null,
       })),
       meta: {
         generatedAt: new Date().toISOString(),
