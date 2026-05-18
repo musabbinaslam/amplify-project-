@@ -79,7 +79,35 @@ function getStateFromPhone(phone) {
   return AREA_CODE_TO_STATE[areaCode] || null;
 }
 
+const STATE_NAME_TO_CODE = {
+  ALABAMA: 'AL', ALASKA: 'AK', ARIZONA: 'AZ', ARKANSAS: 'AR', CALIFORNIA: 'CA',
+  COLORADO: 'CO', CONNECTICUT: 'CT', DELAWARE: 'DE', FLORIDA: 'FL', GEORGIA: 'GA',
+  HAWAII: 'HI', IDAHO: 'ID', ILLINOIS: 'IL', INDIANA: 'IN', IOWA: 'IA',
+  KANSAS: 'KS', KENTUCKY: 'KY', LOUISIANA: 'LA', MAINE: 'ME', MARYLAND: 'MD',
+  MASSACHUSETTS: 'MA', MICHIGAN: 'MI', MINNESOTA: 'MN', MISSISSIPPI: 'MS',
+  MISSOURI: 'MO', MONTANA: 'MT', NEBRASKA: 'NE', NEVADA: 'NV', 'NEW HAMPSHIRE': 'NH',
+  'NEW JERSEY': 'NJ', 'NEW MEXICO': 'NM', 'NEW YORK': 'NY', 'NORTH CAROLINA': 'NC',
+  'NORTH DAKOTA': 'ND', OHIO: 'OH', OKLAHOMA: 'OK', OREGON: 'OR', PENNSYLVANIA: 'PA',
+  'RHODE ISLAND': 'RI', 'SOUTH CAROLINA': 'SC', 'SOUTH DAKOTA': 'SD',
+  TENNESSEE: 'TN', TEXAS: 'TX', UTAH: 'UT', VERMONT: 'VT', VIRGINIA: 'VA',
+  WASHINGTON: 'WA', 'WEST VIRGINIA': 'WV', WISCONSIN: 'WI', WYOMING: 'WY',
+};
+
+/**
+ * Normalize Twilio FromState or derive from caller ID (E.164 / 10-digit).
+ */
+function normalizeCallerState(fromState, fromPhone) {
+  const raw = String(fromState || '').trim().toUpperCase();
+  if (raw.length === 2 && /^[A-Z]{2}$/.test(raw)) return raw;
+  if (STATE_NAME_TO_CODE[raw]) return STATE_NAME_TO_CODE[raw];
+  const derived = getStateFromPhone(fromPhone);
+  if (derived) return derived;
+  return raw.length === 2 ? raw : null;
+}
+
 module.exports = {
   getStateFromPhone,
-  AREA_CODE_TO_STATE
+  normalizeCallerState,
+  AREA_CODE_TO_STATE,
+  STATE_NAME_TO_CODE,
 };
