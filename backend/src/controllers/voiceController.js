@@ -72,13 +72,15 @@ exports.handleIncomingCall = async (req, res) => {
      const available = await agentManager.findAndLockAvailableAgent(campaign, callerState);
 
      if (available) {
-        await agentManager.upsertActiveCall(available.id, {
-          callSid: req.body?.CallSid || req.body?.CallSidInbound || '',
+        const parentCallSid = req.body?.CallSid || req.body?.CallSidInbound || '';
+        // Stay RINGING until the browser receives the Twilio leg (agent:call_incoming).
+        // Marking IN_CALL/busy before dial caused ghosts when 2+ agents were online.
+        await agentManager.markAgentDialing(available.id, {
+          callSid: parentCallSid,
           from: fromNumber,
           to: toNumber,
           campaignId: campaign,
           startedAt: new Date().toISOString(),
-          state: 'bridging',
           retryCount,
         });
         const dial = twiml.dial({
@@ -199,7 +201,17 @@ exports.handleCallCompleted = async (req, res) => {
                 );
             } else {
                 if (DialCallStatus === 'completed') {
-                    // Call answered. Put agent in wrap-up to fill out disposition.
+                    // Fallback if browser never emitted agent:call_incoming before hangup.
+                    if (!(await agentManager.getActiveCall(resolvedAgentId))) {
+                        await agentManager.upsertActiveCall(resolvedAgentId, {
+                            callSid: CallSid,
+                            from: From,
+                            to: To,
+                            campaignId: campaign,
+                            startedAt: new Date().toISOString(),
+                            state: 'in_call',
+                        });
+                    }
                     await agentManager.setAgentWrapUp(resolvedAgentId);
                 } else {
                     // Call missed/failed/cancelled. Release immediately.
