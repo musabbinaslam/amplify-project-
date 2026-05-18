@@ -138,6 +138,22 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
     });
 
     // 4. Register event listeners BEFORE calling device.register()
+    const leavePoolAndOffline = (reason) => {
+      console.warn(`[Twilio] ${reason} — leaving routing pool`);
+      if (socket._heartbeatInterval) clearInterval(socket._heartbeatInterval);
+      if (socket.connected) {
+        socket.emit('agent:go_offline', { sessionId: socket._agentSessionId || liveSessionId });
+      }
+      try { device.destroy(); } catch (_) { /* ignore */ }
+      const dialerStore = useDialerStore.getState();
+      if (typeof dialerStore.goOffline === 'function') {
+        dialerStore.goOffline();
+      } else {
+        dialerStore.setDevice?.(null);
+        dialerStore.setCallState?.('offline');
+      }
+    };
+
     device.on('registered', () => {
       console.log('[Twilio] Device registered ✔ — notifying backend to enter routing pool');
       store.setDevice(device);
@@ -153,11 +169,22 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       }
     });
 
+    device.on('unregistered', () => {
+      const cs = useDialerStore.getState().callState;
+      if (cs === 'active' || cs === 'ringing') return;
+      leavePoolAndOffline('Device unregistered');
+    });
+
     device.on('error', (twilioError) => {
       console.error('Twilio Device Error:', twilioError);
       const cs = useDialerStore.getState().callState;
       if (cs !== 'active' && cs !== 'ringing') {
         store.setCallState('error');
+        const code = Number(twilioError?.code || 0);
+        // Fatal registration / token errors — don't stay in pool with a dead device
+        if ([31009, 31201, 31204, 31205, 31206, 53000, 53001].includes(code)) {
+          leavePoolAndOffline(`Device error ${code}`);
+        }
       }
     });
 
