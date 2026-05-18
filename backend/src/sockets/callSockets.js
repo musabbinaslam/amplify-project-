@@ -107,6 +107,21 @@ exports.setupCallSockets = (io) => {
 
 
 
+        socket.on('agent:call_incoming', async (payload = {}) => {
+            const agentId = String(payload.agentId || socket.agentId || '').trim();
+            if (!agentId) return;
+            try {
+                await agentManager.confirmCallDelivered(agentId, {
+                    callSid: payload.callSid,
+                    from: payload.from,
+                    to: payload.to,
+                    campaignId: payload.campaignId,
+                });
+            } catch (e) {
+                console.warn('[Socket] agent:call_incoming failed:', e.message);
+            }
+        });
+
         socket.on('agent:heartbeat', async (payload) => {
             const identity = payload?.agentId || socket.agentId;
             const sessionFromClient = String(payload?.sessionId || '').trim();

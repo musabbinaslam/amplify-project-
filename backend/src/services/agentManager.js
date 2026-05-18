@@ -3,6 +3,8 @@ const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const PRESENCE_FRESHNESS_MS = 120 * 1000;
 const WRAPUP_MAX_AGE_MS    = 10 * 60 * 1000;  // 10 min — WRAP_UP must not last longer
 const INCALL_MAX_AGE_MS    = 90 * 60 * 1000;  // 90 min — force-evict any zombie IN_CALL
+const RINGING_MAX_AGE_MS   = 25 * 1000;       // dial timeout (20s) + buffer — stale RINGING cleanup
+const PENDING_CALL_TTL_SEC = 35;
 
 /**
  * AgentManager — Per-Campaign Sorted Set Routing
@@ -280,8 +282,6 @@ class AgentManager {
       const candidates = await redisClient.zRange(this.poolKey(campaignId), 0, 9);
       if (candidates.length === 0) return false;
 
-      if (!callerState) return true; // Has agents, no state filter needed
-
       // OPTIMIZATION: Run all Redis checks in parallel instead of a slow loop
       const results = await Promise.all(candidates.map(async (id) => {
          const presence = await this.validateAgentPresence(campaignId, id, {
@@ -291,12 +291,12 @@ class AgentManager {
          if (!presence.ok) return false;
          const data = presence.data;
          
+         if (!callerState) return true;
          try {
             const states = JSON.parse(data.licensedStates || '[]');
-            // Return true if agent has no state restrictions or matches the caller state
             if (states.length === 0 || states.includes(callerState.toUpperCase())) return true;
          } catch {
-            return true; // Failsafe
+            return true;
          }
          return false;
       }));
@@ -309,9 +309,73 @@ class AgentManager {
     * Release an agent back to the available pool after a call ends.
     * They are added back with score = Date.now() → they go to the BACK of the LRU queue.
     */
+   async clearPendingCall(agentId, callSid = null) {
+      if (!agentId) return;
+      const pendingRaw = await redisClient.get(`agent:pendingcall:${agentId}`);
+      if (pendingRaw) {
+         try {
+            const pending = JSON.parse(pendingRaw);
+            if (pending?.callSid) await redisClient.del(`call:route:${pending.callSid}`);
+         } catch { /* ignore */ }
+      }
+      if (callSid) await redisClient.del(`call:route:${callSid}`);
+      await redisClient.del(`agent:pendingcall:${agentId}`);
+   }
+
+   /**
+    * Called when Twilio starts dialing a client — agent stays RINGING (not IN_CALL/busy).
+    * Prevents "busy with no ring" when the browser never receives the Twilio leg.
+    */
+   async markAgentDialing(agentId, payload = {}) {
+      if (!agentId) return;
+      const callSid = String(payload.callSid || '').trim();
+      const pending = {
+         callSid,
+         from: String(payload.from || ''),
+         to: String(payload.to || ''),
+         campaignId: String(payload.campaignId || ''),
+         startedAt: String(payload.startedAt || new Date().toISOString()),
+         retryCount: Number(payload.retryCount || 0),
+      };
+      await redisClient.setEx(
+         `agent:pendingcall:${agentId}`,
+         PENDING_CALL_TTL_SEC,
+         JSON.stringify(pending),
+      );
+      if (callSid) {
+         await redisClient.setEx(`call:route:${callSid}`, PENDING_CALL_TTL_SEC, agentId);
+      }
+   }
+
+   /**
+    * Browser confirmed Twilio delivered the incoming leg — now mark IN_CALL for dashboards.
+    */
+   async confirmCallDelivered(agentId, payload = {}) {
+      if (!agentId) return false;
+      const pendingRaw = await redisClient.get(`agent:pendingcall:${agentId}`);
+      const pending = pendingRaw ? JSON.parse(pendingRaw) : {};
+      const callSid = String(payload.callSid || pending.callSid || '').trim();
+      if (callSid && pending.callSid && String(pending.callSid) !== callSid) {
+         console.warn(`[Router] call_incoming sid mismatch for ${agentId}: pending=${pending.callSid} got=${callSid}`);
+         return false;
+      }
+      await this.upsertActiveCall(agentId, {
+         callSid,
+         from: payload.from || pending.from,
+         to: payload.to || pending.to,
+         campaignId: payload.campaignId || pending.campaignId,
+         startedAt: pending.startedAt || new Date().toISOString(),
+         state: 'in_call',
+      });
+      await this.clearPendingCall(agentId, callSid);
+      console.log(`[Router] 📲 Call delivered to agent ${agentId} (${callSid || 'no-sid'})`);
+      return true;
+   }
+
    async releaseAgent(agentId, expectedSessionId = null) {
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sRem('agents:busy', agentId);
+      await this.clearPendingCall(agentId);
 
       const dataStr = await redisClient.hGet('agents:data', agentId);
       const data = dataStr ? JSON.parse(dataStr) : null;
@@ -375,6 +439,7 @@ class AgentManager {
    async clearActiveCall(agentId) {
       if (!agentId) return;
       await redisClient.hDel('activecalls:data', agentId);
+      await this.clearPendingCall(agentId);
    }
 
    async setAgentWrapUp(agentId) {
@@ -411,13 +476,46 @@ class AgentManager {
    async findAgentIdByCallSid(callSid) {
       const target = String(callSid || '').trim();
       if (!target) return null;
-      const ids = await this.listActiveCallAgentIds();
+      const routed = await redisClient.get(`call:route:${target}`);
+      if (routed) return routed;
       const activeCalls = await redisClient.hGetAll('activecalls:data');
-      for (const [agentId, callStr] of Object.entries(activeCalls)) {
-         const row = JSON.parse(callStr);
-         if (row?.callSid && String(row.callSid).trim() === target) return agentId;
+      for (const [agentId, callStr] of Object.entries(activeCalls || {})) {
+         try {
+            const row = JSON.parse(callStr);
+            if (row?.callSid && String(row.callSid).trim() === target) return agentId;
+         } catch { /* ignore */ }
       }
       return null;
+   }
+
+   /**
+    * Agents stuck in RINGING after Twilio dial timeout / lost webhook cleanup.
+    */
+   async evictStaleRingingAgents() {
+      const ringingIds = await redisClient.sMembers('agents:ringing');
+      if (!ringingIds?.length) return 0;
+      const now = Date.now();
+      let evicted = 0;
+      await Promise.all(ringingIds.map(async (agentId) => {
+         const pendingRaw = await redisClient.get(`agent:pendingcall:${agentId}`);
+         let startedAt = 0;
+         if (pendingRaw) {
+            try {
+               startedAt = new Date(JSON.parse(pendingRaw).startedAt || 0).getTime();
+            } catch { /* ignore */ }
+         }
+         const ageMs = startedAt > 0 ? now - startedAt : RINGING_MAX_AGE_MS + 1;
+         if (ageMs < RINGING_MAX_AGE_MS) return;
+         const inCall = await redisClient.hGet('activecalls:data', agentId);
+         if (inCall) return; // answered — normal path owns cleanup
+         console.log(`[Router] ⏰ Stale RINGING (${Math.round(ageMs / 1000)}s) for ${agentId} — auto-releasing`);
+         await this.clearActiveCall(agentId);
+         const agentState = await this.getAgentState(agentId);
+         await this.releaseAgent(agentId, agentState?.sessionId || null);
+         evicted += 1;
+         this.markDiagnostic('ghostEvicted');
+      }));
+      return evicted;
    }
 
    async listActiveCalls() {

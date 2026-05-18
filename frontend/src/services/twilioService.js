@@ -182,6 +182,17 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       console.log('Incoming call received!', call);
 
       const callerId = call.parameters.From;
+      const callSid = call.parameters.CallSid || call.parameters.callSid || null;
+      if (socket.connected) {
+        socket.emit('agent:call_incoming', {
+          agentId: passedIdentity,
+          sessionId: socket._agentSessionId || liveSessionId,
+          callSid,
+          from: callerId,
+          to: call.parameters.To || null,
+          campaignId: campaign,
+        });
+      }
       store.setIncomingCall(call, callerId);
 
       call.on('cancel', () => {
