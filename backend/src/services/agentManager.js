@@ -111,28 +111,20 @@ class AgentManager {
          return { ok: false, reason: 'campaign-mismatch' };
       }
       if (options.requireAvailable) {
+         // Agent must still be in the pool (not yet locked by another routing request).
          const inPool = await redisClient.zScore(this.poolKey(campaignId), id);
          if (inPool == null) {
             this.markDiagnostic('rejectedNotInPool');
             return { ok: false, reason: 'not-in-pool' };
          }
-         const busy = await redisClient.sIsMember('agents:busy', id);
-         if (busy) {
+         // Must not be on an active call or already ringing for another call.
+         if (await redisClient.sIsMember('agents:busy', id)) {
             this.markDiagnostic('rejectedBusy');
             return { ok: false, reason: 'busy' };
          }
-         const hasPending = await this.getPendingCall(id);
-         if (hasPending?.callSid) {
+         if (await redisClient.sIsMember('agents:ringing', id)) {
             this.markDiagnostic('rejectedRinging');
             return { ok: false, reason: 'ringing' };
-         }
-         if (await redisClient.sIsMember('agents:ringing', id)) {
-            await redisClient.sRem('agents:ringing', id);
-            data.status = 'AVAILABLE';
-            await redisClient.hSet('agents:data', id, JSON.stringify(data));
-         } else if (String(data.status || '').toUpperCase() !== 'AVAILABLE') {
-            data.status = 'AVAILABLE';
-            await redisClient.hSet('agents:data', id, JSON.stringify(data));
          }
       }
       if (data.sessionId && String(heartbeat) !== String(data.sessionId)) {
@@ -256,23 +248,24 @@ class AgentManager {
       if (candidates.length === 0) return null;
 
       // 2. Parallel heartbeat + data fetch (max 20×2 = 40 Redis calls)
+      // GHOST_REASONS: remove from pool AND data. SKIP_REASONS: skip this call only, keep in pool.
+      const GHOST_REASONS = new Set(['no-heartbeat', 'session-mismatch', 'missing-agent-data']);
       const agentDataList = (await Promise.all(
          candidates.map(async (id) => {
             const presence = await this.validateAgentPresence(campaignId, id, {
                requireAvailable: true,
                requireFresh: true,
-               requireVoiceReady: true,
             });
             if (!presence.ok) {
                console.log(`[Router] ⛔ Candidate rejected (${presence.reason}): ${id}`);
-               await redisClient.zRem(this.poolKey(campaignId), id);
-               if (presence.reason === 'no-heartbeat' || presence.reason === 'session-mismatch' || presence.reason === 'missing-agent-data') {
+               if (GHOST_REASONS.has(presence.reason)) {
+                  // True ghost — evict from pool and clean up data entirely.
+                  await redisClient.zRem(this.poolKey(campaignId), id);
                   await redisClient.hDel('agents:data', id);
                   this.markDiagnostic('ghostEvicted');
-               } else if (presence.reason === 'voice-not-ready') {
-                  // Skip this routing attempt only — keep agent in pool for the next call.
-                  console.log(`[Router] 📵 Agent ${id} skipped — Twilio client not ready (still in pool)`);
                }
+               // All other reasons (busy, ringing, not-in-pool, campaign-mismatch, stale) —
+               // skip for this routing attempt but do NOT remove from pool.
                return null;
             }
             return { id, ...presence.data };
