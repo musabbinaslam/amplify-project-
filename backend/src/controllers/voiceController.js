@@ -6,6 +6,15 @@ const callLogService = require('../services/callLogService');
 const phoneRouteService = require('../services/phoneRouteService');
 const { dispatchQaInsightJob } = require('../queues/qaQueue');
 
+/** Absolute URL for Twilio webhooks (relative URLs break statusCallback on some hosts). */
+function voiceWebhookUrl(req, pathWithQuery) {
+  const configured = String(process.env.VOICE_WEBHOOK_BASE_URL || process.env.API_BASE_URL || '').trim().replace(/\/$/, '');
+  if (configured) return `${configured}${pathWithQuery.startsWith('/') ? pathWithQuery : `/${pathWithQuery}`}`;
+  const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  return `${proto}://${host}${pathWithQuery.startsWith('/') ? pathWithQuery : `/${pathWithQuery}`}`;
+}
+
 exports.generateToken = (req, res) => {
   const { identity } = req.body;
   
@@ -83,21 +92,29 @@ exports.handleIncomingCall = async (req, res) => {
           startedAt: new Date().toISOString(),
           retryCount,
         });
+        if (parentCallSid) {
+          await agentManager.releaseStaleRingingForCall(parentCallSid, available.id);
+        }
         const dialStatusQs = new URLSearchParams({
           campaign: String(campaign),
           agentId: String(available.id),
           retryCount: String(retryCount),
           parentCallSid: String(parentCallSid),
         });
+        const completedQs = new URLSearchParams({
+          campaign: String(campaign),
+          agentId: String(available.id),
+          retryCount: String(retryCount),
+        });
         const dial = twiml.dial({
-          action: `/api/voice/call-completed?campaign=${campaign}&agentId=${available.id}&retryCount=${retryCount}`,
+          action: voiceWebhookUrl(req, `/api/voice/call-completed?${completedQs.toString()}`),
           method: 'POST',
           timeout: 20,
           answerOnBridge: true,
           record: 'record-from-answer',
           // Server-side promotion to IN_CALL when Twilio bridges the client leg.
           // Does not depend on the browser socket (agent:call_incoming).
-          statusCallback: `/api/voice/dial-status?${dialStatusQs.toString()}`,
+          statusCallback: voiceWebhookUrl(req, `/api/voice/dial-status?${dialStatusQs.toString()}`),
           statusCallbackEvent: 'initiated ringing answered completed',
           statusCallbackMethod: 'POST',
         });
@@ -137,9 +154,24 @@ exports.handleDialStatus = async (req, res) => {
     return res.sendStatus(200);
   }
 
+  const parentSid = String(req.query.parentCallSid || callSid || '').trim();
+  const ownerId = parentSid
+    ? await agentManager.resolveCallOwner(parentSid, agentId)
+    : agentId;
+
   console.log(
-    `[Twilio] Dial status: agent=${agentId} event=${event || 'n/a'} callStatus=${callStatus || 'n/a'} sid=${callSid || 'n/a'}`,
+    `[Twilio] Dial status: agent=${agentId} owner=${ownerId || 'n/a'} event=${event || 'n/a'} callStatus=${callStatus || 'n/a'} sid=${callSid || 'n/a'}`,
   );
+
+  if (parentSid && ownerId && ownerId !== agentId) {
+    console.warn(`[Twilio] Dial status ignored for ${agentId} — call:route owner is ${ownerId}`);
+    return res.sendStatus(200);
+  }
+
+  if (parentSid && !(await agentManager.wasDialedForCall(agentId, parentSid))) {
+    console.warn(`[Twilio] Dial status ignored for ${agentId} — not dialed for ${parentSid}`);
+    return res.sendStatus(200);
+  }
 
   try {
     const isAnswered =
@@ -212,7 +244,12 @@ exports.handleCallCompleted = async (req, res) => {
         }
         const nextRetry = retryCount + 1;
         const fromState = FromState || '';
-        const redirectUrl = `/api/voice/incoming-call?campaign=${campaign}&retryCount=${nextRetry}${fromState ? `&FromState=${fromState}` : ''}`;
+        const redirectQs = new URLSearchParams({
+          campaign: String(campaign || ''),
+          retryCount: String(nextRetry),
+        });
+        if (fromState) redirectQs.set('FromState', fromState);
+        const redirectUrl = voiceWebhookUrl(req, `/api/voice/incoming-call?${redirectQs.toString()}`);
         console.log(`[Router] 🔁 Re-routing call (attempt ${nextRetry}/${MAX_RETRIES}) — DialCallStatus: ${DialCallStatus} | CallSid: ${CallSid}`);
         const rerouteTwiml = new VoiceResponse();
         rerouteTwiml.redirect({ method: 'POST' }, redirectUrl);
@@ -226,7 +263,7 @@ exports.handleCallCompleted = async (req, res) => {
     console.log(`[Twilio] Call Completed: ${CallSid}. DialSid: ${DialCallSid}. Duration: ${DialCallDuration}s. Status: ${DialCallStatus}${isRejectedOrMissed ? ' (agent rejected/missed)' : ''}. Recording: ${RecordingUrl ? 'Yes' : 'No'}`);
 
     let savedLog = null;
-    let resolvedAgentId = agentId || null;
+    let resolvedAgentId = await agentManager.resolveCallOwner(CallSid, agentId);
 
     // Extract the Recording SID from the RecordingUrl for clean frontend access.
     // Twilio RecordingUrl format: https://api.twilio.com/.../Recordings/RExxxxxx[.json]
@@ -240,21 +277,35 @@ exports.handleCallCompleted = async (req, res) => {
         if (!resolvedAgentId && CallSid) {
             resolvedAgentId = await agentManager.findAgentIdByCallSid(CallSid);
         }
-        savedLog = await callLogService.logCall({
-            from: From,
-            to: To,
-            duration: DialCallDuration,
-            campaignId: campaign,
-            agentId: resolvedAgentId,
-            status: DialCallStatus === 'completed' ? 'completed' : 'missed',
-            callSid: CallSid,
-            dialCallSid: DialCallSid || null,
-            recordingUrl: RecordingUrl || null,
-            recordingSid: recordingSid || null,
-        });
+        const shouldLog = resolvedAgentId
+          && CallSid
+          && (await agentManager.wasDialedForCall(resolvedAgentId, CallSid));
+        if (resolvedAgentId && CallSid && !shouldLog) {
+            console.warn(
+              `[Twilio] Skip call log for ${resolvedAgentId} — never dialed for ${CallSid} (phantom missed)`,
+            );
+            await agentManager.releaseStaleRingingForCall(CallSid, null);
+            resolvedAgentId = null;
+        } else if (resolvedAgentId) {
+            savedLog = await callLogService.logCall({
+                from: From,
+                to: To,
+                duration: DialCallDuration,
+                campaignId: campaign,
+                agentId: resolvedAgentId,
+                status: DialCallStatus === 'completed' ? 'completed' : 'missed',
+                callSid: CallSid,
+                dialCallSid: DialCallSid || null,
+                recordingUrl: RecordingUrl || null,
+                recordingSid: recordingSid || null,
+            });
+        }
     } catch (err) {
         console.error('[Twilio] Failed to persist call log:', err.message);
     } finally {
+      if (CallSid) {
+        await agentManager.releaseStaleRingingForCall(CallSid, resolvedAgentId || null);
+      }
       if (resolvedAgentId) {
         try {
             const activeRow = await agentManager.getActiveCall(resolvedAgentId);

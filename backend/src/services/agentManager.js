@@ -352,18 +352,26 @@ class AgentManager {
     */
    async confirmCallDelivered(agentId, payload = {}) {
       if (!agentId) return false;
-      let pending = {};
+      let pending = null;
       try {
-         const pendingRaw = await redisClient.get(`agent:pendingcall:${agentId}`);
-         pending = pendingRaw ? JSON.parse(pendingRaw) : {};
+         pending = await this.getPendingCall(agentId);
       } catch {
-         pending = {};
+         pending = null;
+      }
+      if (!pending?.callSid) {
+         const active = await this.getActiveCall(agentId);
+         if (active?.callSid) {
+            console.log(`[Router] call delivery ack for ${agentId} — already IN_CALL (${active.callSid})`);
+            return true;
+         }
+         console.warn(`[Router] Ignoring call delivery for ${agentId} — no pending dial for this agent`);
+         return false;
       }
       const clientSid = String(payload.callSid || '').trim();
       // Server stores the parent inbound SID; Twilio Client "incoming" often sends the
       // child leg SID — do not block confirmation on mismatch or agents stay RINGING forever.
       const callSid = String(pending.callSid || clientSid || '').trim();
-      if (callSid && clientSid && pending.callSid && String(pending.callSid) !== clientSid) {
+      if (callSid && clientSid && pending?.callSid && String(pending.callSid) !== clientSid) {
          console.warn(
            `[Router] call_incoming sid note for ${agentId}: parent=${pending.callSid} client=${clientSid} (using parent for routing state)`,
          );
@@ -496,6 +504,78 @@ class AgentManager {
          } catch { /* ignore */ }
       }
       return null;
+   }
+
+   async getPendingCall(agentId) {
+      if (!agentId) return null;
+      const raw = await redisClient.get(`agent:pendingcall:${agentId}`);
+      if (!raw) return null;
+      try {
+         return JSON.parse(raw);
+      } catch {
+         return null;
+      }
+   }
+
+   /**
+    * True only if this agent was the Twilio dial target for this parent CallSid.
+    * Prevents missed-call logs and IN_CALL state on agents who were never rung.
+    */
+   async wasDialedForCall(agentId, callSid) {
+      const target = String(callSid || '').trim();
+      const id = String(agentId || '').trim();
+      if (!target || !id) return false;
+
+      const routed = await redisClient.get(`call:route:${target}`);
+      if (routed && routed === id) return true;
+
+      const pending = await this.getPendingCall(id);
+      if (pending?.callSid && String(pending.callSid).trim() === target) return true;
+
+      const active = await this.getActiveCall(id);
+      if (active?.callSid && String(active.callSid).trim() === target) return true;
+
+      return false;
+   }
+
+   /**
+    * Prefer call:route (authoritative dial target) over Twilio query agentId.
+    */
+   async resolveCallOwner(callSid, queryAgentId = null) {
+      const target = String(callSid || '').trim();
+      const fromRoute = target ? await redisClient.get(`call:route:${target}`) : null;
+      const query = String(queryAgentId || '').trim();
+      if (fromRoute && query && fromRoute !== query) {
+         console.warn(
+           `[Router] call owner mismatch: query agentId=${query} call:route=${fromRoute} sid=${target} — using route`,
+         );
+      }
+      return fromRoute || query || null;
+   }
+
+   /**
+    * Release agents stuck in RINGING for this CallSid who are not the active dial target.
+    * Happens when duplicate webhooks lock two agents for one inbound call.
+    */
+   async releaseStaleRingingForCall(callSid, exceptAgentId = null) {
+      const target = String(callSid || '').trim();
+      if (!target) return 0;
+      const ringingIds = await redisClient.sMembers('agents:ringing');
+      if (!ringingIds?.length) return 0;
+      let released = 0;
+      await Promise.all(ringingIds.map(async (agentId) => {
+         if (exceptAgentId && agentId === exceptAgentId) return;
+         const pending = await this.getPendingCall(agentId);
+         const sameCall = pending?.callSid && String(pending.callSid).trim() === target;
+         const ghostRinging = !pending;
+         if (!sameCall && !ghostRinging) return;
+         console.log(`[Router] 🧹 Clearing stale RINGING for ${agentId} (call ${target}, dialed=${exceptAgentId || 'n/a'})`);
+         await this.clearActiveCall(agentId);
+         const agentState = await this.getAgentState(agentId);
+         await this.releaseAgent(agentId, agentState?.sessionId || null);
+         released += 1;
+      }));
+      return released;
    }
 
    /**
