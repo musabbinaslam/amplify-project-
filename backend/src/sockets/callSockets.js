@@ -95,6 +95,11 @@ exports.setupCallSockets = (io) => {
                 HEARTBEAT_TTL_SECONDS,
                 socket.agentSessionId,
             );
+            await agentManager.setVoiceReady(
+                socket.agentId,
+                socket.agentSessionId,
+                HEARTBEAT_TTL_SECONDS,
+            );
 
             socket.emit('agent:live_confirmed', {
                 status: 'AVAILABLE',
@@ -136,6 +141,12 @@ exports.setupCallSockets = (io) => {
                 );
                 if (!out?.ok && out?.reason === 'session-mismatch') {
                     console.log(`[Presence] Ignoring stale heartbeat for ${identity} (session mismatch)`);
+                } else if (out?.ok) {
+                    await agentManager.setVoiceReady(
+                        identity,
+                        out.sessionId || socket.agentSessionId,
+                        HEARTBEAT_TTL_SECONDS,
+                    );
                 }
             }
         });

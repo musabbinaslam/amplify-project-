@@ -61,4 +61,14 @@ module.exports = {
         }
         return emitted;
     },
+
+    /** True if at least one live Socket.IO connection exists for this agent. */
+    isAgentConnected(agentId) {
+        const sockets = getConnectedSet(agentId);
+        if (!sockets?.size) return false;
+        for (const socket of sockets) {
+            if (socket?.connected) return true;
+        }
+        return false;
+    },
 };

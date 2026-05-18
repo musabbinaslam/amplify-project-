@@ -5,6 +5,7 @@ const WRAPUP_MAX_AGE_MS    = 10 * 60 * 1000;  // 10 min — WRAP_UP must not las
 const INCALL_MAX_AGE_MS    = 90 * 60 * 1000;  // 90 min — force-evict any zombie IN_CALL
 const RINGING_MAX_AGE_MS   = 25 * 1000;       // dial timeout (20s) + buffer — stale RINGING cleanup
 const PENDING_CALL_TTL_SEC = 35;
+const VOICE_READY_KEY_PREFIX = 'agent:voice_ready:';
 
 /**
  * AgentManager — Per-Campaign Sorted Set Routing
@@ -66,11 +67,43 @@ class AgentManager {
       return Date.now() - lastSeenAt <= PRESENCE_FRESHNESS_MS;
    }
 
+   voiceReadyKey(agentId) {
+      return `${VOICE_READY_KEY_PREFIX}${agentId}`;
+   }
+
+   async setVoiceReady(agentId, sessionId, ttlSec = 120) {
+      if (!agentId) return;
+      await redisClient.setEx(
+         this.voiceReadyKey(agentId),
+         ttlSec,
+         String(sessionId || 'ready'),
+      );
+   }
+
+   async clearVoiceReady(agentId) {
+      if (!agentId) return;
+      await redisClient.del(this.voiceReadyKey(agentId));
+   }
+
+   async hasVoiceReady(agentId) {
+      if (!agentId) return false;
+      return Boolean(await redisClient.get(this.voiceReadyKey(agentId)));
+   }
+
    async validateAgentPresence(campaignId, id, options = {}) {
       const heartbeat = await redisClient.get(`agent:heartbeat:${id}`);
       if (!heartbeat) {
          this.markDiagnostic('rejectedNoHeartbeat');
          return { ok: false, reason: 'no-heartbeat' };
+      }
+      if (options.requireVoiceReady) {
+         const socketRegistry = require('../sockets/socketRegistry');
+         const voiceReady = await this.hasVoiceReady(id);
+         const socketLive = socketRegistry.isAgentConnected(id);
+         if (!voiceReady || !socketLive) {
+            this.markDiagnostic('rejectedVoiceNotReady');
+            return { ok: false, reason: voiceReady ? 'socket-disconnected' : 'voice-not-ready' };
+         }
       }
       const dataStr = await redisClient.hGet('agents:data', id);
       const data = dataStr ? JSON.parse(dataStr) : null;
@@ -176,6 +209,7 @@ class AgentManager {
       }
       await redisClient.hDel('agents:data', agentId);
       await redisClient.del(`agent:heartbeat:${agentId}`);
+      await this.clearVoiceReady(agentId);
       await redisClient.zRem('agents:heartbeats', agentId);
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sRem('agents:busy', agentId);
@@ -210,14 +244,18 @@ class AgentManager {
             const presence = await this.validateAgentPresence(campaignId, id, {
                requireAvailable: true,
                requireFresh: true,
+               requireVoiceReady: true,
             });
             if (!presence.ok) {
-               // Ghost agent: evict from the sorted set immediately
                console.log(`[Router] ⛔ Candidate rejected (${presence.reason}): ${id}`);
                await redisClient.zRem(this.poolKey(campaignId), id);
                if (presence.reason === 'no-heartbeat' || presence.reason === 'session-mismatch' || presence.reason === 'missing-agent-data') {
                   await redisClient.hDel('agents:data', id);
                   this.markDiagnostic('ghostEvicted');
+               } else if (presence.reason === 'voice-not-ready' || presence.reason === 'socket-disconnected') {
+                  // In Redis pool but Twilio Client not reachable — skip until they re-register
+                  await this.clearVoiceReady(id);
+                  console.log(`[Router] 📵 Agent ${id} skipped — browser/Twilio client not ready for dial`);
                }
                return null;
             }
