@@ -50,6 +50,10 @@ exports.handleIncomingCall = async (req, res) => {
   const bodyCampaign = req.body && req.body.campaign;
   let campaign = queryCampaign || bodyCampaign;
   const toNumber = req.body && req.body.To;
+  // retryCount tracks how many re-routing attempts have been made for this call.
+  // Passed as a query param from the Redirect TwiML in handleCallCompleted.
+  const retryCount = Math.min(Number(req.query.retryCount || 0), 5);
+  
   
   if (!campaign && toNumber) {
     try {
@@ -75,9 +79,10 @@ exports.handleIncomingCall = async (req, res) => {
           campaignId: campaign,
           startedAt: new Date().toISOString(),
           state: 'bridging',
+          retryCount,
         });
         const dial = twiml.dial({
-          action: `/api/voice/call-completed?campaign=${campaign}&agentId=${available.id}`,
+          action: `/api/voice/call-completed?campaign=${campaign}&agentId=${available.id}&retryCount=${retryCount}`,
           method: 'POST',
           timeout: 20,
           answerOnBridge: true,
@@ -85,9 +90,14 @@ exports.handleIncomingCall = async (req, res) => {
         });
         
         dial.client(available.id);
-        // Trackdrive Lead Data has been deliberately removed — dialing purely via Twilio
      } else {
-        twiml.say('All agents are currently assisting other callers.');
+        if (retryCount === 0) {
+          // First attempt: no agents available at all
+          twiml.say('All agents are currently assisting other callers. Please try again shortly.');
+        } else {
+          // Retry attempt: all re-routes also failed
+          twiml.say('We were unable to connect your call. Please try again.');
+        }
         twiml.hangup();
      }
   } catch(error) {
@@ -112,7 +122,39 @@ exports.handleIncomingCall = async (req, res) => {
  */
 exports.handleCallCompleted = async (req, res) => {
     const { campaign, agentId } = req.query;
+    // retryCount: number of re-routing attempts already made for this call leg
+    const retryCount = Math.min(Number(req.query.retryCount || 0), 5);
     const { From, To, DialCallDuration, DialCallStatus, DialCallSid, CallSid, FromState, RecordingUrl } = req.body;
+
+    // ── Immediate re-routing decision ───────────────────────────────────────
+    // If the agent dial failed, wasn't answered, or agent rejected the call,
+    // AND the caller is still on the line (not cancel), AND we have retries left,
+    // immediately redirect to try the next available agent.
+    const isRerouteable = ['failed', 'no-answer', 'busy'].includes(DialCallStatus);
+    const callerHungUp  = DialCallStatus === 'cancel';
+    const MAX_RETRIES   = 2; // maximum re-routing hops per call
+
+    if (isRerouteable && !callerHungUp && retryCount < MAX_RETRIES) {
+        // Release the agent that just failed/missed so they go back to AVAILABLE
+        if (agentId) {
+            try {
+                await agentManager.clearActiveCall(agentId);
+                const agentState = await agentManager.getAgentState(agentId);
+                await agentManager.releaseAgent(agentId, agentState?.sessionId || null);
+            } catch (e) {
+                console.warn('[Router] Re-route release failed:', e.message);
+            }
+        }
+        const nextRetry = retryCount + 1;
+        const fromState = FromState || '';
+        const redirectUrl = `/api/voice/incoming-call?campaign=${campaign}&retryCount=${nextRetry}${fromState ? `&FromState=${fromState}` : ''}`;
+        console.log(`[Router] 🔁 Re-routing call (attempt ${nextRetry}/${MAX_RETRIES}) — DialCallStatus: ${DialCallStatus} | CallSid: ${CallSid}`);
+        const rerouteTwiml = new VoiceResponse();
+        rerouteTwiml.redirect({ method: 'POST' }, redirectUrl);
+        res.set('Content-Type', 'text/xml');
+        return res.send(rerouteTwiml.toString());
+    }
+
 
     const isRejectedOrMissed = ['busy', 'no-answer', 'failed', 'cancel'].includes(DialCallStatus);
 
@@ -120,6 +162,15 @@ exports.handleCallCompleted = async (req, res) => {
 
     let savedLog = null;
     let resolvedAgentId = agentId || null;
+
+    // Extract the Recording SID from the RecordingUrl for clean frontend access.
+    // Twilio RecordingUrl format: https://api.twilio.com/.../Recordings/RExxxxxx[.json]
+    let recordingSid = null;
+    if (RecordingUrl) {
+        const sidMatch = String(RecordingUrl).match(/(RE[0-9a-fA-F]{32})/);
+        recordingSid = sidMatch ? sidMatch[1] : null;
+    }
+
     try {
         if (!resolvedAgentId && CallSid) {
             resolvedAgentId = await agentManager.findAgentIdByCallSid(CallSid);
@@ -133,7 +184,8 @@ exports.handleCallCompleted = async (req, res) => {
             status: DialCallStatus === 'completed' ? 'completed' : 'missed',
             callSid: CallSid,
             dialCallSid: DialCallSid || null,
-            recordingUrl: RecordingUrl || null
+            recordingUrl: RecordingUrl || null,
+            recordingSid: recordingSid || null,
         });
     } catch (err) {
         console.error('[Twilio] Failed to persist call log:', err.message);
@@ -150,7 +202,7 @@ exports.handleCallCompleted = async (req, res) => {
                     // Call answered. Put agent in wrap-up to fill out disposition.
                     await agentManager.setAgentWrapUp(resolvedAgentId);
                 } else {
-                    // Call missed/failed. Release immediately.
+                    // Call missed/failed/cancelled. Release immediately.
                     await agentManager.clearActiveCall(resolvedAgentId);
                     const agentState = await agentManager.getAgentState(resolvedAgentId);
                     await agentManager.releaseAgent(resolvedAgentId, agentState?.sessionId || null);
@@ -158,6 +210,21 @@ exports.handleCallCompleted = async (req, res) => {
             }
         } catch (e) {
             console.warn('[Router] release/wrapup after completion failed:', e.message);
+        }
+      } else if (CallSid) {
+        // resolvedAgentId is still null (agentId param was missing AND no activecall record
+        // matched this CallSid). Scan activecalls:data as a last-resort safety net so we
+        // never leave a ghost record behind.
+        try {
+            const fallbackAgentId = await agentManager.findAgentIdByCallSid(CallSid);
+            if (fallbackAgentId) {
+                console.warn(`[Router] resolvedAgentId was null — fallback cleared ghost for agent ${fallbackAgentId} via CallSid ${CallSid}`);
+                await agentManager.clearActiveCall(fallbackAgentId);
+                const agentState = await agentManager.getAgentState(fallbackAgentId);
+                await agentManager.releaseAgent(fallbackAgentId, agentState?.sessionId || null);
+            }
+        } catch (e) {
+            console.warn('[Router] fallback ghost-clear failed:', e.message);
         }
       }
     }

@@ -43,7 +43,10 @@ function formatRecordingDate(iso) {
 }
 
 export const RecordingModal = ({ log, onClose }) => {
-  const recordingUrl = log?.recordingUrl;
+  // Prefer the dedicated recordingSid field (stored by backend since the fix).
+  // Fall back to extracting it from the raw recordingUrl for legacy call logs.
+  const recordingSidDirect = log?.recordingSid || null;
+  const recordingUrl       = log?.recordingUrl  || null;
 
   const [streamUrl, setStreamUrl] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -72,7 +75,8 @@ export const RecordingModal = ({ log, onClose }) => {
       try {
         setLoading(true);
         setLoadError(false);
-        const recordingSid = extractRecordingSid(recordingUrl);
+        // Use direct SID if available; otherwise parse it from the URL
+        const recordingSid = recordingSidDirect || extractRecordingSid(recordingUrl);
         if (!recordingSid) {
           throw new Error('Invalid recording SID');
         }
@@ -90,7 +94,7 @@ export const RecordingModal = ({ log, onClose }) => {
     };
     loadAudio();
     return () => { isMounted = false; };
-  }, [recordingUrl]);
+  }, [recordingSidDirect, recordingUrl]);
 
   const togglePlay = useCallback(() => {
     const el = audioRef.current;
@@ -337,7 +341,7 @@ export const RecordingModal = ({ log, onClose }) => {
                 <a
                   className={classes.downloadBtn}
                   href={streamUrl}
-                  download={`recording-${extractRecordingSid(recordingUrl) || 'call'}.mp3`}
+                  download={`recording-${recordingSidDirect || extractRecordingSid(recordingUrl) || 'call'}.mp3`}
                   aria-label="Download recording"
                   title="Download"
                 >
@@ -692,7 +696,7 @@ const CallLogsPage = () => {
                         )}
                       </td>
                       <td className={classes.audioCell}>
-                        {log.recordingUrl ? (
+                        {(log.recordingSid || log.recordingUrl) ? (
                           <button 
                             className={classes.loadAudioBtn} 
                             onClick={() => setActiveRecording(log)}
