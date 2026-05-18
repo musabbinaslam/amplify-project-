@@ -74,14 +74,15 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       }
     }
 
-    // 1. Connect Socket.IO FIRST
+    // 1. Connect Socket.IO and validate session (Stage 1 — no pool entry yet)
     const socket = io(API_URL());
 
     await new Promise((resolve, reject) => {
       socket.on('connect', () => {
-        console.log('Socket connected! Socket ID:', socket.id);
+        console.log('[Twilio] Socket connected:', socket.id);
         store.setSocket && store.setSocket(socket);
-        // Register with campaign AND licensed states for LRU routing
+        // Emit go_live for balance check + session setup.
+        // Backend responds with agent:live_pending (NOT live_confirmed yet).
         socket.emit('agent:go_live', {
           campaign,
           agentId: passedIdentity,
@@ -90,48 +91,42 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
         });
         socket._agentSessionId = liveSessionId;
 
-        // 1.1 Heartbeat to prevent Redis ghost agents
+        // Heartbeat keeps the Redis key alive while the device initialises
         if (socket._heartbeatInterval) clearInterval(socket._heartbeatInterval);
         socket._heartbeatInterval = setInterval(() => {
-            if (socket.connected) {
-                socket.emit('agent:heartbeat', {
-                  agentId: passedIdentity,
-                  sessionId: socket._agentSessionId || liveSessionId,
-                });
-            }
+          if (socket.connected) {
+            socket.emit('agent:heartbeat', {
+              agentId: passedIdentity,
+              sessionId: socket._agentSessionId || liveSessionId,
+            });
+          }
         }, HEARTBEAT_INTERVAL_MS);
-        // Don't resolve here — wait for live_confirmed or go_live_error from backend
       });
 
-      // Backend confirmed agent is registered in the pool
-      socket.on('agent:live_confirmed', () => {
-        resolve();
-      });
+      // Stage 1 complete — balance OK, session stored, proceed to device init
+      socket.on('agent:live_pending', () => resolve());
 
       // Backend rejected go_live (e.g. zero wallet balance)
       socket.on('agent:go_live_error', (data) => {
         if (socket._heartbeatInterval) clearInterval(socket._heartbeatInterval);
         socket.disconnect();
         const err = new Error(data?.message || 'Cannot go live. Please check your wallet balance.');
-        err.code  = data?.code    || 'GO_LIVE_ERROR';
+        err.code    = data?.code    || 'GO_LIVE_ERROR';
         err.balance = data?.balance ?? 0;
         reject(err);
       });
 
       socket.on('disconnect', () => {
-          if (socket._heartbeatInterval) clearInterval(socket._heartbeatInterval);
+        if (socket._heartbeatInterval) clearInterval(socket._heartbeatInterval);
       });
-      
+
       socket.on('connect_error', (err) => reject(err));
     });
 
-    // 2. Fetch Twilio access token from the backend (using apiFetch instead of axios to pass Auth header properly)
+    // 2. Fetch Twilio access token from the backend
     const { token } = await apiFetch('/api/voice/token', {
       method: 'POST',
-      body: {
-        identity: passedIdentity,
-        campaign
-      }
+      body: { identity: passedIdentity, campaign }
     });
 
     // 3. Initialize the Twilio Device
@@ -142,12 +137,20 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       edge: ['ashburn', 'roaming']
     });
 
-    // 4. Register Event Listeners
+    // 4. Register event listeners BEFORE calling device.register()
     device.on('registered', () => {
-      console.log('Twilio Device registered successfully');
+      console.log('[Twilio] Device registered ✔ — notifying backend to enter routing pool');
       store.setDevice(device);
       store.setCallState('idle');
       store.setAgentContext(passedIdentity, campaign, licensedStates);
+
+      // ⭐ Stage 2: Tell the backend the Twilio Device is ready.
+      // Only NOW does the agent enter the routing pool.
+      // This prevents "Failed" outgoing dials caused by the pool registration
+      // happening before the Twilio edge server knows about this client.
+      if (socket.connected) {
+        socket.emit('agent:pool_ready');
+      }
     });
 
     device.on('error', (twilioError) => {
@@ -215,8 +218,24 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       });
     });
 
-    // 5. Register the device with Twilio
-    await device.register();
+    // 5. Register the device with Twilio.
+    // device.on('registered') fires → emits agent:pool_ready → backend responds with
+    // agent:live_confirmed → agent enters routing pool. We wait for both.
+    await Promise.all([
+      device.register(),
+      new Promise((resolve) => {
+        // 10-second safety timeout: if backend confirmation is delayed, proceed anyway.
+        // The ghost-cleanup sweep will correct any inconsistency within 90 seconds.
+        const safetyTimer = setTimeout(() => {
+          console.warn('[Twilio] live_confirmed timeout — proceeding anyway');
+          resolve();
+        }, 10000);
+        socket.once('agent:live_confirmed', () => {
+          clearTimeout(safetyTimer);
+          resolve();
+        });
+      }),
+    ]);
     await applyTwilioDeviceAudio(device);
 
     // 6. Live-apply audio settings changes while the device is alive.

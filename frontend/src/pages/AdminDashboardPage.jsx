@@ -987,7 +987,7 @@ const AdminDashboardPage = () => {
                         </td>
                         <td>{log.cost > 0 ? `$${log.cost.toFixed(2)}` : '—'}</td>
                         <td>
-                          {log.recordingUrl ? (
+                          {(log.recordingSid || log.recordingUrl) ? (
                             <button 
                               style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--brand-accent)', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
                               onClick={() => setActiveRecording(log)}

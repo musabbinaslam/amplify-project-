@@ -56,7 +56,8 @@ class CallLogService {
             status, 
             callSid,
             dialCallSid,
-            recordingUrl
+            recordingUrl,
+            recordingSid,
         } = data;
 
         const config = CAMPAIGN_CONFIG[campaignId] || { buffer: 0, price: 0 };
@@ -108,7 +109,8 @@ class CallLogService {
             isBillable,
             cost,
             type: campaignId.includes('transfer') ? 'Transfer' : 'Inbound',
-            recordingUrl: recordingUrl || null
+            recordingUrl: recordingUrl || null,
+            recordingSid: recordingSid || null,
         };
 
         console.log(`[Billing] 💸 Call ${callSid}: ${durationSec}s. Billable: ${isBillable} ($${cost})`);

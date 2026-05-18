@@ -1,6 +1,8 @@
 const { redisClient } = require('../config/redis');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const PRESENCE_FRESHNESS_MS = 120 * 1000;
+const WRAPUP_MAX_AGE_MS    = 10 * 60 * 1000;  // 10 min — WRAP_UP must not last longer
+const INCALL_MAX_AGE_MS    = 90 * 60 * 1000;  // 90 min — force-evict any zombie IN_CALL
 
 /**
  * AgentManager — Per-Campaign Sorted Set Routing
@@ -43,9 +45,7 @@ class AgentManager {
    }
 
    // ─── Key helpers ──────────────────────────────────────────────────────────
-   poolKey(campaignId)   { return `pool:${campaignId}`; }
-   activeCallKey(agentId) { return `activecall:${agentId}`; }
-   activeCallPattern()    { return 'activecall:*'; }
+   poolKey(campaignId) { return `pool:${campaignId}`; }
 
    markDiagnostic(field, delta = 1) {
       this.routingDiagnostics[field] = Number(this.routingDiagnostics[field] || 0) + delta;
@@ -522,8 +522,19 @@ class AgentManager {
          this.getPoolSnapshot(),
          redisClient.hGetAll('agents:data')
       ]);
-      
+
+      // Start with agents known from pool sets
       const idSet = new Set([...pool.available, ...pool.ringing, ...pool.busy]);
+
+      // Also include WRAP_UP agents — they are NOT in any pool set (removed by setAgentWrapUp)
+      // but should still be visible in the Active Agents panel.
+      for (const [id, rawStr] of Object.entries(allAgentsStr || {})) {
+         try {
+            const parsed = JSON.parse(rawStr);
+            if (parsed.status === 'WRAP_UP') idSet.add(id);
+         } catch { /* ignore corrupt entries */ }
+      }
+
       const agents = [];
       const byCampaign = {};
 
@@ -541,24 +552,31 @@ class AgentManager {
          }
 
          const campaignId = raw.campaignId || 'unknown';
+
+         // WRAP_UP agents are not in any pool set — detect via agents:data.status
+         const isWrapUp = raw.status === 'WRAP_UP';
          const poolSlot = pool.available.includes(id)
                ? 'available'
                : pool.ringing.includes(id)
                   ? 'ringing'
                   : pool.busy.includes(id)
                      ? 'busy'
-                     : 'unknown';
+                     : isWrapUp
+                        ? 'wrap_up'
+                        : 'unknown';
 
          // Derive authoritative status from pool membership — agents:data.status
          // can be stale (e.g., still AVAILABLE after a mid-flight state change).
-         // Pool set membership is the ground truth.
+         // Pool set membership is the ground truth; WRAP_UP is read from agents:data.
          const derivedStatus = poolSlot === 'busy'
             ? 'IN_CALL'
             : poolSlot === 'ringing'
                ? 'RINGING'
                : poolSlot === 'available'
                   ? 'AVAILABLE'
-                  : raw.status || 'UNKNOWN';
+                  : isWrapUp
+                     ? 'WRAP_UP'
+                     : raw.status || 'UNKNOWN';
 
          const row = {
             id,
@@ -600,27 +618,84 @@ class AgentManager {
 
    /**
     * Sweeps the activecalls:data hash for orphaned entries — agents that have an
-    * active-call record but no live heartbeat key. Called by the server's 5-min
-    * ghost cleanup job as a catch-all safety net.
+    * active-call record but no live heartbeat key, OR whose call has exceeded the
+    * maximum allowed duration (zombie calls). Also enforces a WRAP_UP timeout.
+    * Called by the server's periodic ghost cleanup job as a catch-all safety net.
     * Returns the number of orphaned entries that were evicted.
     */
    async evictStaleActiveCalls() {
-      const allCalls = await redisClient.hGetAll('activecalls:data');
+      const now = Date.now();
+      const [allCalls, allAgents] = await Promise.all([
+         redisClient.hGetAll('activecalls:data'),
+         redisClient.hGetAll('agents:data'),
+      ]);
       if (!allCalls || !Object.keys(allCalls).length) return 0;
 
       let evicted = 0;
       await Promise.all(
          Object.keys(allCalls).map(async (agentId) => {
             const hb = await redisClient.get(`agent:heartbeat:${agentId}`);
-            if (hb) return; // agent is alive — skip
+            const agentStr = allAgents[agentId];
+            const agent = agentStr ? JSON.parse(agentStr) : null;
+            const agentStatus = agent?.status || null;
 
-            // No heartbeat — but spare WRAP_UP agents (filling disposition after call).
-            // Their heartbeat TTL can expire during wrap-up and they are NOT ghosts.
-            const agentStr = await redisClient.hGet('agents:data', agentId);
-            const agentStatus = agentStr ? JSON.parse(agentStr).status : null;
-            if (agentStatus === 'WRAP_UP') return; // legitimate transient state
+            // ── Check 1: WRAP_UP timeout ─────────────────────────────────────
+            // WRAP_UP agents don't need a heartbeat — but if they've been in
+            // WRAP_UP for more than WRAPUP_MAX_AGE_MS, the browser was likely
+            // closed without submitting disposition. Release them.
+            if (agentStatus === 'WRAP_UP') {
+               const lastSeen = Number(agent?.lastSeenAt || 0);
+               const wrapUpAge = now - lastSeen;
+               if (wrapUpAge < WRAPUP_MAX_AGE_MS) return; // still within timeout
+               console.log(`[evictStaleActiveCalls] ⏰ WRAP_UP timeout (${Math.round(wrapUpAge / 1000)}s) for agent: ${agentId} — force-releasing`);
+               // Release back to pool so they can go live again
+               await Promise.all([
+                  redisClient.hDel('activecalls:data', agentId),
+                  redisClient.sRem('agents:busy', agentId),
+                  redisClient.sRem('agents:ringing', agentId),
+               ]);
+               if (agent?.campaignId) {
+                  await redisClient.zAdd(this.poolKey(agent.campaignId), { score: Date.now(), value: agentId });
+               }
+               if (agent) {
+                  agent.status = 'AVAILABLE';
+                  agent.lastSeenAt = now.toString();
+                  await redisClient.hSet('agents:data', agentId, JSON.stringify(agent));
+               }
+               evicted += 1;
+               this.markDiagnostic('ghostEvicted');
+               return;
+            }
 
-            // No heartbeat + not WRAP_UP → ghost. Wipe all related state.
+            // ── Check 2: Zombie IN_CALL — heartbeat alive but call too long ──
+            // If a heartbeat exists but the call has been running for > INCALL_MAX_AGE_MS
+            // (e.g. 90 min), this is almost certainly a ghost (webhook delivery failed).
+            if (hb) {
+               let callRow = null;
+               try { callRow = JSON.parse(allCalls[agentId]); } catch { /* skip */ }
+               const startedAt = callRow?.startedAt ? new Date(callRow.startedAt).getTime() : 0;
+               if (startedAt > 0 && (now - startedAt) > INCALL_MAX_AGE_MS) {
+                  console.log(`[evictStaleActiveCalls] 🧟 Zombie IN_CALL (>${Math.round(INCALL_MAX_AGE_MS / 60000)}min) for agent: ${agentId} — force-releasing`);
+                  await Promise.all([
+                     redisClient.hDel('activecalls:data', agentId),
+                     redisClient.sRem('agents:busy', agentId),
+                     redisClient.sRem('agents:ringing', agentId),
+                  ]);
+                  if (agent?.campaignId) {
+                     await redisClient.zAdd(this.poolKey(agent.campaignId), { score: Date.now(), value: agentId });
+                  }
+                  if (agent) {
+                     agent.status = 'AVAILABLE';
+                     agent.lastSeenAt = now.toString();
+                     await redisClient.hSet('agents:data', agentId, JSON.stringify(agent));
+                  }
+                  evicted += 1;
+                  this.markDiagnostic('ghostEvicted');
+               }
+               return; // heartbeat alive and not zombie — skip
+            }
+
+            // ── Check 3: No heartbeat + not WRAP_UP → immediate ghost ─────────
             await Promise.all([
                redisClient.hDel('activecalls:data', agentId),
                redisClient.sRem('agents:busy', agentId),
@@ -628,12 +703,48 @@ class AgentManager {
                redisClient.hDel('agents:data', agentId),
                redisClient.zRem('agents:heartbeats', agentId),
             ]);
-            console.log(`[evictStaleActiveCalls] 🧹 Evicted ghost from activecalls:data: ${agentId}`);
+            console.log(`[evictStaleActiveCalls] 🧹 Evicted ghost (no heartbeat) from activecalls:data: ${agentId}`);
             evicted += 1;
             this.markDiagnostic('ghostEvicted');
          })
       );
       return evicted;
+   }
+
+   /**
+    * Admin force-release: immediately clears an agent's call state and puts them
+    * back into the available pool (or fully removes them if they have no agent data).
+    * Used by the admin dashboard "Force Remove" button to fix ghost states.
+    */
+   async forceReleaseAgent(agentId) {
+      const dataStr = await redisClient.hGet('agents:data', agentId);
+      const data = dataStr ? JSON.parse(dataStr) : null;
+
+      await Promise.all([
+         redisClient.hDel('activecalls:data', agentId),
+         redisClient.sRem('agents:busy', agentId),
+         redisClient.sRem('agents:ringing', agentId),
+      ]);
+
+      if (data) {
+         data.status = 'AVAILABLE';
+         data.lastSeenAt = Date.now().toString();
+         await redisClient.hSet('agents:data', agentId, JSON.stringify(data));
+         if (data.campaignId) {
+            await redisClient.zAdd(this.poolKey(data.campaignId), { score: Date.now(), value: agentId });
+         }
+         console.log(`[Admin] 🔓 Force-released agent ${agentId} → AVAILABLE`);
+         return { action: 'released', agentId };
+      }
+
+      // No agent data at all — full remove
+      await Promise.all([
+         redisClient.hDel('agents:data', agentId),
+         redisClient.del(`agent:heartbeat:${agentId}`),
+         redisClient.zRem('agents:heartbeats', agentId),
+      ]);
+      console.log(`[Admin] ❌ Force-removed ghost agent ${agentId} (no agent data found)`);
+      return { action: 'removed', agentId };
    }
 }
 

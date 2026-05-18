@@ -38,57 +38,73 @@ exports.setupCallSockets = (io) => {
 
         socket.on('agent:go_live', async (payload) => {
             const { agentId, campaign, sessionId } = payload;
-            // Use the specific agentId provided by the frontend
             const identity = agentId || socket.id;
             const safeSessionId = String(sessionId || `${identity}-${Date.now()}`).trim();
 
             // ── Balance Gate ─────────────────────────────────────────────────
-            // Agent must have credits > $0 to enter the live pool.
-            // Once live, if balance hits $0 mid-call the call continues uninterrupted
-            // (billing is deducted after call completion, not during).
             try {
                 const balanceCents = await getBalance(identity);
                 if (balanceCents <= 0) {
-                    console.log(`[Wallet] 🚫 Agent ${identity} blocked from going live — zero balance ($${(balanceCents / 100).toFixed(2)})`);
+                    console.log(`[Wallet] 🚫 Agent ${identity} blocked from going live — zero balance`);
                     socket.emit('agent:go_live_error', {
                         code: 'INSUFFICIENT_BALANCE',
-                        message: 'Your wallet balance is $0.00. Please add credits to your account before going live.',
+                        message: 'Your wallet balance is $0.00. Please add credits before going live.',
                         balance: balanceCents,
                     });
-                    return; // Do NOT register — agent stays out of the pool
+                    return;
                 }
             } catch (err) {
-                // If the balance check itself fails (e.g. Firebase unavailable),
-                // allow through rather than blocking a legitimate agent on a service error.
-                console.error(`[Wallet] Balance check failed for ${identity} during go_live — allowing through:`, err.message);
+                console.error(`[Wallet] Balance check failed for ${identity} — allowing through:`, err.message);
             }
 
-            const registered = await agentManager.registerAgent(identity, {
-                ...payload,
+            // Store session on socket — do NOT add to pool yet.
+            // The frontend will emit agent:pool_ready AFTER the Twilio Device
+            // is fully registered, preventing "Failed" outgoing dials.
+            socket.agentId = identity;
+            socket.agentSessionId = safeSessionId;
+            socket.pendingGoLivePayload = { ...payload, sessionId: safeSessionId };
+
+            // Register socket so notification events work while device is initialising
+            socketRegistry.register(identity, socket);
+
+            // Acknowledge session — frontend proceeds to register Twilio Device
+            socket.emit('agent:live_pending', {
+                status: 'PENDING',
+                identity,
                 sessionId: safeSessionId,
             });
-            
-            // Store mapping on socket for cleanup
-            socket.agentId = identity;
-            socket.agentSessionId = registered?.sessionId || safeSessionId;
-            
-            // Register in socket registry so post-webhook code can target this agent
-            socketRegistry.register(identity, socket);
-            
+        });
+
+        // ── Stage 2: Device is registered with Twilio — NOW enter the pool ──
+        socket.on('agent:pool_ready', async () => {
+            const payload = socket.pendingGoLivePayload;
+            if (!payload || !socket.agentId) {
+                // Ignore spurious events (e.g. double-fire)
+                return;
+            }
+            socket.pendingGoLivePayload = null; // consume
+
+            const registered = await agentManager.registerAgent(socket.agentId, payload);
+
+            // Update session ID from registrar (may have been normalised)
+            socket.agentSessionId = registered?.sessionId || socket.agentSessionId;
+
             // Set initial heartbeat TTL
             await redisClient.setEx(
-                `agent:heartbeat:${identity}`,
+                `agent:heartbeat:${socket.agentId}`,
                 HEARTBEAT_TTL_SECONDS,
                 socket.agentSessionId,
             );
-            
+
             socket.emit('agent:live_confirmed', {
                 status: 'AVAILABLE',
-                identity,
+                identity: socket.agentId,
                 sessionId: socket.agentSessionId,
             });
             await broadcastAgentCount(io);
+            console.log(`[Socket] ✅ Agent ${socket.agentId} entered pool after device:registered`);
         });
+
 
 
         socket.on('agent:heartbeat', async (payload) => {
