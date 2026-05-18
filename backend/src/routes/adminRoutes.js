@@ -30,4 +30,7 @@ router.post('/notifications/broadcast', adminController.postBroadcastNotificatio
 router.get('/maintenance', adminController.getMaintenance);
 router.patch('/maintenance', adminController.patchMaintenance);
 
+// Pool debug — dumps full Redis routing state for diagnosis
+router.get('/pool-debug', adminController.getPoolDebug);
+
 module.exports = router;

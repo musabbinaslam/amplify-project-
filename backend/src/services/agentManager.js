@@ -244,7 +244,7 @@ class AgentManager {
       const candidates = await redisClient.zRange(this.poolKey(campaignId), 0, 19);
       this.routingDiagnostics.lastCandidates = candidates.length;
 
-      console.log(`[Router] 🔍 Campaign "${campaignId}" pool — ${candidates.length} LRU candidates`);
+      console.log(`[Router] 🔍 Campaign "${campaignId}" state=${callerState || 'ANY'} — ${candidates.length} LRU candidates: [${candidates.join(', ')}]`);
       if (candidates.length === 0) return null;
 
       // 2. Parallel heartbeat + data fetch (max 20×2 = 40 Redis calls)
@@ -257,7 +257,14 @@ class AgentManager {
                requireFresh: true,
             });
             if (!presence.ok) {
-               console.log(`[Router] ⛔ Candidate rejected (${presence.reason}): ${id}`);
+               const [hb, vr, poolScore, isBusy, isRinging] = await Promise.all([
+                  redisClient.get(`agent:heartbeat:${id}`),
+                  redisClient.get(this.voiceReadyKey(id)),
+                  redisClient.zScore(this.poolKey(campaignId), id),
+                  redisClient.sIsMember('agents:busy', id),
+                  redisClient.sIsMember('agents:ringing', id),
+               ]).catch(() => [null, null, null, false, false]);
+               console.log(`[Router] ⛔ Rejected (${presence.reason}): ${id} | hb=${Boolean(hb)} vr=${Boolean(vr)} pool=${poolScore} busy=${isBusy} ringing=${isRinging}`);
                if (GHOST_REASONS.has(presence.reason)) {
                   // True ghost — evict from pool and clean up data entirely.
                   await redisClient.zRem(this.poolKey(campaignId), id);

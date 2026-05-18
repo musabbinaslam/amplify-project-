@@ -1117,6 +1117,61 @@ async function getMaintenance(req, res) {
   }
 }
 
+async function getPoolDebug(req, res) {
+  try {
+    const { redisClient } = require('../config/redis');
+    const { CAMPAIGN_CONFIG } = require('../config/pricing');
+
+    const campaignIds = Object.keys(CAMPAIGN_CONFIG);
+    const allAgentsRaw = await redisClient.hGetAll('agents:data') || {};
+    const [ringing, busy] = await Promise.all([
+      redisClient.sMembers('agents:ringing'),
+      redisClient.sMembers('agents:busy'),
+    ]);
+
+    const poolsByCampaign = {};
+    for (const cId of campaignIds) {
+      const members = await redisClient.zRangeWithScores(`pool:${cId}`, 0, -1);
+      poolsByCampaign[cId] = members.map(({ value, score }) => ({ agentId: value, score }));
+    }
+
+    const agentDetails = {};
+    for (const [id, raw] of Object.entries(allAgentsRaw)) {
+      try {
+        const d = JSON.parse(raw);
+        const heartbeat = await redisClient.get(`agent:heartbeat:${id}`);
+        const voiceReady = await redisClient.get(`agent:voice_ready:${id}`);
+        const pending = await redisClient.get(`agent:pendingcall:${id}`);
+        agentDetails[id] = {
+          status: d.status,
+          campaign: d.campaignId,
+          states: JSON.parse(d.licensedStates || '[]'),
+          sessionId: d.sessionId,
+          lastSeenAt: d.lastSeenAt ? new Date(Number(d.lastSeenAt)).toISOString() : null,
+          hasHeartbeat: Boolean(heartbeat),
+          hasVoiceReady: Boolean(voiceReady),
+          hasPendingCall: Boolean(pending),
+          pendingCallSid: pending ? JSON.parse(pending).callSid : null,
+          inRinging: ringing.includes(id),
+          inBusy: busy.includes(id),
+          inPool: Object.entries(poolsByCampaign).some(([, members]) => members.some(m => m.agentId === id)),
+        };
+      } catch { /* ignore */ }
+    }
+
+    return res.json({
+      pools: poolsByCampaign,
+      ringing,
+      busy,
+      agents: agentDetails,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[Admin] getPoolDebug:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 module.exports = {
   getOverviewLite,
   getAnalyticsBundle,
@@ -1137,4 +1192,5 @@ module.exports = {
   postBroadcastNotification,
   patchMaintenance,
   getMaintenance,
+  getPoolDebug,
 };
