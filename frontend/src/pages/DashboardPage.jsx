@@ -482,7 +482,7 @@ const DashboardPage = () => {
                       <td className={classes.callName}>
                         {log.isBillable
                           ? (log.from || '—')
-                          : (log.from ? `${log.from.slice(0, -4)}XXXX` : '—')}
+                          : (log.from ? <span className={classes.hiddenPhone}>Hidden</span> : '—')}
                       </td>
                       <td className={classes.callPhone}>{log.campaignLabel || log.campaign || '—'}</td>
                       <td>
