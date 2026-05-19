@@ -262,7 +262,12 @@ async function buildUserMetaMap(agentIds = []) {
       data.email ||
       null;
     const phone = data.phoneNumber || data.phone || data.onboarding?.phone || null;
-    if (candidate || phone) map.set(snap.id, { name: candidate, phone });
+    // Wallet balance is stored in CENTS at users/{uid}.wallet.balance.
+    // null = no wallet doc found; 0 = real zero balance.
+    const balanceCents = typeof data.wallet?.balance === 'number' ? data.wallet.balance : null;
+    if (candidate || phone || balanceCents !== null) {
+      map.set(snap.id, { name: candidate, phone, balanceCents });
+    }
   });
   const missing = ids.filter((id) => {
     const entry = map.get(id);
@@ -281,6 +286,7 @@ async function buildUserMetaMap(agentIds = []) {
         map.set(u.uid, {
           name: existing.name || u.displayName || u.email || null,
           phone: existing.phone || u.phoneNumber || null,
+          balanceCents: existing.balanceCents ?? null,
         });
       });
       chunk.forEach((uid) => {
@@ -601,6 +607,7 @@ async function getAnalyticsBundle(req, res) {
         ...a,
         agentName: metaMap.get(a.agentId)?.name || a.agentId,
         phone: metaMap.get(a.agentId)?.phone || null,
+        walletBalanceCents: metaMap.get(a.agentId)?.balanceCents ?? null,
       })),
     };
 

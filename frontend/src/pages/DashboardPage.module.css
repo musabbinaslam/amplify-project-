@@ -1,3 +1,10 @@
+/* Hidden caller phone (non-billable calls) — matches CallLogsPage.hiddenPhone styling. */
+.hiddenPhone {
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.8;
+}
+
 .dashboard {
   display: flex;
   flex-direction: column;

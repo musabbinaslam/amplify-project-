@@ -578,13 +578,14 @@ const QaDashboardPage = () => {
                 <th>Billable %</th>
                 <th>Avg Handle (s)</th>
                 <th>Total Cost</th>
+                <th>Balance</th>
               </tr>
             </thead>
             <tbody>
               {analyticsLoading ? (
-                <tr><td colSpan={6} className={classes.muted}>Loading analytics…</td></tr>
+                <tr><td colSpan={7} className={classes.muted}>Loading analytics…</td></tr>
               ) : filteredAgentStats.length === 0 ? (
-                <tr><td colSpan={6} className={classes.muted}>No agent stats match this filter</td></tr>
+                <tr><td colSpan={7} className={classes.muted}>No agent stats match this filter</td></tr>
               ) : (
                 filteredAgentStats.map((row) => (
                   <tr
@@ -606,6 +607,11 @@ const QaDashboardPage = () => {
                     <td>{Math.round((row.billableRate || 0) * 100)}%</td>
                     <td>{row.avgHandleTime}</td>
                     <td>${(row.totalCost || 0).toFixed(2)}</td>
+                    <td>
+                      {typeof row.walletBalanceCents === 'number'
+                        ? `$${(row.walletBalanceCents / 100).toFixed(2)}`
+                        : '—'}
+                    </td>
                   </tr>
                 ))
               )}
