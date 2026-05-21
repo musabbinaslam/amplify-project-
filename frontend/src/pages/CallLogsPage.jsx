@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play, Pause, Pencil, SkipBack, SkipForward, Volume2, VolumeX, Download } from 'lucide-react';
+import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play, Pause, Pencil, SkipBack, SkipForward, Volume2, VolumeX, Download, Upload, X, AlertCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { apiFetch } from '../services/apiClient';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
@@ -9,6 +10,259 @@ import PageLoader from '../components/ui/PageLoader';
 import classes from './CallLogsPage.module.css';
 
 const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
+
+const CONTEST_CATEGORIES = [
+  { id: 'disconnect', label: 'Call disconnected' },
+  { id: 'server_outage', label: 'Server / platform outage' },
+  { id: 'audio_quality', label: 'Audio / connection quality' },
+  { id: 'other', label: 'Other' },
+];
+
+const MAX_PROOF_BYTES = 5 * 1024 * 1024;
+const MAX_PROOF_TOTAL_BYTES = 12 * 1024 * 1024;
+const CONTEST_MAX_AGE_DAYS = 7;
+const CONTEST_MAX_AGE_MS = CONTEST_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+
+function getCallOccurredMs(log) {
+  const raw = log?.createdAt || log?.timestamp;
+  if (!raw) return null;
+  const t = new Date(raw).getTime();
+  return Number.isNaN(t) ? null : t;
+}
+
+function isWithinContestWindow(log) {
+  const occurredMs = getCallOccurredMs(log);
+  if (occurredMs == null) return true;
+  return Date.now() - occurredMs <= CONTEST_MAX_AGE_MS;
+}
+
+function formatBytes(bytes) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.round(bytes / 1024)} KB`;
+}
+
+async function compressImageForUpload(file, maxBytes = MAX_PROOF_BYTES) {
+  if (!file.type?.startsWith('image/') || file.size <= maxBytes) return file;
+
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = url;
+    });
+
+    const maxDim = 1920;
+    let { width, height } = img;
+    if (width > maxDim || height > maxDim) {
+      const scale = maxDim / Math.max(width, height);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+
+    let quality = 0.88;
+    let blob = null;
+    while (quality >= 0.45) {
+      // eslint-disable-next-line no-await-in-loop
+      blob = await new Promise((resolve) => {
+        canvas.toBlob(resolve, 'image/jpeg', quality);
+      });
+      if (blob && blob.size <= maxBytes) break;
+      quality -= 0.1;
+    }
+
+    if (blob && blob.size <= maxBytes) {
+      const base = file.name.replace(/\.[^.]+$/, '') || 'proof';
+      return new File([blob], `${base}.jpg`, { type: 'image/jpeg' });
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function prepareOneProofFile(file) {
+  if (file.type?.startsWith('image/')) {
+    const compressed = await compressImageForUpload(file);
+    if (compressed) return compressed;
+    if (file.size > MAX_PROOF_BYTES) {
+      throw new Error(`"${file.name}" is too large (${formatBytes(file.size)}). Use a screenshot under ${formatBytes(MAX_PROOF_BYTES)} or a smaller image.`);
+    }
+    return file;
+  }
+  if (file.size > MAX_PROOF_BYTES) {
+    throw new Error(`"${file.name}" is too large (${formatBytes(file.size)}). PDFs must be under ${formatBytes(MAX_PROOF_BYTES)}.`);
+  }
+  return file;
+}
+
+async function prepareProofFiles(files) {
+  const out = await Promise.all(files.slice(0, 3).map((file) => prepareOneProofFile(file)));
+  const total = out.reduce((s, f) => s + f.size, 0);
+  if (total > MAX_PROOF_TOTAL_BYTES) {
+    throw new Error(`Total attachment size is ${formatBytes(total)}. Combined files must be under ${formatBytes(MAX_PROOF_TOTAL_BYTES)}.`);
+  }
+  return out;
+}
+
+const ContestChargeModal = ({ log, onClose, onSubmitted }) => {
+  const [category, setCategory] = useState('disconnect');
+  const [reason, setReason] = useState('');
+  const [files, setFiles] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleFileChange = (e) => {
+    const picked = Array.from(e.target.files || []).slice(0, 3);
+    setFiles(picked);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const trimmed = reason.trim();
+    if (trimmed.length < 10) {
+      toast.error('Please explain what happened (at least 10 characters).');
+      return;
+    }
+    if (!isWithinContestWindow(log)) {
+      toast.error(`Contests must be submitted within ${CONTEST_MAX_AGE_DAYS} days of the call`);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const fd = new FormData();
+      fd.append('reason', trimmed);
+      fd.append('category', category);
+      if (files.length > 0) {
+        const prepared = await prepareProofFiles(files);
+        prepared.forEach((f) => fd.append('proof', f));
+      }
+      await apiFetch(`/api/voice/logs/${encodeURIComponent(log.id)}/contest`, {
+        method: 'POST',
+        body: fd,
+      });
+      toast.success('Contest submitted — our team will review it shortly.');
+      onSubmitted?.(log.id);
+      onClose();
+    } catch (err) {
+      toast.error(err.message || 'Failed to submit contest', { duration: 5000 });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <motion.div
+      className={classes.modalOverlay}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      onClick={onClose}
+    >
+      <motion.div
+        className={classes.contestModal}
+        initial={{ scale: 0.96, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <motion.div className={classes.contestModalHeader}>
+          <h3>Contest call charge</h3>
+          <button type="button" className={classes.contestCloseBtn} onClick={onClose} aria-label="Close">
+            <X size={18} />
+          </button>
+        </motion.div>
+        <p className={classes.contestModalSub}>
+          This call was billed at ${Number(log.cost || 0).toFixed(2)}. Contests must be submitted within {CONTEST_MAX_AGE_DAYS} days of the call. Explain what happened (disconnect, outage, etc.). Screenshots or PDFs are optional but helpful. Large images are compressed automatically — max 5 MB per file. We already have the call recording when available.
+        </p>
+        <form onSubmit={handleSubmit} className={classes.contestForm}>
+          <label className={classes.contestLabel}>
+            Category
+            <select
+              className={classes.contestSelect}
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              {CONTEST_CATEGORIES.map((c) => (
+                <option key={c.id} value={c.id}>{c.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className={classes.contestLabel}>
+            What happened?
+            <textarea
+              className={classes.contestTextarea}
+              rows={4}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Describe the disconnect or issue..."
+              required
+            />
+          </label>
+          <label className={classes.contestLabel}>
+            Proof <span className={classes.contestOptional}>(optional, up to 3 files)</span>
+            <div className={classes.contestUploadBox}>
+              <input type="file" accept="image/*,application/pdf" multiple onChange={handleFileChange} />
+              <div className={classes.contestUploadInner}>
+                <Upload size={24} className={classes.contestUploadIcon} aria-hidden />
+                <span className={classes.contestUploadText}>
+                  {files.length ? files.map((f) => f.name).join(', ') : 'PNG, JPG, or PDF (max 5 MB each)'}
+                </span>
+              </div>
+            </div>
+          </label>
+          <div className={classes.contestActions}>
+            <button type="button" className={classes.contestCancelBtn} onClick={onClose} disabled={submitting}>
+              Cancel
+            </button>
+            <button type="submit" className={classes.contestSubmitBtn} disabled={submitting}>
+              {submitting ? 'Submitting...' : 'Submit contest'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+function BillingStatusCell({ log, onContest }) {
+  if (log.refunded) {
+    return <span className={`${classes.dispBadge} ${classes.contestCredited}`}>Credited</span>;
+  }
+  if (log.contestStatus === 'pending') {
+    return <span className={`${classes.dispBadge} ${classes.contestPending}`}>Under review</span>;
+  }
+  if (log.contestStatus === 'denied') {
+    return (
+      <span className={`${classes.dispBadge} ${classes.contestDenied}`} title={log.contestDenyNote || 'Contest denied'}>
+        <AlertCircle size={12} /> Denied
+      </span>
+    );
+  }
+  if (log.isBillable && Number(log.cost || 0) > 0) {
+    if (!isWithinContestWindow(log)) {
+      return (
+        <span
+          className={`${classes.dispBadge} ${classes.contestExpired}`}
+          title={`Contests must be submitted within ${CONTEST_MAX_AGE_DAYS} days of the call`}
+        >
+          Window closed
+        </span>
+      );
+    }
+    return (
+      <button type="button" className={classes.contestBtn} onClick={() => onContest(log)}>
+        Contest charge
+      </button>
+    );
+  }
+  return <span className={classes.scoreDash}>—</span>;
+}
 
 function extractRecordingSid(recordingUrl) {
   const value = String(recordingUrl || '').trim();
@@ -365,6 +619,7 @@ const CallLogsPage = () => {
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeRecording, setActiveRecording] = useState(null);
+  const [contestLog, setContestLog] = useState(null);
   
   // Date Filters
   const [dateFilter, setDateFilter] = useState('all_time');
@@ -426,6 +681,12 @@ const CallLogsPage = () => {
     const interval = setInterval(() => fetchLogs(false), 15000);
     return () => clearInterval(interval);
   }, [dateFilter, startDate, endDate, activeRecording]);
+
+  useEffect(() => {
+    const onContestResolved = () => fetchLogs(false);
+    window.addEventListener('contest:resolved', onContestResolved);
+    return () => window.removeEventListener('contest:resolved', onContestResolved);
+  }, [dateFilter, startDate, endDate]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -508,6 +769,14 @@ const CallLogsPage = () => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filtered.slice(startIndex, startIndex + itemsPerPage);
   }, [filtered, currentPage, itemsPerPage]);
+
+  const handleContestSubmitted = (callLogId) => {
+    setCallLogs((prev) =>
+      prev.map((row) =>
+        row.id === callLogId ? { ...row, contestStatus: 'pending' } : row,
+      ),
+    );
+  };
 
   if (initialLoading) return <PageLoader />;
 
@@ -616,18 +885,20 @@ const CallLogsPage = () => {
           <div className={classes.emptyState}>{error}</div>
         ) : (
           <>
+            <div className={classes.tableScroll}>
             <table className={classes.table}>
               <thead>
                 <tr>
-                  <th>Campaign</th>
-                  <th>Caller</th>
-                  <th>Type</th>
-                  <th>Duration</th>
-                  <th>Status</th>
-                  <th>Disposition</th>
-                  <th>Cost</th>
-                  <th>Recording</th>
-                  <th>Date</th>
+                  <th className={classes.colCampaign}>Campaign</th>
+                  <th className={classes.colCaller}>Caller</th>
+                  <th className={classes.colType}>Type</th>
+                  <th className={classes.colDuration}>Duration</th>
+                  <th className={classes.colStatus}>Status</th>
+                  <th className={classes.colDisposition}>Disposition</th>
+                  <th className={classes.colCost}>Cost</th>
+                  <th className={classes.colBilling}>Billing</th>
+                  <th className={classes.colRecording}>Recording</th>
+                  <th className={classes.colDate}>Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -640,25 +911,25 @@ const CallLogsPage = () => {
 
                   return (
                     <tr key={log.id} className={log.status === 'missed' ? classes.rowMissed : ''}>
-                      <td>
+                      <td className={classes.colCampaign}>
                         <span className={classes.campaignTag}>{log.campaignLabel || log.campaign || '—'}</span>
                       </td>
-                      <td className={classes.phoneCell}>
+                      <td className={`${classes.phoneCell} ${classes.colCaller}`}>
                         {log.isBillable ? log.from : <span className={classes.hiddenPhone}>Hidden</span>}
                       </td>
-                      <td>
+                      <td className={classes.colType}>
                         <span className={`${classes.typeBadge} ${classes[typeCls]}`}>
                           <TypeIcon size={13} />
                           {isInbound ? 'Inbound' : 'Transfer'}
                         </span>
                       </td>
-                      <td>
+                      <td className={classes.colDuration}>
                         <span className={classes.duration}>
                           <Clock size={13} />
                           {formatDuration(log.duration)}
                         </span>
                       </td>
-                      <td>
+                      <td className={classes.colStatus}>
                         <div className={classes.statusCell}>
                           {log.isBillable ? (
                             <span className={`${classes.dispBadge} ${classes.dispSold}`}>
@@ -671,7 +942,7 @@ const CallLogsPage = () => {
                           )}
                         </div>
                       </td>
-                      <td>
+                      <td className={classes.colDisposition}>
                         <div className={classes.statusCell}>
                           {log.isBillable ? (
                             <span className={`${classes.dispBadge} ${classes.dispSold}`}>Sold</span>
@@ -688,14 +959,20 @@ const CallLogsPage = () => {
                           )}
                         </div>
                       </td>
-                      <td>
+                      <td className={classes.colCost}>
                         {log.cost > 0 ? (
-                          <span className={classes.costValue}>${log.cost}</span>
+                          <span className={classes.costValue}>
+                            ${log.cost}
+                            {log.refunded ? ' (credited)' : ''}
+                          </span>
                         ) : (
                           <span className={classes.scoreDash}>—</span>
                         )}
                       </td>
-                      <td className={classes.audioCell}>
+                      <td className={classes.colBilling}>
+                        <BillingStatusCell log={log} onContest={setContestLog} />
+                      </td>
+                      <td className={`${classes.audioCell} ${classes.colRecording}`}>
                         {(log.recordingSid || log.recordingUrl) ? (
                           <button 
                             className={classes.loadAudioBtn} 
@@ -707,12 +984,13 @@ const CallLogsPage = () => {
                           <span className={classes.scoreDash}>—</span>
                         )}
                       </td>
-                      <td className={classes.dateCell}>{formatDate(log.timestamp)}</td>
+                      <td className={`${classes.dateCell} ${classes.colDate}`}>{formatDate(log.timestamp)}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+            </div>
             {filtered.length === 0 && (
               <div className={classes.emptyState}>
                 {callLogs.length === 0
@@ -765,6 +1043,13 @@ const CallLogsPage = () => {
         <RecordingModal
           log={activeRecording}
           onClose={() => setActiveRecording(null)}
+        />
+      )}
+      {contestLog && (
+        <ContestChargeModal
+          log={contestLog}
+          onClose={() => setContestLog(null)}
+          onSubmitted={handleContestSubmitted}
         />
       )}
     </>

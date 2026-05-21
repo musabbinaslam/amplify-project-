@@ -201,6 +201,7 @@ function descriptionForSource(source, amountCents) {
     case 'stripe_checkout': return `Credit top-up — ${dollars}`;
     case 'manual': return `Manual credit — ${dollars}`;
     case 'referral_discount': return `Referral discount bonus — ${dollars}`;
+    case 'call_refund': return `Call credit — ${dollars}`;
     default: return `Credit added — ${dollars}`;
   }
 }

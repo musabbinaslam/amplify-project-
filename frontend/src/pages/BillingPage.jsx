@@ -66,6 +66,28 @@ const BillingPage = () => {
     initBilling();
   }, [location]);
 
+  useEffect(() => {
+    const refreshWalletQuiet = async () => {
+      try {
+        const data = await stripeService.getWallet();
+        setWallet(data);
+        setTransactions(data.transactions || []);
+      } catch (err) {
+        console.error('Failed to refresh wallet', err);
+      }
+    };
+
+    const onWalletUpdated = (e) => {
+      if (e.detail !== undefined && e.detail !== null) {
+        setWallet((prev) => (prev ? { ...prev, balance: e.detail } : { balance: e.detail, transactions: [] }));
+      }
+      refreshWalletQuiet();
+    };
+
+    window.addEventListener('wallet_updated', onWalletUpdated);
+    return () => window.removeEventListener('wallet_updated', onWalletUpdated);
+  }, []);
+
   const fetchWallet = async () => {
     setLoading(true);
     try {

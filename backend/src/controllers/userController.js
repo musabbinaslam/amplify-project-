@@ -960,6 +960,18 @@ async function getActivity(req, res) {
 
 async function getNotifications(req, res) {
   if (!ensureAdmin(req, res)) return;
+  const scope = String(req.query?.scope || 'all').toLowerCase();
+  if (scope === 'admin') {
+    try {
+      const profile = await getUserDoc(req.user.uid);
+      if (profile?.role !== 'admin') {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    } catch (err) {
+      console.error('[Users] getNotifications admin scope:', err.message);
+      return res.status(500).json({ error: err.message || 'Failed to verify role' });
+    }
+  }
   try {
     const out = await listUserNotifications(req.user.uid, req.query || {});
     res.json(out);
@@ -986,8 +998,20 @@ async function patchNotificationRead(req, res) {
 
 async function patchNotificationsReadAll(req, res) {
   if (!ensureAdmin(req, res)) return;
+  const scope = String(req.query?.scope || 'all').toLowerCase();
+  if (scope === 'admin') {
+    try {
+      const profile = await getUserDoc(req.user.uid);
+      if (profile?.role !== 'admin') {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    } catch (err) {
+      console.error('[Users] patchNotificationsReadAll admin scope:', err.message);
+      return res.status(500).json({ error: err.message || 'Failed to verify role' });
+    }
+  }
   try {
-    const out = await markAllNotificationsRead(req.user.uid);
+    const out = await markAllNotificationsRead(req.user.uid, { scope });
     res.json(out);
   } catch (err) {
     console.error('[Users] patchNotificationsReadAll:', err.message);

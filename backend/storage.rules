@@ -15,5 +15,10 @@ service firebase.storage {
     match /admin/{allPaths=**} {
       allow read, write: if request.auth != null && request.auth.token.admin == true;
     }
+
+    // Contest charge proofs — uploaded/read via backend Admin SDK only (not client direct).
+    match /contest-proofs/{allPaths=**} {
+      allow read, write: if false;
+    }
   }
 }

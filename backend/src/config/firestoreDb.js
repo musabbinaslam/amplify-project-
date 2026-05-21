@@ -1,10 +1,10 @@
 const { getFirestore } = require('firebase-admin/firestore');
 const admin = require('./firebaseAdmin');
+const { resolveFirestoreDatabaseId } = require('./resolveFirestoreDatabaseId');
 
 function getDb() {
   if (!admin) return null;
-  const databaseId = process.env.FIRESTORE_DATABASE_ID || '(default)';
-  return getFirestore(admin.app(), databaseId);
+  return getFirestore(admin.app(), resolveFirestoreDatabaseId());
 }
 
 module.exports = { getDb };

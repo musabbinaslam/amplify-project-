@@ -637,8 +637,21 @@ const TakeCallsPage = () => {
   useEffect(() => {
     fetchData();
     pollingTimerRef.current = setInterval(fetchData, 10000);
+
+    const onWalletUpdated = (e) => {
+      if (e.detail !== undefined && e.detail !== null) {
+        setWalletBalance(e.detail);
+        return;
+      }
+      stripeService.getWallet().then((walletData) => {
+        if (walletData) setWalletBalance(walletData.balance);
+      }).catch(() => {});
+    };
+    window.addEventListener('wallet_updated', onWalletUpdated);
+
     return () => {
       if (pollingTimerRef.current) clearInterval(pollingTimerRef.current);
+      window.removeEventListener('wallet_updated', onWalletUpdated);
     };
   }, []);
 
