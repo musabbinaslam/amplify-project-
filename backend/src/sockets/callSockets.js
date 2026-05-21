@@ -95,6 +95,11 @@ exports.setupCallSockets = (io) => {
                 HEARTBEAT_TTL_SECONDS,
                 socket.agentSessionId,
             );
+            await agentManager.setVoiceReady(
+                socket.agentId,
+                socket.agentSessionId,
+                HEARTBEAT_TTL_SECONDS,
+            );
 
             socket.emit('agent:live_confirmed', {
                 status: 'AVAILABLE',
@@ -107,6 +112,24 @@ exports.setupCallSockets = (io) => {
 
 
 
+        const handleCallDelivered = async (payload = {}) => {
+            const agentId = String(payload.agentId || socket.agentId || '').trim();
+            if (!agentId) return;
+            try {
+                await agentManager.confirmCallDelivered(agentId, {
+                    callSid: payload.callSid,
+                    from: payload.from,
+                    to: payload.to,
+                    campaignId: payload.campaignId,
+                });
+            } catch (e) {
+                console.warn('[Socket] call delivery confirm failed:', e.message);
+            }
+        };
+
+        socket.on('agent:call_incoming', handleCallDelivered);
+        socket.on('agent:call_accepted', handleCallDelivered);
+
         socket.on('agent:heartbeat', async (payload) => {
             const identity = payload?.agentId || socket.agentId;
             const sessionFromClient = String(payload?.sessionId || '').trim();
@@ -118,6 +141,12 @@ exports.setupCallSockets = (io) => {
                 );
                 if (!out?.ok && out?.reason === 'session-mismatch') {
                     console.log(`[Presence] Ignoring stale heartbeat for ${identity} (session mismatch)`);
+                } else if (out?.ok) {
+                    await agentManager.setVoiceReady(
+                        identity,
+                        out.sessionId || socket.agentSessionId,
+                        HEARTBEAT_TTL_SECONDS,
+                    );
                 }
             }
         });

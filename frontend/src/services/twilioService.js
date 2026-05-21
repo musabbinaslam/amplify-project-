@@ -138,6 +138,22 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
     });
 
     // 4. Register event listeners BEFORE calling device.register()
+    const leavePoolAndOffline = (reason) => {
+      console.warn(`[Twilio] ${reason} — leaving routing pool`);
+      if (socket._heartbeatInterval) clearInterval(socket._heartbeatInterval);
+      if (socket.connected) {
+        socket.emit('agent:go_offline', { sessionId: socket._agentSessionId || liveSessionId });
+      }
+      try { device.destroy(); } catch (_) { /* ignore */ }
+      const dialerStore = useDialerStore.getState();
+      if (typeof dialerStore.goOffline === 'function') {
+        dialerStore.goOffline();
+      } else {
+        dialerStore.setDevice?.(null);
+        dialerStore.setCallState?.('offline');
+      }
+    };
+
     device.on('registered', () => {
       console.log('[Twilio] Device registered ✔ — notifying backend to enter routing pool');
       store.setDevice(device);
@@ -153,9 +169,23 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       }
     });
 
+    device.on('unregistered', () => {
+      const cs = useDialerStore.getState().callState;
+      if (cs === 'active' || cs === 'ringing') return;
+      leavePoolAndOffline('Device unregistered');
+    });
+
     device.on('error', (twilioError) => {
       console.error('Twilio Device Error:', twilioError);
-      store.setCallState('error');
+      const cs = useDialerStore.getState().callState;
+      if (cs !== 'active' && cs !== 'ringing') {
+        store.setCallState('error');
+        const code = Number(twilioError?.code || 0);
+        // Fatal registration / token errors — don't stay in pool with a dead device
+        if ([31009, 31201, 31204, 31205, 31206, 53000, 53001].includes(code)) {
+          leavePoolAndOffline(`Device error ${code}`);
+        }
+      }
     });
 
     // Handle token rotation automatically before it expires (1hr limit)
@@ -182,6 +212,22 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       console.log('Incoming call received!', call);
 
       const callerId = call.parameters.From;
+      const callSid = call.parameters.CallSid || call.parameters.callSid || null;
+      const emitCallDelivered = (eventName) => {
+        if (!socket.connected) {
+          console.warn(`[Twilio] Socket disconnected — cannot emit ${eventName}; server dial-status will promote IN_CALL`);
+          return;
+        }
+        socket.emit(eventName, {
+          agentId: passedIdentity,
+          sessionId: socket._agentSessionId || liveSessionId,
+          callSid,
+          from: callerId,
+          to: call.parameters.To || null,
+          campaignId: campaign,
+        });
+      };
+      emitCallDelivered('agent:call_incoming');
       store.setIncomingCall(call, callerId);
 
       call.on('cancel', () => {
@@ -199,6 +245,7 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       });
 
       call.on('accept', () => {
+        emitCallDelivered('agent:call_accepted');
         store.setCallState('active');
         store.setActiveCall(call);
 

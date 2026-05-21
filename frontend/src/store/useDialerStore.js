@@ -85,10 +85,13 @@ const useDialerStore = create((set, get) => ({
         console.log('DEBUG: Call accepted successfully.');
       } catch (err) {
         console.error('DEBUG: ERROR ACCEPTING CALL:', err);
+        const twilioState = String(activeCall?.status?.() || activeCall?.status || '').toLowerCase();
+        if (twilioState === 'open' || twilioState === 'connected' || twilioState === 'answered') {
+          set({ callState: 'active' });
+          console.log('DEBUG: accept() threw but call leg is already active — keeping session live');
+          return;
+        }
         alert('Could not answer call. Check your microphone permissions!');
-        
-        // Fix: Prevent soft-lock by forcefully rejecting the call back to Twilio
-        // so the agent returns to 'idle' and the caller isn't hung in dead-air.
         get().rejectCall();
       }
     } else {

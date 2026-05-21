@@ -3,8 +3,21 @@ const { VoiceGrant, TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRE
 const { VoiceResponse } = twilio.twiml;
 const agentManager = require('../services/agentManager');
 const callLogService = require('../services/callLogService');
+const callContestService = require('../services/callContestService');
+const contestProofStorage = require('../services/contestProofStorage');
+const { getUserDoc } = require('../services/userDataService');
 const phoneRouteService = require('../services/phoneRouteService');
+const { normalizeCallerState } = require('../utils/phoneUtils');
 const { dispatchQaInsightJob } = require('../queues/qaQueue');
+
+/** Absolute URL for Twilio webhooks (relative URLs break statusCallback on some hosts). */
+function voiceWebhookUrl(req, pathWithQuery) {
+  const configured = String(process.env.VOICE_WEBHOOK_BASE_URL || process.env.API_BASE_URL || '').trim().replace(/\/$/, '');
+  if (configured) return `${configured}${pathWithQuery.startsWith('/') ? pathWithQuery : `/${pathWithQuery}`}`;
+  const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  return `${proto}://${host}${pathWithQuery.startsWith('/') ? pathWithQuery : `/${pathWithQuery}`}`;
+}
 
 exports.generateToken = (req, res) => {
   const { identity } = req.body;
@@ -43,9 +56,8 @@ exports.generateToken = (req, res) => {
 exports.handleIncomingCall = async (req, res) => {
   const twiml = new VoiceResponse();
   
-  // Safe extraction to prevent crashes
   const fromNumber = (req.body && req.body.From) || 'Unknown Caller';
-  let callerState = (req.body && req.body.FromState) || null; // fallback to Twilio Area Code State
+  let callerState = normalizeCallerState(req.body?.FromState, fromNumber);
   const queryCampaign = req.query && req.query.campaign;
   const bodyCampaign = req.body && req.body.campaign;
   let campaign = queryCampaign || bodyCampaign;
@@ -72,21 +84,42 @@ exports.handleIncomingCall = async (req, res) => {
      const available = await agentManager.findAndLockAvailableAgent(campaign, callerState);
 
      if (available) {
-        await agentManager.upsertActiveCall(available.id, {
-          callSid: req.body?.CallSid || req.body?.CallSidInbound || '',
+        const parentCallSid = req.body?.CallSid || req.body?.CallSidInbound || '';
+        // Stay RINGING until the browser receives the Twilio leg (agent:call_incoming).
+        // Marking IN_CALL/busy before dial caused ghosts when 2+ agents were online.
+        await agentManager.markAgentDialing(available.id, {
+          callSid: parentCallSid,
           from: fromNumber,
           to: toNumber,
           campaignId: campaign,
           startedAt: new Date().toISOString(),
-          state: 'bridging',
           retryCount,
         });
+        if (parentCallSid) {
+          await agentManager.releaseStaleRingingForCall(parentCallSid, available.id);
+        }
+        const dialStatusQs = new URLSearchParams({
+          campaign: String(campaign),
+          agentId: String(available.id),
+          retryCount: String(retryCount),
+          parentCallSid: String(parentCallSid),
+        });
+        const completedQs = new URLSearchParams({
+          campaign: String(campaign),
+          agentId: String(available.id),
+          retryCount: String(retryCount),
+        });
         const dial = twiml.dial({
-          action: `/api/voice/call-completed?campaign=${campaign}&agentId=${available.id}&retryCount=${retryCount}`,
+          action: voiceWebhookUrl(req, `/api/voice/call-completed?${completedQs.toString()}`),
           method: 'POST',
           timeout: 20,
           answerOnBridge: true,
-          record: 'record-from-answer'
+          record: 'record-from-answer',
+          // Server-side promotion to IN_CALL when Twilio bridges the client leg.
+          // Does not depend on the browser socket (agent:call_incoming).
+          statusCallback: voiceWebhookUrl(req, `/api/voice/dial-status?${dialStatusQs.toString()}`),
+          statusCallbackEvent: 'initiated ringing answered completed',
+          statusCallbackMethod: 'POST',
         });
         
         dial.client(available.id);
@@ -108,6 +141,73 @@ exports.handleIncomingCall = async (req, res) => {
 
   res.set('Content-Type', 'text/xml');
   res.send(twiml.toString());
+};
+
+/**
+ * Twilio Dial statusCallback — promotes agent to IN_CALL when the client leg is answered.
+ * Without this, agents stay in Redis RINGING if the browser socket never emits call_incoming.
+ */
+exports.handleDialStatus = async (req, res) => {
+  const { campaign, agentId } = req.query;
+  const event = String(req.body.StatusCallbackEvent || '').toLowerCase();
+  const callStatus = String(req.body.CallStatus || '').toLowerCase();
+  const callSid = String(req.body.CallSid || req.query.parentCallSid || '').trim();
+
+  if (!agentId) {
+    return res.sendStatus(200);
+  }
+
+  const parentSid = String(req.query.parentCallSid || callSid || '').trim();
+  const ownerId = parentSid
+    ? await agentManager.resolveCallOwner(parentSid, agentId)
+    : agentId;
+
+  console.log(
+    `[Twilio] Dial status: agent=${agentId} owner=${ownerId || 'n/a'} event=${event || 'n/a'} callStatus=${callStatus || 'n/a'} sid=${callSid || 'n/a'}`,
+  );
+
+  if (parentSid && ownerId && ownerId !== agentId) {
+    console.warn(`[Twilio] Dial status ignored for ${agentId} — call:route owner is ${ownerId}`);
+    return res.sendStatus(200);
+  }
+
+  if (parentSid && !(await agentManager.wasDialedForCall(agentId, parentSid))) {
+    console.warn(`[Twilio] Dial status ignored for ${agentId} — not dialed for ${parentSid}`);
+    return res.sendStatus(200);
+  }
+
+  try {
+    const isAnswered =
+      event === 'answered' ||
+      callStatus === 'in-progress' ||
+      callStatus === 'answered';
+
+    if (isAnswered) {
+      await agentManager.confirmCallDelivered(agentId, {
+        callSid,
+        from: req.body.From,
+        to: req.body.To,
+        campaignId: campaign,
+      });
+    } else {
+      const terminal =
+        ['completed', 'busy', 'no-answer', 'failed', 'canceled', 'cancelled'].includes(event) ||
+        ['busy', 'no-answer', 'failed', 'canceled', 'cancelled'].includes(callStatus);
+      if (terminal) {
+        const active = await agentManager.getActiveCall(agentId);
+        if (!active) {
+          await agentManager.clearActiveCall(agentId);
+          const agentState = await agentManager.getAgentState(agentId);
+          await agentManager.releaseAgent(agentId, agentState?.sessionId || null);
+          console.log(`[Twilio] Dial status released agent ${agentId} (${event || callStatus}) — never bridged`);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Twilio] handleDialStatus:', err.message);
+  }
+
+  return res.sendStatus(200);
 };
 
 /**
@@ -147,7 +247,12 @@ exports.handleCallCompleted = async (req, res) => {
         }
         const nextRetry = retryCount + 1;
         const fromState = FromState || '';
-        const redirectUrl = `/api/voice/incoming-call?campaign=${campaign}&retryCount=${nextRetry}${fromState ? `&FromState=${fromState}` : ''}`;
+        const redirectQs = new URLSearchParams({
+          campaign: String(campaign || ''),
+          retryCount: String(nextRetry),
+        });
+        if (fromState) redirectQs.set('FromState', fromState);
+        const redirectUrl = voiceWebhookUrl(req, `/api/voice/incoming-call?${redirectQs.toString()}`);
         console.log(`[Router] 🔁 Re-routing call (attempt ${nextRetry}/${MAX_RETRIES}) — DialCallStatus: ${DialCallStatus} | CallSid: ${CallSid}`);
         const rerouteTwiml = new VoiceResponse();
         rerouteTwiml.redirect({ method: 'POST' }, redirectUrl);
@@ -161,7 +266,7 @@ exports.handleCallCompleted = async (req, res) => {
     console.log(`[Twilio] Call Completed: ${CallSid}. DialSid: ${DialCallSid}. Duration: ${DialCallDuration}s. Status: ${DialCallStatus}${isRejectedOrMissed ? ' (agent rejected/missed)' : ''}. Recording: ${RecordingUrl ? 'Yes' : 'No'}`);
 
     let savedLog = null;
-    let resolvedAgentId = agentId || null;
+    let resolvedAgentId = await agentManager.resolveCallOwner(CallSid, agentId);
 
     // Extract the Recording SID from the RecordingUrl for clean frontend access.
     // Twilio RecordingUrl format: https://api.twilio.com/.../Recordings/RExxxxxx[.json]
@@ -175,21 +280,35 @@ exports.handleCallCompleted = async (req, res) => {
         if (!resolvedAgentId && CallSid) {
             resolvedAgentId = await agentManager.findAgentIdByCallSid(CallSid);
         }
-        savedLog = await callLogService.logCall({
-            from: From,
-            to: To,
-            duration: DialCallDuration,
-            campaignId: campaign,
-            agentId: resolvedAgentId,
-            status: DialCallStatus === 'completed' ? 'completed' : 'missed',
-            callSid: CallSid,
-            dialCallSid: DialCallSid || null,
-            recordingUrl: RecordingUrl || null,
-            recordingSid: recordingSid || null,
-        });
+        const shouldLog = resolvedAgentId
+          && CallSid
+          && (await agentManager.wasDialedForCall(resolvedAgentId, CallSid));
+        if (resolvedAgentId && CallSid && !shouldLog) {
+            console.warn(
+              `[Twilio] Skip call log for ${resolvedAgentId} — never dialed for ${CallSid} (phantom missed)`,
+            );
+            await agentManager.releaseStaleRingingForCall(CallSid, null);
+            resolvedAgentId = null;
+        } else if (resolvedAgentId) {
+            savedLog = await callLogService.logCall({
+                from: From,
+                to: To,
+                duration: DialCallDuration,
+                campaignId: campaign,
+                agentId: resolvedAgentId,
+                status: DialCallStatus === 'completed' ? 'completed' : 'missed',
+                callSid: CallSid,
+                dialCallSid: DialCallSid || null,
+                recordingUrl: RecordingUrl || null,
+                recordingSid: recordingSid || null,
+            });
+        }
     } catch (err) {
         console.error('[Twilio] Failed to persist call log:', err.message);
     } finally {
+      if (CallSid) {
+        await agentManager.releaseStaleRingingForCall(CallSid, resolvedAgentId || null);
+      }
       if (resolvedAgentId) {
         try {
             const activeRow = await agentManager.getActiveCall(resolvedAgentId);
@@ -199,7 +318,17 @@ exports.handleCallCompleted = async (req, res) => {
                 );
             } else {
                 if (DialCallStatus === 'completed') {
-                    // Call answered. Put agent in wrap-up to fill out disposition.
+                    // Fallback if browser never emitted agent:call_incoming before hangup.
+                    if (!(await agentManager.getActiveCall(resolvedAgentId))) {
+                        await agentManager.upsertActiveCall(resolvedAgentId, {
+                            callSid: CallSid,
+                            from: From,
+                            to: To,
+                            campaignId: campaign,
+                            startedAt: new Date().toISOString(),
+                            state: 'in_call',
+                        });
+                    }
                     await agentManager.setAgentWrapUp(resolvedAgentId);
                 } else {
                     // Call missed/failed/cancelled. Release immediately.
@@ -357,6 +486,82 @@ exports.proxyRecording = async (req, res) => {
 /**
  * Update call log (e.g., disposition)
  */
+function serviceErrorStatus(err) {
+    const map = {
+        NOT_FOUND: 404,
+        ALREADY_REFUNDED: 409,
+        NOT_BILLABLE: 400,
+        REASON_TOO_SHORT: 400,
+        CONTEST_PENDING: 409,
+        CONTEST_EXPIRED: 400,
+        PROOF_REQUIRED: 400,
+        FILE_TOO_LARGE: 413,
+        INVALID_CATEGORY: 400,
+        UNAVAILABLE: 503,
+        STORAGE_UNAVAILABLE: 503,
+    };
+    return map[err.code] || 500;
+}
+
+exports.submitCallContest = async (req, res) => {
+    try {
+        const { callLogId } = req.params;
+        const { reason, category } = req.body || {};
+        const files = Array.isArray(req.files) ? req.files : [];
+        const result = await callContestService.submitContest(req.user.uid, callLogId, {
+            reason,
+            category,
+            files,
+        });
+        res.status(201).json(result);
+    } catch (err) {
+        console.error('[Voice] submitCallContest:', err.message);
+        res.status(serviceErrorStatus(err)).json({ error: err.message || 'Failed to submit contest' });
+    }
+};
+
+exports.serveContestProof = async (req, res) => {
+    try {
+        const contestId = String(req.query.contestId || '').trim();
+        const proofId = String(req.query.proofId || '').trim();
+        if (!contestId || !proofId) {
+            return res.status(400).json({ error: 'contestId and proofId are required' });
+        }
+
+        const ownerId = await contestProofStorage.getContestAgentId(contestId);
+        if (!ownerId) {
+            return res.status(404).json({ error: 'Contest not found' });
+        }
+
+        const userDoc = await getUserDoc(req.user.uid);
+        const isAdmin = userDoc?.role === 'admin';
+        if (req.user.uid !== ownerId && !isAdmin) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        const { buffer, mimeType } = await contestProofStorage.readProof(contestId, proofId);
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Cache-Control', 'private, max-age=3600');
+        res.send(buffer);
+    } catch (err) {
+        const status = err.code === 'NOT_FOUND' ? 404 : 500;
+        if (!res.headersSent) {
+            res.status(status).json({ error: err.message || 'Failed to load proof file' });
+        }
+    }
+};
+
+exports.getCallContestStatus = async (req, res) => {
+    try {
+        const { callLogId } = req.params;
+        const contest = await callContestService.getContestForAgent(req.user.uid, callLogId);
+        res.json({ contest });
+    } catch (err) {
+        console.error('[Voice] getCallContestStatus:', err.message);
+        res.status(500).json({ error: 'Failed to load contest status' });
+    }
+};
+
 exports.updateCallLog = async (req, res) => {
     try {
         const { callSid } = req.params;

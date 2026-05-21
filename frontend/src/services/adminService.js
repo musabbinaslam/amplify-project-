@@ -70,3 +70,35 @@ export function patchAdminMaintenanceState(body) {
 export function forceRemoveAgent(agentId) {
   return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/force-remove`, { method: 'POST' });
 }
+
+export function listAdminCallContests(status = 'pending', limit = 50) {
+  const qs = new URLSearchParams();
+  if (status) qs.set('status', status);
+  if (limit) qs.set('limit', String(limit));
+  return apiFetch(`/api/admin/call-contests?${qs.toString()}`, { method: 'GET' });
+}
+
+export function getAdminCallContest(contestId) {
+  return apiFetch(`/api/admin/call-contests/${encodeURIComponent(contestId)}`, { method: 'GET' });
+}
+
+export function approveAdminCallContest(contestId, reason) {
+  return apiFetch(`/api/admin/call-contests/${encodeURIComponent(contestId)}/approve`, {
+    method: 'POST',
+    body: { reason },
+  });
+}
+
+export function denyAdminCallContest(contestId, adminNote) {
+  return apiFetch(`/api/admin/call-contests/${encodeURIComponent(contestId)}/deny`, {
+    method: 'POST',
+    body: { adminNote },
+  });
+}
+
+export function refundAdminCall({ agentId, callLogId, reason }) {
+  return apiFetch('/api/admin/call-logs/refund', {
+    method: 'POST',
+    body: { agentId, callLogId, reason },
+  });
+}

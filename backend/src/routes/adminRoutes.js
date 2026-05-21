@@ -30,4 +30,12 @@ router.post('/notifications/broadcast', adminController.postBroadcastNotificatio
 router.get('/maintenance', adminController.getMaintenance);
 router.patch('/maintenance', adminController.patchMaintenance);
 
+// Pool debug — dumps full Redis routing state for diagnosis
+router.get('/pool-debug', adminController.getPoolDebug);
+router.get('/call-contests', adminController.listCallContests);
+router.get('/call-contests/:contestId', adminController.getCallContest);
+router.post('/call-contests/:contestId/approve', adminController.approveCallContest);
+router.post('/call-contests/:contestId/deny', adminController.denyCallContest);
+router.post('/call-logs/refund', adminController.refundCall);
+
 module.exports = router;

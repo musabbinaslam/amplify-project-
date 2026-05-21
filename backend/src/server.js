@@ -97,7 +97,12 @@ const startEngine = async () => {
                 console.log(`[Ghost Cleanup] 🧹 Evicted ${staleCallsEvicted} orphaned active-call record(s)`);
             }
 
-            if ((ghosts && ghosts.length > 0) || staleCallsEvicted > 0) {
+            const staleRingingEvicted = await agentManager.evictStaleRingingAgents();
+            if (staleRingingEvicted > 0) {
+                console.log(`[Ghost Cleanup] 📵 Released ${staleRingingEvicted} stale RINGING agent(s)`);
+            }
+
+            if ((ghosts && ghosts.length > 0) || staleCallsEvicted > 0 || staleRingingEvicted > 0) {
                 // Broadcast updated agent count to all connected frontends
                 const count = await agentManager.getTotalAvailableCount();
                 io.emit('stats:agent_count', count || 0);

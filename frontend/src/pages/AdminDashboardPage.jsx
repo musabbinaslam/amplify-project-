@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  Shield, Users, Phone, Radio, RefreshCw, Trash2, Plus, CalendarDays, CircleDollarSign, Activity, Play
+  Shield, Users, Phone, Radio, RefreshCw, Trash2, Plus, CalendarDays, CircleDollarSign, Activity, Play, X, ChevronDown, FileText
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -25,13 +25,118 @@ import {
   getAdminMaintenanceState,
   patchAdminMaintenanceState,
   forceRemoveAgent,
+  listAdminCallContests,
+  approveAdminCallContest,
+  denyAdminCallContest,
+  refundAdminCall,
 } from '../services/adminService';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { EASE_SMOOTH } from '../motion/appMotion';
 import useAuthStore from '../store/authStore';
 import PageLoader from '../components/ui/PageLoader';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { RecordingModal } from './CallLogsPage';
+import { auth } from '../config/firebase';
+import { getApiBaseUrl } from '../config/apiBase';
 import classes from './AdminDashboardPage.module.css';
+
+async function fetchContestProofBlob(url) {
+  if (!url) throw new Error('No proof URL');
+  if (!url.startsWith('/api/')) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Could not load proof file');
+    return res.blob();
+  }
+  const token = await auth?.currentUser?.getIdToken();
+  if (!token) throw new Error('Not signed in');
+  const res = await fetch(`${getApiBaseUrl()}${url}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Could not load proof file');
+  return res.blob();
+}
+
+async function openContestProofUrl(url) {
+  if (!url) return;
+  try {
+    const blob = await fetchContestProofBlob(url);
+    const objectUrl = URL.createObjectURL(blob);
+    window.open(objectUrl, '_blank', 'noopener,noreferrer');
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+  } catch (e) {
+    toast.error(e.message || 'Failed to open proof');
+  }
+}
+
+function isImageProof(file) {
+  const mime = String(file?.mimeType || '').toLowerCase();
+  if (mime.startsWith('image/')) return true;
+  const name = String(file?.name || '').toLowerCase();
+  return /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/.test(name);
+}
+
+function ContestProofImage({ url, name, onOpen }) {
+  const [src, setSrc] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!url) return undefined;
+    let objectUrl = null;
+    let cancelled = false;
+
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const blob = await fetchContestProofBlob(url);
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSrc(objectUrl);
+      } catch (e) {
+        if (!cancelled) setError(e.message || 'Failed to load preview');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url]);
+
+  if (loading) {
+    return (
+      <div className={classes.contestProofPreviewPlaceholder} aria-busy="true">
+        Loading preview…
+      </div>
+    );
+  }
+
+  if (error || !src) {
+    return (
+      <button type="button" className={classes.contestProofChip} onClick={() => onOpen(url)}>
+        <FileText size={14} />
+        <span>{name || 'Proof file'}</span>
+      </button>
+    );
+  }
+
+  return (
+    <figure className={classes.contestProofFigure}>
+      <button
+        type="button"
+        className={classes.contestProofImageBtn}
+        onClick={() => onOpen(url)}
+        title="Open full size"
+      >
+        <img src={src} alt={name || 'Contest proof'} className={classes.contestProofImage} />
+      </button>
+      {name ? <figcaption className={classes.contestProofCaption}>{name}</figcaption> : null}
+    </figure>
+  );
+}
 
 const toLocalDateTimeInput = (value) => {
   if (!value) return '';
@@ -42,6 +147,271 @@ const toLocalDateTimeInput = (value) => {
 };
 
 const nowLocalInput = () => toLocalDateTimeInput(new Date());
+
+function formatContestCategory(category) {
+  if (!category) return '—';
+  return String(category).replace(/_/g, ' ');
+}
+
+const CONTEST_EXPAND_TRANSITION = { duration: 0.32, ease: EASE_SMOOTH };
+
+function ContestReviewCard({
+  contest: c,
+  expanded,
+  onToggle,
+  onOpenProof,
+  onPlayRecording,
+  onApprove,
+  onDeny,
+}) {
+  const reduceMotion = useReducedMotion();
+  const expandTransition = reduceMotion ? { duration: 0 } : CONTEST_EXPAND_TRANSITION;
+  const expandMotion = reduceMotion
+    ? {}
+    : {
+        initial: { height: 0, opacity: 0 },
+        animate: { height: 'auto', opacity: 1 },
+        exit: { height: 0, opacity: 0 },
+      };
+
+  const isPending = c.status === 'pending';
+  const statusClass =
+    c.status === 'pending' ? classes.dispAnswered : c.status === 'approved' ? classes.dispSold : classes.dispMissed;
+
+  return (
+    <article className={`${classes.contestCard} ${expanded ? classes.contestCardExpanded : ''}`}>
+      <button type="button" className={classes.contestCardSummary} onClick={onToggle}>
+        <div className={classes.contestCardSummaryMain}>
+          <div className={classes.contestCardIdentity}>
+            <span className={classes.contestCardName}>{c.agentName || c.agentId}</span>
+            <span className={classes.contestCardMeta}>
+              {c.campaignLabel || c.campaign}
+              <span className={classes.contestCardDot}>·</span>
+              ${Number(c.cost || 0).toFixed(2)}
+              <span className={classes.contestCardDot}>·</span>
+              {formatContestCategory(c.category)}
+            </span>
+          </div>
+          <div className={classes.contestCardSummaryAside}>
+            <span className={classes.contestCardWhen}>
+              {c.submittedAt ? new Date(c.submittedAt).toLocaleString() : '—'}
+            </span>
+            <span className={`${classes.statusPill} ${statusClass}`}>{c.status}</span>
+            <ChevronDown size={18} className={classes.contestCardChevron} />
+          </div>
+        </div>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            key="contest-detail"
+            className={classes.contestCardExpandWrap}
+            {...expandMotion}
+            transition={expandTransition}
+          >
+            <div className={classes.contestCardBody}>
+          <div className={classes.contestReviewGrid}>
+            <section className={classes.contestReviewMain}>
+              <h4 className={classes.contestReviewHeading}>Agent explanation</h4>
+              <p className={classes.contestReviewReason}>{c.agentReason || '—'}</p>
+
+              <h4 className={classes.contestReviewHeading}>Proof</h4>
+              {c.proofFiles?.length > 0 ? (
+                <div className={classes.contestProofSection}>
+                  {c.proofFiles.some(isImageProof) ? (
+                    <div className={classes.contestProofGallery}>
+                      {c.proofFiles.filter(isImageProof).map((f) => (
+                        <ContestProofImage
+                          key={f.proofId || f.url || f.name}
+                          url={f.url}
+                          name={f.name}
+                          onOpen={onOpenProof}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                  {c.proofFiles.filter((f) => !isImageProof(f)).length > 0 ? (
+                    <div className={classes.contestProofList}>
+                      {c.proofFiles.filter((f) => !isImageProof(f)).map((f) => (
+                        <button
+                          key={f.storagePath || f.url || f.proofId}
+                          type="button"
+                          className={classes.contestProofChip}
+                          onClick={() => onOpenProof(f.url)}
+                        >
+                          <FileText size={14} />
+                          <span>{f.name || 'Proof file'}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <p className={classes.muted}>No proof files attached.</p>
+              )}
+
+              {c.adminNote && !isPending ? (
+                <>
+                  <h4 className={classes.contestReviewHeading}>Admin note</h4>
+                  <p className={classes.contestReviewReason}>{c.adminNote}</p>
+                </>
+              ) : null}
+            </section>
+
+            <aside className={classes.contestReviewSide}>
+              <h4 className={classes.contestReviewHeading}>Call details</h4>
+              <dl className={classes.contestFacts}>
+                <div>
+                  <dt>Agent</dt>
+                  <dd>{c.agentName || c.agentId}</dd>
+                </div>
+                <div>
+                  <dt>Campaign</dt>
+                  <dd>{c.campaignLabel || c.campaign}</dd>
+                </div>
+                <div>
+                  <dt>Charge</dt>
+                  <dd className={classes.contestFactAmount}>${Number(c.cost || 0).toFixed(2)}</dd>
+                </div>
+                <div>
+                  <dt>Duration</dt>
+                  <dd>{c.duration}s</dd>
+                </div>
+                <div>
+                  <dt>Category</dt>
+                  <dd>{formatContestCategory(c.category)}</dd>
+                </div>
+                <div>
+                  <dt>Submitted</dt>
+                  <dd>{c.submittedAt ? new Date(c.submittedAt).toLocaleString() : '—'}</dd>
+                </div>
+                <div>
+                  <dt>Call log</dt>
+                  <dd className={classes.contestFactMono}>{c.callLogId?.slice(0, 12)}…</dd>
+                </div>
+              </dl>
+
+              <div className={classes.contestRecordingBlock}>
+                <h4 className={classes.contestReviewHeading}>Recording</h4>
+                {c.recordingUrl ? (
+                  <button type="button" className={classes.contestRecordingBtn} onClick={onPlayRecording}>
+                    <Play size={14} /> Play recording
+                  </button>
+                ) : (
+                  <p className={classes.muted}>No recording available</p>
+                )}
+              </div>
+
+              {isPending ? (
+                <div className={classes.contestActionStack}>
+                  <button type="button" className={classes.primaryBtn} onClick={onApprove}>
+                    Approve & credit ${Number(c.cost || 0).toFixed(2)}
+                  </button>
+                  <button type="button" className={classes.dangerBtn} onClick={onDeny}>
+                    Deny contest
+                  </button>
+                </div>
+              ) : null}
+            </aside>
+          </div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </article>
+  );
+}
+
+const ACTION_MODAL_CONFIG = {
+  approve_contest: {
+    title: 'Approve & credit',
+    confirmLabel: 'Approve & credit',
+    confirmClass: 'primaryBtn',
+    label: 'Approval note',
+    placeholder: 'Why is this call being credited? (visible on billing history)',
+  },
+  deny_contest: {
+    title: 'Deny contest',
+    confirmLabel: 'Deny contest',
+    confirmClass: 'dangerBtn',
+    label: 'Denial reason',
+    placeholder: 'Explain to the agent why this contest was denied',
+  },
+  refund_call: {
+    title: 'Refund call charge',
+    confirmLabel: 'Confirm refund',
+    confirmClass: 'primaryBtn',
+    label: 'Refund reason',
+    placeholder: 'Why is this call being credited? (visible on billing history)',
+  },
+};
+
+function AdminActionModal({ modal, note, onNoteChange, submitting, onClose, onSubmit }) {
+  if (!modal) return null;
+  const cfg = ACTION_MODAL_CONFIG[modal.type];
+  const { agentName, amount } = modal.context || {};
+
+  let subtitle = '';
+  if (modal.type === 'approve_contest') {
+    subtitle = `Credit $${amount} to ${agentName}. Minimum 10 characters.`;
+  } else if (modal.type === 'deny_contest') {
+    subtitle = `The agent (${agentName}) will see this on their call log.`;
+  } else if (modal.type === 'refund_call') {
+    subtitle = `Credit $${amount} to ${agentName}. Minimum 10 characters.`;
+  }
+
+  return (
+    <motion.div
+      className={classes.modalOverlay}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      onClick={onClose}
+    >
+      <motion.div
+        className={classes.modalBox}
+        initial={{ scale: 0.96, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={classes.modalHeader}>
+          <h3>{cfg.title}</h3>
+          <button type="button" className={classes.modalCloseBtn} onClick={onClose} aria-label="Close">
+            <X size={18} />
+          </button>
+        </div>
+        <p className={classes.modalSub}>{subtitle}</p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit();
+          }}
+        >
+          <label className={classes.modalLabel}>
+            {cfg.label}
+            <textarea
+              className={classes.modalTextarea}
+              rows={4}
+              value={note}
+              onChange={(e) => onNoteChange(e.target.value)}
+              placeholder={cfg.placeholder}
+              autoFocus
+              required
+            />
+          </label>
+          <div className={classes.modalActions}>
+            <button type="button" className={classes.modalCancelBtn} onClick={onClose} disabled={submitting}>
+              Cancel
+            </button>
+            <button type="submit" className={classes[cfg.confirmClass]} disabled={submitting}>
+              {submitting ? 'Saving…' : cfg.confirmLabel}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+}
 
 const AdminDashboardPage = () => {
   const presets = useSubtlePageMotion();
@@ -85,6 +455,14 @@ const AdminDashboardPage = () => {
     endsAt: '',
   });
   const [forceRemoveAgentId, setForceRemoveAgentId] = useState('');
+  const [callContests, setCallContests] = useState([]);
+  const [contestFilter, setContestFilter] = useState('pending');
+  const [contestsLoading, setContestsLoading] = useState(false);
+  const [expandedContestId, setExpandedContestId] = useState(null);
+  const [refundingLogId, setRefundingLogId] = useState(null);
+  const [actionModal, setActionModal] = useState(null);
+  const [actionNote, setActionNote] = useState('');
+  const [actionSubmitting, setActionSubmitting] = useState(false);
 
   const getRange = useCallback(() => {
     const now = new Date();
@@ -176,6 +554,18 @@ const AdminDashboardPage = () => {
     setDids(didList.dids || []);
   }, []);
 
+  const loadCallContests = useCallback(async (status = contestFilter) => {
+    setContestsLoading(true);
+    try {
+      const out = await listAdminCallContests(status, 50);
+      setCallContests(out.contests || []);
+    } catch (e) {
+      toast.error(e.message || 'Failed to load call contests');
+    } finally {
+      setContestsLoading(false);
+    }
+  }, [contestFilter]);
+
   const refreshMaintenance = useCallback(async () => {
     try {
       const out = await getAdminMaintenanceState();
@@ -198,8 +588,9 @@ const AdminDashboardPage = () => {
       loadShell(),
       refreshDids(),
       refreshMaintenance(),
+      loadCallContests('pending'),
     ]);
-  }, [loadShell, refreshDids, refreshMaintenance]);
+  }, [loadShell, refreshDids, refreshMaintenance, loadCallContests]);
 
   useEffect(() => {
     // Re-fetch analytics whenever the selected range changes. loadAnalytics'
@@ -278,6 +669,123 @@ const AdminDashboardPage = () => {
     } catch (err) {
       toast.error(err.message || 'Failed to update');
     }
+  };
+
+  const openApproveContestModal = (contest) => {
+    setActionNote('');
+    setActionModal({
+      type: 'approve_contest',
+      context: {
+        contest,
+        agentName: contest.agentName || contest.agentId,
+        amount: Number(contest.cost || 0).toFixed(2),
+      },
+    });
+  };
+
+  const openDenyContestModal = (contest) => {
+    setActionNote('');
+    setActionModal({
+      type: 'deny_contest',
+      context: {
+        contest,
+        agentName: contest.agentName || contest.agentId,
+      },
+    });
+  };
+
+  const openRefundCallModal = (log) => {
+    if (log.contestStatus === 'pending') {
+      toast.error('Resolve the pending contest first');
+      return;
+    }
+    setActionNote('');
+    setActionModal({
+      type: 'refund_call',
+      context: {
+        log,
+        agentName: log.agentName || log.agentId,
+        amount: Number(log.cost || 0).toFixed(2),
+      },
+    });
+  };
+
+  const submitActionModal = async () => {
+    const trimmed = actionNote.trim();
+    if (trimmed.length < 10) {
+      toast.error('Note must be at least 10 characters');
+      return;
+    }
+    if (!actionModal) return;
+
+    setActionSubmitting(true);
+    try {
+      if (actionModal.type === 'approve_contest') {
+        const { contest } = actionModal.context;
+        await approveAdminCallContest(contest.id, trimmed);
+        toast.success('Contest approved — wallet credited');
+        setExpandedContestId(null);
+        setActionModal(null);
+        setActionNote('');
+        setCallContests((prev) => (
+          contestFilter === 'pending'
+            ? prev.filter((c) => c.id !== contest.id)
+            : prev.map((c) => (c.id === contest.id ? { ...c, status: 'approved' } : c))
+        ));
+        void loadCallContests(contestFilter);
+        if (selectedCampaign || selectedAgent) {
+          void loadDrilldown(selectedCampaign ? 'campaign' : 'agent', selectedCampaign || selectedAgent);
+        }
+      } else if (actionModal.type === 'deny_contest') {
+        const { contest } = actionModal.context;
+        await denyAdminCallContest(contest.id, trimmed);
+        toast.success('Contest denied');
+        setExpandedContestId(null);
+        setActionModal(null);
+        setActionNote('');
+        setCallContests((prev) => (
+          contestFilter === 'pending'
+            ? prev.filter((c) => c.id !== contest.id)
+            : prev.map((c) => (c.id === contest.id ? { ...c, status: 'denied', contestDenyNote: trimmed } : c))
+        ));
+        void loadCallContests(contestFilter);
+      } else if (actionModal.type === 'refund_call') {
+        const { log } = actionModal.context;
+        setRefundingLogId(log.id);
+        await refundAdminCall({
+          agentId: log.agentId,
+          callLogId: log.id,
+          reason: trimmed,
+        });
+        toast.success('Call refunded');
+        setDrilldown((prev) => {
+          if (!prev?.recentLogs) return prev;
+          return {
+            ...prev,
+            recentLogs: prev.recentLogs.map((r) =>
+              r.id === log.id ? { ...r, refunded: true, contestStatus: r.contestStatus } : r,
+            ),
+          };
+        });
+        void loadCallContests(contestFilter);
+        setRefundingLogId(null);
+      }
+      if (actionModal.type !== 'approve_contest' && actionModal.type !== 'deny_contest') {
+        setActionModal(null);
+        setActionNote('');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Action failed');
+      if (actionModal.type === 'refund_call') setRefundingLogId(null);
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
+
+  const closeActionModal = () => {
+    if (actionSubmitting) return;
+    setActionModal(null);
+    setActionNote('');
   };
 
   const removeDid = async (row) => {
@@ -763,13 +1271,14 @@ const AdminDashboardPage = () => {
                 <th>Billable %</th>
                 <th>Avg Handle (s)</th>
                 <th>Total Cost</th>
+                <th>Balance</th>
               </tr>
             </thead>
             <tbody>
               {analyticsLoading ? (
-                <tr><td colSpan={6} className={classes.muted}>Loading analytics…</td></tr>
+                <tr><td colSpan={7} className={classes.muted}>Loading analytics…</td></tr>
               ) : filteredAgentStats.length === 0 ? (
-                <tr><td colSpan={6} className={classes.muted}>No agent stats match this filter</td></tr>
+                <tr><td colSpan={7} className={classes.muted}>No agent stats match this filter</td></tr>
               ) : (
                 filteredAgentStats.map((row) => (
                   <tr
@@ -806,6 +1315,11 @@ const AdminDashboardPage = () => {
                     <td>{Math.round((row.billableRate || 0) * 100)}%</td>
                     <td>{row.avgHandleTime}</td>
                     <td>${(row.totalCost || 0).toFixed(2)}</td>
+                    <td>
+                      {typeof row.walletBalanceCents === 'number'
+                        ? `$${(row.walletBalanceCents / 100).toFixed(2)}`
+                        : '—'}
+                    </td>
                   </tr>
                 ))
               )}
@@ -933,8 +1447,10 @@ const AdminDashboardPage = () => {
                       <th>Status</th>
                       <th>Disposition</th>
                       <th>Cost</th>
+                      <th>Contest</th>
                       <th>Recording (QA)</th>
                       <th>Date</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -987,6 +1503,17 @@ const AdminDashboardPage = () => {
                         </td>
                         <td>{log.cost > 0 ? `$${log.cost.toFixed(2)}` : '—'}</td>
                         <td>
+                          {log.refunded ? (
+                            <span className={`${classes.statusPill} ${classes.dispSold}`}>Credited</span>
+                          ) : log.contestStatus === 'pending' ? (
+                            <span className={`${classes.statusPill} ${classes.dispAnswered}`}>Pending</span>
+                          ) : log.contestStatus === 'denied' ? (
+                            <span className={`${classes.statusPill} ${classes.dispMissed}`}>Denied</span>
+                          ) : (
+                            <span className={classes.muted}>—</span>
+                          )}
+                        </td>
+                        <td>
                           {(log.recordingSid || log.recordingUrl) ? (
                             <button 
                               style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--brand-accent)', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
@@ -999,11 +1526,25 @@ const AdminDashboardPage = () => {
                           )}
                         </td>
                         <td className={classes.muted}>{new Date(log.createdAt).toLocaleString()}</td>
+                        <td>
+                          {log.isBillable && log.cost > 0 && !log.refunded && log.contestStatus !== 'pending' ? (
+                            <button
+                              type="button"
+                              className={classes.refreshBtn}
+                              disabled={refundingLogId === log.id}
+                              onClick={() => openRefundCallModal(log)}
+                            >
+                              {refundingLogId === log.id ? '…' : 'Refund'}
+                            </button>
+                          ) : (
+                            <span className={classes.muted}>—</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                     {filteredSortedDrilldownLogs.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className={classes.muted}>No calls found for selected day.</td>
+                        <td colSpan={10} className={classes.muted}>No calls found for selected day.</td>
                       </tr>
                     ) : null}
                   </tbody>
@@ -1011,6 +1552,51 @@ const AdminDashboardPage = () => {
               </div>
             )}
           </>
+        )}
+      </motion.section>
+
+      <motion.section className={classes.card} variants={presets.child}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <h2 className={classes.cardTitle} style={{ margin: 0 }}>Call charge contests</h2>
+          <motion.div style={{ display: 'flex', gap: '8px', alignItems: 'center' }} whileHover={{ scale: 1.01 }}>
+            <select
+              className={classes.select}
+              value={contestFilter}
+              onChange={(e) => {
+                setContestFilter(e.target.value);
+                loadCallContests(e.target.value);
+              }}
+            >
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="denied">Denied</option>
+              <option value="all">All</option>
+            </select>
+            <button type="button" className={classes.refreshBtn} onClick={() => loadCallContests(contestFilter)}>
+              <RefreshCw size={14} className={contestsLoading ? classes.spinner : ''} /> Refresh
+            </button>
+          </motion.div>
+        </div>
+        <p className={classes.hint}>Agents contest billable calls with proof. Review and approve (credit wallet) or deny.</p>
+        {contestsLoading && !callContests.length ? (
+          <p className={classes.muted}>Loading contests...</p>
+        ) : !callContests.length ? (
+          <p className={classes.muted}>No {contestFilter === 'all' ? '' : contestFilter} contests.</p>
+        ) : (
+          <div className={classes.contestList}>
+            {callContests.map((c) => (
+              <ContestReviewCard
+                key={c.id}
+                contest={c}
+                expanded={expandedContestId === c.id}
+                onToggle={() => setExpandedContestId(expandedContestId === c.id ? null : c.id)}
+                onOpenProof={openContestProofUrl}
+                onPlayRecording={() => setActiveRecording({ recordingUrl: c.recordingUrl, campaign: c.campaignLabel })}
+                onApprove={() => openApproveContestModal(c)}
+                onDeny={() => openDenyContestModal(c)}
+              />
+            ))}
+          </div>
         )}
       </motion.section>
 
@@ -1215,6 +1801,14 @@ const AdminDashboardPage = () => {
         </div>
       </motion.section>
       {activeRecording && <RecordingModal log={activeRecording} onClose={() => setActiveRecording(null)} />}
+      <AdminActionModal
+        modal={actionModal}
+        note={actionNote}
+        onNoteChange={setActionNote}
+        submitting={actionSubmitting}
+        onClose={closeActionModal}
+        onSubmit={submitActionModal}
+      />
     </motion.div>
   );
 };
