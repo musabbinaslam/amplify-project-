@@ -33,7 +33,7 @@ const CAMPAIGN_CONFIG = {
   medicare_inbound_2: {
     label: 'Medicare Inbounds (2)',
     buffer: 15, // seconds
-    price: 18.00
+    price: 15.00
   },
 
   // ACA

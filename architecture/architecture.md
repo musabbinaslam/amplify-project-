@@ -350,7 +350,7 @@ Defined in `backend/src/config/pricing.js` (`CAMPAIGN_CONFIG`):
 | `fe_inbounds` | FE Inbounds | $25/call | 30s |
 | `medicare_transfers` | Medicare Transfers | $25/lead | 120s |
 | `medicare_inbounds_1` | Medicare Inbounds (1) | $35/call | 90s |
-| `medicare_inbounds_2` | Medicare Inbounds (2) | $30/call | 90s |
+| `medicare_inbound_2` | Medicare Inbounds (2) | $15/call | 15s |
 | `aca_transfers` | ACA Transfers | $30/lead | 90s |
 
 A call is **billable** if `duration >= campaign.buffer && status === 'completed'`. The cost is automatically deducted from the agent's Firestore wallet on completion.
