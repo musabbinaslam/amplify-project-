@@ -299,7 +299,7 @@ const StepTwo = ({ onNext, onBack }) => {
     { id: 'fe_inbounds', title: 'FE Inbounds', subtitle: 'Direct inbound Final Expense calls', price: '$45', buffer: '90s buffer', icon: PhoneIncoming },
     { id: 'medicare_transfers', title: 'Medicare Transfers', subtitle: 'Live transfer Medicare calls', price: '$25', buffer: '120s buffer', icon: HeartPulse },
     { id: 'medicare_inbound_1', title: 'Medicare Inbounds (1)', subtitle: 'High-intent Medicare inbound calls', price: '$35', buffer: '90s buffer', icon: Shield },
-    { id: 'medicare_inbound_2', title: 'Medicare Inbounds (2)', subtitle: 'Standard Medicare inbound calls', price: '$18', buffer: '15s buffer', icon: ShieldCheck },
+    { id: 'medicare_inbound_2', title: 'Medicare Inbounds (2)', subtitle: 'Standard Medicare inbound calls', price: '$15', buffer: '15s buffer', icon: ShieldCheck },
     { id: 'aca_transfers', title: 'ACA Transfers', subtitle: 'Live transfer ACA health calls', price: '$30', buffer: '120s buffer', icon: Users },
   ];
 
@@ -428,7 +428,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
     fe_inbounds: 'FE Inbounds ($45 / 90s)',
     medicare_transfers: 'Medicare Transfers ($25 / 120s)',
     medicare_inbound_1: 'Medicare Inbounds 1 ($35 / 90s)',
-    medicare_inbound_2: 'Medicare Inbounds 2 ($18 / 15s)',
+    medicare_inbound_2: 'Medicare Inbounds 2 ($15 / 15s)',
     aca_transfers: 'ACA Transfers ($30 / 120s)',
   };
 
