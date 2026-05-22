@@ -85,10 +85,14 @@ if (!serviceAccount) {
   );
   module.exports = null;
 } else {
+  const storageBucket = String(process.env.FIREBASE_STORAGE_BUCKET || '').trim()
+    || (serviceAccount.project_id ? `${serviceAccount.project_id}.firebasestorage.app` : undefined);
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
+    ...(storageBucket ? { storageBucket } : {}),
   });
-  const firestoreDatabaseId = process.env.FIRESTORE_DATABASE_ID || '(default)';
+  const { resolveFirestoreDatabaseId } = require('./resolveFirestoreDatabaseId');
+  const firestoreDatabaseId = resolveFirestoreDatabaseId();
   const firestoreNamespace = admin.firestore;
   const firestoreDb = getFirestore(admin.app(), firestoreDatabaseId);
 

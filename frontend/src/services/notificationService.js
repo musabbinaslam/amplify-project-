@@ -1,18 +1,29 @@
 import { apiFetch } from './apiClient';
 
-export function getMyNotifications(params = {}) {
+function buildNotificationQuery(params = {}) {
   const qs = new URLSearchParams();
   if (params.limit) qs.set('limit', String(params.limit));
   if (params.unreadOnly) qs.set('unreadOnly', 'true');
-  return apiFetch(`/api/users/me/notifications${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
+  if (params.scope) qs.set('scope', params.scope);
+  return qs.toString();
+}
+
+export function getMyNotifications(params = {}) {
+  const query = buildNotificationQuery(params);
+  return apiFetch(`/api/users/me/notifications${query ? `?${query}` : ''}`, { method: 'GET' });
+}
+
+export function getMyAdminNotifications(params = {}) {
+  return getMyNotifications({ ...params, scope: 'admin' });
 }
 
 export function markNotificationRead(id) {
   return apiFetch(`/api/users/me/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
 }
 
-export function markAllNotificationsRead() {
-  return apiFetch('/api/users/me/notifications/read-all', { method: 'PATCH' });
+export function markAllNotificationsRead(params = {}) {
+  const query = buildNotificationQuery(params);
+  return apiFetch(`/api/users/me/notifications/read-all${query ? `?${query}` : ''}`, { method: 'PATCH' });
 }
 
 export function getMaintenanceState() {

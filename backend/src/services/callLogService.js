@@ -217,6 +217,100 @@ class CallLogService {
         }
     }
 
+    async getCallLog(agentId, callLogId) {
+        if (!admin || !agentId || !callLogId) return null;
+        try {
+            const db = getDb();
+            const doc = await db.collection('users').doc(agentId).collection('callLogs').doc(callLogId).get();
+            if (!doc.exists) return null;
+            const data = doc.data() || {};
+            return {
+                id: doc.id,
+                ...data,
+                createdAt: data.createdAt?.toDate?.()
+                    ? data.createdAt.toDate().toISOString()
+                    : data.createdAt,
+            };
+        } catch (err) {
+            console.error(`[Firestore] Failed to load call log ${agentId}/${callLogId}:`, err.message);
+            return null;
+        }
+    }
+
+    /**
+     * Credit wallet for a previously billable call (admin or contest approval).
+     */
+    async refundCall(agentId, callLogId, { reason, adminUid, contestId = null }) {
+        if (!admin) throw Object.assign(new Error('Database unavailable'), { code: 'UNAVAILABLE' });
+
+        const trimmedReason = String(reason || '').trim();
+        if (trimmedReason.length < 10) {
+            throw Object.assign(new Error('Refund reason must be at least 10 characters'), { code: 'REASON_TOO_SHORT' });
+        }
+
+        const log = await this.getCallLog(agentId, callLogId);
+        if (!log) throw Object.assign(new Error('Call log not found'), { code: 'NOT_FOUND' });
+        if (log.refunded) throw Object.assign(new Error('Call already refunded'), { code: 'ALREADY_REFUNDED' });
+        if (!log.isBillable || Number(log.cost || 0) <= 0) {
+            throw Object.assign(new Error('Call was not charged'), { code: 'NOT_BILLABLE' });
+        }
+
+        const walletService = require('./walletService');
+        const amountCents = Math.round(Number(log.cost) * 100);
+        const idempotencyKey = log.callSid
+            ? `refund_${log.callSid}`
+            : `refund_${agentId}_${callLogId}`;
+
+        const newBalance = await walletService.addCredits(agentId, amountCents, 'call_refund', {
+            idempotencyKey,
+            callLogId,
+            callSid: log.callSid || null,
+            campaignId: log.campaign,
+            campaignLabel: log.campaignLabel || log.campaign,
+            refundedBy: adminUid,
+            reason: trimmedReason,
+            contestId: contestId || null,
+        });
+
+        const db = getDb();
+        const callLogRef = db.collection('users').doc(agentId).collection('callLogs').doc(callLogId);
+        const refundWrites = [
+            callLogRef.set({
+                refunded: true,
+                refundedAt: admin.firestore.FieldValue.serverTimestamp(),
+                refundedBy: adminUid,
+                refundReason: trimmedReason,
+                refundAmountCents: amountCents,
+                contestStatus: contestId ? 'approved' : log.contestStatus || null,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true }),
+        ];
+        if (contestId) {
+            refundWrites.push(
+                db.collection('callContests').doc(contestId).set({
+                    status: 'approved',
+                    reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    reviewedBy: adminUid,
+                    adminNote: trimmedReason,
+                    refundAmountCents: amountCents,
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true }),
+            );
+        }
+        await Promise.all(refundWrites);
+
+        console.log(`[Billing] ↩️ Refunded $${(amountCents / 100).toFixed(2)} to ${agentId} for call ${callLogId}`);
+
+        try {
+            const socketRegistry = require('../sockets/socketRegistry');
+            socketRegistry.emitToAgent(agentId, 'wallet:updated', { balance: newBalance });
+        } catch (socketErr) {
+            console.warn('[Billing] wallet:updated socket emit failed:', socketErr.message);
+        }
+
+        return { success: true, newBalance, refundAmountCents: amountCents, callLogId };
+    }
+
     async updateCallLogBySid(uid, callSid, updates) {
         if (!admin || !uid || !callSid) return false;
         try {

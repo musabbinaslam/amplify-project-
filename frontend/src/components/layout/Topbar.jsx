@@ -9,6 +9,8 @@ import useDialerStore from '../../store/useDialerStore';
 
 const Topbar = ({
   notifications = [],
+  adminNotifications = [],
+  isAdmin = false,
   unreadCount = 0,
   onMarkRead,
   onMarkAllRead,
@@ -24,6 +26,7 @@ const Topbar = ({
   const [isInboxClosing, setIsInboxClosing] = useState(false);
   const [isBellAnimating, setIsBellAnimating] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState(null);
+  const [inboxTab, setInboxTab] = useState('general');
   const inboxRef = useRef(null);
   const notificationModalRef = useRef(null);
   const { callState } = useDialerStore();
@@ -124,16 +127,70 @@ const Topbar = ({
     return (cents / 100).toFixed(2);
   };
 
-  const items = useMemo(() => notifications.slice(0, 8), [notifications]);
+  const generalItems = useMemo(() => notifications.slice(0, 12), [notifications]);
+  const adminItems = useMemo(
+    () => (isAdmin ? adminNotifications.slice(0, 12) : []),
+    [adminNotifications, isAdmin],
+  );
+  const generalUnread = useMemo(
+    () => notifications.filter((row) => !row.read).length,
+    [notifications],
+  );
+  const adminUnread = useMemo(
+    () => adminNotifications.filter((row) => !row.read).length,
+    [adminNotifications],
+  );
+  const activeItems = inboxTab === 'admin' && isAdmin ? adminItems : generalItems;
+  const activeTabEmpty = activeItems.length === 0;
+
+  const closeInbox = () => {
+    setIsInboxClosing(true);
+    window.setTimeout(() => {
+      setIsInboxOpen(false);
+      setIsInboxClosing(false);
+      setInboxTab('general');
+    }, 170);
+  };
+
+  const openNotification = (row) => {
+    if (row.id && onMarkRead) onMarkRead(row.id);
+
+    // Actionable alerts — navigate directly (no detail modal flash).
+    if (row.linkPath && (row.type === 'admin_alert' || row.type === 'contest_credited')) {
+      closeInbox();
+      navigate(row.linkPath);
+      return;
+    }
+
+    closeInbox();
+    setSelectedNotification(row);
+  };
+
+  const renderInboxItems = (rows) => rows.map((row) => (
+    <button
+      type="button"
+      key={row.id || `${row.title}-${row.createdAt}`}
+      className={`${classes.inboxItem} ${!row.read ? classes.inboxItemUnread : ''} ${
+        latestNotificationId && row.id === latestNotificationId ? classes.inboxItemNew : ''
+      } ${row.type === 'admin_alert' ? classes.inboxItemAdmin : ''}`}
+      onClick={() => openNotification(row)}
+    >
+      <span className={classes.itemTitle}>{row.title || 'Notification'}</span>
+      <span className={classes.itemBody}>{row.body || ''}</span>
+      <span className={classes.itemTime}>{formatTime(row.createdAt || row.createdAtIso)}</span>
+    </button>
+  ));
   const toggleInbox = () => {
     if (isInboxOpen && !isInboxClosing) {
       setIsInboxClosing(true);
       window.setTimeout(() => {
         setIsInboxOpen(false);
         setIsInboxClosing(false);
+        setInboxTab('general');
       }, 170);
       return;
     }
+    setInboxTab('general');
     setIsInboxOpen(true);
   };
   const formatTime = (value) => {
@@ -173,31 +230,51 @@ const Topbar = ({
             >
               <div className={classes.inboxHeader}>
                 <strong>Notifications</strong>
-                <button type="button" className={classes.inlineBtn} onClick={onMarkAllRead}>
+                <button
+                  type="button"
+                  className={classes.inlineBtn}
+                  onClick={() => onMarkAllRead?.(inboxTab === 'admin' && isAdmin ? 'admin' : 'general')}
+                >
                   Mark all read
                 </button>
               </div>
-              {!items.length ? (
-                <p className={classes.emptyText}>No notifications yet.</p>
+              {isAdmin ? (
+                <div className={classes.inboxTabs} role="tablist" aria-label="Notification sections">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={inboxTab === 'general'}
+                    className={`${classes.inboxTab} ${inboxTab === 'general' ? classes.inboxTabActive : ''}`}
+                    onClick={() => setInboxTab('general')}
+                  >
+                    Updates
+                    {generalUnread > 0 ? (
+                      <span className={classes.inboxTabBadge}>{generalUnread > 99 ? '99+' : generalUnread}</span>
+                    ) : null}
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={inboxTab === 'admin'}
+                    className={`${classes.inboxTab} ${inboxTab === 'admin' ? classes.inboxTabActiveAdmin : ''}`}
+                    onClick={() => setInboxTab('admin')}
+                  >
+                    Admin
+                    {adminUnread > 0 ? (
+                      <span className={`${classes.inboxTabBadge} ${classes.inboxTabBadgeAdmin}`}>
+                        {adminUnread > 99 ? '99+' : adminUnread}
+                      </span>
+                    ) : null}
+                  </button>
+                </div>
+              ) : null}
+              {activeTabEmpty ? (
+                <p className={classes.emptyText}>
+                  {inboxTab === 'admin' ? 'No admin alerts right now.' : 'No notifications yet.'}
+                </p>
               ) : (
                 <div className={classes.inboxList}>
-                  {items.map((row) => (
-                    <button
-                      type="button"
-                      key={row.id || `${row.title}-${row.createdAt}`}
-                      className={`${classes.inboxItem} ${!row.read ? classes.inboxItemUnread : ''} ${
-                        latestNotificationId && row.id === latestNotificationId ? classes.inboxItemNew : ''
-                      }`}
-                      onClick={() => {
-                        if (row.id && onMarkRead) onMarkRead(row.id);
-                        setSelectedNotification(row);
-                      }}
-                    >
-                      <span className={classes.itemTitle}>{row.title || 'Notification'}</span>
-                      <span className={classes.itemBody}>{row.body || ''}</span>
-                      <span className={classes.itemTime}>{formatTime(row.createdAt || row.createdAtIso)}</span>
-                    </button>
-                  ))}
+                  {renderInboxItems(activeItems)}
                 </div>
               )}
             </div>

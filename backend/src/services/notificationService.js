@@ -4,7 +4,15 @@ const { getDb } = require('../config/firestoreDb');
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
 const MAINTENANCE_DOC_PATH = ['system', 'maintenance'];
-const ALLOWED_TYPES = new Set(['personal', 'admin_broadcast', 'maintenance']);
+const ALLOWED_TYPES = new Set([
+  'personal',
+  'admin_broadcast',
+  'maintenance',
+  'admin_alert',
+  'contest_credited',
+  'contest_denied',
+]);
+const ADMIN_NOTIFICATION_TYPES = new Set(['admin_alert']);
 const ALLOWED_PRIORITIES = new Set(['low', 'normal', 'high']);
 
 function ensureFirestore() {
@@ -75,6 +83,11 @@ function buildNotificationPayload(input, source = 'system') {
   const body = sanitizeText(input.body, 2000, 'body');
   const priority = normalizePriority(input.priority || 'normal');
   const expiresAt = parseDateOrNull(input.expiresAt, 'expiresAt');
+  const linkPath = String(input.linkPath || '').trim().slice(0, 256) || null;
+  const contestId = String(input.contestId || '').trim().slice(0, 128) || null;
+  const walletBalanceCents = Number.isFinite(Number(input.walletBalanceCents))
+    ? Math.round(Number(input.walletBalanceCents))
+    : null;
   return {
     type,
     title,
@@ -85,7 +98,30 @@ function buildNotificationPayload(input, source = 'system') {
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     createdAtIso: nowIso(),
     ...(expiresAt ? { expiresAt } : {}),
+    ...(linkPath ? { linkPath } : {}),
+    ...(contestId ? { contestId } : {}),
+    ...(walletBalanceCents != null ? { walletBalanceCents } : {}),
   };
+}
+
+function filterRowsByScope(rows, scope = 'all') {
+  const normalized = String(scope || 'all').toLowerCase();
+  if (normalized === 'admin') {
+    return rows.filter((row) => ADMIN_NOTIFICATION_TYPES.has(row.type));
+  }
+  if (normalized === 'general') {
+    return rows.filter((row) => !ADMIN_NOTIFICATION_TYPES.has(row.type));
+  }
+  return rows;
+}
+
+function rowMatchesScope(data, scope = 'all') {
+  const normalized = String(scope || 'all').toLowerCase();
+  if (normalized === 'all') return true;
+  const isAdminType = ADMIN_NOTIFICATION_TYPES.has(data?.type);
+  if (normalized === 'admin') return isAdminType;
+  if (normalized === 'general') return !isAdminType;
+  return true;
 }
 
 function notificationsCollection(uid) {
@@ -96,10 +132,13 @@ function notificationsCollection(uid) {
 async function listUserNotifications(uid, options = {}) {
   const limit = parseLimit(options.limit);
   const unreadOnly = String(options.unreadOnly || '').toLowerCase() === 'true';
-  let query = notificationsCollection(uid).orderBy('createdAt', 'desc').limit(limit);
+  const scope = String(options.scope || 'all').toLowerCase();
+  const fetchLimit = scope === 'all' ? limit : Math.min(limit * 3, MAX_LIMIT);
+  let query = notificationsCollection(uid).orderBy('createdAt', 'desc').limit(fetchLimit);
   if (unreadOnly) query = query.where('read', '==', false);
   const snap = await query.get();
-  const rows = snap.docs.map((doc) => ({ id: doc.id, ...serialize(doc.data() || {}) }));
+  let rows = snap.docs.map((doc) => ({ id: doc.id, ...serialize(doc.data() || {}) }));
+  rows = filterRowsByScope(rows, scope).slice(0, limit);
   return { rows };
 }
 
@@ -120,13 +159,15 @@ async function markNotificationRead(uid, notificationId) {
   return { row: { id: updated.id, ...serialize(updated.data() || {}) } };
 }
 
-async function markAllNotificationsRead(uid) {
+async function markAllNotificationsRead(uid, options = {}) {
+  const scope = String(options.scope || 'all').toLowerCase();
   const snap = await notificationsCollection(uid).where('read', '==', false).limit(500).get();
-  if (!snap.size) return { updatedCount: 0 };
+  const targets = snap.docs.filter((doc) => rowMatchesScope(doc.data() || {}, scope));
+  if (!targets.length) return { updatedCount: 0 };
   const db = ensureFirestore();
   const batch = db.batch();
   const readAtIso = nowIso();
-  snap.docs.forEach((doc) => {
+  targets.forEach((doc) => {
     batch.set(
       doc.ref,
       {
@@ -139,7 +180,76 @@ async function markAllNotificationsRead(uid) {
     );
   });
   await batch.commit();
-  return { updatedCount: snap.size };
+  return { updatedCount: targets.length };
+}
+
+async function listAdminUserIds(limit = 500) {
+  const db = ensureFirestore();
+  const snap = await db.collection('users').where('role', '==', 'admin').select().limit(limit).get();
+  return snap.docs.map((doc) => doc.id);
+}
+
+async function notifyAdmins(payload, source = 'system') {
+  const adminIds = await listAdminUserIds();
+  if (!adminIds.length) return { recipientCount: 0, created: [] };
+
+  const base = buildNotificationPayload(
+    { ...payload, type: 'admin_alert' },
+    source,
+  );
+  const created = [];
+  const db = ensureFirestore();
+  const chunkSize = 400;
+
+  for (let i = 0; i < adminIds.length; i += chunkSize) {
+    const chunk = adminIds.slice(i, i + chunkSize);
+    const batch = db.batch();
+    const chunkCreated = [];
+
+    chunk.forEach((uid) => {
+      const ref = notificationsCollection(uid).doc();
+      batch.set(ref, base, { merge: false });
+      chunkCreated.push({
+        uid,
+        notification: {
+          id: ref.id,
+          type: base.type,
+          title: base.title,
+          body: base.body,
+          priority: base.priority,
+          source: base.source,
+          read: false,
+          createdAt: base.createdAtIso,
+          createdAtIso: base.createdAtIso,
+          ...(base.linkPath ? { linkPath: base.linkPath } : {}),
+          ...(base.contestId ? { contestId: base.contestId } : {}),
+          ...(base.expiresAt ? { expiresAt: base.expiresAt } : {}),
+        },
+      });
+    });
+
+    // eslint-disable-next-line no-await-in-loop
+    await batch.commit();
+    created.push(...chunkCreated);
+  }
+
+  return { recipientCount: adminIds.length, created };
+}
+
+/** Fire-and-forget admin notifications (socket + persist). */
+function notifyAdminsInBackground(payload, source = 'system') {
+  setImmediate(() => {
+    notifyAdmins(payload, source)
+      .then(({ created }) => {
+        const socketRegistry = require('../sockets/socketRegistry');
+        created.forEach(({ uid, notification }) => {
+          socketRegistry.emitToAgent(uid, 'notification:new', notification);
+        });
+      })
+      .catch((err) => {
+        console.warn('[notificationService] notifyAdminsInBackground failed:', err.message);
+      });
+  });
 }
 
 async function createUserNotification(uid, payload, source = 'system') {
@@ -153,6 +263,31 @@ async function createUserNotification(uid, payload, source = 'system') {
       createdAt: row.createdAtIso,
     }),
   };
+}
+
+/** Persist + shape payload for real-time `notification:new` socket events. */
+function toRealtimeNotification(created) {
+  if (!created) return null;
+  return {
+    id: created.id,
+    type: created.type,
+    title: created.title,
+    body: created.body,
+    priority: created.priority,
+    source: created.source,
+    read: false,
+    createdAt: created.createdAt || created.createdAtIso,
+    createdAtIso: created.createdAtIso,
+    ...(created.linkPath ? { linkPath: created.linkPath } : {}),
+    ...(created.contestId ? { contestId: created.contestId } : {}),
+    ...(created.expiresAt ? { expiresAt: created.expiresAt } : {}),
+    ...(created.walletBalanceCents != null ? { walletBalanceCents: created.walletBalanceCents } : {}),
+  };
+}
+
+async function notifyAgent(uid, payload, source = 'system') {
+  const created = await createUserNotification(uid, payload, source);
+  return toRealtimeNotification(created);
 }
 
 async function listAllUserIds(limit = 20000) {
@@ -243,11 +378,17 @@ async function setMaintenanceState(input, updatedBy) {
 }
 
 module.exports = {
+  ADMIN_NOTIFICATION_TYPES,
   listUserNotifications,
   markNotificationRead,
   markAllNotificationsRead,
   createUserNotification,
+  notifyAgent,
+  notifyAdminsInBackground,
+  toRealtimeNotification,
   broadcastNotificationToAllUsers,
+  listAdminUserIds,
+  notifyAdmins,
   getMaintenanceState,
   setMaintenanceState,
   toIso,

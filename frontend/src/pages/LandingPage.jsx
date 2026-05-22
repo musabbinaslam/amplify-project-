@@ -50,7 +50,7 @@ const VERTICAL_PRICING = [
   { name: 'FE Inbounds',          price: '$45', buffer: '90s',  detail: 'Direct inbound Final Expense calls from high-intent consumers.' },
   { name: 'Medicare Transfers',   price: '$25', buffer: '120s', detail: 'Live-transferred Medicare callers seeking plan guidance.' },
   { name: 'Medicare Inbounds (1)',price: '$35', buffer: '90s',  detail: 'Inbound seniors actively requesting Medicare plan information.' },
-  { name: 'Medicare Inbounds (2)',price: '$18', buffer: '15s',  detail: 'Short-buffer Medicare inbounds — high volume, low friction.' },
+  { name: 'Medicare Inbounds (2)',price: '$15', buffer: '15s',  detail: 'Short-buffer Medicare inbounds — high volume, low friction.' },
   { name: 'ACA Transfers',        price: '$30', buffer: '120s', detail: 'Live-transferred ACA shoppers comparing health plan options.' },
 ];
 

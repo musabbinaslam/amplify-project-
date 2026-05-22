@@ -3,6 +3,9 @@ const { VoiceGrant, TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRE
 const { VoiceResponse } = twilio.twiml;
 const agentManager = require('../services/agentManager');
 const callLogService = require('../services/callLogService');
+const callContestService = require('../services/callContestService');
+const contestProofStorage = require('../services/contestProofStorage');
+const { getUserDoc } = require('../services/userDataService');
 const phoneRouteService = require('../services/phoneRouteService');
 const { normalizeCallerState } = require('../utils/phoneUtils');
 const { dispatchQaInsightJob } = require('../queues/qaQueue');
@@ -483,6 +486,82 @@ exports.proxyRecording = async (req, res) => {
 /**
  * Update call log (e.g., disposition)
  */
+function serviceErrorStatus(err) {
+    const map = {
+        NOT_FOUND: 404,
+        ALREADY_REFUNDED: 409,
+        NOT_BILLABLE: 400,
+        REASON_TOO_SHORT: 400,
+        CONTEST_PENDING: 409,
+        CONTEST_EXPIRED: 400,
+        PROOF_REQUIRED: 400,
+        FILE_TOO_LARGE: 413,
+        INVALID_CATEGORY: 400,
+        UNAVAILABLE: 503,
+        STORAGE_UNAVAILABLE: 503,
+    };
+    return map[err.code] || 500;
+}
+
+exports.submitCallContest = async (req, res) => {
+    try {
+        const { callLogId } = req.params;
+        const { reason, category } = req.body || {};
+        const files = Array.isArray(req.files) ? req.files : [];
+        const result = await callContestService.submitContest(req.user.uid, callLogId, {
+            reason,
+            category,
+            files,
+        });
+        res.status(201).json(result);
+    } catch (err) {
+        console.error('[Voice] submitCallContest:', err.message);
+        res.status(serviceErrorStatus(err)).json({ error: err.message || 'Failed to submit contest' });
+    }
+};
+
+exports.serveContestProof = async (req, res) => {
+    try {
+        const contestId = String(req.query.contestId || '').trim();
+        const proofId = String(req.query.proofId || '').trim();
+        if (!contestId || !proofId) {
+            return res.status(400).json({ error: 'contestId and proofId are required' });
+        }
+
+        const ownerId = await contestProofStorage.getContestAgentId(contestId);
+        if (!ownerId) {
+            return res.status(404).json({ error: 'Contest not found' });
+        }
+
+        const userDoc = await getUserDoc(req.user.uid);
+        const isAdmin = userDoc?.role === 'admin';
+        if (req.user.uid !== ownerId && !isAdmin) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        const { buffer, mimeType } = await contestProofStorage.readProof(contestId, proofId);
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Cache-Control', 'private, max-age=3600');
+        res.send(buffer);
+    } catch (err) {
+        const status = err.code === 'NOT_FOUND' ? 404 : 500;
+        if (!res.headersSent) {
+            res.status(status).json({ error: err.message || 'Failed to load proof file' });
+        }
+    }
+};
+
+exports.getCallContestStatus = async (req, res) => {
+    try {
+        const { callLogId } = req.params;
+        const contest = await callContestService.getContestForAgent(req.user.uid, callLogId);
+        res.json({ contest });
+    } catch (err) {
+        console.error('[Voice] getCallContestStatus:', err.message);
+        res.status(500).json({ error: 'Failed to load contest status' });
+    }
+};
+
 exports.updateCallLog = async (req, res) => {
     try {
         const { callSid } = req.params;

@@ -12,6 +12,7 @@ import { getApiBaseUrl } from '../../config/apiBase';
 import {
   getMaintenanceState,
   getMyNotifications,
+  getMyAdminNotifications,
   markAllNotificationsRead,
   markNotificationRead,
 } from '../../services/notificationService';
@@ -24,23 +25,34 @@ const AppShell = () => {
   const outletMotion = useMemo(() => routeOutletMotion(reduceMotion), [reduceMotion]);
   const user = useAuthStore((s) => s.user);
   const [notifications, setNotifications] = useState([]);
+  const [adminNotifications, setAdminNotifications] = useState([]);
   const [maintenance, setMaintenance] = useState(null);
   const [notificationTick, setNotificationTick] = useState(0);
   const [latestNotificationId, setLatestNotificationId] = useState(null);
   const [nowTs, setNowTs] = useState(Date.now());
+  const isAdmin = user?.role === 'admin';
   const unreadCount = useMemo(
-    () => notifications.filter((row) => !row.read).length,
-    [notifications],
+    () => (
+      notifications.filter((row) => !row.read).length
+      + (isAdmin ? adminNotifications.filter((row) => !row.read).length : 0)
+    ),
+    [notifications, adminNotifications, isAdmin],
   );
 
   const loadInbox = useCallback(async () => {
     try {
-      const out = await getMyNotifications({ limit: 40 });
+      const out = await getMyNotifications({ limit: 30, scope: 'general' });
       setNotifications(Array.isArray(out?.rows) ? out.rows : []);
+      if (user?.role === 'admin') {
+        const adminOut = await getMyAdminNotifications({ limit: 20 });
+        setAdminNotifications(Array.isArray(adminOut?.rows) ? adminOut.rows : []);
+      } else {
+        setAdminNotifications([]);
+      }
     } catch (err) {
       console.error('Failed to load notifications', err);
     }
-  }, []);
+  }, [user?.role]);
 
   const loadMaintenance = useCallback(async () => {
     try {
@@ -51,32 +63,41 @@ const AppShell = () => {
     }
   }, []);
 
+  const markReadInState = useCallback((id) => {
+    const patch = (item) => (
+      item.id === id ? { ...item, read: true, readAtIso: new Date().toISOString() } : item
+    );
+    setNotifications((rows) => rows.map(patch));
+    setAdminNotifications((rows) => rows.map(patch));
+  }, []);
+
   const handleMarkRead = useCallback(async (id) => {
     try {
       await markNotificationRead(id);
-      setNotifications((rows) => rows.map((item) => (
-        item.id === id ? { ...item, read: true, readAtIso: new Date().toISOString() } : item
-      )));
+      markReadInState(id);
     } catch (err) {
       if (err?.status === 404) {
-        // If an old/stale notification ID no longer exists, avoid blocking UX.
-        setNotifications((rows) => rows.map((item) => (
-          item.id === id ? { ...item, read: true, readAtIso: new Date().toISOString() } : item
-        )));
+        markReadInState(id);
         return;
       }
       toast.error(err?.message || 'Could not mark notification as read');
     }
-  }, []);
+  }, [markReadInState]);
 
-  const handleMarkAllRead = useCallback(async () => {
+  const handleMarkAllRead = useCallback(async (scope = 'general') => {
     try {
-      await markAllNotificationsRead();
-      setNotifications((rows) => rows.map((item) => ({ ...item, read: true, readAtIso: new Date().toISOString() })));
+      if (scope === 'general') {
+        await markAllNotificationsRead({ scope: 'general' });
+        setNotifications((rows) => rows.map((item) => ({ ...item, read: true, readAtIso: new Date().toISOString() })));
+      }
+      if (scope === 'admin' && isAdmin) {
+        await markAllNotificationsRead({ scope: 'admin' });
+        setAdminNotifications((rows) => rows.map((item) => ({ ...item, read: true, readAtIso: new Date().toISOString() })));
+      }
     } catch (err) {
       toast.error(err?.message || 'Could not mark all as read');
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -92,10 +113,37 @@ const AppShell = () => {
     });
     socket.on('notification:new', (payload) => {
       if (!payload) return;
-      setNotifications((rows) => [{ ...payload, read: false }, ...rows].slice(0, 80));
+      if (payload.type === 'admin_alert') {
+        if (user?.role !== 'admin') return;
+        setAdminNotifications((rows) => [{ ...payload, read: false }, ...rows].slice(0, 40));
+      } else {
+        setNotifications((rows) => [{ ...payload, read: false }, ...rows].slice(0, 60));
+      }
       setLatestNotificationId(payload.id || null);
       setNotificationTick((n) => n + 1);
-      toast(payload.title || 'New notification', { icon: '🔔' });
+      const toastIcon = payload.type === 'admin_alert'
+        ? '🛡️'
+        : payload.type === 'contest_credited'
+          ? '💰'
+          : '🔔';
+      toast(payload.title || 'New notification', { icon: toastIcon });
+      if (payload.type === 'contest_credited') {
+        const balance = Number(payload.walletBalanceCents);
+        if (Number.isFinite(balance)) {
+          window.dispatchEvent(new CustomEvent('wallet_updated', { detail: balance }));
+        } else {
+          window.dispatchEvent(new CustomEvent('wallet_updated'));
+        }
+        window.dispatchEvent(new CustomEvent('contest:resolved', { detail: payload }));
+      }
+    });
+    socket.on('wallet:updated', (payload) => {
+      const balance = Number(payload?.balance);
+      if (Number.isFinite(balance)) {
+        window.dispatchEvent(new CustomEvent('wallet_updated', { detail: balance }));
+      } else {
+        window.dispatchEvent(new CustomEvent('wallet_updated'));
+      }
     });
     socket.on('maintenance:update', (payload) => {
       setMaintenance(payload || null);
@@ -107,7 +155,7 @@ const AppShell = () => {
       socket.emit('notification:unregister');
       socket.disconnect();
     };
-  }, [user?.uid]);
+  }, [user?.uid, user?.role]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowTs(Date.now()), 1000);
@@ -185,6 +233,8 @@ const AppShell = () => {
           ) : null}
           <Topbar
             notifications={notifications}
+            adminNotifications={adminNotifications}
+            isAdmin={isAdmin}
             unreadCount={unreadCount}
             onMarkRead={handleMarkRead}
             onMarkAllRead={handleMarkAllRead}

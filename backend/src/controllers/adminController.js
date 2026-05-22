@@ -48,12 +48,35 @@ function getCallCreatedAt(log) {
   return null;
 }
 
+function mapRecentLogRow(r, extra = {}) {
+  return {
+    id: r.id,
+    createdAt: r.createdAt,
+    agentId: r.agentId,
+    callSid: r.callSid || null,
+    campaign: r.campaignLabel || r.campaign,
+    duration: r.duration,
+    status: r.status,
+    isBillable: r.isBillable,
+    cost: r.cost,
+    disposition: r.disposition,
+    recordingUrl: r.recordingUrl || null,
+    recordingSid: r.recordingSid || null,
+    refunded: Boolean(r.refunded),
+    refundReason: r.refundReason || null,
+    contestId: r.contestId || null,
+    contestStatus: r.contestStatus || null,
+    ...extra,
+  };
+}
+
 function normalizeCall(doc) {
   const data = doc.data() || {};
   const createdAt = getCallCreatedAt(data);
   return {
     id: doc.id,
     agentId: data.agentId || null,
+    callSid: data.callSid || null,
     campaign: data.campaign || 'unknown',
     campaignLabel: data.campaignLabel || data.campaign || 'unknown',
     status: data.status || 'unknown',
@@ -63,6 +86,10 @@ function normalizeCall(doc) {
     disposition: data.disposition || null,
     recordingUrl: data.recordingUrl || null,
     recordingSid: data.recordingSid || null,
+    refunded: Boolean(data.refunded),
+    refundReason: data.refundReason || null,
+    contestId: data.contestId || null,
+    contestStatus: data.contestStatus || null,
     createdAt,
   };
 }
@@ -90,6 +117,7 @@ async function readLogsInRange(from, end) {
         .get();
       callsSnap.docs.forEach((doc) => {
         const row = normalizeCall(doc);
+        if (!row.agentId) row.agentId = userDoc.id;
         if (!row.createdAt) return;
         const t = new Date(row.createdAt).getTime();
         if (Number.isNaN(t)) return;
@@ -797,20 +825,9 @@ async function getAnalyticsDrilldown(req, res) {
 
         const metaMap = await buildUserMetaMap(recentLogs.map((r) => r.agentId));
 
-        const enrichedLogs = recentLogs.map(r => ({
-            id: r.id,
-            createdAt: r.createdAt,
-            agentId: r.agentId,
+        const enrichedLogs = recentLogs.map((r) => mapRecentLogRow(r, {
             agentName: metaMap.get(r.agentId)?.name || r.agentId,
             phone: metaMap.get(r.agentId)?.phone || null,
-            campaign: r.campaignLabel || r.campaign,
-            duration: r.duration,
-            status: r.status,
-            isBillable: r.isBillable,
-            cost: r.cost,
-            disposition: r.disposition,
-            recordingUrl: r.recordingUrl || null,
-            recordingSid: r.recordingSid || null,
         }));
 
         return res.json({
@@ -872,19 +889,7 @@ async function getAnalyticsDrilldown(req, res) {
       },
       outcomes,
       trend,
-      recentLogs: limited.slice(-50).reverse().map(r => ({
-        id: r.id,
-        createdAt: r.createdAt,
-        agentId: r.agentId,
-        campaign: r.campaignLabel || r.campaign,
-        duration: r.duration,
-        status: r.status,
-        isBillable: r.isBillable,
-        cost: r.cost,
-        disposition: r.disposition,
-        recordingUrl: r.recordingUrl || null,
-        recordingSid: r.recordingSid || null,
-      })),
+      recentLogs: limited.slice(-50).reverse().map((r) => mapRecentLogRow(r)),
       meta: {
         generatedAt: new Date().toISOString(),
         source: 'firestore.users.callLogs.fanout',
@@ -1179,6 +1184,116 @@ async function getPoolDebug(req, res) {
   }
 }
 
+function serviceErrorStatus(err) {
+  const map = {
+    NOT_FOUND: 404,
+    ALREADY_REFUNDED: 409,
+    NOT_BILLABLE: 400,
+    REASON_TOO_SHORT: 400,
+    CONTEST_PENDING: 409,
+    CONTEST_EXPIRED: 400,
+    PROOF_REQUIRED: 400,
+    INVALID_CATEGORY: 400,
+    INVALID_STATE: 409,
+    UNAVAILABLE: 503,
+  };
+  return map[err.code] || 500;
+}
+
+async function enrichContestsWithAgentNames(contests) {
+  if (!contests.length) return contests;
+  const metaMap = await buildUserMetaMap(contests.map((c) => c.agentId));
+  return contests.map((c) => ({
+    ...c,
+    agentName: metaMap.get(c.agentId)?.name || c.agentId,
+  }));
+}
+
+async function listCallContests(req, res) {
+  try {
+    const callContestService = require('../services/callContestService');
+    const status = String(req.query.status || 'pending').trim().toLowerCase();
+    const limit = Number(req.query.limit || 50);
+    let contests = await callContestService.listContests({ status, limit });
+    contests = await enrichContestsWithAgentNames(contests);
+    res.json({ contests });
+  } catch (err) {
+    console.error('[Admin] listCallContests:', err.message);
+    res.status(serviceErrorStatus(err)).json({ error: err.message || 'Failed to list contests' });
+  }
+}
+
+async function getCallContest(req, res) {
+  try {
+    const callContestService = require('../services/callContestService');
+    const contest = await callContestService.getContest(req.params.contestId);
+    if (!contest) return res.status(404).json({ error: 'Contest not found' });
+    const [enriched] = await enrichContestsWithAgentNames([contest]);
+    res.json({ contest: enriched });
+  } catch (err) {
+    console.error('[Admin] getCallContest:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to load contest' });
+  }
+}
+
+async function approveCallContest(req, res) {
+  try {
+    const callContestService = require('../services/callContestService');
+    const { reason } = req.body || {};
+    const result = await callContestService.approveContest(
+      req.params.contestId,
+      req.user.uid,
+      reason,
+    );
+    res.json(result);
+  } catch (err) {
+    console.error('[Admin] approveCallContest:', err.message);
+    res.status(serviceErrorStatus(err)).json({ error: err.message || 'Failed to approve contest' });
+  }
+}
+
+async function denyCallContest(req, res) {
+  try {
+    const callContestService = require('../services/callContestService');
+    const { adminNote } = req.body || {};
+    const result = await callContestService.denyContest(
+      req.params.contestId,
+      req.user.uid,
+      adminNote,
+    );
+    res.json(result);
+  } catch (err) {
+    console.error('[Admin] denyCallContest:', err.message);
+    res.status(serviceErrorStatus(err)).json({ error: err.message || 'Failed to deny contest' });
+  }
+}
+
+async function refundCallHandler(req, res) {
+  try {
+    const callLogService = require('../services/callLogService');
+    const { agentId, callLogId, reason } = req.body || {};
+    if (!agentId || !callLogId) {
+      return res.status(400).json({ error: 'agentId and callLogId are required' });
+    }
+
+    const log = await callLogService.getCallLog(agentId, callLogId);
+    if (!log) return res.status(404).json({ error: 'Call log not found' });
+    if (log.contestStatus === 'pending') {
+      return res.status(409).json({ error: 'Resolve the pending contest before issuing a direct refund' });
+    }
+
+    const result = await callLogService.refundCall(agentId, callLogId, {
+      reason,
+      adminUid: req.user.uid,
+      contestId: null,
+    });
+    res.json(result);
+  } catch (err) {
+    console.error('[Admin] refundCall:', err.message);
+    res.status(serviceErrorStatus(err)).json({ error: err.message || 'Failed to refund call' });
+  }
+}
+
 module.exports = {
   getOverviewLite,
   getAnalyticsBundle,
@@ -1200,4 +1315,9 @@ module.exports = {
   patchMaintenance,
   getMaintenance,
   getPoolDebug,
+  listCallContests,
+  getCallContest,
+  approveCallContest,
+  denyCallContest,
+  refundCall: refundCallHandler,
 };
