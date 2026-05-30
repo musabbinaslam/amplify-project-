@@ -49,8 +49,8 @@ exports.createCheckout = async (req, res) => {
     const customerId = await getOrCreateCustomer(req.user.uid, req.user.email);
 
     const productName = referralDiscountApplied
-      ? `AgentCalls Credits — ${tier.label} (${discountPercent}% referral discount)`
-      : `AgentCalls Credits — ${tier.label}`;
+      ? `CallsFlow Credits — ${tier.label} (${discountPercent}% referral discount)`
+      : `CallsFlow Credits — ${tier.label}`;
     const productDescription = referralDiscountApplied
       ? `Add ${tier.label} in call credits (discounted from $${(amountCents / 100).toFixed(2)})`
       : `Add ${tier.label} in call credits to your wallet`;
