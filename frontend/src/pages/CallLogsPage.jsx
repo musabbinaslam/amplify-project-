@@ -20,8 +20,9 @@ const CONTEST_CATEGORIES = [
 
 const MAX_PROOF_BYTES = 5 * 1024 * 1024;
 const MAX_PROOF_TOTAL_BYTES = 12 * 1024 * 1024;
-const CONTEST_MAX_AGE_DAYS = 7;
-const CONTEST_MAX_AGE_MS = CONTEST_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+const CONTEST_MAX_AGE_HOURS = 24;
+const CONTEST_MAX_AGE_MS = CONTEST_MAX_AGE_HOURS * 60 * 60 * 1000;
+const CONTEST_WINDOW_LABEL = '24 hours';
 
 function getCallOccurredMs(log) {
   const raw = log?.createdAt || log?.timestamp;
@@ -132,7 +133,7 @@ const ContestChargeModal = ({ log, onClose, onSubmitted }) => {
       return;
     }
     if (!isWithinContestWindow(log)) {
-      toast.error(`Contests must be submitted within ${CONTEST_MAX_AGE_DAYS} days of the call`);
+      toast.error(`Contests must be submitted within ${CONTEST_WINDOW_LABEL} of the call`);
       return;
     }
     setSubmitting(true);
@@ -178,7 +179,7 @@ const ContestChargeModal = ({ log, onClose, onSubmitted }) => {
           </button>
         </motion.div>
         <p className={classes.contestModalSub}>
-          This call was billed at ${Number(log.cost || 0).toFixed(2)}. Contests must be submitted within {CONTEST_MAX_AGE_DAYS} days of the call. Explain what happened (disconnect, outage, etc.). Screenshots or PDFs are optional but helpful. Large images are compressed automatically — max 5 MB per file. We already have the call recording when available.
+          This call was billed at ${Number(log.cost || 0).toFixed(2)}. Contests must be submitted within {CONTEST_WINDOW_LABEL} of the call. Explain what happened (disconnect, outage, etc.). Screenshots or PDFs are optional but helpful. Large images are compressed automatically — max 5 MB per file. We already have the call recording when available.
         </p>
         <form onSubmit={handleSubmit} className={classes.contestForm}>
           <label className={classes.contestLabel}>
@@ -249,7 +250,7 @@ function BillingStatusCell({ log, onContest }) {
       return (
         <span
           className={`${classes.dispBadge} ${classes.contestExpired}`}
-          title={`Contests must be submitted within ${CONTEST_MAX_AGE_DAYS} days of the call`}
+          title={`Contests must be submitted within ${CONTEST_WINDOW_LABEL} of the call`}
         >
           Window closed
         </span>
