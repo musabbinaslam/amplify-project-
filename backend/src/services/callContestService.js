@@ -6,8 +6,9 @@ const notificationService = require('./notificationService');
 const socketRegistry = require('../sockets/socketRegistry');
 
 const CONTEST_CATEGORIES = new Set(['disconnect', 'server_outage', 'audio_quality', 'other']);
-const CONTEST_MAX_AGE_DAYS = 7;
-const CONTEST_MAX_AGE_MS = CONTEST_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+const CONTEST_MAX_AGE_HOURS = 24;
+const CONTEST_MAX_AGE_MS = CONTEST_MAX_AGE_HOURS * 60 * 60 * 1000;
+const CONTEST_WINDOW_LABEL = '24 hours';
 
 function getCallOccurredMs(log) {
   const raw = log?.createdAt || log?.timestamp;
@@ -21,7 +22,7 @@ function assertContestWithinWindow(log) {
   if (occurredMs == null) return;
   if (Date.now() - occurredMs > CONTEST_MAX_AGE_MS) {
     throw Object.assign(
-      new Error(`Contests must be submitted within ${CONTEST_MAX_AGE_DAYS} days of the call`),
+      new Error(`Contests must be submitted within ${CONTEST_WINDOW_LABEL} of the call`),
       { code: 'CONTEST_EXPIRED' },
     );
   }
