@@ -1,6 +1,7 @@
 const express = require('express');
 
 const router = express.Router();
+const metaConversionService = require('../services/metaConversionService');
 const allowedFirebaseConfigOrigins = (process.env.FIREBASE_CONFIG_ALLOWED_ORIGINS || process.env.CLIENT_URLS || process.env.CLIENT_URL || '')
   .split(',')
   .map((origin) => origin.trim())
@@ -139,5 +140,33 @@ router.get('/ping/:campaignId/:phone', handlePing);
 
 // 3. /api/public/ping/:campaignId/:token/:phone
 router.get('/ping/:campaignId/:token/:phone', handlePing);
+
+/**
+ * Server-side Meta Conversions API event for successful signup.
+ * Body (minimal): { eventId, email, phone, fullName, eventSourceUrl }
+ */
+router.post('/meta/complete-registration', async (req, res) => {
+  try {
+    const { eventId, email, phone, fullName, eventSourceUrl } = req.body || {};
+    if (!email && !phone) {
+      return res.status(400).json({ error: 'At least email or phone is required' });
+    }
+
+    const result = await metaConversionService.sendCompleteRegistration({
+      eventId,
+      email,
+      phone,
+      fullName,
+      eventSourceUrl,
+      clientUserAgent: req.headers['user-agent'] || '',
+      clientIpAddress: req.ip || req.headers['x-forwarded-for'] || '',
+    });
+
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('[Public API] meta complete-registration error:', err.message);
+    return res.status(500).json({ error: 'Failed to send Meta conversion event' });
+  }
+});
 
 module.exports = router;
