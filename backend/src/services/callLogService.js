@@ -311,30 +311,44 @@ class CallLogService {
         return { success: true, newBalance, refundAmountCents: amountCents, callLogId };
     }
 
-    async updateCallLogBySid(uid, callSid, updates) {
-        if (!admin || !uid || !callSid) return false;
+    async updateCallLogBySid(uid, callSids, updates) {
+        if (!admin || !uid || !callSids) return false;
+        
+        const sidsArray = Array.isArray(callSids) ? callSids : [callSids];
+        
         try {
             const db = getDb();
             const callLogsRef = db.collection('users').doc(uid).collection('callLogs');
-
-            // Search by callSid first, then by dialCallSid (agent leg SID)
-            let existing = await callLogsRef.where('callSid', '==', callSid).limit(1).get();
-            if (existing.empty) {
-                existing = await callLogsRef.where('dialCallSid', '==', callSid).limit(1).get();
+            
+            let docId = null;
+            for (const sid of sidsArray) {
+                if (!sid) continue;
+                const existing = await callLogsRef.where('callSid', '==', sid).limit(1).get();
+                if (!existing.empty) {
+                    docId = existing.docs[0].id;
+                    break;
+                }
             }
 
-            if (!existing.empty) {
-                await callLogsRef.doc(existing.docs[0].id).set({
+            if (!docId) {
+                // If not found by callSid, also try dialCallSid as fallback
+                for (const sid of sidsArray) {
+                    if (!sid) continue;
+                    const existingDial = await callLogsRef.where('dialCallSid', '==', sid).limit(1).get();
+                    if (!existingDial.empty) {
+                        docId = existingDial.docs[0].id;
+                        break;
+                    }
+                }
+            }
+
+            if (docId) {
+                await callLogsRef.doc(docId).update({
                     ...updates,
                     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                }, { merge: true });
-                console.log(`[Firestore] ✅ Disposition merged for callSid ${callSid}`);
+                });
                 return true;
             }
-
-            // Call log not yet in Firestore (Twilio callback race). Return true so
-            // the agent is not blocked — the next logCall upsert will include disposition
-            // only if the agent re-submits, but we at minimum unblock the WRAP_UP state.
             console.warn(`[Firestore] ⚠️ Disposition for ${callSid} received before Twilio callback — agent unblocked, data will persist on next logCall.`);
             return true;
         } catch (err) {
