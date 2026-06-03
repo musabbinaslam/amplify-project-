@@ -799,9 +799,8 @@ const TakeCallsPage = () => {
                     <button 
                       className={`${classes.dangerBtn} ${classes.hangUpBtn}`} 
                       onClick={async () => {
-                        if (activeCampaign === 'aca_transfers') {
-                          try { await apiFetch('/api/voice/kill-call', { method: 'POST' }); } catch(e){ console.error(e); }
-                        }
+                        console.log('[EndCall] activeCampaign:', activeCampaign, 'callState:', callState);
+                        try { await apiFetch('/api/voice/kill-call', { method: 'POST' }); } catch(e){ console.error('[EndCall] kill-call failed:', e); }
                         hangUp();
                       }}
                     >
