@@ -380,8 +380,9 @@ exports.handleCallCompleted = async (req, res) => {
                 }
             }
             
-            // For conference calls, DialCallStatus might be missing, assume completed if duration exists
-            const effectiveStatus = (DialCallStatus === 'completed' || (!DialCallStatus && effectiveDuration > 0)) ? 'completed' : 'missed';
+            // For conference calls or forcefully killed calls, DialCallStatus might be 'canceled' or missing.
+            // If there's any duration > 0, it means the call was bridged, so it's completed (not missed).
+            const effectiveStatus = (DialCallStatus === 'completed' || Number(effectiveDuration) > 0) ? 'completed' : 'missed';
             
             savedLog = await callLogService.logCall({
                 from: From,
@@ -411,7 +412,7 @@ exports.handleCallCompleted = async (req, res) => {
                   `[Router] Skip stale completion release for ${resolvedAgentId}: callback sid ${CallSid} != active sid ${activeRow.callSid} / ${activeRow.parentCallSid || 'none'}`,
                 );
             } else {
-                if (DialCallStatus === 'completed') {
+                if (effectiveStatus === 'completed') {
                     // Fallback if browser never emitted agent:call_incoming before hangup.
                     if (!activeRow) {
                         await agentManager.upsertActiveCall(resolvedAgentId, {
