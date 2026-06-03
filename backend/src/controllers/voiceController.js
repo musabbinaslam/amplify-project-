@@ -222,6 +222,7 @@ exports.handleDialStatus = async (req, res) => {
     if (isAnswered) {
       await agentManager.confirmCallDelivered(agentId, {
         callSid,
+        parentCallSid: parentSid !== callSid ? parentSid : null,
         from: req.body.From,
         to: req.body.To,
         campaignId: campaign,
@@ -255,6 +256,11 @@ exports.handleDialStatus = async (req, res) => {
                }).catch(err => console.warn('[Router] Failed to hangup parent call for ACA:', err.message));
              }
           }
+        } else {
+          // Agent was IN_CALL but their leg terminated (e.g. they clicked "Leave Transfer" or hung up their phone).
+          // Release them to WRAP_UP so they can take new calls, without killing the customer's parent call.
+          console.log(`[Twilio] Agent ${agentId} leg terminated (${event || callStatus}). Moving to wrap-up.`);
+          await agentManager.setAgentWrapUp(agentId);
         }
       }
     }
@@ -359,7 +365,21 @@ exports.handleCallCompleted = async (req, res) => {
             }
 
             // For conference calls or forcefully killed calls, Twilio might omit duration.
-            const effectiveDuration = DialCallDuration || req.body.CallDuration || computedDuration || 0;
+            let effectiveDuration = DialCallDuration || req.body.CallDuration || computedDuration || 0;
+            
+            // If we still have 0 duration but the call theoretically completed, fetch true duration from Twilio API directly
+            if (Number(effectiveDuration) === 0 && CallSid) {
+                try {
+                    const twilioCall = await twilioClientObj.calls(CallSid).fetch();
+                    if (twilioCall && twilioCall.duration) {
+                        effectiveDuration = twilioCall.duration;
+                        console.log(`[Twilio] Fetched true duration from REST API for ${CallSid}: ${effectiveDuration}s`);
+                    }
+                } catch (apiErr) {
+                    console.warn(`[Twilio] Failed to fetch true duration from API for ${CallSid}:`, apiErr.message);
+                }
+            }
+            
             // For conference calls, DialCallStatus might be missing, assume completed if duration exists
             const effectiveStatus = (DialCallStatus === 'completed' || (!DialCallStatus && effectiveDuration > 0)) ? 'completed' : 'missed';
             
@@ -385,14 +405,15 @@ exports.handleCallCompleted = async (req, res) => {
       if (resolvedAgentId) {
         try {
             const activeRow = await agentManager.getActiveCall(resolvedAgentId);
-            if (activeRow?.callSid && CallSid && String(activeRow.callSid) !== String(CallSid)) {
+            const isMatch = activeRow && (String(activeRow.callSid) === String(CallSid) || String(activeRow.parentCallSid) === String(CallSid));
+            if (activeRow && !isMatch) {
                 console.warn(
-                  `[Router] Skip stale completion release for ${resolvedAgentId}: callback sid ${CallSid} != active sid ${activeRow.callSid}`,
+                  `[Router] Skip stale completion release for ${resolvedAgentId}: callback sid ${CallSid} != active sid ${activeRow.callSid} / ${activeRow.parentCallSid || 'none'}`,
                 );
             } else {
                 if (DialCallStatus === 'completed') {
                     // Fallback if browser never emitted agent:call_incoming before hangup.
-                    if (!(await agentManager.getActiveCall(resolvedAgentId))) {
+                    if (!activeRow) {
                         await agentManager.upsertActiveCall(resolvedAgentId, {
                             callSid: CallSid,
                             from: From,
@@ -730,12 +751,20 @@ exports.killCall = async (req, res) => {
         const agentId = req.user.uid;
         const activeCall = await agentManager.getActiveCall(agentId);
         
-        if (activeCall && activeCall.callSid) {
+        if (activeCall) {
             const sid = activeCall.callSid;
-            console.log(`[Twilio] Agent ${agentId} triggered forceful kill of call ${sid}`);
-            await twilioClientObj.calls(sid)
-                .update({ status: 'completed' })
-                .catch(err => console.error(`[Twilio] Failed to kill call ${sid}:`, err.message));
+            const parentSid = activeCall.parentCallSid;
+            console.log(`[Twilio] Agent ${agentId} triggered forceful kill of call(s). Sid: ${sid}, Parent: ${parentSid || 'none'}`);
+            
+            // Safely kill both the agent leg and the customer parent leg if they differ
+            if (sid) {
+                twilioClientObj.calls(sid).update({ status: 'completed' })
+                    .catch(err => console.error(`[Twilio] Failed to kill agent call ${sid}:`, err.message));
+            }
+            if (parentSid && parentSid !== sid) {
+                twilioClientObj.calls(parentSid).update({ status: 'completed' })
+                    .catch(err => console.error(`[Twilio] Failed to kill parent call ${parentSid}:`, err.message));
+            }
         }
         
         res.json({ success: true });
