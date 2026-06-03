@@ -36,5 +36,6 @@ router.get('/recording/:recordingSid', verifyFirebaseToken, voiceController.prox
 // ACA Transfer Endpoints
 router.post('/initiate-transfer', verifyFirebaseToken, voiceController.initiateAcaTransfer);
 router.post('/transfer-dtmf', verifyFirebaseToken, voiceController.sendDtmfToConference);
+router.post('/kill-call', verifyFirebaseToken, voiceController.killCall);
 
 module.exports = router;

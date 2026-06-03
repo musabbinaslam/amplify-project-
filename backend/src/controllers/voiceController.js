@@ -688,6 +688,7 @@ exports.initiateAcaTransfer = async (req, res) => {
 
 /**
  * Send DTMF digits to the broker leg using Twilio REST API.
+ * DEPRECATED: We now use the frontend Twilio Device to send DTMF directly.
  */
 exports.sendDtmfToConference = async (req, res) => {
     try {
@@ -703,6 +704,29 @@ exports.sendDtmfToConference = async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         console.error('[ACA Transfer] Failed to send DTMF:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+/**
+ * Forcefully kill the customer's call (the parent call).
+ * This destroys the conference for all participants.
+ */
+exports.killCall = async (req, res) => {
+    try {
+        const agentId = req.user.uid;
+        const activeCallSid = await agentManager.getActiveCall(agentId);
+        
+        if (activeCallSid) {
+            console.log(`[Twilio] Agent ${agentId} triggered forceful kill of call ${activeCallSid}`);
+            await twilioClientObj.calls(activeCallSid)
+                .update({ status: 'completed' })
+                .catch(err => console.error(`[Twilio] Failed to kill call ${activeCallSid}:`, err.message));
+        }
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[Twilio] Failed to kill call:', err);
         res.status(500).json({ error: err.message });
     }
 };
