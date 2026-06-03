@@ -349,10 +349,10 @@ class CallLogService {
                 });
                 return true;
             }
-            console.warn(`[Firestore] ⚠️ Disposition for ${callSid} received before Twilio callback — agent unblocked, data will persist on next logCall.`);
+            console.warn(`[Firestore] ⚠️ Disposition for ${sidsArray.join(',')} received before Twilio callback — agent unblocked, data will persist on next logCall.`);
             return true;
         } catch (err) {
-            console.error(`[Firestore] Failed to update call log ${callSid}:`, err.message);
+            console.error(`[Firestore] Failed to update call log ${sidsArray.join(',')}:`, err.message);
             return false;
         }
     }
