@@ -796,11 +796,6 @@ const TakeCallsPage = () => {
               {callState === 'active'
                 ? (
                   <>
-                    {activeCampaign === 'aca_transfers' && transferStatus === 'transferred' && (
-                      <button className={classes.primaryBtn} onClick={hangUp}>
-                        <PhoneOff size={18} /> Leave & Complete Transfer
-                      </button>
-                    )}
                     <button 
                       className={`${classes.dangerBtn} ${classes.hangUpBtn}`} 
                       onClick={async () => {
