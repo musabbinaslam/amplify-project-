@@ -628,17 +628,14 @@ const AcaTransferPanel = () => {
     }
   };
 
-  const sendDigit = async (digit) => {
+  const sendDigit = (digit) => {
     if (!brokerCallSid) return;
-    try {
-      setDigits(prev => prev + digit);
-      await apiFetch('/api/voice/transfer-dtmf', {
-        method: 'POST',
-        body: { brokerCallSid, digit }
-      });
-    } catch (err) {
-      console.error('Failed to send DTMF:', err);
-      toast.error('Failed to send digit');
+    setDigits(prev => prev + digit);
+    const { activeCall } = useDialerStore.getState();
+    if (activeCall && typeof activeCall.sendDigits === 'function') {
+      activeCall.sendDigits(digit);
+    } else {
+      console.warn('DTMF not supported on this active call object');
     }
   };
 
@@ -797,7 +794,26 @@ const TakeCallsPage = () => {
 
             <div className={classes.actionButtons} style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
               {callState === 'active'
-                ? <button className={`${classes.dangerBtn} ${classes.hangUpBtn}`} onClick={hangUp}><PhoneOff size={18} /> End Call</button>
+                ? (
+                  <>
+                    {activeCampaign === 'aca_transfers' && transferStatus === 'transferred' && (
+                      <button className={classes.primaryBtn} onClick={hangUp}>
+                        <PhoneOff size={18} /> Leave & Complete Transfer
+                      </button>
+                    )}
+                    <button 
+                      className={`${classes.dangerBtn} ${classes.hangUpBtn}`} 
+                      onClick={async () => {
+                        if (activeCampaign === 'aca_transfers') {
+                          try { await apiFetch('/api/voice/kill-call', { method: 'POST' }); } catch(e){ console.error(e); }
+                        }
+                        hangUp();
+                      }}
+                    >
+                      <PhoneOff size={18} /> End Call
+                    </button>
+                  </>
+                )
                 : <button className={classes.dangerBtn} onClick={goOffline}><PhoneOff size={18} /> Pause & Go Offline</button>
               }
             </div>
