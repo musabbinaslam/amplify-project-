@@ -19,6 +19,11 @@ const useDialerStore = create((set, get) => ({
   leadData: null,
   pendingDispositionCall: null,
 
+  // ACA Transfer State
+  transferStatus: 'idle', // 'idle' | 'transferring' | 'transferred'
+  brokerCallSid: null,
+  conferenceName: null,
+
   // Lifecycle handle for live-applying audio settings to the Twilio device.
   // Set by twilioService after device registration, invoked on teardown.
   audioSettingsUnsubscribe: null,
@@ -62,6 +67,11 @@ const useDialerStore = create((set, get) => ({
   setCallDuration: (duration) => set({ callDuration: duration }),
   setPendingDisposition: (callSid) => set({ pendingDispositionCall: callSid }),
   clearPendingDisposition: () => set({ pendingDispositionCall: null }),
+  setTransferState: (status, brokerCallSid = null, conferenceName = null) => set({
+    transferStatus: status,
+    ...(brokerCallSid && { brokerCallSid }),
+    ...(conferenceName && { conferenceName })
+  }),
 
   // Cleanup
   resetCallState: () => set({ 
@@ -70,7 +80,10 @@ const useDialerStore = create((set, get) => ({
     isMuted: false, 
     callDuration: 0,
     incomingCallerId: null,
-    leadData: null
+    leadData: null,
+    transferStatus: 'idle',
+    brokerCallSid: null,
+    conferenceName: null
   }),
 
   // Actions for the Call
@@ -149,7 +162,10 @@ const useDialerStore = create((set, get) => ({
       isMuted: false,
       callDuration: 0,
       incomingCallerId: null,
-      leadData: null
+      leadData: null,
+      transferStatus: 'idle',
+      brokerCallSid: null,
+      conferenceName: null
     });
   },
   
