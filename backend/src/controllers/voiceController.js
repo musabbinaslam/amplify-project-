@@ -263,10 +263,11 @@ exports.handleDialStatus = async (req, res) => {
           // For other campaigns: the customer leg ends naturally when the agent disconnects.
           console.log(`[Twilio] Agent ${agentId} leg terminated (${event || callStatus}). Moving to wrap-up.`);
           
-          const customerSid = active.parentCallSid;
-          if (customerSid && campaign === 'aca_transfers') {
+          const customerSid = active.parentCallSid || parentSid;
+          console.log(`[Twilio] DEBUG kill check: customerSid=${customerSid}, campaign=${campaign}, active=`, JSON.stringify(active));
+          if (customerSid && customerSid !== callSid && campaign === 'aca_transfers') {
             console.log(`[Twilio] Auto-killing ACA customer call ${customerSid} after agent disconnect.`);
-            twilioClientObj.calls(customerSid).update({ status: 'completed' })
+            await twilioClientObj.calls(customerSid).update({ status: 'completed' })
               .then(() => console.log(`[Twilio] ✅ ACA customer call ${customerSid} terminated.`))
               .catch(err => console.warn(`[Twilio] Could not kill ACA customer call ${customerSid}:`, err.message));
           }
