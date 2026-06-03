@@ -784,7 +784,25 @@ exports.killCall = async (req, res) => {
             const parentSid = activeCall.parentCallSid;
             console.log(`[Twilio] Agent ${agentId} triggered forceful kill of call(s). Sid: ${sid}, Parent: ${parentSid || 'none'}`);
             
-            // Safely kill both the agent leg and the customer parent leg if they differ
+            // First, try to find and explicitly kill the ACA conference if it exists
+            const confName = await redisClient.get(`aca:conf:${agentId}`);
+            if (confName) {
+                try {
+                    const conferences = await twilioClientObj.conferences.list({
+                        friendlyName: confName,
+                        status: 'in-progress',
+                        limit: 1
+                    });
+                    if (conferences && conferences.length > 0) {
+                        await twilioClientObj.conferences(conferences[0].sid).update({ status: 'completed' });
+                        console.log(`[Twilio] Force killed ACA conference ${conferences[0].sid}`);
+                    }
+                } catch (err) {
+                    console.error('[Twilio] Failed to kill ACA conference:', err.message);
+                }
+            }
+
+            // Fallback: Safely kill both the agent leg and the customer parent leg if they differ
             if (sid) {
                 twilioClientObj.calls(sid).update({ status: 'completed' })
                     .catch(err => console.error(`[Twilio] Failed to kill agent call ${sid}:`, err.message));
