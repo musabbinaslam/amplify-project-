@@ -231,7 +231,7 @@ exports.handleDialStatus = async (req, res) => {
     } else {
       const terminal =
         ['completed', 'busy', 'no-answer', 'failed', 'canceled', 'cancelled'].includes(event) ||
-        ['busy', 'no-answer', 'failed', 'canceled', 'cancelled'].includes(callStatus);
+        ['completed', 'busy', 'no-answer', 'failed', 'canceled', 'cancelled'].includes(callStatus);
       if (terminal) {
         const active = await agentManager.getActiveCall(agentId);
         if (!active) {
