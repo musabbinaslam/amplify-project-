@@ -715,13 +715,14 @@ exports.sendDtmfToConference = async (req, res) => {
 exports.killCall = async (req, res) => {
     try {
         const agentId = req.user.uid;
-        const activeCallSid = await agentManager.getActiveCall(agentId);
+        const activeCall = await agentManager.getActiveCall(agentId);
         
-        if (activeCallSid) {
-            console.log(`[Twilio] Agent ${agentId} triggered forceful kill of call ${activeCallSid}`);
-            await twilioClientObj.calls(activeCallSid)
+        if (activeCall && activeCall.callSid) {
+            const sid = activeCall.callSid;
+            console.log(`[Twilio] Agent ${agentId} triggered forceful kill of call ${sid}`);
+            await twilioClientObj.calls(sid)
                 .update({ status: 'completed' })
-                .catch(err => console.error(`[Twilio] Failed to kill call ${activeCallSid}:`, err.message));
+                .catch(err => console.error(`[Twilio] Failed to kill call ${sid}:`, err.message));
         }
         
         res.json({ success: true });
