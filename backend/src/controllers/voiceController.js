@@ -258,9 +258,19 @@ exports.handleDialStatus = async (req, res) => {
              }
           }
         } else {
-          // Agent was IN_CALL but their leg terminated (e.g. they clicked "Leave Transfer" or hung up their phone).
-          // Release them to WRAP_UP so they can take new calls, without killing the customer's parent call.
+          // Agent was IN_CALL but their leg terminated (they clicked End Call or hung up).
+          // For ACA: directly kill the customer's call so they aren't left in the conference.
+          // For other campaigns: the customer leg ends naturally when the agent disconnects.
           console.log(`[Twilio] Agent ${agentId} leg terminated (${event || callStatus}). Moving to wrap-up.`);
+          
+          const customerSid = active.parentCallSid;
+          if (customerSid && campaign === 'aca_transfers') {
+            console.log(`[Twilio] Auto-killing ACA customer call ${customerSid} after agent disconnect.`);
+            twilioClientObj.calls(customerSid).update({ status: 'completed' })
+              .then(() => console.log(`[Twilio] ✅ ACA customer call ${customerSid} terminated.`))
+              .catch(err => console.warn(`[Twilio] Could not kill ACA customer call ${customerSid}:`, err.message));
+          }
+
           await agentManager.setAgentWrapUp(agentId);
         }
       }
