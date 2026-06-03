@@ -702,10 +702,7 @@ exports.updateCallLog = async (req, res) => {
 
         // 2. Release agent back into the pool (end of WRAP_UP phase)
         await agentManager.clearActiveCall(uid);
-        const agentState = await agentManager.getAgentState(uid);
-        if (agentState) {
-            await agentManager.releaseAgent(uid, agentState.sessionId || null);
-        }
+        await agentManager.releaseAgent(uid);
 
         res.json({ success: true, message: 'Disposition saved' });
     } catch (err) {
@@ -784,18 +781,19 @@ exports.killCall = async (req, res) => {
             const parentSid = activeCall.parentCallSid;
             console.log(`[Twilio] Agent ${agentId} triggered forceful kill of call(s). Sid: ${sid}, Parent: ${parentSid || 'none'}`);
             
-            // First, try to find and explicitly kill the ACA conference if it exists
-            const confName = await redisClient.get(`aca:conf:${agentId}`);
-            if (confName) {
+            // First, explicitly kill the ACA conference using the reconstructed name
+            if (parentSid) {
+                const confName = `aca_conf_${parentSid}`;
                 try {
                     const conferences = await twilioClientObj.conferences.list({
                         friendlyName: confName,
-                        status: 'in-progress',
-                        limit: 1
+                        limit: 3
                     });
-                    if (conferences && conferences.length > 0) {
-                        await twilioClientObj.conferences(conferences[0].sid).update({ status: 'completed' });
-                        console.log(`[Twilio] Force killed ACA conference ${conferences[0].sid}`);
+                    for (const conf of conferences) {
+                        if (conf.status !== 'completed') {
+                            await twilioClientObj.conferences(conf.sid).update({ status: 'completed' });
+                            console.log(`[Twilio] Force killed ACA conference ${conf.sid} (status was ${conf.status})`);
+                        }
                     }
                 } catch (err) {
                     console.error('[Twilio] Failed to kill ACA conference:', err.message);
