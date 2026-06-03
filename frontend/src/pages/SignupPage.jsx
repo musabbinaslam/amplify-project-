@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, Navigate, Link, useSearchParams } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -11,6 +11,7 @@ import {
 } from '../constants/countryDialCodes';
 import classes from './SignupPage.module.css';
 import { referralService } from '../services/referralService';
+import { initMetaPixelOnSignupPage, trackSignupComplete } from '../services/metaPixel';
 
 const SPENDING_OPTIONS = [
   'Less than $500',
@@ -79,6 +80,10 @@ const SignupPage = () => {
   const [searchParams] = useSearchParams();
   const [refCode] = useState(() => searchParams.get('ref')?.trim().toUpperCase() || '');
 
+  useEffect(() => {
+    initMetaPixelOnSignupPage();
+  }, []);
+
   const formStagger = reduceMotion
     ? { visible: { transition: { staggerChildren: 0 } } }
     : { visible: { transition: { staggerChildren: 0.05, delayChildren: 0.03 } } };
@@ -127,6 +132,11 @@ const SignupPage = () => {
       await signup({
         ...form,
         phone: buildInternationalPhone(form.phoneCountry, form.phone),
+      });
+      await trackSignupComplete({
+        email: form.email,
+        phone: buildInternationalPhone(form.phoneCountry, form.phone),
+        fullName: form.fullName,
       });
       if (refCode) {
         try {
@@ -178,6 +188,12 @@ const SignupPage = () => {
       await saveGoogleOnboarding({
         ...form,
         phone: buildInternationalPhone(form.phoneCountry, form.phone),
+      });
+      const authUser = useAuthStore.getState().user;
+      await trackSignupComplete({
+        email: authUser?.email || '',
+        phone: buildInternationalPhone(form.phoneCountry, form.phone),
+        fullName: form.fullName || authUser?.name || '',
       });
       if (refCode) {
         try {
