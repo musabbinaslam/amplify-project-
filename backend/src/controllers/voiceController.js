@@ -432,7 +432,9 @@ exports.handleCallCompleted = async (req, res) => {
                   `[Router] Skip stale completion release for ${resolvedAgentId}: callback sid ${CallSid} != active sid ${activeRow.callSid} / ${activeRow.parentCallSid || 'none'}`,
                 );
             } else {
-                if (effectiveStatus === 'completed') {
+                let _effectiveStatus = 'missed';
+                try { _effectiveStatus = effectiveStatus; } catch (_) {}
+                if (_effectiveStatus === 'completed') {
                     // Fallback if browser never emitted agent:call_incoming before hangup.
                     if (!activeRow) {
                         await agentManager.upsertActiveCall(resolvedAgentId, {
@@ -767,32 +769,38 @@ exports.sendDtmfToConference = async (req, res) => {
     }
 };
 
-/**
- * Forcefully kill the customer's call (the parent call).
- * This destroys the conference for all participants.
- */
 exports.killCall = async (req, res) => {
     try {
         const agentId = req.user.uid;
+        console.log(`[Twilio] kill-call endpoint HIT for agent ${agentId}`);
         const activeCall = await agentManager.getActiveCall(agentId);
+        console.log(`[Twilio] kill-call activeCall from Redis:`, JSON.stringify(activeCall));
         
         if (activeCall) {
             const sid = activeCall.callSid;
             const parentSid = activeCall.parentCallSid;
-            console.log(`[Twilio] Agent ${agentId} triggered forceful kill of call(s). Sid: ${sid}, Parent: ${parentSid || 'none'}`);
+            console.log(`[Twilio] Killing call(s). Agent sid: ${sid}, Customer sid: ${parentSid || 'none'}`);
             
-            // First, explicitly kill the ACA conference using the reconstructed name
+            // Strategy 1 (PRIMARY): Kill the customer's call SID directly — most reliable
             if (parentSid) {
-                const confName = `aca_conf_${parentSid}`;
                 try {
-                    const conferences = await twilioClientObj.conferences.list({
-                        friendlyName: confName,
-                        limit: 3
-                    });
+                    await twilioClientObj.calls(parentSid).update({ status: 'completed' });
+                    console.log(`[Twilio] ✅ Killed customer call ${parentSid} directly`);
+                } catch (err) {
+                    console.error(`[Twilio] Failed to kill parent call ${parentSid}:`, err.message);
+                }
+            }
+
+            // Strategy 2 (BELT-AND-SUSPENDERS): Kill the conference room by name
+            const confParent = parentSid || sid;
+            if (confParent) {
+                const confName = `aca_conf_${confParent}`;
+                try {
+                    const conferences = await twilioClientObj.conferences.list({ friendlyName: confName, limit: 3 });
                     for (const conf of conferences) {
                         if (conf.status !== 'completed') {
                             await twilioClientObj.conferences(conf.sid).update({ status: 'completed' });
-                            console.log(`[Twilio] Force killed ACA conference ${conf.sid} (status was ${conf.status})`);
+                            console.log(`[Twilio] ✅ Force killed ACA conference ${conf.sid}`);
                         }
                     }
                 } catch (err) {
@@ -800,15 +808,13 @@ exports.killCall = async (req, res) => {
                 }
             }
 
-            // Fallback: Safely kill both the agent leg and the customer parent leg if they differ
+            // Strategy 3 (FALLBACK): Kill agent's own leg too
             if (sid) {
                 twilioClientObj.calls(sid).update({ status: 'completed' })
                     .catch(err => console.error(`[Twilio] Failed to kill agent call ${sid}:`, err.message));
             }
-            if (parentSid && parentSid !== sid) {
-                twilioClientObj.calls(parentSid).update({ status: 'completed' })
-                    .catch(err => console.error(`[Twilio] Failed to kill parent call ${parentSid}:`, err.message));
-            }
+        } else {
+            console.warn(`[Twilio] kill-call: No activeCall found in Redis for agent ${agentId}`);
         }
         
         res.json({ success: true });
