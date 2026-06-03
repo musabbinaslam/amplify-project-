@@ -436,6 +436,7 @@ class AgentManager {
       }
       await this.upsertActiveCall(agentId, {
          callSid,
+         parentCallSid: payload.parentCallSid || pending?.parentCallSid || null,
          from: payload.from || pending.from,
          to: payload.to || pending.to,
          campaignId: payload.campaignId || pending.campaignId,
@@ -501,6 +502,7 @@ class AgentManager {
       const activeCallData = {
          agentId,
          callSid:    String(payload.callSid    || ''),
+         parentCallSid: payload.parentCallSid ? String(payload.parentCallSid) : null,
          from:       String(payload.from       || ''),
          to:         String(payload.to         || ''),
          campaignId: String(payload.campaignId || ''),
