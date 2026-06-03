@@ -342,6 +342,22 @@ class CallLogService {
                 }
             }
 
+            // ULTIMATE FALLBACK: If we still didn't find the call log (due to lost SIDs or race conditions),
+            // just grab the agent's most recent call log from the last 15 minutes and update it.
+            if (!docId && updates && updates.disposition) {
+                const fiveMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
+                const recentLogs = await callLogsRef
+                    .where('createdAt', '>=', admin.firestore.Timestamp.fromDate(fiveMinsAgo))
+                    .orderBy('createdAt', 'desc')
+                    .limit(1)
+                    .get();
+                
+                if (!recentLogs.empty) {
+                    docId = recentLogs.docs[0].id;
+                    console.log(`[Firestore] 🛡️ Fallback: Applied disposition to latest call log ${docId} for agent ${uid}`);
+                }
+            }
+
             if (docId) {
                 await callLogsRef.doc(docId).update({
                     ...updates,

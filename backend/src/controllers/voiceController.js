@@ -394,7 +394,8 @@ exports.handleCallCompleted = async (req, res) => {
             
             // For conference calls or forcefully killed calls, DialCallStatus might be 'canceled' or missing.
             // If there's any duration > 0, it means the call was bridged, so it's completed (not missed).
-            const effectiveStatus = (DialCallStatus === 'completed' || Number(effectiveDuration) > 0) ? 'completed' : 'missed';
+            const isCompleted = DialCallStatus === 'completed' || req.body.CallStatus === 'completed';
+            const effectiveStatus = (isCompleted || Number(effectiveDuration) > 0) ? 'completed' : 'missed';
             
             let finalRecordingUrl = RecordingUrl || null;
             
