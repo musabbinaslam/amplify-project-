@@ -499,15 +499,21 @@ class AgentManager {
          await redisClient.hSet('agents:data', agentId, JSON.stringify(agentObj));
       }
 
+      let existingData = {};
+      const activeDataStr = await redisClient.hGet('activecalls:data', agentId);
+      if (activeDataStr) {
+          existingData = JSON.parse(activeDataStr);
+      }
+
       const activeCallData = {
          agentId,
-         callSid:    String(payload.callSid    || ''),
-         parentCallSid: payload.parentCallSid ? String(payload.parentCallSid) : null,
-         from:       String(payload.from       || ''),
-         to:         String(payload.to         || ''),
-         campaignId: String(payload.campaignId || ''),
-         startedAt:  String(payload.startedAt  || new Date().toISOString()),
-         state:      String(payload.state      || 'in_call'),
+         callSid:    String(payload.callSid || existingData.callSid || ''),
+         parentCallSid: payload.parentCallSid ? String(payload.parentCallSid) : (existingData.parentCallSid || null),
+         from:       String(payload.from || existingData.from || ''),
+         to:         String(payload.to || existingData.to || ''),
+         campaignId: String(payload.campaignId || existingData.campaignId || ''),
+         startedAt:  String(payload.startedAt || existingData.startedAt || new Date().toISOString()),
+         state:      String(payload.state || existingData.state || 'in_call'),
          updatedAt:  new Date().toISOString(),
       };
       await redisClient.hSet('activecalls:data', agentId, JSON.stringify(activeCallData));

@@ -125,7 +125,8 @@ exports.handleIncomingCall = async (req, res) => {
             startConferenceOnEnter: false,
             endConferenceOnExit: true, // Caller hangup ends the conference
             waitUrl: 'http://twimlets.com/holdmusic?Bucket=com.twilio.music.classical',
-            beep: false
+            beep: false,
+            record: 'record-from-start'
           }, confName);
 
           // Store conference mapping so transfer API can find it
@@ -384,17 +385,36 @@ exports.handleCallCompleted = async (req, res) => {
             // If there's any duration > 0, it means the call was bridged, so it's completed (not missed).
             const effectiveStatus = (DialCallStatus === 'completed' || Number(effectiveDuration) > 0) ? 'completed' : 'missed';
             
+            let finalRecordingUrl = RecordingUrl || null;
+            
+            // Wait slightly and attempt to fetch the conference recording if it's missing (for ACA transfers)
+            if (!finalRecordingUrl && effectiveDuration > 0 && campaign === 'aca_transfers') {
+                setTimeout(async () => {
+                    try {
+                        const recordings = await twilioClientObj.recordings.list({ callSid: CallSid, limit: 1 });
+                        if (recordings && recordings.length > 0) {
+                            const recUrl = `https://api.twilio.com${recordings[0].uri.replace('.json', '.mp3')}`;
+                            await callLogService.updateCallLogBySid(resolvedAgentId, [CallSid], { recordingUrl: recUrl });
+                        }
+                    } catch (e) {
+                        console.error('[Twilio] Failed to fetch conference recording in background:', e.message);
+                    }
+                }, 8000); // Wait 8 seconds to allow Twilio to finish processing
+            }
+
             savedLog = await callLogService.logCall({
-                from: From,
-                to: To,
-                duration: effectiveDuration,
-                campaignId: campaign,
-                agentId: resolvedAgentId,
-                status: effectiveStatus,
                 callSid: CallSid,
                 dialCallSid: DialCallSid || null,
-                recordingUrl: RecordingUrl || null,
-                recordingSid: recordingSid || null,
+                agentId: resolvedAgentId,
+                campaignId: campaign,
+                from: From || '',
+                to: To || '',
+                duration: effectiveDuration,
+                status: effectiveStatus,
+                recordingUrl: finalRecordingUrl,
+                disposition: '',
+                qaInsight: null,
+                isBillable: effectiveDuration >= (process.env.BILLING_DURATION_THRESHOLD || 60)
             });
         }
     } catch (err) {
@@ -668,7 +688,14 @@ exports.updateCallLog = async (req, res) => {
         }
 
         // 1. Update Firestore
-        const success = await callLogService.updateCallLogBySid(uid, callSid, { disposition });
+        let targetSids = [callSid];
+        const activeCall = await agentManager.getActiveCall(uid);
+        if (activeCall) {
+            if (activeCall.parentCallSid) targetSids.push(activeCall.parentCallSid);
+            if (activeCall.callSid) targetSids.push(activeCall.callSid);
+        }
+        
+        const success = await callLogService.updateCallLogBySid(uid, targetSids, { disposition });
         if (!success) {
             return res.status(404).json({ error: 'Call log not found or failed to update' });
         }
