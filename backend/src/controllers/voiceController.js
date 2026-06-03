@@ -9,6 +9,8 @@ const { getUserDoc } = require('../services/userDataService');
 const phoneRouteService = require('../services/phoneRouteService');
 const { normalizeCallerState } = require('../utils/phoneUtils');
 const { dispatchQaInsightJob } = require('../queues/qaQueue');
+const twilioClientObj = require('../config/twilio').twilioClient;
+const { redisClient } = require('../config/redis');
 
 /** Absolute URL for Twilio webhooks (relative URLs break statusCallback on some hosts). */
 function voiceWebhookUrl(req, pathWithQuery) {
@@ -109,20 +111,55 @@ exports.handleIncomingCall = async (req, res) => {
           agentId: String(available.id),
           retryCount: String(retryCount),
         });
-        const dial = twiml.dial({
-          action: voiceWebhookUrl(req, `/api/voice/call-completed?${completedQs.toString()}`),
-          method: 'POST',
-          timeout: 20,
-          answerOnBridge: true,
-          record: 'record-from-answer',
-          // Server-side promotion to IN_CALL when Twilio bridges the client leg.
-          // Does not depend on the browser socket (agent:call_incoming).
-          statusCallback: voiceWebhookUrl(req, `/api/voice/dial-status?${dialStatusQs.toString()}`),
-          statusCallbackEvent: 'initiated ringing answered completed',
-          statusCallbackMethod: 'POST',
-        });
-        
-        dial.client(available.id);
+
+        if (campaign === 'aca_transfers') {
+          // ── ACA Transfers: Conference-From-Start Routing ──
+          const confName = `aca_conf_${parentCallSid}`;
+          
+          const dial = twiml.dial({
+            action: voiceWebhookUrl(req, `/api/voice/call-completed?${completedQs.toString()}`),
+            method: 'POST',
+            record: 'record-from-start',
+          });
+          dial.conference({
+            startConferenceOnEnter: false,
+            endConferenceOnExit: true, // Caller hangup ends the conference
+            waitUrl: 'http://twimlets.com/holdmusic?Bucket=com.twilio.music.classical',
+            beep: false
+          }, confName);
+
+          // Store conference mapping so transfer API can find it
+          await redisClient.setEx(`aca:conf:${available.id}`, 3600, confName);
+
+          const fromNum = process.env.TWILIO_ACA_PHONE_NUMBER || process.env.TWILIO_PHONE_NUMBER || '+10000000000';
+          dialStatusQs.set('isOutboundAgent', 'true'); // Flag to handle retries on REST failure
+          
+          twilioClientObj.calls.create({
+            to: `client:${available.id}`,
+            from: fromNum,
+            timeout: 20, // 20s ring time
+            statusCallback: voiceWebhookUrl(req, `/api/voice/dial-status?${dialStatusQs.toString()}`),
+            statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+            statusCallbackMethod: 'POST',
+            twiml: `<Response><Dial><Conference startConferenceOnEnter="true" endConferenceOnExit="false" beep="false">${confName}</Conference></Dial></Response>`
+          }).catch(err => console.error('[Twilio] Failed to dial agent for ACA conference:', err.message));
+
+        } else {
+          // ── All other campaigns: Direct Client Dial ──
+          const dial = twiml.dial({
+            action: voiceWebhookUrl(req, `/api/voice/call-completed?${completedQs.toString()}`),
+            method: 'POST',
+            timeout: 20,
+            answerOnBridge: true,
+            record: 'record-from-answer',
+            // Server-side promotion to IN_CALL when Twilio bridges the client leg.
+            statusCallback: voiceWebhookUrl(req, `/api/voice/dial-status?${dialStatusQs.toString()}`),
+            statusCallbackEvent: 'initiated ringing answered completed',
+            statusCallbackMethod: 'POST',
+          });
+          
+          dial.client(available.id);
+        }
      } else {
         if (retryCount === 0) {
           // First attempt: no agents available at all
@@ -200,6 +237,24 @@ exports.handleDialStatus = async (req, res) => {
           const agentState = await agentManager.getAgentState(agentId);
           await agentManager.releaseAgent(agentId, agentState?.sessionId || null);
           console.log(`[Twilio] Dial status released agent ${agentId} (${event || callStatus}) — never bridged`);
+          
+          // If this was an ACA outbound agent leg that failed, reroute the waiting caller
+          if (req.query.isOutboundAgent === 'true' && parentSid) {
+             const retryCount = Number(req.query.retryCount || 0);
+             if (retryCount < 2) {
+               const nextRetry = retryCount + 1;
+               const redirectQs = new URLSearchParams({ campaign: String(campaign || ''), retryCount: String(nextRetry) });
+               const redirectUrl = voiceWebhookUrl(req, `/api/voice/incoming-call?${redirectQs.toString()}`);
+               await twilioClientObj.calls(parentSid).update({
+                   method: 'POST',
+                   url: redirectUrl
+               }).catch(err => console.warn('[Router] Failed to redirect parent call for ACA retry:', err.message));
+             } else {
+               await twilioClientObj.calls(parentSid).update({
+                   twiml: '<Response><Say>All agents are currently assisting other callers. Please try again shortly.</Say><Hangup/></Response>'
+               }).catch(err => console.warn('[Router] Failed to hangup parent call for ACA:', err.message));
+             }
+          }
         }
       }
     }
@@ -290,13 +345,18 @@ exports.handleCallCompleted = async (req, res) => {
             await agentManager.releaseStaleRingingForCall(CallSid, null);
             resolvedAgentId = null;
         } else if (resolvedAgentId) {
+            // For conference calls, DialCallDuration might be empty on the parent, fallback to CallDuration
+            const effectiveDuration = DialCallDuration || req.body.CallDuration || 0;
+            // For conference calls, DialCallStatus might be missing, assume completed if duration exists
+            const effectiveStatus = (DialCallStatus === 'completed' || (!DialCallStatus && effectiveDuration > 0)) ? 'completed' : 'missed';
+            
             savedLog = await callLogService.logCall({
                 from: From,
                 to: To,
-                duration: DialCallDuration,
+                duration: effectiveDuration,
                 campaignId: campaign,
                 agentId: resolvedAgentId,
-                status: DialCallStatus === 'completed' ? 'completed' : 'missed',
+                status: effectiveStatus,
                 callSid: CallSid,
                 dialCallSid: DialCallSid || null,
                 recordingUrl: RecordingUrl || null,
@@ -591,3 +651,59 @@ exports.updateCallLog = async (req, res) => {
         res.status(500).json({ error: 'Failed to update call log' });
     }
 };
+
+/**
+ * Initiate an ACA transfer — dials the broker into the ongoing conference.
+ */
+exports.initiateAcaTransfer = async (req, res) => {
+    try {
+        const agentId = req.user.uid;
+        
+        // Find the conference associated with this agent
+        const confName = await redisClient.get(`aca:conf:${agentId}`);
+        if (!confName) {
+            return res.status(404).json({ error: 'Active ACA conference not found for agent' });
+        }
+        
+        const fromNum = process.env.TWILIO_ACA_PHONE_NUMBER || process.env.TWILIO_PHONE_NUMBER || '+10000000000';
+        const brokerNumber = '+18557886275';
+        
+        console.log(`[ACA Transfer] Initiating transfer for agent ${agentId} in conf ${confName} to ${brokerNumber}`);
+        
+        // Add broker to the existing conference
+        const participant = await twilioClientObj.conferences(confName).participants.create({
+            to: brokerNumber,
+            from: fromNum,
+            earlyMedia: true,
+            beep: false,
+            label: 'marketplace_broker',
+        });
+        
+        res.json({ success: true, brokerCallSid: participant.callSid, conferenceName: confName });
+    } catch (err) {
+        console.error('[ACA Transfer] Failed to initiate:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+/**
+ * Send DTMF digits to the broker leg using Twilio REST API.
+ */
+exports.sendDtmfToConference = async (req, res) => {
+    try {
+        const { brokerCallSid, digit } = req.body;
+        if (!brokerCallSid || !digit) {
+            return res.status(400).json({ error: 'brokerCallSid and digit are required' });
+        }
+        
+        await twilioClientObj.calls(brokerCallSid).update({
+            sendDigits: String(digit)
+        });
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[ACA Transfer] Failed to send DTMF:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Mic, Volume2, Shield, HeartPulse, Umbrella, AlertCircle,
   ChevronLeft, PhoneOff, Activity, ShieldCheck, Users,
-  PhoneIncoming, DollarSign, Clock, Phone, CheckCircle2, MapPin
+  PhoneIncoming, DollarSign, Clock, Phone, CheckCircle2, MapPin, PhoneOutgoing
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -606,10 +606,79 @@ const CallHistory = ({ logs }) => {
   );
 };
 
+// ─── ACA Transfer Panel ──────────────────────────────────────────────────────
+const AcaTransferPanel = () => {
+  const { transferStatus, brokerCallSid, conferenceName, setTransferState } = useDialerStore();
+  const [digits, setDigits] = useState('');
+
+  const handleTransfer = async () => {
+    try {
+      setTransferState('transferring');
+      const res = await apiFetch('/api/voice/initiate-transfer', { method: 'POST' });
+      if (res && res.success) {
+        setTransferState('transferred', res.brokerCallSid, res.conferenceName);
+        toast.success('Broker joined the conference');
+      } else {
+        throw new Error(res?.error || 'Transfer failed');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to transfer call: ' + (err.message || ''));
+      setTransferState('idle');
+    }
+  };
+
+  const sendDigit = async (digit) => {
+    if (!brokerCallSid) return;
+    try {
+      setDigits(prev => prev + digit);
+      await apiFetch('/api/voice/transfer-dtmf', {
+        method: 'POST',
+        body: { brokerCallSid, digit }
+      });
+    } catch (err) {
+      console.error('Failed to send DTMF:', err);
+      toast.error('Failed to send digit');
+    }
+  };
+
+  if (transferStatus === 'idle') {
+    return (
+      <div className={classes.acaTransferCard}>
+        <h3>Marketplace Transfer</h3>
+        <p>Transfer the caller to the Marketplace broker line when ready.</p>
+        <button className={classes.primaryBtn} onClick={handleTransfer}>
+          <PhoneOutgoing size={18} /> Call Broker (1-855-788-6275)
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={classes.acaTransferCard}>
+      <h3>Marketplace Broker Line</h3>
+      <div className={classes.transferStatusBadge}>
+        <span className={classes.liveDot} />
+        {transferStatus === 'transferring' ? 'Dialing Broker...' : 'Broker in Call'}
+      </div>
+      
+      <div className={classes.dialpadContainer} style={{ opacity: transferStatus === 'transferred' ? 1 : 0.5, pointerEvents: transferStatus === 'transferred' ? 'auto' : 'none' }}>
+        <p>Use the dialpad to respond to the broker IVR and enter your NPN.</p>
+        <div className={classes.digitsDisplay}>{digits || '...'}</div>
+        <div className={classes.dialGrid}>
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(d => (
+            <button key={d} className={classes.dialBtn} onClick={() => sendDigit(d)}>{d}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Main Page Component ─────────────────────────────────────────────────────
 const TakeCallsPage = () => {
   const presets = useSubtlePageMotion();
-  const { callState, activeCampaign, agentIdentity, licensedStates, leadData, hangUp, goOffline, pendingDispositionCall, clearPendingDisposition } = useDialerStore();
+  const { callState, activeCampaign, agentIdentity, licensedStates, leadData, hangUp, goOffline, pendingDispositionCall, clearPendingDisposition, transferStatus } = useDialerStore();
   const user = useAuthStore((s) => s.user);
   const [step, setStep] = useState(1);
   const [campaign, setCampaign] = useState('');
@@ -742,6 +811,12 @@ const TakeCallsPage = () => {
                   <span key={s} className={classes.liveStateChip}>{s}</span>
                 ))}
               </div>
+            </motion.div>
+          )}
+
+          {callState === 'active' && activeCampaign === 'aca_transfers' && (
+            <motion.div variants={presets.child}>
+              <AcaTransferPanel />
             </motion.div>
           )}
 
