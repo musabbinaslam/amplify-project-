@@ -79,7 +79,7 @@ function formatRecentTime(iso) {
 }
 
 function getCallType(log) {
-  return log?.type === 'Transfer' ? 'Outbound' : 'Inbound';
+  return log?.type || 'Inbound';
 }
 
 const DISPOSITION_LABELS = {

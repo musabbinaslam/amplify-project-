@@ -345,8 +345,21 @@ exports.handleCallCompleted = async (req, res) => {
             await agentManager.releaseStaleRingingForCall(CallSid, null);
             resolvedAgentId = null;
         } else if (resolvedAgentId) {
-            // For conference calls, DialCallDuration might be empty on the parent, fallback to CallDuration
-            const effectiveDuration = DialCallDuration || req.body.CallDuration || 0;
+            let computedDuration = 0;
+            try {
+                const activeRow = await agentManager.getActiveCall(resolvedAgentId);
+                if (activeRow && activeRow.startedAt) {
+                    const startMs = new Date(activeRow.startedAt).getTime();
+                    if (Date.now() > startMs) {
+                        computedDuration = Math.round((Date.now() - startMs) / 1000);
+                    }
+                }
+            } catch (e) {
+                console.warn('[Router] Failed to compute duration fallback:', e.message);
+            }
+
+            // For conference calls or forcefully killed calls, Twilio might omit duration.
+            const effectiveDuration = DialCallDuration || req.body.CallDuration || computedDuration || 0;
             // For conference calls, DialCallStatus might be missing, assume completed if duration exists
             const effectiveStatus = (DialCallStatus === 'completed' || (!DialCallStatus && effectiveDuration > 0)) ? 'completed' : 'missed';
             
