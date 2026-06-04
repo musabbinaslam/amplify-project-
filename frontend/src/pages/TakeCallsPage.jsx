@@ -645,7 +645,7 @@ const AcaTransferPanel = () => {
         <h3>Marketplace Transfer</h3>
         <p>Transfer the caller to the Marketplace broker line when ready.</p>
         <button className={classes.primaryBtn} onClick={handleTransfer}>
-          <PhoneOutgoing size={18} /> Call Broker (1-855-788-6275)
+          <PhoneOutgoing size={18} /> Transfer Marketplace Agent
         </button>
       </div>
     );
