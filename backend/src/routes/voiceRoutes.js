@@ -33,4 +33,9 @@ router.get('/contest-proof', verifyFirebaseToken, voiceController.serveContestPr
 // Proxy a Twilio recording so the browser doesn't need to auth directly with Twilio
 router.get('/recording/:recordingSid', verifyFirebaseToken, voiceController.proxyRecording);
 
+// ACA Transfer Endpoints
+router.post('/initiate-transfer', verifyFirebaseToken, voiceController.initiateAcaTransfer);
+router.post('/transfer-dtmf', verifyFirebaseToken, voiceController.sendDtmfToConference);
+router.post('/kill-call', verifyFirebaseToken, voiceController.killCall);
+
 module.exports = router;

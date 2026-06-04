@@ -436,6 +436,7 @@ class AgentManager {
       }
       await this.upsertActiveCall(agentId, {
          callSid,
+         parentCallSid: payload.parentCallSid || pending?.parentCallSid || null,
          from: payload.from || pending.from,
          to: payload.to || pending.to,
          campaignId: payload.campaignId || pending.campaignId,
@@ -443,6 +444,14 @@ class AgentManager {
          state: 'in_call',
       });
       await this.clearPendingCall(agentId, callSid);
+      
+      // Store a long-lived mapping of both the agent's leg and the parent leg
+      // This survives the active call being cleared when the agent hangs up
+      await redisClient.setEx(`call:owner:${callSid}`, 86400, agentId);
+      if (payload.parentCallSid) {
+          await redisClient.setEx(`call:owner:${payload.parentCallSid}`, 86400, agentId);
+      }
+
       console.log(`[Router] 📲 Call delivered to agent ${agentId} (${callSid || 'no-sid'})`);
       return true;
    }
@@ -498,14 +507,21 @@ class AgentManager {
          await redisClient.hSet('agents:data', agentId, JSON.stringify(agentObj));
       }
 
+      let existingData = {};
+      const activeDataStr = await redisClient.hGet('activecalls:data', agentId);
+      if (activeDataStr) {
+          existingData = JSON.parse(activeDataStr);
+      }
+
       const activeCallData = {
          agentId,
-         callSid:    String(payload.callSid    || ''),
-         from:       String(payload.from       || ''),
-         to:         String(payload.to         || ''),
-         campaignId: String(payload.campaignId || ''),
-         startedAt:  String(payload.startedAt  || new Date().toISOString()),
-         state:      String(payload.state      || 'in_call'),
+         callSid:    String(payload.callSid || existingData.callSid || ''),
+         parentCallSid: payload.parentCallSid ? String(payload.parentCallSid) : (existingData.parentCallSid || null),
+         from:       String(payload.from || existingData.from || ''),
+         to:         String(payload.to || existingData.to || ''),
+         campaignId: String(payload.campaignId || existingData.campaignId || ''),
+         startedAt:  String(payload.startedAt || existingData.startedAt || new Date().toISOString()),
+         state:      String(payload.state || existingData.state || 'in_call'),
          updatedAt:  new Date().toISOString(),
       };
       await redisClient.hSet('activecalls:data', agentId, JSON.stringify(activeCallData));
@@ -586,6 +602,9 @@ class AgentManager {
 
       const routed = await redisClient.get(`call:route:${target}`);
       if (routed && routed === id) return true;
+      
+      const owner = await redisClient.get(`call:owner:${target}`);
+      if (owner && owner === id) return true;
 
       const pending = await this.getPendingCall(id);
       if (pending?.callSid && String(pending.callSid).trim() === target) return true;
@@ -601,11 +620,14 @@ class AgentManager {
     */
    async resolveCallOwner(callSid, queryAgentId = null) {
       const target = String(callSid || '').trim();
-      const fromRoute = target ? await redisClient.get(`call:route:${target}`) : null;
+      let fromRoute = target ? await redisClient.get(`call:route:${target}`) : null;
+      if (!fromRoute && target) {
+         fromRoute = await redisClient.get(`call:owner:${target}`);
+      }
       const query = String(queryAgentId || '').trim();
       if (fromRoute && query && fromRoute !== query) {
          console.warn(
-           `[Router] call owner mismatch: query agentId=${query} call:route=${fromRoute} sid=${target} — using route`,
+           `[Router] call owner mismatch: query agentId=${query} call:route/owner=${fromRoute} sid=${target} — using route`,
          );
       }
       return fromRoute || query || null;

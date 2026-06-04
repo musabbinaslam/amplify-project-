@@ -19,7 +19,7 @@ const navItems = [
   { path: '/app/script', label: 'Script', icon: FileText },
   { path: '/app/notes', label: 'Notes', icon: FileEdit },
   { path: '/app/billing', label: 'Billing', icon: DollarSign },
-  { path: '/app/licensed-states', label: 'Licensed States', icon: MapPin },
+
   { path: '/app/leads', label: 'Leads', icon: Box, badge: 'Beta', disabled: true, teaser: true },
   { path: '/app/profile', label: 'Profile', icon: User },
   { path: '/app/ai-training', label: 'AI Training', icon: HeadphonesIcon },
