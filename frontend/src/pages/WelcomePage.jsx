@@ -31,13 +31,14 @@ const WelcomePage = () => {
         </div>
         
         <div className={classes.videoPlayer}>
-           <div className={classes.playLayer}>
-              <div className={classes.playBubble}>
-                 <Play size={32} fill="white" color="white" />
-              </div>
-           </div>
-           {/* Mock thumbnail for UI */}
-           <img src="https://placehold.co/800x450/0a0f1e/1e2d45?text=Video+Player" alt="Video thumbnail" className={classes.thumbnail} />
+           <iframe 
+             src="https://drive.google.com/file/d/1eTyuk6sAm6XYhC2VhMoJWOwUoqTnHTye/preview" 
+             width="100%" 
+             height="100%" 
+             allow="autoplay" 
+             style={{ border: 'none', position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+             title="How to Use CallsFlow"
+           ></iframe>
         </div>
       </motion.div>
     </motion.div>
