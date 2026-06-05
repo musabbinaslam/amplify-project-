@@ -1,6 +1,61 @@
 require('dotenv').config();
 const { createClient } = require('redis');
 
+/** Namespace Redis keys per deploy (e.g. staging vs production). Set on staging when both share one Upstash DB. */
+function getRedisKeyPrefix() {
+    const raw = String(process.env.REDIS_KEY_PREFIX || '').trim();
+    if (!raw) return '';
+    return raw.endsWith(':') ? raw : `${raw}:`;
+}
+
+function prefixRedisKey(key, prefix) {
+    if (!prefix || key == null || typeof key !== 'string') return key;
+    return `${prefix}${key}`;
+}
+
+const REDIS_KEY_ARG_COMMANDS = new Set([
+    'get', 'set', 'setEx', 'del', 'exists',
+    'hGet', 'hGetAll', 'hSet', 'hDel', 'hKeys',
+    'sAdd', 'sRem', 'sMembers', 'sCard', 'sIsMember',
+    'zAdd', 'zRem', 'zRange', 'zCard', 'zScore', 'zRangeByScore', 'zRangeWithScores',
+]);
+
+function wrapRedisClient(client, prefix) {
+    if (!prefix) return client;
+    return new Proxy(client, {
+        get(target, prop) {
+            const orig = target[prop];
+            if (typeof orig !== 'function') return orig;
+
+            if (prop === 'scanIterator') {
+                return async function* scanWithPrefix(opts = {}) {
+                    const nextOpts = { ...opts };
+                    if (nextOpts.MATCH) {
+                        nextOpts.MATCH = prefixRedisKey(nextOpts.MATCH, prefix);
+                    }
+                    yield* target.scanIterator(nextOpts);
+                };
+            }
+
+            if (!REDIS_KEY_ARG_COMMANDS.has(prop)) {
+                return orig.bind(target);
+            }
+
+            return (...args) => {
+                if (args.length > 0) args[0] = prefixRedisKey(args[0], prefix);
+                return orig.apply(target, args);
+            };
+        },
+    });
+}
+
+function applyRedisKeyPrefix(client) {
+    const prefix = getRedisKeyPrefix();
+    if (!prefix) return client;
+    console.log(`[Redis] Using key prefix "${prefix}" (staging/production isolation)`);
+    return wrapRedisClient(client, prefix);
+}
+
 // ─── In-Memory Mock (used locally when no REDIS_URL is set) ────────────────
 const storage = new Map();
 const sets = new Map();
@@ -96,7 +151,7 @@ const clientMock = {
 };
 
 // ─── Real Redis Client (Upstash in production) ─────────────────────────────
-let redisClient = clientMock;
+let redisClient = applyRedisKeyPrefix(clientMock);
 
 const connectRedis = async () => {
     if (process.env.REDIS_URL) {
@@ -126,17 +181,23 @@ const connectRedis = async () => {
 
             await client.connect();
             console.log('✅ Connected to Upstash Redis');
-            redisClient = client;
+            redisClient = applyRedisKeyPrefix(client);
         } catch (err) {
             console.error('[Redis] Failed to connect to Upstash, falling back to mock:', err.message);
             await clientMock.connect();
+            redisClient = applyRedisKeyPrefix(clientMock);
         }
     } else {
         // Local dev — use in-memory mock
         await clientMock.connect();
+        redisClient = applyRedisKeyPrefix(clientMock);
     }
 };
 
-module.exports = { redisClient: new Proxy({}, {
-    get: (_, prop) => (...args) => redisClient[prop](...args)
-}), connectRedis };
+module.exports = {
+    redisClient: new Proxy({}, {
+        get: (_, prop) => (...args) => redisClient[prop](...args),
+    }),
+    connectRedis,
+    getRedisKeyPrefix,
+};

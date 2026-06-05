@@ -387,6 +387,7 @@ A call is **billable** if `duration >= campaign.buffer && status === 'completed'
 | `TWILIO_API_KEY_SECRET` | API Key secret for JWT access tokens |
 | `TWILIO_TWIML_APP_SID` | TwiML App SID for VoiceGrant |
 | `REDIS_URL` | Upstash Redis URL (`rediss://...`); omit to use in-memory mock |
+| `REDIS_KEY_PREFIX` | Optional namespace for all Redis keys (e.g. `staging` → `staging:pool:…`). **Required on staging if it shares the same Upstash DB as production** — otherwise “Active agents” and call routing see production presence. |
 | `STRIPE_SECRET_KEY` | Stripe secret key (`sk_test_...` or `sk_live_...`) |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (required in production) |
 | `STRIPE_PRICE_SILVER` | Stripe Price ID for Silver plan |
