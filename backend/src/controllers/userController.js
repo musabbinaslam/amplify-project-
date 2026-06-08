@@ -251,6 +251,11 @@ function buildAdminSignupAlertHtml({
   uid,
   provider,
   completedAt,
+  phone,
+  weeklySpend,
+  usedInbound,
+  verticals,
+  hearAbout,
 }) {
   const BRAND = '#25f425';
   const BRAND_DARK = '#18a818';
@@ -361,6 +366,56 @@ function buildAdminSignupAlertHtml({
                             </tr>
                             <tr>
                               <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
+                                Phone
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:14px; font-size:14px; font-weight:600; color:${INK};">
+                                ${escapeHtml(phone || 'N/A')}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
+                                Selected Campaign
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:14px; font-size:14px; font-weight:600; color:${INK};">
+                                ${escapeHtml(verticals || 'N/A')}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
+                                Weekly Spend
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:14px; font-size:14px; font-weight:600; color:${INK};">
+                                ${escapeHtml(weeklySpend || 'N/A')}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
+                                Used Inbound Before
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:14px; font-size:14px; font-weight:600; color:${INK};">
+                                ${escapeHtml(usedInbound || 'N/A')}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
+                                Hear About Source
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:14px; font-size:14px; font-weight:600; color:${INK};">
+                                ${escapeHtml(hearAbout || 'N/A')}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
                                 UID
                               </td>
                             </tr>
@@ -413,6 +468,11 @@ function buildAdminSignupAlertText({
   uid,
   provider,
   completedAt,
+  phone,
+  weeklySpend,
+  usedInbound,
+  verticals,
+  hearAbout,
 }) {
   return [
     'New CallsFlow signup',
@@ -421,6 +481,11 @@ function buildAdminSignupAlertText({
     `Email: ${email}`,
     `UID: ${uid}`,
     `Provider: ${provider}`,
+    `Phone: ${phone || 'N/A'}`,
+    `Selected Vertical: ${verticals || 'N/A'}`,
+    `Weekly Spend: ${weeklySpend || 'N/A'}`,
+    `Used Inbound: ${usedInbound || 'N/A'}`,
+    `Hear About: ${hearAbout || 'N/A'}`,
     `Completed: ${completedAt}`,
   ].join('\n');
 }
@@ -817,6 +882,7 @@ async function postWelcomeEmail(req, res) {
       html: buildWelcomeEmailHtml({ name, dashboardUrl }),
     });
 
+    const onboarding = existingProfile?.onboarding || {};
     const adminRecipient = resolveAdminSignupNotifyEmail();
     const signupMeta = {
       name,
@@ -830,6 +896,11 @@ async function postWelcomeEmail(req, res) {
         existingProfile?.authProvider
       ),
       completedAt: new Date().toISOString(),
+      phone: onboarding.phone || '',
+      weeklySpend: onboarding.weeklySpend || '',
+      usedInbound: onboarding.usedInbound || '',
+      verticals: onboarding.verticals || '',
+      hearAbout: onboarding.hearAbout || '',
     };
     let adminSignupNotified = false;
     if (adminRecipient) {
