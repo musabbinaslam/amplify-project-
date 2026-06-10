@@ -1,0 +1,18 @@
+/**
+ * PM2 example for Hostinger — copy to ecosystem.config.cjs and adjust paths.
+ * RELEASE_ID is written automatically by GitHub Actions into backend/.release
+ * (ensure-release.js also reads RELEASE_ID env on start).
+ */
+module.exports = {
+  apps: [
+    {
+      name: 'backend',
+      cwd: '/home/YOUR_USER/path/to/backend',
+      script: 'npm',
+      args: 'start',
+      env: {
+        NODE_ENV: 'production',
+      },
+    },
+  ],
+};

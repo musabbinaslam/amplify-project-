@@ -1,0 +1,89 @@
+# Fully automatic backend release stamping for stage.callsflow.io + testapi.callsflow.io
+#
+# One-time setup (GitHub repo → Settings → Secrets and variables → Actions):
+#   STAGING_SSH_HOST      e.g. 123.45.67.89 or ssh.hostinger.com
+#   STAGING_SSH_USER      e.g. u123456789
+#   STAGING_SSH_KEY       private key (full PEM, including BEGIN/END lines)
+#   STAGING_BACKEND_PATH  absolute path to backend on server, e.g. /home/u123/amplify-project-/backend
+#   STAGING_SSH_PORT      optional, defaults to 22
+#
+# Disable Hostinger "Git auto deploy" for backend if you use the rsync deploy below,
+# OR keep Hostinger git deploy and this workflow will only stamp .release + restart.
+
+name: Deploy Staging Backend
+
+on:
+  push:
+    branches:
+      - staging
+      - TEST
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-staging-backend.yml'
+
+concurrency:
+  group: staging-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Load SSH config
+        env:
+          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          SSH_PORT: ${{ secrets.STAGING_SSH_PORT || '22' }}
+          BACKEND_PATH: ${{ secrets.STAGING_BACKEND_PATH }}
+          RELEASE_ID: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST" || (echo "Missing secret STAGING_SSH_HOST" && exit 1)
+          test -n "$SSH_USER" || (echo "Missing secret STAGING_SSH_USER" && exit 1)
+          test -n "$SSH_KEY"  || (echo "Missing secret STAGING_SSH_KEY" && exit 1)
+          test -n "$BACKEND_PATH" || (echo "Missing secret STAGING_BACKEND_PATH" && exit 1)
+
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          RSYNC_SSH="ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o StrictHostKeyChecking=accept-new"
+
+          echo "→ Syncing backend to $SSH_USER@$SSH_HOST:$BACKEND_PATH"
+          rsync -az --delete \
+            --exclude node_modules \
+            --exclude .env \
+            --exclude '.release' \
+            -e "$RSYNC_SSH" \
+            backend/ "$SSH_USER@$SSH_HOST:$BACKEND_PATH/"
+
+          echo "→ Installing deps, recording release $RELEASE_ID, restarting API"
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new \
+            "$SSH_USER@$SSH_HOST" \
+            "set -euo pipefail
+             cd '$BACKEND_PATH'
+             printf '%s\n' '$RELEASE_ID' > .release
+             export RELEASE_ID='$RELEASE_ID'
+             npm install --omit=dev
+             if command -v pm2 >/dev/null 2>&1; then
+               pm2 restart backend 2>/dev/null || pm2 restart all 2>/dev/null || pm2 start npm --name backend -- start
+             else
+               echo 'pm2 not found — set Hostinger Node startup to: npm start (with RELEASE_ID in env)'
+             fi
+             echo 'Release file:'
+             cat .release"
+
+      - name: Verify release endpoint
+        env:
+          API_URL: ${{ vars.STAGING_API_URL || 'https://testapi.callsflow.io' }}
+          RELEASE_ID: ${{ github.sha }}
+        run: |
+          sleep 5
+          BODY=$(curl -fsS "$API_URL/api/public/release?t=$(date +%s)" || echo '{}')
+          echo "$BODY"
+          echo "$BODY" | grep -q "$RELEASE_ID" || echo "::warning::API release id does not match deploy SHA yet (server may still be restarting)"

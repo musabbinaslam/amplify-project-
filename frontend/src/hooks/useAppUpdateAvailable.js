@@ -14,7 +14,7 @@ const CHECK_INTERVAL_MS = 15 * 1000;
  */
 export function useAppUpdateAvailable() {
   const baselineRef = useRef(null);
-  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [coordinatedUpdate, setCoordinatedUpdate] = useState(false);
 
   const {
     needRefresh: [swNeedRefresh],
@@ -37,15 +37,15 @@ export function useAppUpdateAvailable() {
       fetchBackendRelease(),
     ]);
 
-    if (!frontend || !backend) return;
+    if (!frontend) return;
 
     if (baselineRef.current === null) {
-      baselineRef.current = { frontend, backend };
+      baselineRef.current = { frontend, backend: backend || null };
       return;
     }
 
     const ready = isCoordinatedReleaseReady(baselineRef.current, { frontend, backend });
-    setUpdateAvailable(ready);
+    setCoordinatedUpdate(ready);
 
     if (ready) {
       console.info(
@@ -72,5 +72,5 @@ export function useAppUpdateAvailable() {
     window.location.reload();
   };
 
-  return { updateAvailable, applyUpdate };
+  return { updateAvailable: coordinatedUpdate || swNeedRefresh, applyUpdate };
 };
