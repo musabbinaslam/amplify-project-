@@ -824,6 +824,33 @@ const TakeCallsPage = () => {
             </motion.div>
           )}
 
+          {activeCampaign === 'fe_transfers' && (
+            <motion.div variants={presets.child} style={{ 
+              marginBottom: '20px', 
+              padding: '16px', 
+              backgroundColor: 'var(--card-bg, #1a1a1a)', 
+              color: '#f59e0b', 
+              borderRadius: '16px',
+              fontSize: '14px',
+              fontWeight: '500',
+              border: '1px solid rgba(245, 158, 11, 0.2)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '12px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+            }}>
+              <div style={{ padding: '6px', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Clock size={20} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <strong style={{ display: 'block', marginBottom: '4px', color: '#fbbf24', fontSize: '15px' }}>Break Hours Schedule</strong>
+                <p style={{ margin: 0, color: 'var(--text-secondary, #adaaaa)', lineHeight: '1.5' }}>
+                  Please note that <strong style={{ color: '#f59e0b' }}>1:00 PM to 2:00 PM (EST)</strong> are scheduled break hours for FE Transfers. You will not receive any calls during this time.
+                </p>
+              </div>
+            </motion.div>
+          )}
+
           {callState === 'active' && activeCampaign === 'aca_transfers' && (
             <motion.div variants={presets.child}>
               <AcaTransferPanel />

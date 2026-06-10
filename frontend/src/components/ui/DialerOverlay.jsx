@@ -60,20 +60,22 @@ const DialerOverlay = () => {
         <div 
            className={`${classes.idleBadge} ${isCollapsed ? classes.idleBadgeCollapsed : ''}`} 
            onClick={() => setIsCollapsed(!isCollapsed)}
-           style={{ cursor: 'pointer', padding: isCollapsed ? '12px' : '16px 32px' }}
+           style={{ cursor: 'pointer', padding: isCollapsed ? '12px' : '16px 32px', flexDirection: 'column', alignItems: 'center' }}
            title={isCollapsed ? "Click to expand" : "Click to collapse"}
         >
-          <div className={classes.statusDot} style={{ margin: isCollapsed ? '0' : '' }} />
-          {!isCollapsed && <span className={classes.idleText}>Listening for {activeCampaign || 'Campaign'} Calls...</span>}
-          {!isCollapsed && (
-             <button 
-                className={classes.hangupBtnSmall} 
-                onClick={(e) => { e.stopPropagation(); goOffline(); }} 
-                title="Go Offline"
-             >
-               <PhoneOff size={16} />
-             </button>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className={classes.statusDot} style={{ margin: isCollapsed ? '0' : '' }} />
+            {!isCollapsed && <span className={classes.idleText}>Listening for {activeCampaign || 'Campaign'} Calls...</span>}
+            {!isCollapsed && (
+               <button 
+                  className={classes.hangupBtnSmall} 
+                  onClick={(e) => { e.stopPropagation(); goOffline(); }} 
+                  title="Go Offline"
+               >
+                 <PhoneOff size={16} />
+               </button>
+            )}
+          </div>
         </div>
       </div>
     );
