@@ -17,6 +17,7 @@ const PERIOD_OPTIONS = ['This Week', 'This Month', 'Last 30 Days'];
 const CAMPAIGN_DESCRIPTIONS = {
   fe_transfers: 'Live transfer Final Expense calls',
   fe_inbounds: 'Direct inbound Final Expense calls',
+  fe_tv_calls: 'High-intent Final Expense TV calls',
   medicare_transfers: 'Live transfer Medicare calls',
   medicare_inbound_1: 'High-intent Medicare inbound calls',
   medicare_inbound_2: 'Standard Medicare inbound calls',

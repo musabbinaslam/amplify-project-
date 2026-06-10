@@ -18,6 +18,11 @@ const CAMPAIGN_CONFIG = {
     buffer: 90, // seconds
     price: 45.00
   },
+  fe_tv_calls: {
+    label: 'FE TV Calls',
+    buffer: 30, // seconds
+    price: 65.00
+  },
 
   // Medicare
   medicare_transfers: {
