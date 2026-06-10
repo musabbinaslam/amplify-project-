@@ -6,15 +6,20 @@ const BACKEND_ROOT = path.join(__dirname, '../..');
 const RELEASE_FILE = path.join(BACKEND_ROOT, '.release');
 
 function readGitHead() {
-  try {
-    return execSync('git rev-parse HEAD', {
-      cwd: BACKEND_ROOT,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-  } catch {
-    return null;
+  const candidates = [BACKEND_ROOT, path.join(BACKEND_ROOT, '..')];
+  for (const cwd of candidates) {
+    try {
+      const sha = execSync('git rev-parse HEAD', {
+        cwd,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+      if (sha) return sha;
+    } catch {
+      // try next candidate
+    }
   }
+  return null;
 }
 
 /**

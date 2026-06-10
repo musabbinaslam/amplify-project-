@@ -1,7 +1,9 @@
 import { getApiBaseUrl } from '../config/apiBase';
 
 function parseReleasePayload(data) {
-  return data?.releaseId || data?.buildId || null;
+  const id = data?.releaseId || data?.buildId || null;
+  if (!id || id === 'unknown' || id === 'dev') return null;
+  return id;
 }
 
 export async function fetchFrontendRelease() {
@@ -21,16 +23,27 @@ export async function fetchBackendRelease() {
 }
 
 /**
- * Show the update banner only when both services report the same NEW release.
- * Avoids prompting while Hostinger and Vercel are still on different commits mid-deploy.
+ * When to show the update banner:
+ * - Frontend has a new deploy, AND
+ * - Full-stack deploy: backend caught up to the same SHA, OR
+ * - Frontend-only deploy: backend unchanged (still valid)
+ *
+ * Hides the banner mid-deploy when frontend is new but backend is still on the old SHA.
  */
 export function isCoordinatedReleaseReady(baseline, remote) {
-  if (!baseline?.frontend || !baseline?.backend || !remote?.frontend || !remote?.backend) {
-    return false;
-  }
+  if (!baseline?.frontend || !remote?.frontend) return false;
 
-  const aligned = remote.frontend === remote.backend;
-  const frontendMoved = remote.frontend !== baseline.frontend;
+  const frontendUpdated = remote.frontend !== baseline.frontend;
+  if (!frontendUpdated) return false;
 
-  return aligned && frontendMoved;
+  // Backend not configured yet (returns unknown) — still prompt for frontend deploys
+  if (!remote.backend) return true;
+
+  if (!baseline.backend) return remote.frontend === remote.backend;
+
+  if (remote.frontend === remote.backend) return true;
+
+  if (remote.backend === baseline.backend) return true;
+
+  return false;
 }
