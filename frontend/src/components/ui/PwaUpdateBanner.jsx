@@ -1,22 +1,14 @@
 import React from 'react';
-import { useRegisterSW } from 'virtual:pwa-register/react';
 import useDialerStore from '../../store/useDialerStore';
+import { useAppUpdateAvailable } from '../../hooks/useAppUpdateAvailable';
 import classes from './PwaUpdateBanner.module.css';
 
 const PwaUpdateBanner = () => {
   const callState = useDialerStore((s) => s.callState);
   const inCall = callState === 'ringing' || callState === 'active';
+  const { updateAvailable, applyUpdate } = useAppUpdateAvailable();
 
-  const {
-    needRefresh: [needRefresh],
-    updateServiceWorker,
-  } = useRegisterSW();
-
-  if (!needRefresh) return null;
-
-  const handleRefresh = () => {
-    updateServiceWorker(true);
-  };
+  if (!updateAvailable) return null;
 
   return (
     <div className={classes.banner} role="alert" aria-live="polite">
@@ -24,7 +16,7 @@ const PwaUpdateBanner = () => {
       <button
         type="button"
         className={classes.button}
-        onClick={handleRefresh}
+        onClick={applyUpdate}
         disabled={inCall}
       >
         {inCall ? 'Refresh after your call' : 'Refresh now'}
