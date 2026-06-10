@@ -1,4 +1,5 @@
 const express = require('express');
+const { getReleaseId } = require('../utils/releaseId');
 
 const router = express.Router();
 const metaConversionService = require('../services/metaConversionService');
@@ -18,6 +19,15 @@ function getRequestOrigin(req) {
     return '';
   }
 }
+
+/**
+ * Deploy release id — must match frontend /version.json buildId after both sides finish deploying.
+ */
+router.get('/release', (req, res) => {
+  const releaseId = getReleaseId();
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.json({ buildId: releaseId, releaseId });
+});
 
 /**
  * Public Firebase web SDK config (same values as Firebase console Web app).
