@@ -1,22 +1,27 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import {
+  fetchBackendRelease,
+  fetchFrontendRelease,
+  isCoordinatedReleaseReady,
+} from '../services/releaseService';
 
-const CHECK_INTERVAL_MS = 60 * 1000;
+const CHECK_INTERVAL_MS = 15 * 1000;
 
 /**
- * Detects new deployments via service worker (precached assets) and /version.json polling.
- * Either signal shows the update banner — polling catches open tabs that never navigated.
+ * Waits for frontend (Vercel) and backend (Hostinger) to report the same new git SHA
+ * before showing the update banner — avoids reload prompts mid-deploy.
  */
 export function useAppUpdateAvailable() {
-  const [versionUpdate, setVersionUpdate] = useState(false);
-  const buildIdRef = useRef(null);
+  const baselineRef = useRef(null);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
 
   const {
     needRefresh: [swNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
     immediate: true,
-    onRegisteredSW(swUrl, registration) {
+    onRegisteredSW(_swUrl, registration) {
       if (registration) {
         setInterval(() => registration.update(), CHECK_INTERVAL_MS);
       }
@@ -26,31 +31,38 @@ export function useAppUpdateAvailable() {
     },
   });
 
-  useEffect(() => {
-    async function checkVersion() {
-      try {
-        const res = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
-        if (!res.ok) return;
-        const data = await res.json();
-        const newBuildId = data?.buildId;
-        if (!newBuildId) return;
+  const evaluateRelease = useCallback(async () => {
+    const [frontend, backend] = await Promise.all([
+      fetchFrontendRelease(),
+      fetchBackendRelease(),
+    ]);
 
-        if (buildIdRef.current === null) {
-          buildIdRef.current = newBuildId;
-        } else if (buildIdRef.current !== newBuildId) {
-          setVersionUpdate(true);
-        }
-      } catch {
-        // Network hiccup — try again next interval
-      }
+    if (!frontend || !backend) return;
+
+    if (baselineRef.current === null) {
+      baselineRef.current = { frontend, backend };
+      return;
     }
 
-    checkVersion();
-    const interval = setInterval(checkVersion, CHECK_INTERVAL_MS);
-    return () => clearInterval(interval);
+    const ready = isCoordinatedReleaseReady(baselineRef.current, { frontend, backend });
+    setUpdateAvailable(ready);
+
+    if (ready) {
+      console.info(
+        `[Release] Coordinated update ready (${baselineRef.current.frontend} → ${frontend})`,
+      );
+    }
   }, []);
 
-  const updateAvailable = swNeedRefresh || versionUpdate;
+  useEffect(() => {
+    evaluateRelease();
+    const interval = setInterval(evaluateRelease, CHECK_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [evaluateRelease]);
+
+  useEffect(() => {
+    if (swNeedRefresh) evaluateRelease();
+  }, [swNeedRefresh, evaluateRelease]);
 
   const applyUpdate = async () => {
     if (swNeedRefresh) {
@@ -61,4 +73,4 @@ export function useAppUpdateAvailable() {
   };
 
   return { updateAvailable, applyUpdate };
-}
+};
