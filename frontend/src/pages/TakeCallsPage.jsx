@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Mic, Volume2, Shield, HeartPulse, Umbrella, AlertCircle,
   ChevronLeft, PhoneOff, Activity, ShieldCheck, Users,
-  PhoneIncoming, DollarSign, Clock, Phone, CheckCircle2, MapPin, PhoneOutgoing
+  PhoneIncoming, DollarSign, Clock, Phone, CheckCircle2, MapPin, PhoneOutgoing, Tv
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -297,6 +297,7 @@ const StepTwo = ({ onNext, onBack }) => {
   const campaigns = [
     { id: 'fe_transfers', title: 'FE Transfers', subtitle: 'Live transfer Final Expense calls', price: '$35', buffer: '120s buffer', icon: Umbrella },
     { id: 'fe_inbounds', title: 'FE Inbounds', subtitle: 'Direct inbound Final Expense calls', price: '$45', buffer: '90s buffer', icon: PhoneIncoming },
+    { id: 'fe_tv_calls', title: 'FE TV Calls', subtitle: 'High-intent Final Expense TV calls', price: '$65', buffer: '30s buffer', icon: Tv },
     { id: 'medicare_transfers', title: 'Medicare Transfers', subtitle: 'Live transfer Medicare calls', price: '$25', buffer: '120s buffer', icon: HeartPulse },
     { id: 'medicare_inbound_1', title: 'Medicare Inbounds (1)', subtitle: 'High-intent Medicare inbound calls', price: '$35', buffer: '90s buffer', icon: Shield },
     { id: 'medicare_inbound_2', title: 'Medicare Inbounds (2)', subtitle: 'Standard Medicare inbound calls', price: '$15', buffer: '15s buffer', icon: ShieldCheck },
@@ -426,6 +427,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
   const campaignLabels = {
     fe_transfers: 'FE Transfers ($35 / 120s)',
     fe_inbounds: 'FE Inbounds ($45 / 90s)',
+    fe_tv_calls: 'FE TV Calls ($65 / 30s)',
     medicare_transfers: 'Medicare Transfers ($25 / 120s)',
     medicare_inbound_1: 'Medicare Inbounds 1 ($35 / 90s)',
     medicare_inbound_2: 'Medicare Inbounds 2 ($15 / 15s)',
@@ -820,6 +822,33 @@ const TakeCallsPage = () => {
                 {licensedStates.map(s => (
                   <span key={s} className={classes.liveStateChip}>{s}</span>
                 ))}
+              </div>
+            </motion.div>
+          )}
+
+          {activeCampaign === 'fe_transfers' && (
+            <motion.div variants={presets.child} style={{ 
+              marginBottom: '20px', 
+              padding: '16px', 
+              backgroundColor: 'var(--card-bg, #1a1a1a)', 
+              color: '#f59e0b', 
+              borderRadius: '16px',
+              fontSize: '14px',
+              fontWeight: '500',
+              border: '1px solid rgba(245, 158, 11, 0.2)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '12px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+            }}>
+              <div style={{ padding: '6px', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Clock size={20} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <strong style={{ display: 'block', marginBottom: '4px', color: '#fbbf24', fontSize: '15px' }}>Break Hours Schedule</strong>
+                <p style={{ margin: 0, color: 'var(--text-secondary, #adaaaa)', lineHeight: '1.5' }}>
+                  Please note that <strong style={{ color: '#f59e0b' }}>1:00 PM to 2:00 PM (EST)</strong> are scheduled break hours for FE Transfers. You will not receive any calls during this time.
+                </p>
               </div>
             </motion.div>
           )}
