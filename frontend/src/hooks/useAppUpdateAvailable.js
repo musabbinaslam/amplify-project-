@@ -8,6 +8,11 @@ import {
 
 const CHECK_INTERVAL_MS = 15 * 1000;
 
+function isManualReload() {
+  const [nav] = performance.getEntriesByType('navigation');
+  return nav?.type === 'reload';
+}
+
 /**
  * Waits for frontend (Vercel) and backend (Hostinger) to report the same new git SHA
  * before showing the update banner — avoids reload prompts mid-deploy.
@@ -63,6 +68,21 @@ export function useAppUpdateAvailable() {
   useEffect(() => {
     if (swNeedRefresh) evaluateRelease();
   }, [swNeedRefresh, evaluateRelease]);
+
+  // Browser refresh (F5 / Cmd+R) should apply a waiting SW — same as clicking "Refresh now".
+  useEffect(() => {
+    if (!isManualReload()) return;
+
+    let cancelled = false;
+    navigator.serviceWorker?.ready.then((registration) => {
+      if (cancelled || !registration.waiting) return;
+      updateServiceWorker(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [updateServiceWorker]);
 
   const applyUpdate = async () => {
     if (swNeedRefresh) {
