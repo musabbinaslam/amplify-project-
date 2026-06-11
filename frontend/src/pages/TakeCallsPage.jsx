@@ -724,8 +724,19 @@ const TakeCallsPage = () => {
   }, []);
 
   const handleGoLive = async () => {
-    if (walletBalance <= 0) {
-      alert("Insufficient credits. Please top up your wallet.");
+    const campaignPriceMap = {
+      fe_transfers: 35,
+      fe_inbounds: 45,
+      fe_tv_calls: 65,
+      medicare_transfers: 25,
+      medicare_inbound_1: 35,
+      medicare_inbound_2: 15,
+      aca_transfers: 30,
+    };
+    const requiredBalance = campaignPriceMap[campaign] || 0;
+
+    if (walletBalance < requiredBalance) {
+      alert(`Insufficient credits. Your balance is $${walletBalance.toFixed(2)}, but this campaign requires $${requiredBalance.toFixed(2)}. Please top up your wallet.`);
       return;
     }
     try {
