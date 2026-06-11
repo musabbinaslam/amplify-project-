@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node -e \"const fs=require('fs');fs.writeFileSync('public/version.json',JSON.stringify({buildId:process.env.VERCEL_GIT_COMMIT_SHA||('local-'+Date.now())}))\" && vite build",
+    "build": "node -e \"const fs=require('fs');const id=process.env.VERCEL_GIT_COMMIT_SHA||('local-'+Date.now());fs.writeFileSync('public/version.json',JSON.stringify({buildId:id,releaseId:id}))\" && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -39,6 +39,8 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
     "globals": "^15.11.0",
-    "vite": "^5.4.10"
+    "playwright": "^1.60.0",
+    "vite": "^5.4.10",
+    "vite-plugin-pwa": "^1.3.0"
   }
 }

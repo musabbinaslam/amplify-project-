@@ -1,0 +1,42 @@
+# Stamps backend/.release on EVERY staging push (even frontend-only commits).
+# Use this IF Hostinger already auto-pulls code and you do NOT use deploy-staging-backend.yml rsync.
+#
+# Same secrets as deploy-staging-backend.yml.
+# Set GitHub repo variable STAGING_USE_STAMP_ONLY=true to enable (Actions → Variables).
+
+name: Stamp Staging Backend Release
+
+on:
+  push:
+    branches:
+      - staging
+      - TEST
+
+jobs:
+  stamp:
+    if: vars.STAGING_USE_STAMP_ONLY == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Hostinger git deploy
+        run: sleep 90
+
+      - name: Stamp .release and restart
+        env:
+          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          SSH_PORT: ${{ secrets.STAGING_SSH_PORT || '22' }}
+          BACKEND_PATH: ${{ secrets.STAGING_BACKEND_PATH }}
+          RELEASE_ID: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new \
+            "$SSH_USER@$SSH_HOST" \
+            "set -euo pipefail
+             cd '$BACKEND_PATH'
+             printf '%s\n' '$RELEASE_ID' > .release
+             command -v pm2 >/dev/null && pm2 restart backend || pm2 restart all || true
+             cat .release"
