@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import {
   fetchBackendRelease,
   fetchFrontendRelease,
+  getRunningBuildId,
   isCoordinatedReleaseReady,
 } from '../services/releaseService';
 
-const CHECK_INTERVAL_MS = 15 * 1000;
+const CHECK_INTERVAL_MS = 10 * 1000;
 
 function isManualReload() {
   const [nav] = performance.getEntriesByType('navigation');
@@ -14,11 +15,11 @@ function isManualReload() {
 }
 
 /**
- * One update banner per release — shown only when Vercel + Hostinger report the same SHA.
- * Service worker updates are applied on refresh / "Refresh now", not as a separate prompt.
+ * One update banner per release — shown when a newer build is live on Vercel + Hostinger
+ * but this tab is still running the older bundle in memory.
  */
 export function useAppUpdateAvailable() {
-  const baselineRef = useRef(null);
+  const runningBuildId = getRunningBuildId();
   const [coordinatedUpdate, setCoordinatedUpdate] = useState(false);
 
   const {
@@ -42,27 +43,30 @@ export function useAppUpdateAvailable() {
       fetchBackendRelease(),
     ]);
 
-    if (!frontend) return;
-
-    if (baselineRef.current === null) {
-      baselineRef.current = { frontend, backend: backend || null };
-      return;
-    }
-
-    const ready = isCoordinatedReleaseReady(baselineRef.current, { frontend, backend });
+    const ready = isCoordinatedReleaseReady(runningBuildId, { frontend, backend });
     setCoordinatedUpdate(ready);
 
     if (ready) {
       console.info(
-        `[Release] Update ready (${baselineRef.current.frontend.slice(0, 7)} → ${frontend.slice(0, 7)}, backend aligned)`,
+        `[Release] Update ready (${runningBuildId.slice(0, 7)} → ${frontend?.slice(0, 7)}, backend aligned)`,
       );
     }
-  }, []);
+  }, [runningBuildId]);
 
   useEffect(() => {
     evaluateRelease();
     const interval = setInterval(evaluateRelease, CHECK_INTERVAL_MS);
-    return () => clearInterval(interval);
+
+    const onFocus = () => evaluateRelease();
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') onFocus();
+    });
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [evaluateRelease]);
 
   useEffect(() => {
@@ -91,6 +95,5 @@ export function useAppUpdateAvailable() {
     window.location.reload();
   };
 
-  // Single signal — do not also prompt on swNeedRefresh (that caused a 2nd banner on every deploy).
   return { updateAvailable: coordinatedUpdate, applyUpdate };
 };

@@ -2,8 +2,15 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Baked into the JS bundle at build time — used to detect "new deploy available"
+// while this tab is still running an older build in memory.
+const appBuildId = process.env.VERCEL_GIT_COMMIT_SHA || 'dev'
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_APP_BUILD_ID': JSON.stringify(appBuildId),
+  },
   plugins: [
     react(),
     VitePWA({

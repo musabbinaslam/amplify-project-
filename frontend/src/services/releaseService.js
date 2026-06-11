@@ -1,5 +1,10 @@
 import { getApiBaseUrl } from '../config/apiBase';
 
+/** Commit SHA compiled into this JS bundle (see vite.config.js). */
+export function getRunningBuildId() {
+  return import.meta.env.VITE_APP_BUILD_ID || 'dev';
+}
+
 function parseReleasePayload(data) {
   const id = data?.releaseId || data?.buildId || null;
   if (!id || id === 'unknown' || id === 'dev') return null;
@@ -23,14 +28,16 @@ export async function fetchBackendRelease() {
 }
 
 /**
- * Show the banner only when frontend AND backend report the same NEW release id.
- * Never prompt while they disagree (frontend finished before backend, or vice versa).
+ * Show the banner when a newer deploy is live AND backend has caught up.
+ * Compares live /version.json to the build id in this bundle — not the first poll.
  */
-export function isCoordinatedReleaseReady(baseline, remote) {
-  if (!baseline?.frontend || !remote?.frontend || !remote?.backend) return false;
+export function isCoordinatedReleaseReady(runningBuildId, remote) {
+  if (!runningBuildId || !remote?.frontend) return false;
 
-  const frontendUpdated = remote.frontend !== baseline.frontend;
-  if (!frontendUpdated) return false;
+  const newerDeployLive = remote.frontend !== runningBuildId;
+  if (!newerDeployLive) return false;
+
+  if (!remote.backend) return false;
 
   return remote.frontend === remote.backend;
 }
