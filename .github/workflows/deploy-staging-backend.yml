@@ -42,10 +42,19 @@ jobs:
           RELEASE_ID: ${{ github.sha }}
         run: |
           set -euo pipefail
+          SSH_HOST="$(printf '%s' "$SSH_HOST" | tr -d '[:space:]')"
+          SSH_USER="$(printf '%s' "$SSH_USER" | tr -d '[:space:]')"
+          SSH_PORT="$(printf '%s' "$SSH_PORT" | tr -d '[:space:]')"
+          BACKEND_PATH="$(printf '%s' "$BACKEND_PATH" | tr -d '[:space:]')"
+
           test -n "$SSH_HOST" || (echo "Missing secret STAGING_SSH_HOST" && exit 1)
           test -n "$SSH_USER" || (echo "Missing secret STAGING_SSH_USER" && exit 1)
           test -n "$SSH_KEY"  || (echo "Missing secret STAGING_SSH_KEY" && exit 1)
           test -n "$BACKEND_PATH" || (echo "Missing secret STAGING_BACKEND_PATH" && exit 1)
+
+          case "$SSH_HOST" in
+            *"://"* ) echo "::error::STAGING_SSH_HOST must be IP or hostname only — remove https://" && exit 1 ;;
+          esac
 
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
