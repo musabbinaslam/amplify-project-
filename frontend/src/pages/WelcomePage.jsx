@@ -18,7 +18,7 @@ const WelcomePage = () => {
     >
       <motion.div variants={presets.child}>
         <h1 className={classes.title}>Welcome, {user?.name || 'Agent'}! 👋</h1>
-        <p className={classes.subtitle}>Get started by watching our platform tutorial below. Arham</p>
+        <p className={classes.subtitle}>Get started by watching our platform tutorial below.</p>
       </motion.div>
 
       <motion.div className={classes.videoContainer} variants={presets.child}>
