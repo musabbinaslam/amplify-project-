@@ -10,11 +10,21 @@ export default defineConfig({
       registerType: 'prompt',
       injectRegister: null,
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,json}'],
+        // Precache hashed assets only — NOT index.html (so F5 fetches fresh HTML from network).
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
         globIgnores: ['**/logo.png', '**/logo2.png'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/, /socket\.io/],
         runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages',
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 16, maxAgeSeconds: 24 * 60 * 60 },
+            },
+          },
           {
             urlPattern: /\/version\.json/,
             handler: 'NetworkOnly',
