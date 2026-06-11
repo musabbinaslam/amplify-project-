@@ -423,7 +423,17 @@ const StepThree = ({ onNext, onBack }) => {
 
 // ─── Step 4: Review Rules & Go Live ─────────────────────────────────────────
 const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, walletBalance }) => {
-  const hasBalance = walletBalance > 0;
+  const campaignPriceMap = {
+    fe_transfers: 35,
+    fe_inbounds: 45,
+    fe_tv_calls: 65,
+    medicare_transfers: 25,
+    medicare_inbound_1: 35,
+    medicare_inbound_2: 15,
+    aca_transfers: 30,
+  };
+  const requiredBalance = campaignPriceMap[campaign] || 0;
+  const hasBalance = walletBalance >= requiredBalance;
   const campaignLabels = {
     fe_transfers: 'FE Transfers ($35 / 120s)',
     fe_inbounds: 'FE Inbounds ($45 / 90s)',
@@ -471,7 +481,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
             <AlertCircle size={24} />
             <div style={{flex: 1}}>
                <p style={{margin: 0, padding: 0}}>Insufficient Credits</p>
-               <span style={{fontSize: '13px', fontWeight: '500'}}>Your wallet balance is empty or negative. You must add credits before you can go live.</span>
+               <span style={{fontSize: '13px', fontWeight: '500'}}>Your wallet balance is lower than the required campaign price. You must add credits before you can go live.</span>
             </div>
           </div>
         )}
@@ -736,7 +746,7 @@ const TakeCallsPage = () => {
     const requiredBalance = campaignPriceMap[campaign] || 0;
 
     if (walletBalance < requiredBalance) {
-      alert(`Insufficient credits. Your balance is $${walletBalance.toFixed(2)}, but this campaign requires $${requiredBalance.toFixed(2)}. Please top up your wallet.`);
+      alert("Low balance for the selected campaign. Please top up your wallet.");
       return;
     }
     try {
@@ -748,8 +758,7 @@ const TakeCallsPage = () => {
     } catch (err) {
       console.error('Failed to go live:', err);
       if (err?.code === 'INSUFFICIENT_BALANCE') {
-        // Backend double-check: balance was zero when the server received go_live
-        toast.error('Your wallet balance is $0.00. Please top up before going live.', { duration: 6000 });
+        toast.error('Low balance for the selected campaign. Please add credits before going live.', { duration: 6000 });
       } else {
         const errorText = err?.message || 'Unknown error occurred';
         toast.error('Failed to connect: ' + errorText, { duration: 5000 });
