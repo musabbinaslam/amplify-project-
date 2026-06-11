@@ -781,12 +781,11 @@ async function forceRemoveAgent(req, res) {
     if (!agentId || !agentId.trim()) {
       return res.status(400).json({ error: 'agentId is required' });
     }
-    // Use forceReleaseAgent: if agent has data, put them back to AVAILABLE
-    // (clears the ghost IN_CALL/WRAP_UP state). If no data exists, fully removes them.
-    const result = await agentManager.forceReleaseAgent(agentId.trim());
+    // Forcefully remove the agent from the pool and clear all their state
+    await agentManager.removeAgent(agentId.trim());
     const adminUid = req.user?.uid || 'unknown';
-    console.log(`[Admin] 🚨 Force-${result.action} agent ${agentId} by admin ${adminUid}`);
-    res.json({ success: true, agentId: agentId.trim(), ...result });
+    console.log(`[Admin] 🚨 Force-removed agent ${agentId} by admin ${adminUid}`);
+    res.json({ success: true, agentId: agentId.trim(), action: 'removed' });
   } catch (err) {
     console.error('[Admin] forceRemoveAgent:', err.message);
     res.status(500).json({ error: err.message || 'Failed to remove agent' });

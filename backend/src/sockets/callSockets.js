@@ -1,6 +1,7 @@
 const agentManager = require('../services/agentManager');
 const { redisClient } = require('../config/redis');
 const { getBalance } = require('../services/walletService');
+const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const socketRegistry = require('./socketRegistry');
 
 const HEARTBEAT_TTL_SECONDS = 120;
@@ -44,11 +45,13 @@ exports.setupCallSockets = (io) => {
             // ── Balance Gate ─────────────────────────────────────────────────
             try {
                 const balanceCents = await getBalance(identity);
-                if (balanceCents <= 0) {
-                    console.log(`[Wallet] 🚫 Agent ${identity} blocked from going live — zero balance`);
+                const campaignPriceCents = CAMPAIGN_CONFIG[campaign] ? CAMPAIGN_CONFIG[campaign].price * 100 : 0;
+                
+                if (balanceCents < campaignPriceCents) {
+                    console.log(`[Wallet] 🚫 Agent ${identity} blocked from going live — insufficient balance (has $${(balanceCents / 100).toFixed(2)}, needs $${(campaignPriceCents / 100).toFixed(2)})`);
                     socket.emit('agent:go_live_error', {
                         code: 'INSUFFICIENT_BALANCE',
-                        message: 'Your wallet balance is $0.00. Please add credits before going live.',
+                        message: `Your wallet balance ($${(balanceCents / 100).toFixed(2)}) is insufficient to take calls for this campaign (requires $${(campaignPriceCents / 100).toFixed(2)}). Please add credits before going live.`,
                         balance: balanceCents,
                     });
                     return;
