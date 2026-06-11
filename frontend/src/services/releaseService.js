@@ -23,27 +23,14 @@ export async function fetchBackendRelease() {
 }
 
 /**
- * When to show the update banner:
- * - Frontend has a new deploy, AND
- * - Full-stack deploy: backend caught up to the same SHA, OR
- * - Frontend-only deploy: backend unchanged (still valid)
- *
- * Hides the banner mid-deploy when frontend is new but backend is still on the old SHA.
+ * Show the banner only when frontend AND backend report the same NEW release id.
+ * Never prompt while they disagree (frontend finished before backend, or vice versa).
  */
 export function isCoordinatedReleaseReady(baseline, remote) {
-  if (!baseline?.frontend || !remote?.frontend) return false;
+  if (!baseline?.frontend || !remote?.frontend || !remote?.backend) return false;
 
   const frontendUpdated = remote.frontend !== baseline.frontend;
   if (!frontendUpdated) return false;
 
-  // Backend not configured yet (returns unknown) — still prompt for frontend deploys
-  if (!remote.backend) return true;
-
-  if (!baseline.backend) return remote.frontend === remote.backend;
-
-  if (remote.frontend === remote.backend) return true;
-
-  if (remote.backend === baseline.backend) return true;
-
-  return false;
+  return remote.frontend === remote.backend;
 }

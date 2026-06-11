@@ -1,8 +1,9 @@
-# Stamps backend/.release on EVERY staging push (even frontend-only commits).
-# Use this IF Hostinger already auto-pulls code and you do NOT use deploy-staging-backend.yml rsync.
+# Stamps backend/.release on EVERY staging push so it matches Vercel's commit SHA.
+# No pm2 restart — getReleaseId() reads .release from disk on each request.
 #
-# Same secrets as deploy-staging-backend.yml.
-# Set GitHub repo variable STAGING_USE_STAMP_ONLY=true to enable (Actions → Variables).
+# Required secrets (same as deploy-staging-backend.yml):
+#   STAGING_SSH_HOST, STAGING_SSH_USER, STAGING_SSH_KEY, STAGING_BACKEND_PATH
+# Optional: STAGING_SSH_PORT
 
 name: Stamp Staging Backend Release
 
@@ -12,15 +13,15 @@ on:
       - staging
       - TEST
 
+concurrency:
+  group: stamp-staging-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   stamp:
-    if: vars.STAGING_USE_STAMP_ONLY == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for Hostinger git deploy
-        run: sleep 90
-
-      - name: Stamp .release and restart
+      - name: Stamp .release on Hostinger
         env:
           SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
           SSH_USER: ${{ secrets.STAGING_SSH_USER }}
@@ -30,13 +31,34 @@ jobs:
           RELEASE_ID: ${{ github.sha }}
         run: |
           set -euo pipefail
+          test -n "$SSH_HOST" || (echo "::error::Missing STAGING_SSH_HOST secret" && exit 1)
+          test -n "$SSH_USER" || (echo "::error::Missing STAGING_SSH_USER secret" && exit 1)
+          test -n "$SSH_KEY"  || (echo "::error::Missing STAGING_SSH_KEY secret" && exit 1)
+          test -n "$BACKEND_PATH" || (echo "::error::Missing STAGING_BACKEND_PATH secret" && exit 1)
+
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          echo "→ Stamping $RELEASE_ID at $BACKEND_PATH/.release"
           ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new \
             "$SSH_USER@$SSH_HOST" \
             "set -euo pipefail
-             cd '$BACKEND_PATH'
-             printf '%s\n' '$RELEASE_ID' > .release
-             command -v pm2 >/dev/null && pm2 restart backend || pm2 restart all || true
-             cat .release"
+             mkdir -p '$BACKEND_PATH'
+             printf '%s\n' '$RELEASE_ID' > '$BACKEND_PATH/.release'
+             echo 'Stamped:' && cat '$BACKEND_PATH/.release'"
+
+      - name: Verify release endpoint
+        env:
+          API_URL: ${{ vars.STAGING_API_URL || 'https://testapi.callsflow.io' }}
+          RELEASE_ID: ${{ github.sha }}
+        run: |
+          sleep 3
+          BODY=$(curl -fsS "$API_URL/api/public/release?t=$(date +%s)" || echo '{"error":"unreachable"}')
+          echo "$BODY"
+          if echo "$BODY" | grep -q "$RELEASE_ID"; then
+            echo "✓ Backend release matches deploy SHA"
+          else
+            echo "::warning::Backend API does not report $RELEASE_ID yet — check SSH path or Hostinger deploy"
+          fi

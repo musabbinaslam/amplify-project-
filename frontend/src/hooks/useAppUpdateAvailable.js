@@ -14,8 +14,8 @@ function isManualReload() {
 }
 
 /**
- * Waits for frontend (Vercel) and backend (Hostinger) to report the same new git SHA
- * before showing the update banner — avoids reload prompts mid-deploy.
+ * One update banner per release — shown only when Vercel + Hostinger report the same SHA.
+ * Service worker updates are applied on refresh / "Refresh now", not as a separate prompt.
  */
 export function useAppUpdateAvailable() {
   const baselineRef = useRef(null);
@@ -54,7 +54,7 @@ export function useAppUpdateAvailable() {
 
     if (ready) {
       console.info(
-        `[Release] Coordinated update ready (${baselineRef.current.frontend} → ${frontend})`,
+        `[Release] Update ready (${baselineRef.current.frontend.slice(0, 7)} → ${frontend.slice(0, 7)}, backend aligned)`,
       );
     }
   }, []);
@@ -69,7 +69,6 @@ export function useAppUpdateAvailable() {
     if (swNeedRefresh) evaluateRelease();
   }, [swNeedRefresh, evaluateRelease]);
 
-  // Browser refresh (F5 / Cmd+R) should apply a waiting SW — same as clicking "Refresh now".
   useEffect(() => {
     if (!isManualReload()) return;
 
@@ -92,5 +91,6 @@ export function useAppUpdateAvailable() {
     window.location.reload();
   };
 
-  return { updateAvailable: coordinatedUpdate || swNeedRefresh, applyUpdate };
+  // Single signal — do not also prompt on swNeedRefresh (that caused a 2nd banner on every deploy).
+  return { updateAvailable: coordinatedUpdate, applyUpdate };
 };
