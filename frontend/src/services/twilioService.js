@@ -334,7 +334,7 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       // so the agent has time to read the message before the page changes
       import('react-hot-toast').then(({ default: toast }) => {
         toast(
-          '💳 Your last call was billed and your balance is now $0.00. Redirecting to top up…',
+          '💳 Your last call was billed and your balance is now too low for another call. Redirecting to top up…',
           { duration: 4000 }
         );
       }).catch(() => {});

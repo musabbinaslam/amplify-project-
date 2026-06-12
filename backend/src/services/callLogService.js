@@ -76,10 +76,10 @@ class CallLogService {
                    callSid, campaignId, campaignLabel: config.label || campaignId
                 });
 
-                // If balance is now zero or below, notify the agent via their live socket.
+                // If balance is now too low to take another call, notify the agent via their live socket.
                 // The call has already completed — this notification fires AFTER billing,
                 // so the agent's experience on the call was never interrupted.
-                if (typeof newBalance === 'number' && newBalance <= 0) {
+                if (typeof newBalance === 'number' && newBalance < config.price * 100) {
                     const socketRegistry = require('../sockets/socketRegistry');
                     const notified = socketRegistry.emitToAgent(agentId, 'agent:balance_exhausted', {
                         balance: newBalance,
