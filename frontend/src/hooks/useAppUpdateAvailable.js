@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  fetchBackendRelease,
   fetchFrontendRelease,
   getRunningBuildId,
   isUpdateReady,
@@ -16,25 +15,17 @@ export function useAppUpdateAvailable() {
   const checkForUpdate = useCallback(async () => {
     if (!runningBuildId) return;
 
-    const [liveBackend, liveFrontend] = await Promise.all([
-      fetchBackendRelease(),
-      fetchFrontendRelease(),
-    ]);
+    const liveFrontend = await fetchFrontendRelease();
 
     if (!initialDeployRef.current) {
       initialDeployRef.current = {
-        backend: liveBackend,
         frontend: liveFrontend,
         wasBehindOnLoad:
-          Boolean(liveBackend) &&
-          Boolean(liveFrontend) &&
-          liveBackend === liveFrontend &&
-          liveBackend !== runningBuildId,
+          Boolean(liveFrontend) && liveFrontend !== runningBuildId,
       };
     }
 
-    const ready = isUpdateReady(runningBuildId, liveBackend, liveFrontend, {
-      initialBackend: initialDeployRef.current.backend,
+    const ready = isUpdateReady(runningBuildId, liveFrontend, {
       initialFrontend: initialDeployRef.current.frontend,
       wasBehindOnLoad: initialDeployRef.current.wasBehindOnLoad,
     });
@@ -43,8 +34,7 @@ export function useAppUpdateAvailable() {
     if (ready) {
       console.info('[Release] update ready', {
         running: runningBuildId.slice(0, 7),
-        backend: liveBackend?.slice(0, 7),
-        frontend: liveFrontend?.slice(0, 7),
+        live: liveFrontend?.slice(0, 7),
       });
     }
   }, [runningBuildId]);

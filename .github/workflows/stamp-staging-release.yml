@@ -1,4 +1,4 @@
-# Waits for Hostinger deploy; release stamped on server via npm postinstall + server start.
+# Waits for Hostinger deploy; release stamped on server via npm postinstall.
 
 name: Stamp Staging Backend Release
 
@@ -24,23 +24,6 @@ jobs:
         run: |
           echo "Waiting ${WAIT_SECONDS}s for Hostinger npm postinstall to write .release..."
           sleep "$WAIT_SECONDS"
-
-      - name: Try HTTPS stamp (optional — CDN may block GitHub)
-        continue-on-error: true
-        env:
-          API_URL: ${{ vars.STAGING_API_URL || 'https://testapi.callsflow.io' }}
-          STAMP_TOKEN: ${{ secrets.STAGING_RELEASE_STAMP_TOKEN }}
-          RELEASE_ID: ${{ github.sha }}
-        run: |
-          if [ -z "$STAMP_TOKEN" ]; then echo "No STAGING_RELEASE_STAMP_TOKEN — skipping"; exit 0; fi
-          HTTP=$(curl -sS -o /tmp/stamp.json -w "%{http_code}" --max-time 20 \
-            -A "Mozilla/5.0 (compatible; CallsFlowDeploy/1.0)" \
-            -X POST "$API_URL/api/public/release/stamp" \
-            -H "Content-Type: application/json" \
-            -H "X-Release-Stamp-Token: $STAMP_TOKEN" \
-            -d "{\"releaseId\":\"$RELEASE_ID\"}" 2>/dev/null || echo "000")
-          cat /tmp/stamp.json 2>/dev/null || true
-          echo "HTTPS stamp HTTP $HTTP (ignored if CDN blocked)"
 
       - name: Verify release endpoint
         env:
