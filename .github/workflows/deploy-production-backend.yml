@@ -36,7 +36,7 @@ jobs:
           API_URL: ${{ vars.PROD_API_URL || 'https://api.callsflow.io' }}
           RELEASE_ID: ${{ github.sha }}
         run: |
-          BODY=$(curl -fsS --max-time 20 "$API_URL/api/public/release?t=$(date +%s)" || echo '{}')
+          BODY=$(curl -sS --max-time 20 "$API_URL/api/public/release?t=$(date +%s)" 2>/dev/null || echo '{}')
           echo "$BODY"
           if echo "$BODY" | grep -q "$RELEASE_ID"; then
             echo "already_stamped=true" >> "$GITHUB_OUTPUT"
@@ -46,6 +46,8 @@ jobs:
 
       - name: Stamp .release on Hostinger
         if: steps.precheck.outputs.already_stamped != 'true'
+        continue-on-error: true
+        id: ssh_stamp
         env:
           SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           SSH_USER: ${{ secrets.PROD_SSH_USER }}
@@ -116,11 +118,15 @@ jobs:
         env:
           API_URL: ${{ vars.PROD_API_URL || 'https://api.callsflow.io' }}
           RELEASE_ID: ${{ github.sha }}
+          SSH_STAMP_OK: ${{ steps.ssh_stamp.outcome == 'success' || steps.precheck.outputs.already_stamped == 'true' }}
         run: |
           set -euo pipefail
-          for i in 1 2 3 4 5 6; do
-            if [ "$i" -gt 1 ]; then sleep 5; fi
-            BODY=$(curl -fsS --max-time 15 "$API_URL/api/public/release?t=$(date +%s)" || echo '{}')
+          if [ "${SSH_STAMP_OK}" != "true" ]; then
+            echo "::warning::SSH stamp failed — waiting for server auto-stamp from git"
+          fi
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            if [ "$i" -gt 1 ]; then sleep 10; fi
+            BODY=$(curl -sS --max-time 15 "$API_URL/api/public/release?t=$(date +%s)" 2>/dev/null || echo '{}')
             echo "Attempt $i: $BODY"
             if echo "$BODY" | grep -q "$RELEASE_ID"; then
               echo "✓ Backend API reports $RELEASE_ID"
