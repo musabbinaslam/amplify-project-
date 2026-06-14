@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   fetchBackendRelease,
   fetchFrontendRelease,
@@ -11,6 +11,7 @@ const CHECK_INTERVAL_MS = 10 * 1000;
 export function useAppUpdateAvailable() {
   const runningBuildId = getRunningBuildId();
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const initialDeployRef = useRef(null);
 
   const checkForUpdate = useCallback(async () => {
     if (!runningBuildId) return;
@@ -19,7 +20,24 @@ export function useAppUpdateAvailable() {
       fetchBackendRelease(),
       fetchFrontendRelease(),
     ]);
-    const ready = isUpdateReady(runningBuildId, liveBackend, liveFrontend);
+
+    if (!initialDeployRef.current) {
+      initialDeployRef.current = {
+        backend: liveBackend,
+        frontend: liveFrontend,
+        wasBehindOnLoad:
+          Boolean(liveBackend) &&
+          Boolean(liveFrontend) &&
+          liveBackend === liveFrontend &&
+          liveBackend !== runningBuildId,
+      };
+    }
+
+    const ready = isUpdateReady(runningBuildId, liveBackend, liveFrontend, {
+      initialBackend: initialDeployRef.current.backend,
+      initialFrontend: initialDeployRef.current.frontend,
+      wasBehindOnLoad: initialDeployRef.current.wasBehindOnLoad,
+    });
     setUpdateAvailable(ready);
 
     if (ready) {

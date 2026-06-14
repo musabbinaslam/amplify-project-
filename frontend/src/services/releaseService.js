@@ -30,15 +30,22 @@ export async function fetchBackendRelease() {
 }
 
 /**
- * Show banner only when the full deploy is done (Vercel + backend same SHA)
- * and this tab is still on an older build.
+ * Show banner when Vercel + backend are aligned on a deploy this tab does not have yet.
+ * Requires either a new deploy since the tab opened, or the tab was already behind on load.
  */
-export function isUpdateReady(runningBuildId, liveBackendRelease, liveFrontendRelease) {
+export function isUpdateReady(
+  runningBuildId,
+  liveBackendRelease,
+  liveFrontendRelease,
+  { initialBackend, initialFrontend, wasBehindOnLoad } = {},
+) {
   if (!runningBuildId || !liveBackendRelease || !liveFrontendRelease) return false;
+  if (liveBackendRelease !== liveFrontendRelease) return false;
   if (liveBackendRelease === runningBuildId) return false;
 
-  // Vercel or Hostinger still catching up — not ready to prompt yet.
-  if (liveFrontendRelease !== liveBackendRelease) return false;
+  const deployMoved =
+    initialBackend != null &&
+    (liveBackendRelease !== initialBackend || liveFrontendRelease !== initialFrontend);
 
-  return true;
+  return deployMoved || Boolean(wasBehindOnLoad);
 }
