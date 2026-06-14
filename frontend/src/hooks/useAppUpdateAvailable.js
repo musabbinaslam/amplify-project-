@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   fetchBackendRelease,
+  fetchFrontendRelease,
   getRunningBuildId,
   isUpdateReady,
 } from '../services/releaseService';
@@ -14,14 +15,18 @@ export function useAppUpdateAvailable() {
   const checkForUpdate = useCallback(async () => {
     if (!runningBuildId) return;
 
-    const liveBackend = await fetchBackendRelease();
-    const ready = isUpdateReady(runningBuildId, liveBackend);
+    const [liveBackend, liveFrontend] = await Promise.all([
+      fetchBackendRelease(),
+      fetchFrontendRelease(),
+    ]);
+    const ready = isUpdateReady(runningBuildId, liveBackend, liveFrontend);
     setUpdateAvailable(ready);
 
     if (ready) {
       console.info('[Release] update ready', {
         running: runningBuildId.slice(0, 7),
-        live: liveBackend?.slice(0, 7),
+        backend: liveBackend?.slice(0, 7),
+        frontend: liveFrontend?.slice(0, 7),
       });
     }
   }, [runningBuildId]);

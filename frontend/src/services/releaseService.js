@@ -13,6 +13,13 @@ function parseReleasePayload(data) {
   return id;
 }
 
+export async function fetchFrontendRelease() {
+  const res = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return parseReleasePayload(data);
+}
+
 export async function fetchBackendRelease() {
   const res = await fetch(`${getApiBaseUrl()}/api/public/release?t=${Date.now()}`, {
     cache: 'no-store',
@@ -22,8 +29,18 @@ export async function fetchBackendRelease() {
   return parseReleasePayload(data);
 }
 
-/** Show banner when the live backend release differs from this tab's build. */
-export function isUpdateReady(runningBuildId, liveBackendRelease) {
+/**
+ * Show banner when backend reports a newer deploy than this tab's bundle.
+ * Hide when this tab already has the latest frontend (Vercel ahead of backend stamp).
+ */
+export function isUpdateReady(runningBuildId, liveBackendRelease, liveFrontendRelease) {
   if (!runningBuildId || !liveBackendRelease) return false;
-  return liveBackendRelease !== runningBuildId;
+  if (liveBackendRelease === runningBuildId) return false;
+
+  // Refreshed to latest Vercel build; backend stamp still catching up — not a user action.
+  if (liveFrontendRelease && liveFrontendRelease === runningBuildId) {
+    return false;
+  }
+
+  return true;
 }
