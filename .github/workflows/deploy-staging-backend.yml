@@ -27,7 +27,7 @@ jobs:
     steps:
       - name: Wait for Hostinger git deploy
         env:
-          WAIT_SECONDS: ${{ vars.STAGING_DEPLOY_WAIT_SECONDS || '180' }}
+          WAIT_SECONDS: ${{ vars.STAGING_DEPLOY_WAIT_SECONDS || '120' }}
         run: |
           echo "Waiting ${WAIT_SECONDS}s for Hostinger to finish git deploy..."
           sleep "$WAIT_SECONDS"
