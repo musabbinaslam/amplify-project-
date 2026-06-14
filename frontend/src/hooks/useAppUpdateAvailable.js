@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import {
   fetchBackendRelease,
@@ -17,6 +17,7 @@ function isManualReload() {
 export function useAppUpdateAvailable() {
   const runningBuildId = getRunningBuildId();
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const frontendNewSinceRef = useRef(null);
 
   const {
     needRefresh: [swNeedRefresh],
@@ -41,10 +42,20 @@ export function useAppUpdateAvailable() {
       fetchBackendRelease(),
     ]);
 
+    if (frontend && frontend !== runningBuildId && !frontendNewSinceRef.current) {
+      frontendNewSinceRef.current = Date.now();
+    }
+    if (frontend && frontend === runningBuildId) {
+      frontendNewSinceRef.current = null;
+    }
+
     const ready = isUpdateReady(
       runningBuildId,
       { frontend, backend },
-      { swPending: swNeedRefresh },
+      {
+        swPending: swNeedRefresh,
+        frontendNewSince: frontendNewSinceRef.current,
+      },
     );
     setUpdateAvailable(ready);
 
@@ -53,6 +64,7 @@ export function useAppUpdateAvailable() {
         running: runningBuildId.slice(0, 7),
         live: frontend?.slice(0, 7),
         backend: backend?.slice(0, 7),
+        swPending: swNeedRefresh,
       });
     }
   }, [runningBuildId, swNeedRefresh]);

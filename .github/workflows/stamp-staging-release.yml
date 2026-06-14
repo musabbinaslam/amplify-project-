@@ -1,9 +1,8 @@
 # Stamps backend/.release on EVERY staging push so it matches Vercel's commit SHA.
-# No pm2 restart — getReleaseId() reads .release from disk on each request.
+# Auto-finds the Node app directory on Hostinger (no manual path guesswork).
 #
-# Required secrets (same as deploy-staging-backend.yml):
-#   STAGING_SSH_HOST, STAGING_SSH_USER, STAGING_SSH_KEY, STAGING_BACKEND_PATH
-# Optional: STAGING_SSH_PORT
+# Secrets: STAGING_SSH_HOST, STAGING_SSH_USER, STAGING_SSH_KEY
+# Optional: STAGING_SSH_PORT, STAGING_BACKEND_PATH (override auto-detect)
 
 name: Stamp Staging Backend Release
 
@@ -34,50 +33,54 @@ jobs:
           SSH_HOST="$(printf '%s' "$SSH_HOST" | tr -d '[:space:]')"
           SSH_USER="$(printf '%s' "$SSH_USER" | tr -d '[:space:]')"
           SSH_PORT="$(printf '%s' "$SSH_PORT" | tr -d '[:space:]')"
-          BACKEND_PATH="$(printf '%s' "$BACKEND_PATH" | tr -d '[:space:]')"
+          BACKEND_PATH="$(printf '%s' "${BACKEND_PATH:-}" | tr -d '[:space:]')"
 
-          test -n "$SSH_HOST" || (echo "::error::Missing STAGING_SSH_HOST secret" && exit 1)
-          test -n "$SSH_USER" || (echo "::error::Missing STAGING_SSH_USER secret" && exit 1)
-          test -n "$SSH_KEY"  || (echo "::error::Missing STAGING_SSH_KEY secret" && exit 1)
-          test -n "$BACKEND_PATH" || (echo "::error::Missing STAGING_BACKEND_PATH secret" && exit 1)
-
-          case "$SSH_HOST" in
-            *"://"* ) echo "::error::STAGING_SSH_HOST must be IP or hostname only — remove https://" && exit 1 ;;
-          esac
-          case "$BACKEND_PATH" in
-            /home/* ) ;;
-            * ) echo "::error::STAGING_BACKEND_PATH must be full server path starting with /home/ (from SSH: cd to nodejs && pwd)" && exit 1 ;;
-          esac
-
-          echo "→ SSH target: ${SSH_USER}@${SSH_HOST}:${SSH_PORT}"
-          echo "→ Backend path length: ${#BACKEND_PATH} chars"
+          test -n "$SSH_HOST" || (echo "::error::Missing STAGING_SSH_HOST" && exit 1)
+          test -n "$SSH_USER" || (echo "::error::Missing STAGING_SSH_USER" && exit 1)
+          test -n "$SSH_KEY"  || (echo "::error::Missing STAGING_SSH_KEY" && exit 1)
 
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          echo "→ Stamping $RELEASE_ID at $BACKEND_PATH/.release"
-          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new \
-            "$SSH_USER@$SSH_HOST" \
-            "set -euo pipefail
-             mkdir -p '$BACKEND_PATH'
-             printf '%s\n' '$RELEASE_ID' > '$BACKEND_PATH/.release'
-             echo 'Stamped:' && cat '$BACKEND_PATH/.release'
-             if command -v pm2 >/dev/null 2>&1; then
-               pm2 restart backend 2>/dev/null || pm2 restart all 2>/dev/null || true
-             fi"
+          SSH_CMD="ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o StrictHostKeyChecking=accept-new $SSH_USER@$SSH_HOST"
+
+          echo "→ Stamping release $RELEASE_ID"
+          $SSH_CMD "set -euo pipefail
+            RELEASE_ID='$RELEASE_ID'
+            if [ -n '${BACKEND_PATH}' ]; then
+              APP_DIR='${BACKEND_PATH}'
+            else
+              SERVER_FILE=\$(find ~ -name 'server.js' -path '*/src/server.js' 2>/dev/null | head -1)
+              if [ -z \"\$SERVER_FILE\" ]; then
+                echo 'Could not find src/server.js on server'
+                exit 1
+              fi
+              APP_DIR=\$(dirname \"\$SERVER_FILE\")/..
+              APP_DIR=\$(cd \"\$APP_DIR\" && pwd)
+            fi
+            echo \"App dir: \$APP_DIR\"
+            printf '%s\n' \"\$RELEASE_ID\" > \"\$APP_DIR/.release\"
+            printf '%s\n' \"\$RELEASE_ID\" > \"\$APP_DIR/../.release\" 2>/dev/null || true
+            echo 'Wrote .release:'
+            cat \"\$APP_DIR/.release\"
+          "
 
       - name: Verify release endpoint
         env:
           API_URL: ${{ vars.STAGING_API_URL || 'https://testapi.callsflow.io' }}
           RELEASE_ID: ${{ github.sha }}
         run: |
-          sleep 3
-          BODY=$(curl -fsS "$API_URL/api/public/release?t=$(date +%s)" || echo '{"error":"unreachable"}')
-          echo "$BODY"
-          if echo "$BODY" | grep -q "$RELEASE_ID"; then
-            echo "✓ Backend release matches deploy SHA"
-          else
-            echo "::warning::Backend API does not report $RELEASE_ID yet — check SSH path or Hostinger deploy"
-          fi
+          set -euo pipefail
+          for i in 1 2 3 4 5 6; do
+            sleep 10
+            BODY=$(curl -fsS "$API_URL/api/public/release?t=$(date +%s)" || echo '{}')
+            echo "Attempt $i: $BODY"
+            if echo "$BODY" | grep -q "$RELEASE_ID"; then
+              echo "✓ Backend API reports $RELEASE_ID"
+              exit 0
+            fi
+          done
+          echo "::error::API still does not report $RELEASE_ID after 60s — wrong app path or old backend code not deployed"
+          exit 1

@@ -3,8 +3,8 @@
 #
 # For ALL pushes (including frontend-only), use "Stamp Staging Backend Release" instead.
 #
-# Secrets: STAGING_SSH_HOST, STAGING_SSH_USER, STAGING_SSH_KEY, STAGING_BACKEND_PATH
-# Optional: STAGING_SSH_PORT
+# Secrets: STAGING_SSH_HOST, STAGING_SSH_USER, STAGING_SSH_KEY
+# Optional: STAGING_SSH_PORT, STAGING_BACKEND_PATH (override auto-detect)
 
 name: Deploy Staging Backend
 
@@ -38,40 +38,53 @@ jobs:
           SSH_HOST="$(printf '%s' "$SSH_HOST" | tr -d '[:space:]')"
           SSH_USER="$(printf '%s' "$SSH_USER" | tr -d '[:space:]')"
           SSH_PORT="$(printf '%s' "$SSH_PORT" | tr -d '[:space:]')"
-          BACKEND_PATH="$(printf '%s' "$BACKEND_PATH" | tr -d '[:space:]')"
+          BACKEND_PATH="$(printf '%s' "${BACKEND_PATH:-}" | tr -d '[:space:]')"
 
           test -n "$SSH_HOST" || (echo "::error::Missing STAGING_SSH_HOST" && exit 1)
           test -n "$SSH_USER" || (echo "::error::Missing STAGING_SSH_USER" && exit 1)
           test -n "$SSH_KEY"  || (echo "::error::Missing STAGING_SSH_KEY" && exit 1)
-          test -n "$BACKEND_PATH" || (echo "::error::Missing STAGING_BACKEND_PATH" && exit 1)
-
-          case "$SSH_HOST" in
-            *"://"* ) echo "::error::STAGING_SSH_HOST must be IP only — no https://" && exit 1 ;;
-          esac
 
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
+          SSH_CMD="ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o StrictHostKeyChecking=accept-new $SSH_USER@$SSH_HOST"
+
           echo "→ Stamping $RELEASE_ID (Hostinger git deploy handles code)"
-          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new \
-            "$SSH_USER@$SSH_HOST" \
-            "set -euo pipefail
-             mkdir -p '$BACKEND_PATH'
-             printf '%s\n' '$RELEASE_ID' > '$BACKEND_PATH/.release'
-             cat '$BACKEND_PATH/.release'"
+          $SSH_CMD "set -euo pipefail
+            RELEASE_ID='$RELEASE_ID'
+            if [ -n '${BACKEND_PATH}' ]; then
+              APP_DIR='${BACKEND_PATH}'
+            else
+              SERVER_FILE=\$(find ~ -name 'server.js' -path '*/src/server.js' 2>/dev/null | head -1)
+              if [ -z \"\$SERVER_FILE\" ]; then
+                echo 'Could not find src/server.js on server'
+                exit 1
+              fi
+              APP_DIR=\$(dirname \"\$SERVER_FILE\")/..
+              APP_DIR=\$(cd \"\$APP_DIR\" && pwd)
+            fi
+            echo \"App dir: \$APP_DIR\"
+            printf '%s\n' \"\$RELEASE_ID\" > \"\$APP_DIR/.release\"
+            printf '%s\n' \"\$RELEASE_ID\" > \"\$APP_DIR/../.release\" 2>/dev/null || true
+            cat \"\$APP_DIR/.release\"
+          "
 
       - name: Verify release endpoint
         env:
           API_URL: ${{ vars.STAGING_API_URL || 'https://testapi.callsflow.io' }}
           RELEASE_ID: ${{ github.sha }}
         run: |
-          sleep 3
-          BODY=$(curl -fsS "$API_URL/api/public/release?t=$(date +%s)" || echo '{}')
-          echo "$BODY"
-          if echo "$BODY" | grep -q "$RELEASE_ID"; then
-            echo "✓ Backend release matches deploy SHA"
-          else
-            echo "::warning::API does not report $RELEASE_ID yet — check STAGING_BACKEND_PATH"
-          fi
+          set -euo pipefail
+          for i in 1 2 3 4 5 6; do
+            sleep 10
+            BODY=$(curl -fsS "$API_URL/api/public/release?t=$(date +%s)" || echo '{}')
+            echo "Attempt $i: $BODY"
+            if echo "$BODY" | grep -q "$RELEASE_ID"; then
+              echo "✓ Backend API reports $RELEASE_ID"
+              exit 0
+            fi
+          done
+          echo "::error::API still does not report $RELEASE_ID — remove stale RELEASE_ID env in Hostinger hPanel"
+          exit 1

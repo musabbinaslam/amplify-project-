@@ -3,7 +3,15 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const BACKEND_ROOT = path.join(__dirname, '../..');
-const RELEASE_FILE = path.join(BACKEND_ROOT, '.release');
+
+function readReleaseFile(filePath) {
+  try {
+    const value = fs.readFileSync(filePath, 'utf8').trim();
+    return value || null;
+  } catch {
+    return null;
+  }
+}
 
 function readGitHead() {
   const candidates = [BACKEND_ROOT, path.join(BACKEND_ROOT, '..')];
@@ -24,14 +32,18 @@ function readGitHead() {
 
 /**
  * Git commit SHA for this backend instance.
- * .release file first — updated by GitHub stamp without process restart.
+ * Checks .release in app root and parent (Hostinger nodejs layouts vary).
  */
 function getReleaseId() {
-  try {
-    const fromFile = fs.readFileSync(RELEASE_FILE, 'utf8').trim();
+  const releaseCandidates = [
+    path.join(BACKEND_ROOT, '.release'),
+    path.join(BACKEND_ROOT, '..', '.release'),
+    process.env.RELEASE_FILE_PATH,
+  ].filter(Boolean);
+
+  for (const filePath of releaseCandidates) {
+    const fromFile = readReleaseFile(filePath);
     if (fromFile) return fromFile;
-  } catch {
-    // no .release file yet
   }
 
   const fromGit = readGitHead();
@@ -52,4 +64,4 @@ function getReleaseId() {
   return 'unknown';
 }
 
-module.exports = { getReleaseId };
+module.exports = { getReleaseId, BACKEND_ROOT };

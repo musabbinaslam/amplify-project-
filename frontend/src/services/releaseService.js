@@ -29,21 +29,27 @@ export async function fetchBackendRelease() {
   return parseReleasePayload(data);
 }
 
+const BACKEND_WAIT_MS = 2 * 60 * 1000;
+
 /**
- * Show banner when a newer deploy is live and backend has caught up (same SHA).
- * If backend release is unreachable, still prompt when live frontend is newer.
+ * Show banner when a newer frontend deploy is live.
+ * Waits up to 2 min for backend to match (full-stack deploy), then shows anyway.
  */
-export function isUpdateReady(runningBuildId, remote, { swPending = false } = {}) {
+export function isUpdateReady(runningBuildId, remote, { swPending = false, frontendNewSince = null } = {}) {
   if (!runningBuildId || !remote?.frontend) return false;
 
   const newerDeployLive = remote.frontend !== runningBuildId;
   if (!newerDeployLive) return false;
 
-  if (!remote.backend) {
-    return swPending || true;
-  }
+  if (swPending) return true;
+
+  if (!remote.backend) return true;
 
   if (remote.frontend === remote.backend) return true;
+
+  if (frontendNewSince && Date.now() - frontendNewSince >= BACKEND_WAIT_MS) {
+    return true;
+  }
 
   return false;
 }
