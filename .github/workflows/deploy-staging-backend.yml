@@ -1,8 +1,6 @@
 # Stamps backend/.release when backend/** changes on staging/TEST.
 # Waits for Hostinger git deploy, then stamps (Hostinger handles code + npm).
 #
-# Preferred long-term: run backend/scripts/hostinger-deploy.sh on the server after git pull.
-#
 # Secrets: STAGING_SSH_HOST, STAGING_SSH_USER, STAGING_SSH_KEY
 # Optional: STAGING_SSH_PORT, STAGING_BACKEND_PATH, STAGING_DEPLOY_WAIT_SECONDS
 
@@ -37,15 +35,15 @@ jobs:
           SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
           SSH_USER: ${{ secrets.STAGING_SSH_USER }}
           SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
-          SSH_PORT: ${{ secrets.STAGING_SSH_PORT || '22' }}
-          BACKEND_PATH: ${{ secrets.STAGING_BACKEND_PATH }}
+          SSH_PORT: ${{ secrets.STAGING_SSH_PORT || '65002' }}
+          BACKEND_PATH: ${{ secrets.STAGING_BACKEND_PATH || vars.STAGING_BACKEND_PATH || 'domains/testapi.callsflow.io/nodejs' }}
           RELEASE_ID: ${{ github.sha }}
         run: |
           set -euo pipefail
           SSH_HOST="$(printf '%s' "$SSH_HOST" | tr -d '[:space:]')"
           SSH_USER="$(printf '%s' "$SSH_USER" | tr -d '[:space:]')"
           SSH_PORT="$(printf '%s' "$SSH_PORT" | tr -d '[:space:]')"
-          BACKEND_PATH="$(printf '%s' "${BACKEND_PATH:-}" | tr -d '[:space:]')"
+          BACKEND_PATH="$(printf '%s' "$BACKEND_PATH" | tr -d '[:space:]')"
 
           test -n "$SSH_HOST" || (echo "::error::Missing STAGING_SSH_HOST" && exit 1)
           test -n "$SSH_USER" || (echo "::error::Missing STAGING_SSH_USER" && exit 1)
@@ -56,30 +54,38 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          SSH_CMD="ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o StrictHostKeyChecking=accept-new $SSH_USER@$SSH_HOST"
+          SSH_OPTS=(
+            -i ~/.ssh/deploy_key
+            -p "$SSH_PORT"
+            -o StrictHostKeyChecking=accept-new
+            -o ConnectTimeout=20
+            -o ServerAliveInterval=10
+            -o ServerAliveCountMax=3
+            -o BatchMode=yes
+          )
 
-          echo "→ Stamping $RELEASE_ID"
-          $SSH_CMD "set -euo pipefail
-            RELEASE_ID='$RELEASE_ID'
-            if [ -n '${BACKEND_PATH}' ]; then
-              APP_DIR='${BACKEND_PATH}'
-            else
-              SERVER_FILE=\$(find ~ -name 'server.js' -path '*/nodejs/src/server.js' 2>/dev/null | head -1)
-              if [ -z \"\$SERVER_FILE\" ]; then
-                SERVER_FILE=\$(find ~ -name 'server.js' -path '*/src/server.js' 2>/dev/null | head -1)
-              fi
-              if [ -z \"\$SERVER_FILE\" ]; then
-                echo 'Could not find src/server.js on server'
-                exit 1
-              fi
-              APP_DIR=\$(dirname \"\$SERVER_FILE\")/..
-              APP_DIR=\$(cd \"\$APP_DIR\" && pwd)
-            fi
-            echo \"App dir: \$APP_DIR\"
-            printf '%s\n' \"\$RELEASE_ID\" > \"\$APP_DIR/.release\"
-            printf '%s\n' \"\$RELEASE_ID\" > \"\$APP_DIR/../.release\" 2>/dev/null || true
-            cat \"\$APP_DIR/.release\"
-          "
+          echo "→ Testing SSH to $SSH_USER@$SSH_HOST:$SSH_PORT ..."
+          timeout 30 ssh "${SSH_OPTS[@]}" "$SSH_USER@$SSH_HOST" 'echo connected'
+
+          echo "→ Stamping $RELEASE_ID in $BACKEND_PATH"
+          timeout 45 ssh "${SSH_OPTS[@]}" "$SSH_USER@$SSH_HOST" bash -s <<REMOTE
+          set -euo pipefail
+          RELEASE_ID='$RELEASE_ID'
+          REL_PATH='$BACKEND_PATH'
+          if [ "\${REL_PATH#/}" = "\$REL_PATH" ]; then
+            APP_DIR="\$HOME/\$REL_PATH"
+          else
+            APP_DIR="\$REL_PATH"
+          fi
+          if [ ! -d "\$APP_DIR" ]; then
+            echo "Directory not found: \$APP_DIR" >&2
+            exit 1
+          fi
+          APP_DIR="\$(cd "\$APP_DIR" && pwd)"
+          echo "App dir: \$APP_DIR"
+          printf '%s\n' "\$RELEASE_ID" > "\$APP_DIR/.release"
+          cat "\$APP_DIR/.release"
+          REMOTE
 
       - name: Verify release endpoint
         env:
@@ -88,13 +94,13 @@ jobs:
         run: |
           set -euo pipefail
           for i in 1 2 3 4 5 6; do
-            sleep 10
-            BODY=$(curl -fsS "$API_URL/api/public/release?t=$(date +%s)" || echo '{}')
+            if [ "$i" -gt 1 ]; then sleep 5; fi
+            BODY=$(curl -fsS --max-time 15 "$API_URL/api/public/release?t=$(date +%s)" || echo '{}')
             echo "Attempt $i: $BODY"
             if echo "$BODY" | grep -q "$RELEASE_ID"; then
               echo "✓ Backend API reports $RELEASE_ID"
               exit 0
             fi
           done
-          echo "::error::API still does not report $RELEASE_ID — remove stale RELEASE_ID env in Hostinger hPanel"
+          echo "::error::API still does not report $RELEASE_ID — check STAGING_BACKEND_PATH"
           exit 1
