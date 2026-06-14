@@ -1,8 +1,6 @@
-# Stamps backend/.release when backend/** changes on staging/TEST.
-# Waits for Hostinger git deploy, then stamps (Hostinger handles code + npm).
+# Stamps backend/.release when backend/** changes on staging/TEST (HTTPS, no SSH).
 #
-# Secrets: STAGING_SSH_HOST, STAGING_SSH_USER, STAGING_SSH_KEY
-# Optional: STAGING_SSH_PORT, STAGING_BACKEND_PATH, STAGING_DEPLOY_WAIT_SECONDS
+# Secrets: STAGING_RELEASE_STAMP_TOKEN (same as RELEASE_STAMP_TOKEN on server)
 
 name: Deploy Staging Backend
 
@@ -14,6 +12,7 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/deploy-staging-backend.yml'
+      - '.github/workflows/stamp-staging-release.yml'
 
 concurrency:
   group: staging-backend-${{ github.ref }}
@@ -26,66 +25,27 @@ jobs:
       - name: Wait for Hostinger git deploy
         env:
           WAIT_SECONDS: ${{ vars.STAGING_DEPLOY_WAIT_SECONDS || '120' }}
-        run: |
-          echo "Waiting ${WAIT_SECONDS}s for Hostinger to finish git deploy..."
-          sleep "$WAIT_SECONDS"
+        run: sleep "$WAIT_SECONDS"
 
-      - name: Stamp .release on Hostinger
+      - name: Stamp release via HTTPS
         env:
-          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
-          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
-          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
-          SSH_PORT: ${{ secrets.STAGING_SSH_PORT || '65002' }}
-          BACKEND_PATH: ${{ secrets.STAGING_BACKEND_PATH || vars.STAGING_BACKEND_PATH || 'domains/testapi.callsflow.io/nodejs' }}
+          API_URL: ${{ vars.STAGING_API_URL || 'https://testapi.callsflow.io' }}
+          STAMP_TOKEN: ${{ secrets.STAGING_RELEASE_STAMP_TOKEN }}
           RELEASE_ID: ${{ github.sha }}
         run: |
           set -euo pipefail
-          SSH_HOST="$(printf '%s' "$SSH_HOST" | tr -d '[:space:]')"
-          SSH_USER="$(printf '%s' "$SSH_USER" | tr -d '[:space:]')"
-          SSH_PORT="$(printf '%s' "$SSH_PORT" | tr -d '[:space:]')"
-          BACKEND_PATH="$(printf '%s' "$BACKEND_PATH" | tr -d '[:space:]')"
-
-          test -n "$SSH_HOST" || (echo "::error::Missing STAGING_SSH_HOST" && exit 1)
-          test -n "$SSH_USER" || (echo "::error::Missing STAGING_SSH_USER" && exit 1)
-          test -n "$SSH_KEY"  || (echo "::error::Missing STAGING_SSH_KEY" && exit 1)
-
-          mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-
-          SSH_OPTS=(
-            -i ~/.ssh/deploy_key
-            -p "$SSH_PORT"
-            -o StrictHostKeyChecking=accept-new
-            -o ConnectTimeout=20
-            -o ServerAliveInterval=10
-            -o ServerAliveCountMax=3
-            -o BatchMode=yes
-          )
-
-          echo "→ Testing SSH to $SSH_USER@$SSH_HOST:$SSH_PORT ..."
-          timeout 30 ssh "${SSH_OPTS[@]}" "$SSH_USER@$SSH_HOST" 'echo connected'
-
-          echo "→ Stamping $RELEASE_ID in $BACKEND_PATH"
-          timeout 45 ssh "${SSH_OPTS[@]}" "$SSH_USER@$SSH_HOST" bash -s <<REMOTE
-          set -euo pipefail
-          RELEASE_ID='$RELEASE_ID'
-          REL_PATH='$BACKEND_PATH'
-          if [ "\${REL_PATH#/}" = "\$REL_PATH" ]; then
-            APP_DIR="\$HOME/\$REL_PATH"
-          else
-            APP_DIR="\$REL_PATH"
-          fi
-          if [ ! -d "\$APP_DIR" ]; then
-            echo "Directory not found: \$APP_DIR" >&2
-            exit 1
-          fi
-          APP_DIR="\$(cd "\$APP_DIR" && pwd)"
-          echo "App dir: \$APP_DIR"
-          printf '%s\n' "\$RELEASE_ID" > "\$APP_DIR/.release"
-          cat "\$APP_DIR/.release"
-          REMOTE
+          test -n "$STAMP_TOKEN" || (echo "::error::Missing STAGING_RELEASE_STAMP_TOKEN" && exit 1)
+          for attempt in 1 2 3 4 5; do
+            HTTP=$(curl -sS -o /tmp/r.json -w "%{http_code}" --max-time 30 \
+              -A "CallsFlow-GitHub-Actions/1.0" -X POST "$API_URL/api/public/release/stamp" \
+              -H "Content-Type: application/json" \
+              -H "X-Release-Stamp-Token: $STAMP_TOKEN" \
+              -d "{\"releaseId\":\"$RELEASE_ID\"}" 2>/dev/null || echo "000")
+            cat /tmp/r.json 2>/dev/null; echo "HTTP $HTTP"
+            [ "$HTTP" = "200" ] && exit 0
+            sleep 10
+          done
+          exit 1
 
       - name: Verify release endpoint
         env:
@@ -94,13 +54,10 @@ jobs:
         run: |
           set -euo pipefail
           for i in 1 2 3 4 5 6; do
-            if [ "$i" -gt 1 ]; then sleep 5; fi
-            BODY=$(curl -fsS --max-time 15 "$API_URL/api/public/release?t=$(date +%s)" || echo '{}')
-            echo "Attempt $i: $BODY"
-            if echo "$BODY" | grep -q "$RELEASE_ID"; then
-              echo "✓ Backend API reports $RELEASE_ID"
-              exit 0
-            fi
+            [ "$i" -gt 1 ] && sleep 10
+            BODY=$(curl -sS --max-time 15 -A "CallsFlow-GitHub-Actions/1.0" \
+              "$API_URL/api/public/release?t=$(date +%s)" 2>/dev/null || echo '{}')
+            echo "$BODY"
+            echo "$BODY" | grep -qE "\"releaseId\"[[:space:]]*:[[:space:]]*\"$RELEASE_ID\"" && exit 0
           done
-          echo "::error::API still does not report $RELEASE_ID — check STAGING_BACKEND_PATH"
           exit 1
