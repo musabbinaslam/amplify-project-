@@ -1,12 +1,16 @@
 const express = require('express');
 const { getReleaseId, writeReleaseId } = require('../utils/releaseId');
 
+const { expandOrigins } = require('../utils/corsOrigins');
+
 const router = express.Router();
 const metaConversionService = require('../services/metaConversionService');
-const allowedFirebaseConfigOrigins = (process.env.FIREBASE_CONFIG_ALLOWED_ORIGINS || process.env.CLIENT_URLS || process.env.CLIENT_URL || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+const allowedFirebaseConfigOrigins = expandOrigins(
+  (process.env.FIREBASE_CONFIG_ALLOWED_ORIGINS || process.env.CLIENT_URLS || process.env.CLIENT_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+);
 
 function getRequestOrigin(req) {
   const originHeader = req.headers.origin ? String(req.headers.origin).trim() : '';
