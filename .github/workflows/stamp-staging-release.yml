@@ -1,8 +1,9 @@
-# Stamps backend/.release on EVERY staging push so it matches Vercel's commit SHA.
-# Auto-finds the Node app directory on Hostinger (no manual path guesswork).
+# Stamps backend/.release after Hostinger git deploy catches up (backend deploys after Vercel).
+# Auto-finds the Node app directory on Hostinger.
 #
 # Secrets: STAGING_SSH_HOST, STAGING_SSH_USER, STAGING_SSH_KEY
 # Optional: STAGING_SSH_PORT, STAGING_BACKEND_PATH (override auto-detect)
+# Optional: STAGING_DEPLOY_WAIT_SECONDS (default 180)
 
 name: Stamp Staging Backend Release
 
@@ -20,6 +21,13 @@ jobs:
   stamp:
     runs-on: ubuntu-latest
     steps:
+      - name: Wait for Hostinger git deploy
+        env:
+          WAIT_SECONDS: ${{ vars.STAGING_DEPLOY_WAIT_SECONDS || '180' }}
+        run: |
+          echo "Waiting ${WAIT_SECONDS}s for Hostinger to finish git deploy before stamping..."
+          sleep "$WAIT_SECONDS"
+
       - name: Stamp .release on Hostinger
         env:
           SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
@@ -52,7 +60,10 @@ jobs:
             if [ -n '${BACKEND_PATH}' ]; then
               APP_DIR='${BACKEND_PATH}'
             else
-              SERVER_FILE=\$(find ~ -name 'server.js' -path '*/src/server.js' 2>/dev/null | head -1)
+              SERVER_FILE=\$(find ~ -name 'server.js' -path '*/nodejs/src/server.js' 2>/dev/null | head -1)
+              if [ -z \"\$SERVER_FILE\" ]; then
+                SERVER_FILE=\$(find ~ -name 'server.js' -path '*/src/server.js' 2>/dev/null | head -1)
+              fi
               if [ -z \"\$SERVER_FILE\" ]; then
                 echo 'Could not find src/server.js on server'
                 exit 1
@@ -82,5 +93,5 @@ jobs:
               exit 0
             fi
           done
-          echo "::error::API still does not report $RELEASE_ID after 60s — wrong app path or old backend code not deployed"
+          echo "::error::API still does not report $RELEASE_ID — remove stale RELEASE_ID env in Hostinger hPanel or fix app path"
           exit 1

@@ -13,13 +13,6 @@ function parseReleasePayload(data) {
   return id;
 }
 
-export async function fetchFrontendRelease() {
-  const res = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return parseReleasePayload(data);
-}
-
 export async function fetchBackendRelease() {
   const res = await fetch(`${getApiBaseUrl()}/api/public/release?t=${Date.now()}`, {
     cache: 'no-store',
@@ -29,27 +22,8 @@ export async function fetchBackendRelease() {
   return parseReleasePayload(data);
 }
 
-const BACKEND_WAIT_MS = 2 * 60 * 1000;
-
-/**
- * Show banner when a newer frontend deploy is live.
- * Waits up to 2 min for backend to match (full-stack deploy), then shows anyway.
- */
-export function isUpdateReady(runningBuildId, remote, { swPending = false, frontendNewSince = null } = {}) {
-  if (!runningBuildId || !remote?.frontend) return false;
-
-  const newerDeployLive = remote.frontend !== runningBuildId;
-  if (!newerDeployLive) return false;
-
-  if (swPending) return true;
-
-  if (!remote.backend) return true;
-
-  if (remote.frontend === remote.backend) return true;
-
-  if (frontendNewSince && Date.now() - frontendNewSince >= BACKEND_WAIT_MS) {
-    return true;
-  }
-
-  return false;
+/** Show banner when the live backend release differs from this tab's build. */
+export function isUpdateReady(runningBuildId, liveBackendRelease) {
+  if (!runningBuildId || !liveBackendRelease) return false;
+  return liveBackendRelease !== runningBuildId;
 }

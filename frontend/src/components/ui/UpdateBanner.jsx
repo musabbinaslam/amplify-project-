@@ -1,9 +1,9 @@
 import React from 'react';
 import useDialerStore from '../../store/useDialerStore';
 import { useAppUpdateAvailable } from '../../hooks/useAppUpdateAvailable';
-import classes from './PwaUpdateBanner.module.css';
+import classes from './UpdateBanner.module.css';
 
-const PwaUpdateBanner = () => {
+const UpdateBanner = () => {
   const callState = useDialerStore((s) => s.callState);
   const inCall = callState === 'ringing' || callState === 'active';
   const { updateAvailable, applyUpdate } = useAppUpdateAvailable();
@@ -25,4 +25,4 @@ const PwaUpdateBanner = () => {
   );
 };
 
-export default PwaUpdateBanner;
+export default UpdateBanner;

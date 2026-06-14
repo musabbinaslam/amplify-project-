@@ -9,7 +9,7 @@ import ErrorFallback from './components/ui/ErrorFallback';
 import LandingPage from './pages/LandingPage';
 import useAuthStore from './store/authStore';
 import { auth } from './config/firebase';
-import PwaUpdateBanner from './components/ui/PwaUpdateBanner';
+import UpdateBanner from './components/ui/UpdateBanner';
 
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -183,7 +183,7 @@ function App() {
     <Router>
       <ErrorBoundary FallbackComponent={ErrorFallback}>
         <AnimatedRoutes />
-        <PwaUpdateBanner />
+        <UpdateBanner />
         <Analytics />
         <SpeedInsights />
       </ErrorBoundary>

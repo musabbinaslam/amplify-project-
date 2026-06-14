@@ -21,7 +21,7 @@ function getRequestOrigin(req) {
 }
 
 /**
- * Deploy release id — must match frontend /version.json buildId after both sides finish deploying.
+ * Deploy release id — compared by the frontend against VITE_APP_BUILD_ID.
  */
 router.get('/release', (req, res) => {
   const releaseId = getReleaseId();

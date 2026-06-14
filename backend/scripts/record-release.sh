@@ -1,5 +1,5 @@
 #!/bin/sh
-# Record the deploy commit SHA for /api/public/release (must match Vercel /version.json).
+# Record the deploy commit SHA for GET /api/public/release.
 #
 # Usage (pick one):
 #   ./scripts/record-release.sh                    # git on server (Option A)

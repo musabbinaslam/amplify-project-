@@ -12,7 +12,7 @@
   background: var(--surface-container-high);
   border-top: 1px solid var(--border);
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
-  animation: pwaSlideUp 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: updateSlideUp 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .text {
@@ -45,7 +45,7 @@
   cursor: not-allowed;
 }
 
-@keyframes pwaSlideUp {
+@keyframes updateSlideUp {
   from {
     opacity: 0;
     transform: translateY(100%);
