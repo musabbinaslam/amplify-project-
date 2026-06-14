@@ -1,6 +1,6 @@
 /**
- * Writes backend/.release on server start (Hostinger runs src/server.js directly, not npm start).
- * Uses RELEASE_ID env if set, otherwise git HEAD — same logic as record-release.sh.
+ * Writes backend/.release on deploy (postinstall) and server start.
+ * Hostinger: git lives in public_html/.builds/last-source, not nodejs/.
  */
 const fs = require('fs');
 const path = require('path');
@@ -9,16 +9,22 @@ const { execSync } = require('child_process');
 const BACKEND_ROOT = path.join(__dirname, '..');
 const RELEASE_FILE = path.join(BACKEND_ROOT, '.release');
 
+const GIT_CANDIDATES = [
+  BACKEND_ROOT,
+  path.join(BACKEND_ROOT, '..'),
+  path.join(BACKEND_ROOT, '../public_html/.builds/last-source'),
+  path.join(BACKEND_ROOT, '../../public_html/.builds/last-source'),
+];
+
 function readGitHead() {
-  const candidates = [BACKEND_ROOT, path.join(BACKEND_ROOT, '..')];
-  for (const cwd of candidates) {
+  for (const cwd of GIT_CANDIDATES) {
     try {
       const sha = execSync('git rev-parse HEAD', {
         cwd,
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'ignore'],
       }).trim();
-      if (sha) return sha;
+      if (/^[0-9a-f]{7,40}$/i.test(sha)) return sha;
     } catch {
       // try next candidate
     }
@@ -27,14 +33,23 @@ function readGitHead() {
 }
 
 function resolveReleaseId() {
-  const fromEnv = String(process.env.RELEASE_ID || '').trim();
+  const fromEnv = [
+    process.env.RELEASE_ID,
+    process.env.GITHUB_SHA,
+    process.env.CI_COMMIT_SHA,
+  ]
+    .map((v) => String(v || '').trim())
+    .find(Boolean);
   if (fromEnv) return fromEnv;
   return readGitHead();
 }
 
 function syncReleaseFile() {
   const releaseId = resolveReleaseId();
-  if (!releaseId) return null;
+  if (!releaseId) {
+    console.warn('[release] No git SHA or RELEASE_ID — .release not updated');
+    return null;
+  }
 
   try {
     const current = fs.existsSync(RELEASE_FILE)

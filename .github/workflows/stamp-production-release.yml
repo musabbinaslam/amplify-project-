@@ -1,9 +1,6 @@
-# Stamps backend/.release on production (main) via HTTPS — no SSH needed.
-#
-# Setup:
-#   1. Hostinger env: RELEASE_STAMP_TOKEN=<random 32+ char secret>
-#   2. GitHub secret: PROD_RELEASE_STAMP_TOKEN=<same value>
-# Optional: PROD_API_URL, PROD_DEPLOY_WAIT_SECONDS
+# Waits for Hostinger deploy, then verifies /api/public/release matches the push SHA.
+# Stamping happens ON THE SERVER during npm postinstall + server start (no SSH/CDN issues).
+# Optional HTTPS stamp if RELEASE_STAMP_TOKEN is set and CDN allows GitHub IPs.
 
 name: Stamp Production Backend Release
 
@@ -24,57 +21,25 @@ jobs:
         env:
           WAIT_SECONDS: ${{ vars.PROD_DEPLOY_WAIT_SECONDS || '120' }}
         run: |
-          echo "Waiting ${WAIT_SECONDS}s for Hostinger to finish git deploy..."
+          echo "Waiting ${WAIT_SECONDS}s for Hostinger npm postinstall to write .release..."
           sleep "$WAIT_SECONDS"
 
-      - name: Check if API already reports this release
-        id: precheck
-        env:
-          API_URL: ${{ vars.PROD_API_URL || 'https://api.callsflow.io' }}
-          RELEASE_ID: ${{ github.sha }}
-        run: |
-          BODY=$(curl -sS --max-time 20 -A "CallsFlow-GitHub-Actions/1.0" \
-            "$API_URL/api/public/release?t=$(date +%s)" 2>/dev/null || echo '{}')
-          echo "$BODY"
-          if echo "$BODY" | grep -qE "\"releaseId\"[[:space:]]*:[[:space:]]*\"$RELEASE_ID\""; then
-            echo "already_stamped=true" >> "$GITHUB_OUTPUT"
-            echo "✓ API already reports $RELEASE_ID"
-          else
-            echo "already_stamped=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Stamp release via HTTPS
-        if: steps.precheck.outputs.already_stamped != 'true'
-        id: http_stamp
+      - name: Try HTTPS stamp (optional — CDN may block GitHub)
+        continue-on-error: true
         env:
           API_URL: ${{ vars.PROD_API_URL || 'https://api.callsflow.io' }}
           STAMP_TOKEN: ${{ secrets.PROD_RELEASE_STAMP_TOKEN }}
           RELEASE_ID: ${{ github.sha }}
         run: |
-          set -euo pipefail
-          test -n "$STAMP_TOKEN" || {
-            echo "::error::Add PROD_RELEASE_STAMP_TOKEN to GitHub secrets"
-            echo "::error::Set RELEASE_STAMP_TOKEN to the same value in Hostinger hPanel env for api.callsflow.io"
-            exit 1
-          }
-          for attempt in 1 2 3 4 5; do
-            echo "HTTPS stamp attempt $attempt/5 ..."
-            HTTP=$(curl -sS -o /tmp/stamp_resp.json -w "%{http_code}" --max-time 30 \
-              -A "CallsFlow-GitHub-Actions/1.0" \
-              -X POST "$API_URL/api/public/release/stamp" \
-              -H "Content-Type: application/json" \
-              -H "X-Release-Stamp-Token: $STAMP_TOKEN" \
-              -d "{\"releaseId\":\"$RELEASE_ID\"}" 2>/dev/null || echo "000")
-            cat /tmp/stamp_resp.json 2>/dev/null || true
-            echo "HTTP $HTTP"
-            if [ "$HTTP" = "200" ]; then
-              echo "✓ Stamped via HTTPS"
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "::error::HTTPS stamp failed — deploy backend with POST /api/public/release/stamp and set RELEASE_STAMP_TOKEN"
-          exit 1
+          if [ -z "$STAMP_TOKEN" ]; then echo "No PROD_RELEASE_STAMP_TOKEN — skipping"; exit 0; fi
+          HTTP=$(curl -sS -o /tmp/stamp.json -w "%{http_code}" --max-time 20 \
+            -A "Mozilla/5.0 (compatible; CallsFlowDeploy/1.0)" \
+            -X POST "$API_URL/api/public/release/stamp" \
+            -H "Content-Type: application/json" \
+            -H "X-Release-Stamp-Token: $STAMP_TOKEN" \
+            -d "{\"releaseId\":\"$RELEASE_ID\"}" 2>/dev/null || echo "000")
+          cat /tmp/stamp.json 2>/dev/null || true
+          echo "HTTPS stamp HTTP $HTTP (ignored if CDN blocked)"
 
       - name: Verify release endpoint
         env:
@@ -82,9 +47,9 @@ jobs:
           RELEASE_ID: ${{ github.sha }}
         run: |
           set -euo pipefail
-          for i in 1 2 3 4 5 6; do
+          for i in $(seq 1 18); do
             if [ "$i" -gt 1 ]; then sleep 10; fi
-            BODY=$(curl -sS --max-time 15 -A "CallsFlow-GitHub-Actions/1.0" \
+            BODY=$(curl -sS --max-time 15 -A "Mozilla/5.0 (compatible; CallsFlowDeploy/1.0)" \
               "$API_URL/api/public/release?t=$(date +%s)" 2>/dev/null || echo '{}')
             echo "Attempt $i: $BODY"
             if echo "$BODY" | grep -qE "\"releaseId\"[[:space:]]*:[[:space:]]*\"$RELEASE_ID\""; then
@@ -92,5 +57,6 @@ jobs:
               exit 0
             fi
           done
-          echo "::error::API does not report $RELEASE_ID"
+          echo "::error::API still not on $RELEASE_ID after ~3 min."
+          echo "::error::Check Hostinger deploy logs for [release] Wrote .release"
           exit 1

@@ -1,6 +1,4 @@
-# Stamps backend/.release when backend/** changes on main (HTTPS, no SSH).
-#
-# Secrets: PROD_RELEASE_STAMP_TOKEN (same as RELEASE_STAMP_TOKEN on server)
+# Verifies release SHA after Hostinger backend deploy (stamp runs on server via postinstall).
 
 name: Deploy Production Backend
 
@@ -11,7 +9,6 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/deploy-production-backend.yml'
-      - '.github/workflows/stamp-production-release.yml'
 
 concurrency:
   group: production-backend-${{ github.ref }}
@@ -26,35 +23,15 @@ jobs:
           WAIT_SECONDS: ${{ vars.PROD_DEPLOY_WAIT_SECONDS || '120' }}
         run: sleep "$WAIT_SECONDS"
 
-      - name: Stamp release via HTTPS
-        env:
-          API_URL: ${{ vars.PROD_API_URL || 'https://api.callsflow.io' }}
-          STAMP_TOKEN: ${{ secrets.PROD_RELEASE_STAMP_TOKEN }}
-          RELEASE_ID: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          test -n "$STAMP_TOKEN" || (echo "::error::Missing PROD_RELEASE_STAMP_TOKEN" && exit 1)
-          for attempt in 1 2 3 4 5; do
-            HTTP=$(curl -sS -o /tmp/r.json -w "%{http_code}" --max-time 30 \
-              -A "CallsFlow-GitHub-Actions/1.0" -X POST "$API_URL/api/public/release/stamp" \
-              -H "Content-Type: application/json" \
-              -H "X-Release-Stamp-Token: $STAMP_TOKEN" \
-              -d "{\"releaseId\":\"$RELEASE_ID\"}" 2>/dev/null || echo "000")
-            cat /tmp/r.json 2>/dev/null; echo "HTTP $HTTP"
-            [ "$HTTP" = "200" ] && exit 0
-            sleep 10
-          done
-          exit 1
-
       - name: Verify release endpoint
         env:
           API_URL: ${{ vars.PROD_API_URL || 'https://api.callsflow.io' }}
           RELEASE_ID: ${{ github.sha }}
         run: |
           set -euo pipefail
-          for i in 1 2 3 4 5 6; do
+          for i in $(seq 1 18); do
             [ "$i" -gt 1 ] && sleep 10
-            BODY=$(curl -sS --max-time 15 -A "CallsFlow-GitHub-Actions/1.0" \
+            BODY=$(curl -sS --max-time 15 -A "Mozilla/5.0 (compatible; CallsFlowDeploy/1.0)" \
               "$API_URL/api/public/release?t=$(date +%s)" 2>/dev/null || echo '{}')
             echo "$BODY"
             echo "$BODY" | grep -qE "\"releaseId\"[[:space:]]*:[[:space:]]*\"$RELEASE_ID\"" && exit 0
