@@ -17,7 +17,10 @@ const WelcomePage = () => {
       animate="visible"
     >
       <motion.div variants={presets.child}>
-        <h1 className={classes.title}>Welcome, {user?.name || 'Agent'}! 👋</h1>
+        <h1 className={classes.title}>
+          Welcome, {user?.name || 'Agent'}!{' '}
+          <span className={classes.wave} role="img" aria-label="waving hand">👋</span>
+        </h1>
         <p className={classes.subtitle}>Get started by watching our platform tutorial below.</p>
       </motion.div>
 

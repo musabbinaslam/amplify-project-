@@ -9,7 +9,7 @@ import ErrorFallback from './components/ui/ErrorFallback';
 import LandingPage from './pages/LandingPage';
 import useAuthStore from './store/authStore';
 import { auth } from './config/firebase';
-import { useDeploymentWatcher } from './hooks/useDeploymentWatcher';
+import UpdateBanner from './components/ui/UpdateBanner';
 
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -76,7 +76,6 @@ const ReferralRedirect = () => {
 };
 
 const AnimatedRoutes = () => {
-  useDeploymentWatcher();
   return (
     <>
       <DialerOverlay />
@@ -184,6 +183,7 @@ function App() {
     <Router>
       <ErrorBoundary FallbackComponent={ErrorFallback}>
         <AnimatedRoutes />
+        <UpdateBanner />
         <Analytics />
         <SpeedInsights />
       </ErrorBoundary>

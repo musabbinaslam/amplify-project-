@@ -1,4 +1,5 @@
 require('./instrument');
+require('../scripts/ensure-release').syncReleaseFile();
 const express = require('express');
 const http = require('http');
 const cors = require('cors');

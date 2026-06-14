@@ -1,4 +1,5 @@
 const agentManager = require('../services/agentManager');
+const { getRedisKeyPrefix } = require('../config/redis');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const phoneRouteService = require('../services/phoneRouteService');
 const socketRegistry = require('../sockets/socketRegistry');
@@ -689,6 +690,7 @@ async function getOverviewLite(req, res) {
       meta: {
         generatedAt: new Date().toISOString(),
         source: 'redis.agentPool+activeCalls',
+        redisKeyPrefix: getRedisKeyPrefix() || null,
       },
       routingDiagnostics,
       liveCalls: activeCalls.map((row) => ({
