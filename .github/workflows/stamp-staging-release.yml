@@ -63,7 +63,10 @@ jobs:
             "set -euo pipefail
              mkdir -p '$BACKEND_PATH'
              printf '%s\n' '$RELEASE_ID' > '$BACKEND_PATH/.release'
-             echo 'Stamped:' && cat '$BACKEND_PATH/.release'"
+             echo 'Stamped:' && cat '$BACKEND_PATH/.release'
+             if command -v pm2 >/dev/null 2>&1; then
+               pm2 restart backend 2>/dev/null || pm2 restart all 2>/dev/null || true
+             fi"
 
       - name: Verify release endpoint
         env:

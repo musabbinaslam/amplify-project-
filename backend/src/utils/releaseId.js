@@ -23,18 +23,10 @@ function readGitHead() {
 }
 
 /**
- * Git commit SHA (or deploy id) for this backend instance.
- * Prefer RELEASE_ID env on Hostinger; otherwise .release file or live git HEAD.
+ * Git commit SHA for this backend instance.
+ * .release file first — updated by GitHub stamp without process restart.
  */
 function getReleaseId() {
-  const fromEnv =
-    process.env.RELEASE_ID ||
-    process.env.GIT_COMMIT_SHA ||
-    process.env.VERCEL_GIT_COMMIT_SHA ||
-    process.env.HEROKU_SLUG_COMMIT;
-
-  if (fromEnv) return String(fromEnv).trim();
-
   try {
     const fromFile = fs.readFileSync(RELEASE_FILE, 'utf8').trim();
     if (fromFile) return fromFile;
@@ -44,6 +36,14 @@ function getReleaseId() {
 
   const fromGit = readGitHead();
   if (fromGit) return fromGit;
+
+  const fromEnv =
+    process.env.RELEASE_ID ||
+    process.env.GIT_COMMIT_SHA ||
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    process.env.HEROKU_SLUG_COMMIT;
+
+  if (fromEnv) return String(fromEnv).trim();
 
   if (process.env.NODE_ENV !== 'production') {
     return 'dev';

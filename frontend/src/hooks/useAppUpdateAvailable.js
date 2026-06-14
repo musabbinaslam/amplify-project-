@@ -4,7 +4,7 @@ import {
   fetchBackendRelease,
   fetchFrontendRelease,
   getRunningBuildId,
-  isCoordinatedReleaseReady,
+  isUpdateReady,
 } from '../services/releaseService';
 
 const CHECK_INTERVAL_MS = 10 * 1000;
@@ -14,13 +14,9 @@ function isManualReload() {
   return nav?.type === 'reload';
 }
 
-/**
- * One update banner per release — shown when a newer build is live on Vercel + Hostinger
- * but this tab is still running the older bundle in memory.
- */
 export function useAppUpdateAvailable() {
   const runningBuildId = getRunningBuildId();
-  const [coordinatedUpdate, setCoordinatedUpdate] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
 
   const {
     needRefresh: [swNeedRefresh],
@@ -38,20 +34,28 @@ export function useAppUpdateAvailable() {
   });
 
   const evaluateRelease = useCallback(async () => {
+    if (!runningBuildId) return;
+
     const [frontend, backend] = await Promise.all([
       fetchFrontendRelease(),
       fetchBackendRelease(),
     ]);
 
-    const ready = isCoordinatedReleaseReady(runningBuildId, { frontend, backend });
-    setCoordinatedUpdate(ready);
+    const ready = isUpdateReady(
+      runningBuildId,
+      { frontend, backend },
+      { swPending: swNeedRefresh },
+    );
+    setUpdateAvailable(ready);
 
     if (ready) {
-      console.info(
-        `[Release] Update ready (${runningBuildId.slice(0, 7)} → ${frontend?.slice(0, 7)}, backend aligned)`,
-      );
+      console.info('[Release] update ready', {
+        running: runningBuildId.slice(0, 7),
+        live: frontend?.slice(0, 7),
+        backend: backend?.slice(0, 7),
+      });
     }
-  }, [runningBuildId]);
+  }, [runningBuildId, swNeedRefresh]);
 
   useEffect(() => {
     evaluateRelease();
@@ -95,5 +99,5 @@ export function useAppUpdateAvailable() {
     window.location.reload();
   };
 
-  return { updateAvailable: coordinatedUpdate, applyUpdate };
+  return { updateAvailable, applyUpdate };
 };
