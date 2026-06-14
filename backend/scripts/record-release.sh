@@ -1,12 +1,14 @@
 #!/bin/sh
 # Record the deploy commit SHA for GET /api/public/release.
 #
-# Usage (pick one):
-#   ./scripts/record-release.sh                    # git on server (Option A)
-#   ./scripts/record-release.sh bd96f67abc...      # pass SHA explicitly (Option B)
-#   RELEASE_ID=bd96f67abc... ./scripts/record-release.sh
+# Hostinger (recommended — no GitHub SSH needed):
+#   In hPanel → Node.js app → Deploy / Build command, append:
+#     ./scripts/record-release.sh && pm2 restart backend
+#   Uses git HEAD after Hostinger pulls your branch.
 #
-# Run before pm2 restart on Hostinger when .git is not on the server.
+# Manual:
+#   ./scripts/record-release.sh
+#   ./scripts/record-release.sh <full-git-sha>
 set -eu
 ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/.release"
