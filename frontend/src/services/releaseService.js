@@ -30,17 +30,15 @@ export async function fetchBackendRelease() {
 }
 
 /**
- * Show banner when backend reports a newer deploy than this tab's bundle.
- * Hide when this tab already has the latest frontend (Vercel ahead of backend stamp).
+ * Show banner only when the full deploy is done (Vercel + backend same SHA)
+ * and this tab is still on an older build.
  */
 export function isUpdateReady(runningBuildId, liveBackendRelease, liveFrontendRelease) {
-  if (!runningBuildId || !liveBackendRelease) return false;
+  if (!runningBuildId || !liveBackendRelease || !liveFrontendRelease) return false;
   if (liveBackendRelease === runningBuildId) return false;
 
-  // Refreshed to latest Vercel build; backend stamp still catching up — not a user action.
-  if (liveFrontendRelease && liveFrontendRelease === runningBuildId) {
-    return false;
-  }
+  // Vercel or Hostinger still catching up — not ready to prompt yet.
+  if (liveFrontendRelease !== liveBackendRelease) return false;
 
   return true;
 }
