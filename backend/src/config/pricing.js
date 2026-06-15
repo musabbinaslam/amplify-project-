@@ -21,7 +21,7 @@ const CAMPAIGN_CONFIG = {
   fe_tv_calls: {
     label: 'FE TV Calls',
     buffer: 30, // seconds
-    price: 65.00
+    price: 70.00
   },
 
   // Medicare
