@@ -21,7 +21,7 @@ const WelcomePage = () => {
           Welcome, {user?.name || 'Agent'}!{' '}
           <span className={classes.wave} role="img" aria-label="waving hand">👋</span>
         </h1>
-        <p className={classes.subtitle}>Get started by watching our platform tutorial below.</p>
+        <p className={classes.subtitle}>Get started by watching our platform tutorial below </p>
       </motion.div>
 
       <motion.div className={classes.videoContainer} variants={presets.child}>

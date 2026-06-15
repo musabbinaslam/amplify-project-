@@ -1,12 +1,16 @@
 const express = require('express');
-const { getReleaseId } = require('../utils/releaseId');
+const { getReleaseId, writeReleaseId } = require('../utils/releaseId');
+
+const { expandOrigins } = require('../utils/corsOrigins');
 
 const router = express.Router();
 const metaConversionService = require('../services/metaConversionService');
-const allowedFirebaseConfigOrigins = (process.env.FIREBASE_CONFIG_ALLOWED_ORIGINS || process.env.CLIENT_URLS || process.env.CLIENT_URL || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+const allowedFirebaseConfigOrigins = expandOrigins(
+  (process.env.FIREBASE_CONFIG_ALLOWED_ORIGINS || process.env.CLIENT_URLS || process.env.CLIENT_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+);
 
 function getRequestOrigin(req) {
   const originHeader = req.headers.origin ? String(req.headers.origin).trim() : '';
@@ -27,6 +31,32 @@ router.get('/release', (req, res) => {
   const releaseId = getReleaseId();
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.json({ buildId: releaseId, releaseId });
+});
+
+/**
+ * GitHub Actions stamps .release over HTTPS (reliable — no SSH from CI).
+ * Set RELEASE_STAMP_TOKEN on the server; same value in GitHub secrets.
+ */
+router.post('/release/stamp', (req, res) => {
+  const expected = String(process.env.RELEASE_STAMP_TOKEN || '').trim();
+  if (!expected) {
+    return res.status(503).json({ error: 'Release stamp not configured' });
+  }
+
+  const headerToken = String(req.headers['x-release-stamp-token'] || '').trim();
+  const bearer = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+  const token = headerToken || bearer;
+  if (!token || token !== expected) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const releaseId = req.body?.releaseId || req.body?.buildId;
+  try {
+    const written = writeReleaseId(releaseId);
+    res.json({ ok: true, buildId: written, releaseId: written });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Invalid release id' });
+  }
 });
 
 /**

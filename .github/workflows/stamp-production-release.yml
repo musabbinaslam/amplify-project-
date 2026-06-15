@@ -1,7 +1,5 @@
-# Stamps backend/.release on production after Hostinger git deploy (main branch).
-#
-# Secrets: PROD_SSH_HOST, PROD_SSH_USER, PROD_SSH_KEY
-# Optional: PROD_SSH_PORT (65002), PROD_BACKEND_PATH, PROD_DEPLOY_WAIT_SECONDS
+# Waits for Hostinger deploy. .release is written on the server via npm postinstall + server start.
+# GitHub cannot verify the API reliably (Hostinger CDN blocks datacenter IPs).
 
 name: Stamp Production Backend Release
 
@@ -22,123 +20,7 @@ jobs:
         env:
           WAIT_SECONDS: ${{ vars.PROD_DEPLOY_WAIT_SECONDS || '120' }}
         run: |
-          echo "Waiting ${WAIT_SECONDS}s for Hostinger to finish git deploy before stamping..."
+          echo "Waiting ${WAIT_SECONDS}s for Hostinger to pull main and run npm postinstall..."
           sleep "$WAIT_SECONDS"
-
-      - name: Check if API already reports this release
-        id: precheck
-        env:
-          API_URL: ${{ vars.PROD_API_URL || 'https://api.callsflow.io' }}
-          RELEASE_ID: ${{ github.sha }}
-        run: |
-          BODY=$(curl -sS --max-time 20 "$API_URL/api/public/release?t=$(date +%s)" 2>/dev/null || echo '{}')
-          echo "$BODY"
-          if echo "$BODY" | grep -q "$RELEASE_ID"; then
-            echo "already_stamped=true" >> "$GITHUB_OUTPUT"
-            echo "✓ API already reports $RELEASE_ID — skipping SSH stamp"
-          else
-            echo "already_stamped=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Stamp .release on Hostinger
-        if: steps.precheck.outputs.already_stamped != 'true'
-        continue-on-error: true
-        id: ssh_stamp
-        env:
-          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
-          SSH_USER: ${{ secrets.PROD_SSH_USER }}
-          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
-          SSH_PORT: ${{ secrets.PROD_SSH_PORT || '65002' }}
-          BACKEND_PATH: ${{ secrets.PROD_BACKEND_PATH || vars.PROD_BACKEND_PATH || 'domains/api.callsflow.io/nodejs' }}
-          RELEASE_ID: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          SSH_HOST="$(printf '%s' "$SSH_HOST" | tr -d '[:space:]')"
-          SSH_USER="$(printf '%s' "$SSH_USER" | tr -d '[:space:]')"
-          SSH_PORT="$(printf '%s' "$SSH_PORT" | tr -d '[:space:]')"
-          BACKEND_PATH="$(printf '%s' "$BACKEND_PATH" | tr -d '[:space:]')"
-
-          test -n "$SSH_HOST" || (echo "::error::Missing PROD_SSH_HOST" && exit 1)
-          test -n "$SSH_USER" || (echo "::error::Missing PROD_SSH_USER" && exit 1)
-          test -n "$SSH_KEY"  || (echo "::error::Missing PROD_SSH_KEY" && exit 1)
-          test "$SSH_PORT" = "65002" || echo "::warning::Hostinger SSH is usually port 65002 (got $SSH_PORT)"
-
-          mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-
-          SSH_OPTS=(
-            -i ~/.ssh/deploy_key
-            -p "$SSH_PORT"
-            -o StrictHostKeyChecking=accept-new
-            -o ConnectTimeout=60
-            -o ServerAliveInterval=15
-            -o ServerAliveCountMax=4
-            -o BatchMode=yes
-          )
-
-          run_ssh() {
-            ssh "${SSH_OPTS[@]}" "$SSH_USER@$SSH_HOST" "$@"
-          }
-
-          echo "→ SSH $SSH_USER@$SSH_HOST:$SSH_PORT"
-          connected=false
-          for attempt in 1 2 3; do
-            echo "Connection attempt $attempt/3 ..."
-            if run_ssh 'echo connected'; then
-              connected=true
-              break
-            fi
-            sleep 15
-          done
-
-          if [ "$connected" != true ]; then
-            echo "::error::SSH timed out — Hostinger may block GitHub Actions IPs."
-            echo "::error::Check hPanel → SSH access is enabled. Same host/key as staging usually works."
-            exit 1
-          fi
-
-          echo "→ Stamping release $RELEASE_ID in $BACKEND_PATH"
-          run_ssh bash -s <<REMOTE
-          set -euo pipefail
-          RELEASE_ID='$RELEASE_ID'
-          REL_PATH='$BACKEND_PATH'
-          if [ "\${REL_PATH#/}" = "\$REL_PATH" ]; then
-            APP_DIR="\$HOME/\$REL_PATH"
-          else
-            APP_DIR="\$REL_PATH"
-          fi
-          if [ ! -d "\$APP_DIR" ]; then
-            echo "Directory not found: \$APP_DIR" >&2
-            exit 1
-          fi
-          APP_DIR="\$(cd "\$APP_DIR" && pwd)"
-          echo "App dir: \$APP_DIR"
-          printf '%s\n' "\$RELEASE_ID" > "\$APP_DIR/.release"
-          echo 'Wrote .release:'
-          cat "\$APP_DIR/.release"
-          REMOTE
-
-      - name: Verify release endpoint
-        env:
-          API_URL: ${{ vars.PROD_API_URL || 'https://api.callsflow.io' }}
-          RELEASE_ID: ${{ github.sha }}
-          SSH_STAMP_OK: ${{ steps.ssh_stamp.outcome == 'success' || steps.precheck.outputs.already_stamped == 'true' }}
-        run: |
-          set -euo pipefail
-          if [ "${SSH_STAMP_OK}" != "true" ]; then
-            echo "::warning::SSH stamp failed — waiting for Hostinger deploy + server auto-stamp from git"
-          fi
-          for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
-            if [ "$i" -gt 1 ]; then sleep 10; fi
-            BODY=$(curl -sS --max-time 15 "$API_URL/api/public/release?t=$(date +%s)" 2>/dev/null || echo '{}')
-            echo "Attempt $i: $BODY"
-            if echo "$BODY" | grep -q "$RELEASE_ID"; then
-              echo "✓ Backend API reports $RELEASE_ID"
-              exit 0
-            fi
-          done
-          echo "::error::API does not report $RELEASE_ID after ~2 min."
-          echo "::error::Ensure main includes ensure-release.js on server start and Hostinger redeployed."
-          exit 1
+          echo "✓ Done — server writes .release automatically (see Hostinger deploy logs for [release] Wrote .release)"
+          echo "Release SHA for this push: ${{ github.sha }}"
