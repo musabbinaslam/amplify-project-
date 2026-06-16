@@ -198,7 +198,7 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
             identity: passedIdentity,
             campaign
           }
-        });
+        }, () => useAuthStore.getState().getIdToken(true));
         if (res?.token) {
           device.updateToken(res.token);
           console.log('[Twilio] ✅ Token successfully refreshed in background.');

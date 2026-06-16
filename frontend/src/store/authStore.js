@@ -215,10 +215,10 @@ const useAuthStore = create((set, get) => ({
     await sendPasswordResetEmail(auth, email);
   },
 
-  getIdToken: async () => {
+  getIdToken: async (forceRefresh = false) => {
     const currentUser = auth.currentUser;
     if (!currentUser) return null;
-    return currentUser.getIdToken();
+    return currentUser.getIdToken(forceRefresh);
   },
 
   /** Re-fetch role from Firestore (e.g. after admin promotion in Console). */
