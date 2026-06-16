@@ -153,13 +153,13 @@ exports.handleIncomingCall = async (req, res) => {
             timeout: 20,
             answerOnBridge: true,
             record: 'record-from-answer',
-            // Server-side promotion to IN_CALL when Twilio bridges the client leg.
+          });
+          
+          dial.client({
             statusCallback: voiceWebhookUrl(req, `/api/voice/dial-status?${dialStatusQs.toString()}`),
             statusCallbackEvent: 'initiated ringing answered completed',
             statusCallbackMethod: 'POST',
-          });
-          
-          dial.client(available.id);
+          }, available.id);
         }
      } else {
         if (retryCount === 0) {
