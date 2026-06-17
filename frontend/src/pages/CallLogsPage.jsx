@@ -953,6 +953,8 @@ const CallLogsPage = () => {
                             <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Not Interested</span>
                           ) : log.disposition === 'busy' ? (
                             <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Busy</span>
+                          ) : log.disposition === 'dead_air' ? (
+                            <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Dead Air</span>
                           ) : log.disposition === 'policy_closed' ? (
                             <span className={`${classes.dispBadge} ${classes.dispAnswered}`} style={{borderColor: 'var(--brand-text)'}}>Policy Closed</span>
                           ) : (

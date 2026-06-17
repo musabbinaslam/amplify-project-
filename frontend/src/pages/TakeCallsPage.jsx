@@ -512,7 +512,8 @@ const DispositionModal = ({ callSid, onComplete }) => {
     { id: 'not_interested', label: 'Not interested' },
     { id: 'callback', label: 'Call back' },
     { id: 'busy', label: 'Busy' },
-    { id: 'policy_closed', label: 'Policy Closed' }
+    { id: 'policy_closed', label: 'Policy Closed' },
+    { id: 'dead_air', label: 'Dead Air' }
   ];
 
   const handleSubmit = async () => {
@@ -605,6 +606,8 @@ const CallHistory = ({ logs }) => {
                 <span className={classes.badgeMissed} style={{color: 'var(--text-secondary)'}}>Not Interested</span>
               ) : log.disposition === 'busy' ? (
                 <span className={classes.badgeMissed} style={{color: 'var(--text-secondary)'}}>Busy</span>
+              ) : log.disposition === 'dead_air' ? (
+                <span className={classes.badgeMissed} style={{color: 'var(--text-secondary)'}}>Dead Air</span>
               ) : log.disposition === 'policy_closed' ? (
                 <span className={classes.badgeSale} style={{borderColor: 'var(--brand-text)'}}>Policy Closed</span>
               ) : (

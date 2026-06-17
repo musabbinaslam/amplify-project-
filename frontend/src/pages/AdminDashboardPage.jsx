@@ -1495,6 +1495,8 @@ const AdminDashboardPage = () => {
                             <span className={`${classes.statusPill} ${classes.dispMissed}`}>Not Interested</span>
                           ) : log.disposition === 'busy' ? (
                             <span className={`${classes.statusPill} ${classes.dispMissed}`}>Busy</span>
+                          ) : log.disposition === 'dead_air' ? (
+                            <span className={`${classes.statusPill} ${classes.dispMissed}`}>Dead Air</span>
                           ) : log.disposition === 'policy_closed' ? (
                             <span className={`${classes.statusPill} ${classes.dispAnswered}`} style={{borderColor: 'var(--brand-text)'}}>Policy Closed</span>
                           ) : (
