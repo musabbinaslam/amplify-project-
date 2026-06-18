@@ -235,8 +235,17 @@ exports.handleDialStatus = async (req, res) => {
       if (terminal) {
         const active = await agentManager.getActiveCall(agentId);
         if (!active) {
-          await agentManager.clearActiveCall(agentId);
+          // Before releasing, check if the agent is in WRAP_UP (filling disposition).
+          // This happens when a call was routed to them during the race window and
+          // their device rejected it as 'busy'. Releasing them would put them back
+          // into the routing pool mid-disposition and cause an infinite re-route loop.
           const agentState = await agentManager.getAgentState(agentId);
+          if (agentState?.status === 'WRAP_UP') {
+            console.log(`[Twilio] Dial status ${event || callStatus} ignored for WRAP_UP agent ${agentId} — keeping in WRAP_UP`);
+            return res.sendStatus(200);
+          }
+
+          await agentManager.clearActiveCall(agentId);
           await agentManager.releaseAgent(agentId, agentState?.sessionId || null);
           console.log(`[Twilio] Dial status released agent ${agentId} (${event || callStatus}) — never bridged`);
           
