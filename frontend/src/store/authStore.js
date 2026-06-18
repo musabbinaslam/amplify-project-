@@ -61,13 +61,31 @@ const useAuthStore = create((set, get) => ({
           const token = await firebaseUser.getIdToken();
           const existingMeta = get().user?.meta;
           const role = await loadUserRole(firebaseUser.uid);
+
+          // Proactively refresh the Firebase token every 15 minutes
+          // to guarantee agents never hit the 1-hour expiration while online.
+          if (get()._tokenRefreshInterval) clearInterval(get()._tokenRefreshInterval);
+          const intervalId = setInterval(async () => {
+            const currentUser = auth.currentUser;
+            if (currentUser) {
+              try {
+                const freshToken = await currentUser.getIdToken(true);
+                set({ token: freshToken });
+              } catch (err) {
+                console.warn('[Auth] Background token refresh failed:', err);
+              }
+            }
+          }, 15 * 60 * 1000); // 15 minutes
+
           set({
             user: { ...mapFirebaseUser(firebaseUser), meta: existingMeta || null, role },
             token,
             loading: false,
+            _tokenRefreshInterval: intervalId,
           });
         } else {
-          set({ user: null, token: null, loading: false });
+          if (get()._tokenRefreshInterval) clearInterval(get()._tokenRefreshInterval);
+          set({ user: null, token: null, loading: false, _tokenRefreshInterval: null });
         }
         resolve();
       });
