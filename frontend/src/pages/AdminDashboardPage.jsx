@@ -1174,8 +1174,8 @@ const AdminDashboardPage = () => {
                       )}
                     </td>
                     <td>{a.campaignId}</td>
-                    <td><span className={classes.statusPill}>{a.pool}</span></td>
-                    <td><span className={classes.statusPill}>{a.status}</span></td>
+                    <td><span className={classes.statusPill}>{{ available: 'Available', busy: 'In Call', ringing: 'Ringing', wrap_up: 'Wrap Up', unknown: 'Unknown' }[a.pool] || a.pool}</span></td>
+                    <td><span className={classes.statusPill}>{{ AVAILABLE: 'Available', IN_CALL: 'In Call', RINGING: 'Ringing', WRAP_UP: 'Wrap Up', UNKNOWN: 'Unknown' }[a.status] || a.status}</span></td>
                     <td>{Array.isArray(a.licensedStates) && a.licensedStates.length > 0 ? a.licensedStates.join(', ') : 'None'}</td>
                     <td className={classes.actions}>
                       <button
@@ -1495,6 +1495,8 @@ const AdminDashboardPage = () => {
                             <span className={`${classes.statusPill} ${classes.dispMissed}`}>Not Interested</span>
                           ) : log.disposition === 'busy' ? (
                             <span className={`${classes.statusPill} ${classes.dispMissed}`}>Busy</span>
+                          ) : log.disposition === 'dead_air' ? (
+                            <span className={`${classes.statusPill} ${classes.dispMissed}`}>Dead Air</span>
                           ) : log.disposition === 'policy_closed' ? (
                             <span className={`${classes.statusPill} ${classes.dispAnswered}`} style={{borderColor: 'var(--brand-text)'}}>Policy Closed</span>
                           ) : (

@@ -211,6 +211,21 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
     device.on('incoming', (call) => {
       console.log('Incoming call received!', call);
 
+      // ── WRAP-UP GUARD ───────────────────────────────────────────────────────
+      // If the agent is currently filling in a disposition for the previous call,
+      // do NOT let a new call ring through — it would forcibly evict the disposition
+      // modal and lose the previous call's data.
+      // Reject the call immediately; Twilio's dial-status webhook will handle
+      // re-routing. We must NOT emit agent:release here — the agent is already in
+      // WRAP_UP on the backend (not in any routing pool), so releasing would
+      // incorrectly put them back into the available pool mid-disposition.
+      if (useDialerStore.getState().pendingDispositionCall) {
+        console.warn('[Twilio] New call blocked — agent is in WRAP-UP (disposition pending). Rejecting silently.');
+        try { call.reject(); } catch (_) { /* ignore */ }
+        return;
+      }
+      // ───────────────────────────────────────────────────────────────────────
+
       const callerId = call.parameters.From;
       const callSid = call.parameters.CallSid || call.parameters.callSid || null;
       const emitCallDelivered = (eventName) => {
@@ -257,6 +272,13 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
 
         call.on('disconnect', () => {
           if (call._durationInterval) clearInterval(call._durationInterval);
+          // Immediately tell the backend to enter WRAP_UP and remove from the
+          // routing pool. This closes the race window between this browser event
+          // and the Twilio webhook arriving at the server (which can be 100-500ms
+          // later — long enough for the router to select this agent for a new call).
+          if (socket.connected) {
+            socket.emit('agent:wrap_up', { sessionId: socket._agentSessionId || liveSessionId });
+          }
           // Instead of releasing the agent here, we set the pending disposition call.
           // The agent remains in WRAP_UP mode on the backend until they submit the disposition.
           useDialerStore.getState().setPendingDisposition(call.parameters.CallSid);

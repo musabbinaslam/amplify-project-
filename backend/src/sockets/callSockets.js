@@ -166,6 +166,25 @@ exports.setupCallSockets = (io) => {
             }
         });
 
+        // Browser-initiated WRAP_UP: fires the moment the call disconnects on the
+        // agent's device — well before the Twilio webhook reaches the server.
+        // Removes the agent from the routing pool immediately so no new call can
+        // be routed to them while they are filling in the disposition form.
+        // The Twilio webhook will call setAgentWrapUp again later (idempotent).
+        socket.on('agent:wrap_up', async (payload = {}) => {
+            if (socket.agentId) {
+                const expectedSession = String(payload?.sessionId || socket.agentSessionId || '').trim() || null;
+                const agentState = await agentManager.getAgentState(socket.agentId);
+                if (expectedSession && agentState?.sessionId && agentState.sessionId !== expectedSession) {
+                    console.log(`[Socket] Ignoring agent:wrap_up for ${socket.agentId} — session mismatch`);
+                    return;
+                }
+                await agentManager.setAgentWrapUp(socket.agentId);
+                console.log(`[Socket] ⚡ Agent ${socket.agentId} entered WRAP_UP via browser disconnect (fast path)`);
+                await broadcastAgentCount(io);
+            }
+        });
+
         // Explicit go-offline (agent clicks "Go Offline" without closing the browser)
         // Removes them from the pool immediately rather than waiting for disconnect/heartbeat expiry
         socket.on('agent:go_offline', async (payload = {}) => {
