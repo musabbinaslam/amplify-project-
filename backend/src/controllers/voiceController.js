@@ -83,10 +83,10 @@ exports.handleIncomingCall = async (req, res) => {
   console.log(`[Twilio Webhook] 🎯 Resolved Campaign: ${campaign}`);
 
   try {
-     const available = await agentManager.findAndLockAvailableAgent(campaign, callerState);
+     const parentCallSid = req.body?.CallSid || req.body?.CallSidInbound || '';
+     const available = await agentManager.findAndLockAvailableAgent(campaign, callerState, parentCallSid);
 
      if (available) {
-        const parentCallSid = req.body?.CallSid || req.body?.CallSidInbound || '';
         // Stay RINGING until the browser receives the Twilio leg (agent:call_incoming).
         // Marking IN_CALL/busy before dial caused ghosts when 2+ agents were online.
         await agentManager.markAgentDialing(available.id, {
@@ -248,6 +248,12 @@ exports.handleDialStatus = async (req, res) => {
           await agentManager.clearActiveCall(agentId);
           await agentManager.releaseAgent(agentId, agentState?.sessionId || null);
           console.log(`[Twilio] Dial status released agent ${agentId} (${event || callStatus}) — never bridged`);
+          
+          // Mark this agent as having rejected/missed this specific call.
+          // This prevents the router from immediately dialing them again on the next retry.
+          if (parentSid) {
+              await agentManager.markAgentRejectedCall(agentId, parentSid);
+          }
           
           // If this was an ACA outbound agent leg that failed, reroute the waiting caller
           if (req.query.isOutboundAgent === 'true' && parentSid) {

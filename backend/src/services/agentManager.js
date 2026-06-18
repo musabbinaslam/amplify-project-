@@ -238,7 +238,7 @@ class AgentManager {
     *  3. Evict ghosts, filter by licensed state
     *  4. ZREM as atomic lock — only the request that gets return value 1 wins the agent
     */
-   async findAndLockAvailableAgent(campaignId, callerState = null) {
+   async findAndLockAvailableAgent(campaignId, callerState = null, parentCallSid = null) {
       this.markDiagnostic('totalRequests');
       // 1. Get up to 20 longest-waiting agents from this campaign's sorted set
       const candidates = await redisClient.zRange(this.poolKey(campaignId), 0, 19);
@@ -247,11 +247,21 @@ class AgentManager {
       console.log(`[Router] 🔍 Campaign "${campaignId}" state=${callerState || 'ANY'} — ${candidates.length} LRU candidates: [${candidates.join(', ')}]`);
       if (candidates.length === 0) return null;
 
+      let rejectedAgents = [];
+      if (parentCallSid) {
+         rejectedAgents = await redisClient.sMembers(`call:rejected:${parentCallSid}`);
+      }
+
       // 2. Parallel heartbeat + data fetch (max 20×2 = 40 Redis calls)
       // GHOST_REASONS: remove from pool AND data. SKIP_REASONS: skip this call only, keep in pool.
       const GHOST_REASONS = new Set(['no-heartbeat', 'session-mismatch', 'missing-agent-data']);
       const agentDataList = (await Promise.all(
          candidates.map(async (id) => {
+            if (rejectedAgents.includes(id)) {
+               console.log(`[Router] ⏭️ Skipping agent ${id} — already rejected/missed this call (${parentCallSid})`);
+               return null;
+            }
+
             const presence = await this.validateAgentPresence(campaignId, id, {
                requireAvailable: true,
                requireFresh: true,
@@ -621,6 +631,16 @@ class AgentManager {
       if (active?.callSid && String(active.callSid).trim() === target) return true;
 
       return false;
+   }
+
+   /**
+    * Record that an agent rejected or missed a specific call so the router
+    * does not immediately dial them again on the next retry.
+    */
+   async markAgentRejectedCall(agentId, callSid) {
+      if (!agentId || !callSid) return;
+      await redisClient.sAdd(`call:rejected:${callSid}`, agentId);
+      await redisClient.expire(`call:rejected:${callSid}`, 3600); // 1 hour TTL
    }
 
    /**
