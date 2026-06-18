@@ -211,6 +211,21 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
     device.on('incoming', (call) => {
       console.log('Incoming call received!', call);
 
+      // ── WRAP-UP GUARD ───────────────────────────────────────────────────────
+      // If the agent is currently filling in a disposition for the previous call,
+      // do NOT let a new call ring through — it would forcibly evict the disposition
+      // modal and lose the previous call's data.
+      // Reject the call immediately; Twilio's dial-status webhook will handle
+      // re-routing. We must NOT emit agent:release here — the agent is already in
+      // WRAP_UP on the backend (not in any routing pool), so releasing would
+      // incorrectly put them back into the available pool mid-disposition.
+      if (useDialerStore.getState().pendingDispositionCall) {
+        console.warn('[Twilio] New call blocked — agent is in WRAP-UP (disposition pending). Rejecting silently.');
+        try { call.reject(); } catch (_) { /* ignore */ }
+        return;
+      }
+      // ───────────────────────────────────────────────────────────────────────
+
       const callerId = call.parameters.From;
       const callSid = call.parameters.CallSid || call.parameters.callSid || null;
       const emitCallDelivered = (eventName) => {
