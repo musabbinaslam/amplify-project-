@@ -272,6 +272,13 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
 
         call.on('disconnect', () => {
           if (call._durationInterval) clearInterval(call._durationInterval);
+          // Immediately tell the backend to enter WRAP_UP and remove from the
+          // routing pool. This closes the race window between this browser event
+          // and the Twilio webhook arriving at the server (which can be 100-500ms
+          // later — long enough for the router to select this agent for a new call).
+          if (socket.connected) {
+            socket.emit('agent:wrap_up', { sessionId: socket._agentSessionId || liveSessionId });
+          }
           // Instead of releasing the agent here, we set the pending disposition call.
           // The agent remains in WRAP_UP mode on the backend until they submit the disposition.
           useDialerStore.getState().setPendingDisposition(call.parameters.CallSid);
