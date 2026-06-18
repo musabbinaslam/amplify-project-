@@ -1174,8 +1174,8 @@ const AdminDashboardPage = () => {
                       )}
                     </td>
                     <td>{a.campaignId}</td>
-                    <td><span className={classes.statusPill}>{a.pool}</span></td>
-                    <td><span className={classes.statusPill}>{a.status}</span></td>
+                    <td><span className={classes.statusPill}>{{ available: 'Available', busy: 'In Call', ringing: 'Ringing', wrap_up: 'Wrap Up', unknown: 'Unknown' }[a.pool] || a.pool}</span></td>
+                    <td><span className={classes.statusPill}>{{ AVAILABLE: 'Available', IN_CALL: 'In Call', RINGING: 'Ringing', WRAP_UP: 'Wrap Up', UNKNOWN: 'Unknown' }[a.status] || a.status}</span></td>
                     <td>{Array.isArray(a.licensedStates) && a.licensedStates.length > 0 ? a.licensedStates.join(', ') : 'None'}</td>
                     <td className={classes.actions}>
                       <button

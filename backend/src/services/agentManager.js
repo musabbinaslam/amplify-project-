@@ -545,8 +545,15 @@ class AgentManager {
          data.status = 'WRAP_UP';
          data.lastSeenAt = Date.now().toString();
          await redisClient.hSet('agents:data', agentId, JSON.stringify(data));
+
+         // Remove from the campaign routing pool so the router cannot select
+         // this agent for a new call while they are filling in their disposition.
+         // releaseAgent() (called after disposition submit) will zAdd them back.
+         if (data.campaignId) {
+            await redisClient.zRem(this.poolKey(data.campaignId), agentId);
+         }
       }
-      console.log(`[Router] 📝 Agent ${agentId} entered WRAP_UP (disposition pending)`);
+      console.log(`[Router] 📝 Agent ${agentId} entered WRAP_UP (disposition pending) — removed from routing pool`);
    }
 
    async getActiveCall(agentId) {
