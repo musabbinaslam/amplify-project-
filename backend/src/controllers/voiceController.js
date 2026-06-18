@@ -83,10 +83,10 @@ exports.handleIncomingCall = async (req, res) => {
   console.log(`[Twilio Webhook] 🎯 Resolved Campaign: ${campaign}`);
 
   try {
-     const available = await agentManager.findAndLockAvailableAgent(campaign, callerState);
+     const parentCallSid = req.body?.CallSid || req.body?.CallSidInbound || '';
+     const available = await agentManager.findAndLockAvailableAgent(campaign, callerState, parentCallSid);
 
      if (available) {
-        const parentCallSid = req.body?.CallSid || req.body?.CallSidInbound || '';
         // Stay RINGING until the browser receives the Twilio leg (agent:call_incoming).
         // Marking IN_CALL/busy before dial caused ghosts when 2+ agents were online.
         await agentManager.markAgentDialing(available.id, {
@@ -249,6 +249,12 @@ exports.handleDialStatus = async (req, res) => {
           await agentManager.releaseAgent(agentId, agentState?.sessionId || null);
           console.log(`[Twilio] Dial status released agent ${agentId} (${event || callStatus}) — never bridged`);
           
+          // Mark this agent as having rejected/missed this specific call.
+          // This prevents the router from immediately dialing them again on the next retry.
+          if (parentSid) {
+              await agentManager.markAgentRejectedCall(agentId, parentSid);
+          }
+          
           // If this was an ACA outbound agent leg that failed, reroute the waiting caller
           if (req.query.isOutboundAgent === 'true' && parentSid) {
              const retryCount = Number(req.query.retryCount || 0);
@@ -320,9 +326,14 @@ exports.handleCallCompleted = async (req, res) => {
         // Release the agent that just failed/missed so they go back to AVAILABLE
         if (agentId) {
             try {
-                await agentManager.clearActiveCall(agentId);
+                const active = await agentManager.getActiveCall(agentId);
                 const agentState = await agentManager.getAgentState(agentId);
-                await agentManager.releaseAgent(agentId, agentState?.sessionId || null);
+                if (!active && agentState?.status === 'WRAP_UP') {
+                    console.log(`[Twilio] Call complete re-route ignored release for WRAP_UP agent ${agentId}`);
+                } else {
+                    await agentManager.clearActiveCall(agentId);
+                    await agentManager.releaseAgent(agentId, agentState?.sessionId || null);
+                }
             } catch (e) {
                 console.warn('[Router] Re-route release failed:', e.message);
             }
@@ -724,6 +735,12 @@ exports.updateCallLog = async (req, res) => {
         }
 
         // 2. Release agent back into the pool (end of WRAP_UP phase)
+        // First clear the WRAP_UP status so releaseAgent's guard allows the release.
+        const agentState = await agentManager.getAgentState(uid);
+        if (agentState) {
+            agentState.status = 'RELEASING';
+            await redisClient.hSet('agents:data', uid, JSON.stringify(agentState));
+        }
         await agentManager.clearActiveCall(uid);
         await agentManager.releaseAgent(uid);
 

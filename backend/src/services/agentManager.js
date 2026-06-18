@@ -238,7 +238,7 @@ class AgentManager {
     *  3. Evict ghosts, filter by licensed state
     *  4. ZREM as atomic lock — only the request that gets return value 1 wins the agent
     */
-   async findAndLockAvailableAgent(campaignId, callerState = null) {
+   async findAndLockAvailableAgent(campaignId, callerState = null, parentCallSid = null) {
       this.markDiagnostic('totalRequests');
       // 1. Get up to 20 longest-waiting agents from this campaign's sorted set
       const candidates = await redisClient.zRange(this.poolKey(campaignId), 0, 19);
@@ -247,11 +247,21 @@ class AgentManager {
       console.log(`[Router] 🔍 Campaign "${campaignId}" state=${callerState || 'ANY'} — ${candidates.length} LRU candidates: [${candidates.join(', ')}]`);
       if (candidates.length === 0) return null;
 
+      let rejectedAgents = [];
+      if (parentCallSid) {
+         rejectedAgents = await redisClient.sMembers(`call:rejected:${parentCallSid}`);
+      }
+
       // 2. Parallel heartbeat + data fetch (max 20×2 = 40 Redis calls)
       // GHOST_REASONS: remove from pool AND data. SKIP_REASONS: skip this call only, keep in pool.
       const GHOST_REASONS = new Set(['no-heartbeat', 'session-mismatch', 'missing-agent-data']);
       const agentDataList = (await Promise.all(
          candidates.map(async (id) => {
+            if (rejectedAgents.includes(id)) {
+               console.log(`[Router] ⏭️ Skipping agent ${id} — already rejected/missed this call (${parentCallSid})`);
+               return null;
+            }
+
             const presence = await this.validateAgentPresence(campaignId, id, {
                requireAvailable: true,
                requireFresh: true,
@@ -469,6 +479,15 @@ class AgentManager {
          return false;
       }
 
+      // 🛡️ WRAP_UP GUARD: If the agent is filling in their disposition form,
+      // absolutely refuse to put them back into the routing pool. The ONLY way
+      // to release a WRAP_UP agent is via clearWrapUp() + releaseAgent() from
+      // the disposition submit handler (updateCallLog).
+      if (data?.status === 'WRAP_UP') {
+         console.log(`[Router] 🛡️ releaseAgent BLOCKED for ${agentId} — agent is in WRAP_UP (disposition pending)`);
+         return false;
+      }
+
       // Always clear the active-call record atomically before re-entering the pool.
       // This prevents the "AVAILABLE but IN_CALL" split-state that causes dropped calls.
       await redisClient.hDel('activecalls:data', agentId);
@@ -624,6 +643,16 @@ class AgentManager {
    }
 
    /**
+    * Record that an agent rejected or missed a specific call so the router
+    * does not immediately dial them again on the next retry.
+    */
+   async markAgentRejectedCall(agentId, callSid) {
+      if (!agentId || !callSid) return;
+      await redisClient.sAdd(`call:rejected:${callSid}`, agentId);
+      await redisClient.expire(`call:rejected:${callSid}`, 3600); // 1 hour TTL
+   }
+
+   /**
     * Prefer call:route (authoritative dial target) over Twilio query agentId.
     */
    async resolveCallOwner(callSid, queryAgentId = null) {
@@ -656,6 +685,12 @@ class AgentManager {
          const onCall = await redisClient.hGet('activecalls:data', agentId);
          if (onCall) return;
          if (await redisClient.sIsMember('agents:busy', agentId)) return;
+         // Never release an agent who is filling in their disposition form.
+         const staleAgentState = await this.getAgentState(agentId);
+         if (staleAgentState?.status === 'WRAP_UP') {
+            console.log(`[Router] 🛡️  releaseStaleRinging skipped — agent ${agentId} is in WRAP_UP`);
+            return;
+         }
          const pending = await this.getPendingCall(agentId);
          const sameCall = pending?.callSid && String(pending.callSid).trim() === target;
          const ghostRinging = !pending;
@@ -689,9 +724,13 @@ class AgentManager {
          if (ageMs < RINGING_MAX_AGE_MS) return;
          const inCall = await redisClient.hGet('activecalls:data', agentId);
          if (inCall) return; // answered — normal path owns cleanup
+         const agentState = await this.getAgentState(agentId);
+         if (agentState?.status === 'WRAP_UP') {
+            console.log(`[Router] 🛡️  evictStaleRinging skipped — agent ${agentId} is in WRAP_UP`);
+            return;
+         }
          console.log(`[Router] ⏰ Stale RINGING (${Math.round(ageMs / 1000)}s) for ${agentId} — auto-releasing`);
          await this.clearActiveCall(agentId);
-         const agentState = await this.getAgentState(agentId);
          await this.releaseAgent(agentId, agentState?.sessionId || null);
          evicted += 1;
          this.markDiagnostic('ghostEvicted');

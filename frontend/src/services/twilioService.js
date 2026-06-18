@@ -247,12 +247,16 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
 
       call.on('cancel', () => {
         if (call._durationInterval) clearInterval(call._durationInterval);
-        socket.emit('agent:release', { sessionId: socket._agentSessionId || liveSessionId });
+        if (!useDialerStore.getState().pendingDispositionCall) {
+          socket.emit('agent:release', { sessionId: socket._agentSessionId || liveSessionId });
+        }
         store.resetCallState();
       });
       call.on('reject', () => {
         if (call._durationInterval) clearInterval(call._durationInterval);
-        socket.emit('agent:release', { sessionId: socket._agentSessionId || liveSessionId });
+        if (!useDialerStore.getState().pendingDispositionCall) {
+          socket.emit('agent:release', { sessionId: socket._agentSessionId || liveSessionId });
+        }
         store.resetCallState();
       });
       call.on('error', () => {
