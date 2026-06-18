@@ -735,6 +735,12 @@ exports.updateCallLog = async (req, res) => {
         }
 
         // 2. Release agent back into the pool (end of WRAP_UP phase)
+        // First clear the WRAP_UP status so releaseAgent's guard allows the release.
+        const agentState = await agentManager.getAgentState(uid);
+        if (agentState) {
+            agentState.status = 'RELEASING';
+            await redisClient.hSet('agents:data', uid, JSON.stringify(agentState));
+        }
         await agentManager.clearActiveCall(uid);
         await agentManager.releaseAgent(uid);
 
