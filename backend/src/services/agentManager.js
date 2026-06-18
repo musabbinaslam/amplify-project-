@@ -676,6 +676,12 @@ class AgentManager {
          const onCall = await redisClient.hGet('activecalls:data', agentId);
          if (onCall) return;
          if (await redisClient.sIsMember('agents:busy', agentId)) return;
+         // Never release an agent who is filling in their disposition form.
+         const staleAgentState = await this.getAgentState(agentId);
+         if (staleAgentState?.status === 'WRAP_UP') {
+            console.log(`[Router] 🛡️  releaseStaleRinging skipped — agent ${agentId} is in WRAP_UP`);
+            return;
+         }
          const pending = await this.getPendingCall(agentId);
          const sameCall = pending?.callSid && String(pending.callSid).trim() === target;
          const ghostRinging = !pending;
@@ -709,9 +715,13 @@ class AgentManager {
          if (ageMs < RINGING_MAX_AGE_MS) return;
          const inCall = await redisClient.hGet('activecalls:data', agentId);
          if (inCall) return; // answered — normal path owns cleanup
+         const agentState = await this.getAgentState(agentId);
+         if (agentState?.status === 'WRAP_UP') {
+            console.log(`[Router] 🛡️  evictStaleRinging skipped — agent ${agentId} is in WRAP_UP`);
+            return;
+         }
          console.log(`[Router] ⏰ Stale RINGING (${Math.round(ageMs / 1000)}s) for ${agentId} — auto-releasing`);
          await this.clearActiveCall(agentId);
-         const agentState = await this.getAgentState(agentId);
          await this.releaseAgent(agentId, agentState?.sessionId || null);
          evicted += 1;
          this.markDiagnostic('ghostEvicted');
