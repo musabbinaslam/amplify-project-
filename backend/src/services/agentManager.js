@@ -479,6 +479,15 @@ class AgentManager {
          return false;
       }
 
+      // 🛡️ WRAP_UP GUARD: If the agent is filling in their disposition form,
+      // absolutely refuse to put them back into the routing pool. The ONLY way
+      // to release a WRAP_UP agent is via clearWrapUp() + releaseAgent() from
+      // the disposition submit handler (updateCallLog).
+      if (data?.status === 'WRAP_UP') {
+         console.log(`[Router] 🛡️ releaseAgent BLOCKED for ${agentId} — agent is in WRAP_UP (disposition pending)`);
+         return false;
+      }
+
       // Always clear the active-call record atomically before re-entering the pool.
       // This prevents the "AVAILABLE but IN_CALL" split-state that causes dropped calls.
       await redisClient.hDel('activecalls:data', agentId);
