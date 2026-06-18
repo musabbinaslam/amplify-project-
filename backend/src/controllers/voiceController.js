@@ -326,9 +326,14 @@ exports.handleCallCompleted = async (req, res) => {
         // Release the agent that just failed/missed so they go back to AVAILABLE
         if (agentId) {
             try {
-                await agentManager.clearActiveCall(agentId);
+                const active = await agentManager.getActiveCall(agentId);
                 const agentState = await agentManager.getAgentState(agentId);
-                await agentManager.releaseAgent(agentId, agentState?.sessionId || null);
+                if (!active && agentState?.status === 'WRAP_UP') {
+                    console.log(`[Twilio] Call complete re-route ignored release for WRAP_UP agent ${agentId}`);
+                } else {
+                    await agentManager.clearActiveCall(agentId);
+                    await agentManager.releaseAgent(agentId, agentState?.sessionId || null);
+                }
             } catch (e) {
                 console.warn('[Router] Re-route release failed:', e.message);
             }
