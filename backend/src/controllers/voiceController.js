@@ -397,7 +397,10 @@ exports.handleCallCompleted = async (req, res) => {
             }
 
             // For conference calls or forcefully killed calls, Twilio might omit duration.
-            let effectiveDuration = DialCallDuration || req.body.CallDuration || computedDuration || 0;
+            // Use the caller-side duration (CallDuration) first — this matches what publishers
+            // measure and charge for. DialCallDuration starts only when the agent answers,
+            // so it excludes routing delay and can fall short of the publisher's buffer threshold.
+            let effectiveDuration = req.body.CallDuration || DialCallDuration || computedDuration || 0;
             
             // If we still have 0 duration but the call theoretically completed, fetch true duration from Twilio API directly
             if (Number(effectiveDuration) === 0 && CallSid) {
