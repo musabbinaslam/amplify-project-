@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Mic, Volume2, Shield, HeartPulse, Umbrella, AlertCircle,
   ChevronLeft, PhoneOff, Activity, ShieldCheck, Users,
-  PhoneIncoming, DollarSign, Clock, Phone, CheckCircle2, MapPin, PhoneOutgoing, Tv
+  PhoneIncoming, DollarSign, Clock, Phone, CheckCircle2, MapPin, PhoneOutgoing, Tv,
+  Plus, Trash2, Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -14,6 +15,7 @@ import useAuthStore from '../store/authStore';
 import { useAudioSettingsStore } from '../store/audioSettingsStore';
 import { apiFetch } from '../services/apiClient';
 import { stripeService } from '../services/stripeService';
+import { getProfile, saveProfile } from '../services/profileService';
 
 // All 50 US States
 const US_STATES = [
@@ -346,9 +348,14 @@ const StepTwo = ({ onNext, onBack }) => {
 };
 
 // ─── Step 3: Licensed States ─────────────────────────────────────────────────
-const StepThree = ({ onNext, onBack }) => {
+const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets }) => {
+  // Picker mode shows saved categories; editor mode builds a new one.
+  const hasPresets = statePresets.length > 0;
+  const [mode, setMode] = useState(hasPresets ? 'picker' : 'editor');
   const [selectedStates, setSelectedStates] = useState([]);
   const [search, setSearch] = useState('');
+  const [categoryName, setCategoryName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const toggleState = (code) => {
     setSelectedStates(prev =>
@@ -364,15 +371,115 @@ const StepThree = ({ onNext, onBack }) => {
     s.code.toLowerCase().includes(search.toLowerCase())
   );
 
+  const openEditor = () => {
+    setSelectedStates([]);
+    setSearch('');
+    setCategoryName('');
+    setMode('editor');
+  };
+
+  const saveCategory = async () => {
+    const name = categoryName.trim();
+    if (!name) {
+      toast.error('Give this category a name first.');
+      return;
+    }
+    if (selectedStates.length === 0) {
+      toast.error('Select at least one state.');
+      return;
+    }
+    const newPreset = {
+      id: (crypto?.randomUUID?.() || `preset_${Date.now()}`),
+      name,
+      states: selectedStates,
+    };
+    setIsSaving(true);
+    try {
+      await onSavePresets?.([...statePresets, newPreset]);
+      toast.success(`Saved "${name}".`);
+      setMode('picker');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const deletePreset = (id) => {
+    onSavePresets?.(statePresets.filter(p => p.id !== id));
+  };
+
+  // ── Picker mode: choose a saved category to instantly go live ──────────────
+  if (mode === 'picker') {
+    return (
+      <div className={`${classes.stepCard} ${classes.stepCardWide}`}>
+        <div className={classes.stepHead}>
+          <div className={classes.micIconBig}><MapPin size={30} /></div>
+          <h2>Licensed States</h2>
+        </div>
+        <p className={classes.subtitle}>Pick a saved state category to apply it and continue, or create a new one.</p>
+
+        <div className={classes.presetLayout}>
+          <div className={classes.presetList}>
+            {statePresets.map(preset => (
+              <div key={preset.id} className={classes.presetCard}>
+                <button
+                  className={classes.presetCardMain}
+                  onClick={() => onNext(preset.states)}
+                  title={`Apply ${preset.name} and continue`}
+                >
+                  <span className={classes.presetName}>{preset.name}</span>
+                  <span className={classes.presetMeta}>
+                    {preset.states.length} state{preset.states.length !== 1 ? 's' : ''}
+                  </span>
+                  <span className={classes.presetCodes}>{preset.states.join(', ')}</span>
+                </button>
+                <button
+                  className={classes.presetDeleteBtn}
+                  onClick={() => deletePreset(preset.id)}
+                  title={`Delete ${preset.name}`}
+                  aria-label={`Delete ${preset.name}`}
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className={classes.presetAddBox}>
+            <div className={classes.presetAddIcon}><Plus size={22} /></div>
+            <h3>New category</h3>
+            <p>Build a fresh set of licensed states and save it for next time.</p>
+            <button className={classes.primaryBtn} onClick={openEditor}>
+              <Plus size={16} /> Add category
+            </button>
+          </div>
+        </div>
+
+        <div className={classes.stickyActionBar}>
+          <button className={classes.ghostBtn} onClick={onBack}>Back</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Editor mode: build and save a new category ─────────────────────────────
   return (
     <div className={`${classes.stepCard} ${classes.stepCardWide}`}>
       <div className={classes.stepHead}>
         <div className={classes.micIconBig}><MapPin size={30} /></div>
-        <h2>Licensed States</h2>
+        <h2>{hasPresets ? 'New State Category' : 'Licensed States'}</h2>
       </div>
-      <p className={classes.subtitle}>Select every state you are licensed to sell insurance in. You'll only receive calls from these states.</p>
+      <p className={classes.subtitle}>Select every state you are licensed to sell insurance in, then save this as a reusable category.</p>
 
       <div className={classes.sectionCard}>
+        <input
+          className={classes.presetNameInput}
+          type="text"
+          placeholder="Category name (e.g. Southeast, My License Set)"
+          value={categoryName}
+          onChange={e => setCategoryName(e.target.value)}
+          maxLength={40}
+        />
+
         <div className={classes.statesToolbar}>
           <input
             className={classes.stateSearch}
@@ -412,9 +519,13 @@ const StepThree = ({ onNext, onBack }) => {
       </div>
 
       <div className={classes.stickyActionBar}>
-        <button className={classes.ghostBtn} onClick={onBack}>Back</button>
-        <button className={classes.primaryBtn} onClick={() => onNext(selectedStates)} disabled={selectedStates.length === 0}>
-          Continue
+        <button className={classes.ghostBtn} onClick={() => (hasPresets ? setMode('picker') : onBack())}>Back</button>
+        <button
+          className={classes.primaryBtn}
+          onClick={saveCategory}
+          disabled={isSaving || selectedStates.length === 0 || !categoryName.trim()}
+        >
+          <Save size={16} /> {isSaving ? 'Saving…' : 'Save category'}
         </button>
       </div>
     </div>
@@ -698,6 +809,7 @@ const TakeCallsPage = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [history, setHistory] = useState([]);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [statePresets, setStatePresets] = useState([]);
 
   const titles = ['Microphone Test', 'Select Campaign', 'Licensed States', 'Review & Go Live'];
 
@@ -708,8 +820,23 @@ const TakeCallsPage = () => {
       
       const walletData = await stripeService.getWallet();
       if (walletData) setWalletBalance(walletData.balance);
+
+      const profile = await getProfile(user?.uid);
+      if (profile && Array.isArray(profile.statePresets)) {
+        setStatePresets(profile.statePresets);
+      }
     } catch (err) {
       console.error('Error fetching data:', err);
+    }
+  };
+
+  const persistPresets = async (next) => {
+    setStatePresets(next);
+    try {
+      await saveProfile(user?.uid, { statePresets: next });
+    } catch (err) {
+      console.error('Failed to save state categories:', err);
+      toast.error('Failed to save category. Please try again.');
     }
   };
 
@@ -939,7 +1066,7 @@ const TakeCallsPage = () => {
             >
               {step === 1 && <StepOne onNext={() => setStep(2)} />}
               {step === 2 && <StepTwo onNext={(sel) => { setCampaign(sel); setStep(3); }} onBack={() => setStep(1)} />}
-              {step === 3 && <StepThree onNext={(states) => { setWizardStates(states); setStep(4); }} onBack={() => setStep(2)} />}
+              {step === 3 && <StepThree onNext={(states) => { setWizardStates(states); setStep(4); }} onBack={() => setStep(2)} statePresets={statePresets} onSavePresets={persistPresets} />}
               {step === 4 && <StepFour onBack={() => setStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} />}
             </motion.div>
           </AnimatePresence>
