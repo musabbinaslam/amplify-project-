@@ -378,32 +378,72 @@ const DashboardPage = () => {
   useEffect(() => {
     if (!user?.uid) return undefined;
     let cancelled = false;
-    const load = async (showSpinner = false) => {
+    let timerId = null;
+    const VISIBLE_MS = 60000;
+    const HIDDEN_MS = 180000;
+
+    const fetchLogs = async () => {
+      const { startDate, endDate } = computePeriodRange(period);
+      const prev = computePreviousPeriodRange(period);
+      const [logsRes, prevRes] = await Promise.all([
+        fetchDashboardLogs({ startDate, endDate, limit: 1000 }),
+        fetchDashboardLogs({ startDate: prev.startDate, endDate: prev.endDate, limit: 1000 }),
+      ]);
+      return {
+        logs: Array.isArray(logsRes) ? logsRes : [],
+        prevLogs: Array.isArray(prevRes) ? prevRes : [],
+      };
+    };
+
+    const load = async ({ showSpinner = false, includeProfile = false } = {}) => {
       try {
         if (showSpinner) setLoading(true);
-        const { startDate, endDate } = computePeriodRange(period);
-        const prev = computePreviousPeriodRange(period);
-        const [, logsRes, prevRes] = await Promise.all([
-          getProfile(user.uid),
-          fetchDashboardLogs({ startDate, endDate, limit: 1000 }),
-          fetchDashboardLogs({ startDate: prev.startDate, endDate: prev.endDate, limit: 1000 }),
-        ]);
+        if (includeProfile) {
+          await getProfile(user.uid);
+        }
+        const { logs: nextLogs, prevLogs: nextPrevLogs } = await fetchLogs();
         if (cancelled) return;
-        setLogs(Array.isArray(logsRes) ? logsRes : []);
-        setPrevLogs(Array.isArray(prevRes) ? prevRes : []);
+        setLogs(nextLogs);
+        setPrevLogs(nextPrevLogs);
         setError(null);
       } catch (err) {
         console.error('Dashboard load failed:', err);
-        if (!cancelled) setError(err.message || 'Failed to load dashboard data');
+        // Only block the UI on the first load — keep showing stale data if a background refresh fails.
+        if (!cancelled && showSpinner) {
+          setError(err.message || 'Failed to load dashboard data');
+        }
       } finally {
         if (!cancelled && showSpinner) setLoading(false);
       }
     };
-    load(true);
-    const interval = setInterval(() => load(false), 30000);
+
+    const schedule = () => {
+      if (timerId) window.clearTimeout(timerId);
+      const ms = document.visibilityState === 'visible' ? VISIBLE_MS : HIDDEN_MS;
+      timerId = window.setTimeout(() => {
+        load({ showSpinner: false }).finally(() => {
+          if (!cancelled) schedule();
+        });
+      }, ms);
+    };
+
+    load({ showSpinner: true, includeProfile: true }).then(() => {
+      if (!cancelled) schedule();
+    });
+
+    const handleWake = () => {
+      load({ showSpinner: false });
+      schedule();
+    };
+
+    document.addEventListener('visibilitychange', handleWake);
+    window.addEventListener('focus', handleWake);
+
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      if (timerId) window.clearTimeout(timerId);
+      document.removeEventListener('visibilitychange', handleWake);
+      window.removeEventListener('focus', handleWake);
     };
   }, [user?.uid, period]);
 

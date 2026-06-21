@@ -51,7 +51,7 @@ export async function apiFetch(path, options = {}, getIdToken) {
 
   const contentType = res.headers.get('content-type');
   const isJson = contentType && contentType.includes('application/json');
-  const data = isJson ? await res.json().catch(() => ({})) : null;
+  let data = isJson ? await res.json().catch(() => ({})) : null;
 
   if (!res.ok) {
     const msg =
@@ -64,4 +64,24 @@ export async function apiFetch(path, options = {}, getIdToken) {
   }
 
   return data;
+}
+
+function isRetryableNetworkError(err) {
+  if (!err || err.status) return false;
+  const msg = String(err.message || '').toLowerCase();
+  return msg.includes('failed to fetch') || msg.includes('network') || msg.includes('load failed');
+}
+
+/**
+ * Same as apiFetch but retries once on transient network failures (GET only).
+ */
+export async function apiFetchWithRetry(path, options = {}, getIdToken) {
+  const method = String(options.method || 'GET').toUpperCase();
+  try {
+    return await apiFetch(path, options, getIdToken);
+  } catch (err) {
+    if (method !== 'GET' || !isRetryableNetworkError(err)) throw err;
+    await new Promise((r) => setTimeout(r, 1500));
+    return apiFetch(path, options, getIdToken);
+  }
 }
