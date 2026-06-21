@@ -1,15 +1,35 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play, Pause, Pencil, SkipBack, SkipForward, Volume2, VolumeX, Download, Upload, X, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Download, Upload, X, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { apiFetch } from '../services/apiClient';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
+import { EASE_SMOOTH } from '../motion/appMotion';
 import { auth } from '../config/firebase';
 import CustomSelect from '../components/ui/CustomSelect';
 import PageLoader from '../components/ui/PageLoader';
 import classes from './CallLogsPage.module.css';
 
 const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
+
+/* eslint-disable react/prop-types -- local stat card helper */
+const StatCard = ({ label, value, icon: Icon, variants }) => {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      className={`glass ${classes.statCard}`}
+      variants={variants}
+      whileHover={reduceMotion ? undefined : { y: -3 }}
+      transition={{ duration: 0.2, ease: EASE_SMOOTH }}
+    >
+      <div className={classes.statIconBox}>
+        <Icon size={18} />
+      </div>
+      <div className={classes.statLabel}>{label}</div>
+      <div className={classes.statValue}>{value}</div>
+    </motion.div>
+  );
+};
 
 const CONTEST_CATEGORIES = [
   { id: 'disconnect', label: 'Call disconnected' },
@@ -705,15 +725,6 @@ const CallLogsPage = () => {
     return 'completed';
   };
 
-  // Determine disposition for display.
-  const getDisposition = (log) => {
-    if (log.isBillable) return 'Sold';
-    if (log.disposition) return log.disposition; // custom disposition
-    if (log.status === 'missed') return 'Missed';
-    if (log.status === 'completed' && log.duration > 0) return 'Answered';
-    return 'No Answer';
-  };
-
   // Format duration from seconds to mm:ss
   const formatDuration = (seconds) => {
     const secs = parseInt(seconds) || 0;
@@ -806,34 +817,10 @@ const CallLogsPage = () => {
       </motion.div>
 
       <motion.div className={classes.statsRow} variants={presets.statsStrip}>
-        <motion.div className={classes.statCard} variants={presets.child}>
-          <Phone size={18} />
-          <div>
-            <span className={classes.statValue}>{stats.total}</span>
-            <span className={classes.statLabel}>Total Calls</span>
-          </div>
-        </motion.div>
-        <motion.div className={classes.statCard} variants={presets.child}>
-          <PhoneIncoming size={18} />
-          <div>
-            <span className={classes.statValue}>{stats.completed}</span>
-            <span className={classes.statLabel}>Completed</span>
-          </div>
-        </motion.div>
-        <motion.div className={classes.statCard} variants={presets.child}>
-          <PhoneMissed size={18} />
-          <div>
-            <span className={classes.statValue}>{stats.missed}</span>
-            <span className={classes.statLabel}>Missed</span>
-          </div>
-        </motion.div>
-        <motion.div className={classes.statCard} variants={presets.child}>
-          <span className={classes.statIcon}>$</span>
-          <div>
-            <span className={classes.statValue}>{stats.sold}</span>
-            <span className={classes.statLabel}>Sold</span>
-          </div>
-        </motion.div>
+        <StatCard label="Total Calls" value={stats.total} icon={Phone} variants={presets.child} />
+        <StatCard label="Completed" value={stats.completed} icon={PhoneIncoming} variants={presets.child} />
+        <StatCard label="Missed" value={stats.missed} icon={PhoneMissed} variants={presets.child} />
+        <StatCard label="Sold" value={stats.sold} icon={DollarSign} variants={presets.child} />
       </motion.div>
 
       <motion.div className={classes.filters} variants={presets.child}>
@@ -876,7 +863,7 @@ const CallLogsPage = () => {
         <span className={classes.totalCalls}>{filtered.length} calls</span>
       </motion.div>
 
-      <motion.div className={classes.tableWrap} variants={presets.child}>
+      <motion.div className={`glass ${classes.tableWrap}`} variants={presets.child}>
         {loading ? (
           <div className={classes.emptyState}>
             <Loader size={20} className={classes.spinner} />
@@ -905,7 +892,6 @@ const CallLogsPage = () => {
               <tbody>
                 {paginatedLogs.map((log) => {
                   const callType = getCallType(log);
-                  const disposition = getDisposition(log);
                   const isInbound = callType === 'inbound';
                   const TypeIcon = isInbound ? PhoneIncoming : PhoneOutgoing;
                   const typeCls = isInbound ? 'typeInbound' : 'typeOutbound';
@@ -956,7 +942,7 @@ const CallLogsPage = () => {
                           ) : log.disposition === 'dead_air' ? (
                             <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Dead Air</span>
                           ) : log.disposition === 'policy_closed' ? (
-                            <span className={`${classes.dispBadge} ${classes.dispAnswered}`} style={{borderColor: 'var(--brand-text)'}}>Policy Closed</span>
+                            <span className={`${classes.dispBadge} ${classes.dispPolicyClosed}`}>Policy Closed</span>
                           ) : (
                             <span className={classes.scoreDash}>—</span>
                           )}

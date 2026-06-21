@@ -1,10 +1,26 @@
 .callLogs {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  padding-bottom: 40px;
+  gap: 24px;
+  padding-bottom: 32px;
   min-width: 0;
   max-width: 100%;
+}
+
+.callLogs::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(100% 40% at 50% 0%, var(--brand-dim), transparent 70%);
+  opacity: 0.25;
+}
+
+.callLogs > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* ─── Header ─── */
@@ -12,35 +28,38 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 16px;
 }
 
 .header h2 {
-  font-size: 1.5rem;
-  font-weight: 800;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--text-primary);
-  margin: 0 0 0.2rem;
+  margin: 0 0 4px;
 }
 
 .subtitle {
-  color: var(--text-muted);
-  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-size: 14px;
   margin: 0;
 }
 
 .searchBox {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 10px;
   background: var(--surface-container-low);
-  border: 1px solid var(--border);
-  padding: 0.55rem 1rem;
-  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
+  padding: 10px 16px;
+  border-radius: var(--radius-full);
   color: var(--text-secondary);
-  transition: border-color 0.2s;
+  transition: border-color 0.22s ease, background 0.22s ease;
+  min-width: 260px;
 }
 
 .searchBox:focus-within {
   border-color: var(--brand-text);
+  background: var(--surface-container);
 }
 
 .searchBox input {
@@ -48,8 +67,9 @@
   border: none !important;
   color: var(--text-primary);
   outline: none !important;
-  width: 220px;
-  font-size: 0.85rem;
+  width: 100%;
+  min-width: 180px;
+  font-size: 14px;
   padding: 0 !important;
   margin: 0;
   box-shadow: none !important;
@@ -57,48 +77,48 @@
 }
 
 .searchBox input::placeholder {
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
-/* ─── Stats row ─── */
+/* ─── Stats row (KPI pattern) ─── */
 .statsRow {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.75rem;
+  gap: 18px;
 }
 
 .statCard {
+  padding: 20px;
+}
+
+.statIconBox {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 1.15rem;
-  background: var(--surface-container-low);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  justify-content: center;
   color: var(--brand-text);
-}
-
-.statCard div {
-  display: flex;
-  flex-direction: column;
-}
-
-.statValue {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.2;
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+  margin-bottom: 16px;
 }
 
 .statLabel {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
 }
 
-.statIcon {
-  font-size: 1.1rem;
-  font-weight: 700;
+.statValue {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  margin-top: 6px;
+  line-height: 1.05;
 }
 
 /* ─── Filters ─── */
@@ -106,34 +126,39 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .filterGroup {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
 .dateSwitch {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .dateSelect {
   background: var(--surface-container-low);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.4rem 0.8rem;
+  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
+  border-radius: var(--radius-full);
+  padding: 9px 16px;
   color: var(--text-primary);
-  font-size: 0.82rem;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   outline: none;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s ease;
 }
 
-.dateSelect:focus, .dateSelect:hover {
+.dateSelect:focus,
+.dateSelect:hover {
   border-color: var(--brand-text);
 }
 
@@ -145,74 +170,74 @@
 .customDateInputs {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
   background: var(--surface-container-low);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.2rem 0.6rem;
+  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
+  border-radius: var(--radius-lg);
+  padding: 6px 12px;
 }
 
 .customDateInputs input[type="date"] {
   background: transparent;
   border: none;
   color: var(--text-primary);
-  font-size: 0.8rem;
+  font-size: 13px;
   outline: none;
   cursor: pointer;
 }
 
 .customDateInputs span {
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .filterTabs {
   display: flex;
-  gap: 0.35rem;
+  gap: 4px;
   background: var(--surface-container-low);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.2rem;
+  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
+  border-radius: var(--radius-lg);
+  padding: 4px;
 }
 
 .filterTab {
-  padding: 0.4rem 1rem;
+  padding: 8px 16px;
   border: none;
   background: transparent;
-  color: var(--text-muted);
-  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-size: 13px;
   font-weight: 600;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .filterTab:hover {
   color: var(--text-primary);
+  background: var(--surface-container-high);
 }
 
 .filterActive {
-  background: var(--brand-solid);
-  color: var(--brand-on);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  color: var(--brand-text);
 }
 
 .filterActive:hover {
-  color: #000;
+  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-text) 16%, transparent);
 }
 
 .totalCalls {
-  color: var(--text-muted);
-  font-size: 0.82rem;
-  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 /* ─── Table ─── */
 .tableWrap {
-  background: var(--surface-container-low);
-  border: 1px solid var(--border);
-  border-radius: 10px;
   overflow: hidden;
   max-width: 100%;
   min-width: 0;
+  padding: 0;
 }
 
 .tableScroll {
@@ -229,15 +254,15 @@
 }
 
 .table thead {
-  background: color-mix(in srgb, var(--surface-container-high) 60%, transparent);
+  background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
 }
 
 .table th {
   text-align: left;
   padding: 0.7rem 1rem;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   border-bottom: 1px solid var(--border);
@@ -254,8 +279,12 @@
   border-bottom: none;
 }
 
+.table tbody tr {
+  transition: background 0.15s ease;
+}
+
 .table tbody tr:hover {
-  background: color-mix(in srgb, var(--surface-container-high) 40%, transparent);
+  background: color-mix(in srgb, var(--surface-container-high) 35%, transparent);
 }
 
 .rowMissed {
@@ -340,13 +369,13 @@
 }
 
 .typeInbound {
-  background: color-mix(in srgb, var(--accent-green) 15%, transparent);
-  color: var(--accent-green);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  color: var(--brand-text);
 }
 
 .typeOutbound {
-  background: color-mix(in srgb, #3b82f6 15%, transparent);
-  color: #3b82f6;
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+  color: var(--accent-cyan);
 }
 
 /* ─── Disposition badge ─── */
@@ -387,46 +416,53 @@
 }
 
 .dispSold {
-  background: color-mix(in srgb, var(--accent-green) 15%, transparent);
-  color: var(--accent-green);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  color: var(--brand-text);
 }
 
 .dispCallback {
-  background: color-mix(in srgb, #f59e0b 15%, transparent);
-  color: #f59e0b;
+  background: color-mix(in srgb, var(--accent-yellow) 16%, transparent);
+  color: var(--accent-yellow);
 }
 
 .dispNotInterested {
-  background: color-mix(in srgb, #ef4444 12%, transparent);
-  color: #ef4444;
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent);
+  color: var(--accent-red);
 }
 
 .dispNoAnswer {
-  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
-  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-tertiary) 12%, transparent);
+  color: var(--text-tertiary);
 }
 
 .dispAnswered {
-  background: color-mix(in srgb, #3b82f6 15%, transparent);
-  color: #3b82f6;
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+  color: var(--accent-cyan);
 }
 
 .dispMissed {
-  background: color-mix(in srgb, #ef4444 12%, transparent);
-  color: #ef4444;
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent);
+  color: var(--accent-red);
+}
+
+.dispPolicyClosed {
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  color: var(--brand-text);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 28%, transparent);
 }
 
 /* ─── Campaign tag ─── */
 .campaignTag {
   display: inline-block;
-  padding: 0.2rem 0.6rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  background: color-mix(in srgb, var(--brand-text) 15%, transparent);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
   color: var(--brand-text);
-  letter-spacing: 0.02em;
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+  letter-spacing: 0.04em;
   white-space: nowrap;
 }
 
@@ -434,7 +470,7 @@
 .costValue {
   font-weight: 700;
   font-size: 0.85rem;
-  color: var(--accent-green);
+  color: var(--brand-text);
 }
 
 /* ─── Spinner ─── */
@@ -455,8 +491,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  color: var(--text-muted);
-  font-size: 0.88rem;
+  color: var(--text-secondary);
+  font-size: 14px;
   text-align: center;
   padding: 3rem 1rem;
 }
@@ -495,21 +531,22 @@
 .loadAudioBtn {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.8rem;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
   background: var(--surface-container-high);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
+  border-radius: var(--radius-full);
   color: var(--text-primary);
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .loadAudioBtn:hover {
   background: var(--surface-container-highest);
   border-color: var(--brand-text);
+  color: var(--brand-text);
 }
 
 .loadAudioBtn:disabled {
@@ -536,21 +573,22 @@
   gap: 1rem;
   padding: 1rem;
   border-top: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-container-low) 50%, transparent);
+  background: color-mix(in srgb, var(--surface-container-high) 25%, transparent);
+  flex-wrap: wrap;
 }
 
 .pageBtn {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.5rem 0.75rem;
+  padding: 8px 16px;
   background: var(--surface-container-high);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
+  border-radius: var(--radius-full);
   color: var(--text-primary);
-  font-size: 0.8rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .pageBtn:not(:disabled):hover {
@@ -565,9 +603,9 @@
 }
 
 .pageInfo {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 /* ─── Recording Modal ─── */
@@ -592,14 +630,14 @@
 
 .modalContent {
   background: var(--surface-container-low);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, #ffffff 9%, transparent);
   border-radius: var(--radius-xl);
   width: 100%;
   max-width: 560px;
   overflow: hidden;
   box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 18px 40px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   animation: modalFadeIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -1004,32 +1042,93 @@
 }
 
 /* ─── Responsive ─── */
+@media (max-width: 1024px) {
+  .callLogs {
+    gap: 20px;
+  }
+
+  .statsRow {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  .statValue {
+    font-size: 28px;
+  }
+}
+
 @media (max-width: 768px) {
   .header {
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 12px;
   }
 
-  .searchBox input {
+  .searchBox {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .filters {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filterGroup {
     width: 100%;
   }
 
   .statsRow {
     grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 
+  .statCard {
+    padding: 16px;
+  }
+
+  .statValue {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .callLogs {
+    gap: 16px;
+  }
+
+  .statsRow {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .statIconBox {
+    width: 36px;
+    height: 36px;
+    margin-bottom: 12px;
+  }
+
+  .statValue {
+    font-size: 21px;
+  }
+
+  .statLabel {
+    font-size: 11px;
+  }
 }
 
 .contestModal {
-  background: var(--surface-container);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  background: var(--surface-container-low);
+  border: 1px solid color-mix(in srgb, #ffffff 9%, transparent);
+  border-radius: var(--radius-xl);
   width: min(480px, 92vw);
   max-height: 90vh;
   overflow-y: auto;
   padding: 1.25rem 1.25rem 1.5rem;
   display: flex;
   flex-direction: column;
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .contestModalHeader {
