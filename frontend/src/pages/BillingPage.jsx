@@ -1,20 +1,33 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { DollarSign, Clock, RefreshCw, CheckCircle2, X, AlertCircle, Gift, Wallet, TrendingUp } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { DollarSign, Clock, RefreshCw, CheckCircle2, AlertCircle, Gift, Wallet, TrendingUp } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
+import { EASE_SMOOTH } from '../motion/appMotion';
 import classes from './BillingPage.module.css';
 import { stripeService } from '../services/stripeService';
 import { referralService } from '../services/referralService';
 import PageLoader from '../components/ui/PageLoader';
+import AddCreditsModal from '../components/modals/AddCreditsModal';
 
-const TOPUP_TIERS = [
-  { id: 'tier_50', label: '$50', amountCents: 5000 },
-  { id: 'tier_100', label: '$100', amountCents: 10000 },
-  { id: 'tier_250', label: '$250', amountCents: 25000, popular: true },
-  { id: 'tier_500', label: '$500', amountCents: 50000 },
-  { id: 'tier_1000', label: '$1,000', amountCents: 100000 },
-];
+/* eslint-disable react/prop-types -- local stat card helper */
+const StatCard = ({ label, value, icon: Icon, variants, valueClassName }) => {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      className={`glass ${classes.statCard}`}
+      variants={variants}
+      whileHover={reduceMotion ? undefined : { y: -3 }}
+      transition={{ duration: 0.2, ease: EASE_SMOOTH }}
+    >
+      <div className={classes.statIconBox}>
+        <Icon size={18} />
+      </div>
+      <div className={classes.statLabel}>{label}</div>
+      <div className={`${classes.statValue} ${valueClassName || ''}`}>{value}</div>
+    </motion.div>
+  );
+};
 
 const BillingPage = () => {
   const presets = useSubtlePageMotion();
@@ -22,6 +35,7 @@ const BillingPage = () => {
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showTopupModal, setShowTopupModal] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -49,18 +63,18 @@ const BillingPage = () => {
             setErrorMsg(err.message || 'Payment succeeded, but we could not verify credits yet. Please refresh in a moment.');
           }
         } else {
-          // Backward compatibility for checkouts created before session_id was added.
           setSuccessMsg('Payment successful! Credits are being processed.');
         }
       }
 
       await fetchWallet();
 
-      // Fetch referral discount status
       try {
         const discountData = await referralService.getDiscountStatus();
         setDiscount(discountData);
-      } catch {} // non-blocking
+      } catch {
+        // non-blocking
+      }
     };
 
     initBilling();
@@ -103,6 +117,21 @@ const BillingPage = () => {
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const data = await stripeService.getWallet();
+      setWallet(data);
+      setTransactions(data.transactions || []);
+      window.dispatchEvent(new CustomEvent('wallet_updated', { detail: data.balance }));
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Failed to refresh wallet information.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const handleTopup = async (amountCents) => {
     if (checkoutInFlightRef.current) return;
     checkoutInFlightRef.current = true;
@@ -110,7 +139,7 @@ const BillingPage = () => {
     setErrorMsg('');
     try {
       const { url } = await stripeService.createCheckout(amountCents);
-      window.location.href = url; // Redirect to Stripe Checkout
+      window.location.href = url;
     } catch (err) {
       console.error(err);
       setErrorMsg(err.message);
@@ -136,147 +165,154 @@ const BillingPage = () => {
 
   return (
     <>
-    <motion.div
-      className={classes.billingPage}
-      variants={presets.root}
-      initial="hidden"
-      animate="visible"
-    >
-      <motion.div variants={presets.child}>
-        {errorMsg && <div className={classes.errorBanner}><AlertCircle size={16}/> {errorMsg}</div>}
-        {successMsg && <div className={classes.successBanner}><CheckCircle2 size={16}/> {successMsg}</div>}
-
-        {discount?.hasDiscount && !discount.expired && (
-          <div className={classes.successBanner} style={{ gap: 10 }}>
-            <Gift size={18} />
-            <span>
-              <strong>{discount.percent}% referral discount active!</strong> Your next top-up will be discounted.
-              {discount.expiresAt && ` Expires ${new Date(discount.expiresAt).toLocaleDateString()}.`}
-            </span>
-          </div>
+      <motion.div
+        className={classes.page}
+        variants={presets.root}
+        initial="hidden"
+        animate="visible"
+      >
+        {(errorMsg || successMsg || (discount?.hasDiscount && !discount.expired)) && (
+          <motion.div className={classes.bannerStack} variants={presets.child}>
+            {errorMsg && (
+              <div className={classes.errorBanner}>
+                <AlertCircle size={16} />
+                {errorMsg}
+              </div>
+            )}
+            {successMsg && (
+              <div className={classes.successBanner}>
+                <CheckCircle2 size={16} />
+                {successMsg}
+              </div>
+            )}
+            {discount?.hasDiscount && !discount.expired && (
+              <div className={classes.discountBanner}>
+                <Gift size={18} />
+                <span>
+                  <strong>{discount.percent}% referral discount active!</strong> Your next top-up will be discounted.
+                  {discount.expiresAt && ` Expires ${new Date(discount.expiresAt).toLocaleDateString()}.`}
+                </span>
+              </div>
+            )}
+          </motion.div>
         )}
-      </motion.div>
 
-      <motion.section className={classes.sectionBox} variants={presets.child}>
-        <div className={classes.sectionTop}>
-          <div className={classes.sectionHeader}>
-            <h3><DollarSign size={20} className={classes.blueIcon} /> Account Balance</h3>
-            <p>Your wallet summary and quick top-up actions</p>
+        <motion.section className={`glass ${classes.balanceSection}`} variants={presets.child}>
+          <div className={classes.sectionTop}>
+            <div className={classes.sectionHeader}>
+              <div className={classes.iconBox} aria-hidden="true">
+                <DollarSign size={20} />
+              </div>
+              <div className={classes.sectionHeaderText}>
+                <h3>Account Balance</h3>
+                <p>Your wallet summary and quick top-up actions</p>
+              </div>
+            </div>
+            <button type="button" className={classes.addCreditsBtn} onClick={() => setShowTopupModal(true)}>
+              + Add Credits
+            </button>
           </div>
-          <button className={classes.addCreditsBtn} onClick={() => setShowTopupModal(true)}>+ Add Credits</button>
-        </div>
 
-        <div className={classes.balanceRow}>
-          <div className={classes.balanceMeta}>
+          <div className={classes.balanceHero}>
             <div className={classes.balanceAmount}>{formatMoney(balance)}</div>
             {balance < 5000 && (
               <div className={classes.lowBalanceWarning}>
-                <AlertCircle size={14} /> Low balance - add credits to continue taking calls
+                <AlertCircle size={14} />
+                Low balance — add credits to continue taking calls
               </div>
             )}
           </div>
-        </div>
 
-        <div className={classes.statsGrid}>
-          <div className={classes.statCard}>
-            <Wallet size={16} />
-            <span>Credits Added</span>
-            <strong>{formatMoney(totalCreditsAdded)}</strong>
-          </div>
-          <div className={classes.statCard}>
-            <TrendingUp size={16} />
-            <span>Total Spent</span>
-            <strong>{formatMoney(totalSpent)}</strong>
-          </div>
-          <div className={classes.statCard}>
-            <Clock size={16} />
-            <span>Last Top-up</span>
-            <strong>{lastTopup ? new Date(lastTopup.createdAt).toLocaleDateString() : 'No top-up yet'}</strong>
-          </div>
-        </div>
-      </motion.section>
+          <motion.div className={classes.statsRow} variants={presets.statsStrip}>
+            <StatCard
+              label="Credits Added"
+              value={formatMoney(totalCreditsAdded)}
+              icon={Wallet}
+              variants={presets.child}
+            />
+            <StatCard
+              label="Total Spent"
+              value={formatMoney(totalSpent)}
+              icon={TrendingUp}
+              variants={presets.child}
+            />
+            <StatCard
+              label="Last Top-up"
+              value={lastTopup ? new Date(lastTopup.createdAt).toLocaleDateString() : 'No top-up yet'}
+              icon={Clock}
+              variants={presets.child}
+              valueClassName={lastTopup ? '' : classes.statValueSmall}
+            />
+          </motion.div>
+        </motion.section>
 
-      <motion.section className={classes.sectionBox} variants={presets.child}>
-        <div className={classes.sectionTop}>
-          <div>
-            <h3><Clock size={20} /> Transaction History</h3>
-            <p>Credit additions, call deductions, and balance changes</p>
-          </div>
-          <button className={classes.refreshBtn} onClick={fetchWallet}><RefreshCw size={14} className={loading ? classes.spinner : ''} /> Refresh</button>
-        </div>
-        {transactions.length === 0 ? (
-          <div className={classes.emptyStateBox}>
-            <Clock size={34} className={classes.emptyIcon} />
-            <p>No transactions yet</p>
-            <span>Your credit history will appear here</span>
-          </div>
-        ) : (
-          <div className={classes.tableWrap}>
-            <table className={classes.table}>
-              <thead>
-                <tr>
-                  <th>Description</th>
-                  <th>Amount</th>
-                  <th>Balance After</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map(t => (
-                  <tr key={t.id}>
-                    <td>{t.description}</td>
-                    <td className={t.type === 'credit' ? classes.creditAmt : classes.debitAmt}>
-                      {t.type === 'credit' ? '+' : '-'}{formatMoney(Math.abs(t.amountCents))}
-                    </td>
-                    <td>{formatMoney(t.balanceAfterCents || 0)}</td>
-                    <td className={classes.dateCell}>{new Date(t.createdAt).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </motion.section>
-    </motion.div>
-
-      {showTopupModal && (
-        <div className={classes.modalOverlay} onClick={() => setShowTopupModal(false)}>
-          <div className={classes.modalBox} onClick={e => e.stopPropagation()}>
-            <div className={classes.modalHeader}>
-              <h3>Add Call Credits</h3>
-              <button className={classes.closeBtn} onClick={() => setShowTopupModal(false)}><X size={18}/></button>
+        <motion.section className={`glass ${classes.historySection}`} variants={presets.child}>
+          <div className={classes.sectionTop}>
+            <div className={classes.sectionHeader}>
+              <div className={classes.iconBox} aria-hidden="true">
+                <Clock size={20} />
+              </div>
+              <div className={classes.sectionHeaderText}>
+                <h3>Transaction History</h3>
+                <p>Credit additions, call deductions, and balance changes</p>
+              </div>
             </div>
-            <p className={classes.modalSub}>Select a top-up amount. Credits will be instantly added to your wallet.</p>
-            
-            <div className={classes.tiersGrid}>
-              {TOPUP_TIERS.map(tier => {
-                const hasDisc = discount?.hasDiscount && !discount.expired;
-                const discountedCents = hasDisc
-                  ? Math.round(tier.amountCents * (1 - discount.percent / 100))
-                  : tier.amountCents;
-                return (
-                  <button 
-                    key={tier.id} 
-                    className={`${classes.tierBtn} ${tier.popular ? classes.tierPopular : ''}`}
-                    onClick={() => handleTopup(tier.amountCents)}
-                    disabled={checkoutLoading}
-                  >
-                    {tier.popular && <span className={classes.popularBadge}>Most Popular</span>}
-                    {hasDisc ? (
-                      <span className={classes.tierAmount}>
-                        <span style={{ textDecoration: 'line-through', opacity: 0.5, fontSize: '0.7em', marginRight: 8 }}>{tier.label}</span>
-                        ${(discountedCents / 100).toFixed(0)}
-                      </span>
-                    ) : (
-                      <span className={classes.tierAmount}>{tier.label}</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            <button
+              type="button"
+              className={classes.refreshBtn}
+              onClick={handleRefresh}
+              disabled={refreshing}
+            >
+              <RefreshCw size={14} className={refreshing ? classes.spinner : ''} />
+              Refresh
+            </button>
           </div>
-        </div>
-      )}
+
+          {transactions.length === 0 ? (
+            <div className={classes.emptyStateBox}>
+              <Clock size={34} className={classes.emptyIcon} />
+              <p>No transactions yet</p>
+              <span>Your credit history will appear here</span>
+            </div>
+          ) : (
+            <div className={`glass ${classes.tableWrap}`}>
+              <div className={classes.tableScroll}>
+                <table className={classes.table}>
+                  <thead>
+                    <tr>
+                      <th>Description</th>
+                      <th>Amount</th>
+                      <th>Balance After</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transactions.map((t) => (
+                      <tr key={t.id}>
+                        <td>{t.description}</td>
+                        <td className={t.type === 'credit' ? classes.creditAmt : classes.debitAmt}>
+                          {t.type === 'credit' ? '+' : '-'}
+                          {formatMoney(Math.abs(t.amountCents))}
+                        </td>
+                        <td>{formatMoney(t.balanceAfterCents || 0)}</td>
+                        <td className={classes.dateCell}>{new Date(t.createdAt).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </motion.section>
+      </motion.div>
+
+      <AddCreditsModal
+        isOpen={showTopupModal}
+        onClose={() => setShowTopupModal(false)}
+        discount={discount}
+        checkoutLoading={checkoutLoading}
+        onTopup={handleTopup}
+      />
     </>
   );
 };
