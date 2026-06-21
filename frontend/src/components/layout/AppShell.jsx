@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
+import { Wrench } from 'lucide-react';
 import { routeOutletMotion } from '../../motion/appMotion';
 import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
@@ -201,6 +202,7 @@ const AppShell = () => {
     const countdownTarget = isActive ? endMs : startMs;
     return {
       title: maintenance.title || 'Scheduled Maintenance',
+      message: maintenance.message?.trim() || '',
       startLabel: formatAbsolute(maintenance.startsAt),
       endLabel: formatAbsolute(maintenance.endsAt),
       downtimeLabel: formatDuration(maintenance.startsAt, maintenance.endsAt),
@@ -217,18 +219,42 @@ const AppShell = () => {
         <Sidebar />
         <div className={`${classes.contentWrapper} ${isSidebarCollapsed ? classes.collapsed : ''}`}>
           {maintenanceView ? (
-            <div className={classes.maintenanceBanner}>
+            <div
+              className={`${classes.maintenanceBanner} ${maintenanceView.active ? classes.maintenanceActive : classes.maintenanceUpcoming}`}
+              role="alert"
+              aria-live="polite"
+            >
+              <div className={classes.maintenanceIcon} aria-hidden="true">
+                <Wrench size={18} />
+              </div>
               <div className={classes.maintenanceMain}>
-                <strong>{maintenanceView.title}</strong>
+                <div className={classes.maintenanceHeadline}>
+                  <span className={classes.maintenanceEyebrow}>
+                    {maintenanceView.active ? 'Maintenance active' : 'Scheduled maintenance'}
+                  </span>
+                  <strong>{maintenanceView.title}</strong>
+                </div>
+                {maintenanceView.message ? (
+                  <p className={classes.maintenanceMessage}>{maintenanceView.message}</p>
+                ) : null}
               </div>
               <div className={classes.maintenanceMeta}>
-                <span><b>Start:</b> {maintenanceView.startLabel}</span>
-                <span><b>End:</b> {maintenanceView.endLabel}</span>
-                <span><b>Downtime:</b> {maintenanceView.downtimeLabel}</span>
+                <div className={classes.maintenanceMetaItem}>
+                  <span className={classes.maintenanceMetaLabel}>Start</span>
+                  <span className={classes.maintenanceMetaValue}>{maintenanceView.startLabel}</span>
+                </div>
+                <div className={classes.maintenanceMetaItem}>
+                  <span className={classes.maintenanceMetaLabel}>End</span>
+                  <span className={classes.maintenanceMetaValue}>{maintenanceView.endLabel}</span>
+                </div>
+                <div className={classes.maintenanceMetaItem}>
+                  <span className={classes.maintenanceMetaLabel}>Downtime</span>
+                  <span className={classes.maintenanceMetaValue}>{maintenanceView.downtimeLabel}</span>
+                </div>
               </div>
-              <div className={`${classes.maintenanceTimer} ${maintenanceView.active ? classes.activeTimer : ''}`}>
-                <span>{maintenanceView.countdownLabel}</span>
-                <strong>{maintenanceView.countdownValue}</strong>
+              <div className={classes.maintenanceTimer}>
+                <span className={classes.maintenanceTimerLabel}>{maintenanceView.countdownLabel}</span>
+                <strong className={classes.maintenanceTimerValue}>{maintenanceView.countdownValue}</strong>
               </div>
             </div>
           ) : null}
