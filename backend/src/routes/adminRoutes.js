@@ -27,6 +27,10 @@ router.patch('/referrals/:referralId/status', adminController.updateReferralStat
 router.post('/referrals/grant-discount', adminController.grantDiscount);
 router.post('/referrals/revoke-discount', adminController.revokeDiscount);
 router.post('/notifications/broadcast', adminController.postBroadcastNotification);
+router.get('/notifications/broadcasts', adminController.getBroadcastNotifications);
+router.get('/notifications/broadcasts/:id', adminController.getBroadcastNotification);
+router.patch('/notifications/broadcasts/:id', adminController.patchBroadcastNotification);
+router.delete('/notifications/broadcasts/:id', adminController.deleteBroadcastNotification);
 router.get('/maintenance', adminController.getMaintenance);
 router.patch('/maintenance', adminController.patchMaintenance);
 
