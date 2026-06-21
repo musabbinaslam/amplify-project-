@@ -2,7 +2,9 @@
 
 Design reference extracted from the redesigned Dashboard. Use this document when updating any authenticated `/app` screen so the product feels cohesive.
 
-**Reference implementation:** [DashboardPage.jsx](../src/pages/DashboardPage.jsx) + [DashboardPage.module.css](../src/pages/DashboardPage.module.css)
+**Reference implementations:**
+- Dashboard — [DashboardPage.jsx](../src/pages/DashboardPage.jsx) + [DashboardPage.module.css](../src/pages/DashboardPage.module.css)
+- Welcome — [WelcomePage.jsx](../src/pages/WelcomePage.jsx) + [WelcomePage.module.css](../src/pages/WelcomePage.module.css)
 
 **Token source of truth:** [variables.css](../src/styles/variables.css)  
 **Motion source of truth:** [appMotion.js](../src/motion/appMotion.js)
@@ -316,6 +318,45 @@ Pill shape, 0.72rem / 600, semantic background at ~14% opacity:
 - Error banner: red 10% bg, 40% border, `--radius-lg`.
 - Loading: `PageLoader` on first paint; inline spinner for section-level loads.
 
+### 7.10 Welcome page
+
+Simple onboarding screen: hero greeting + single glass tutorial card with embedded video.
+
+**Page shell**
+- `.page` with ambient wash `::before` (same gradient/opacity as Billing/Settings).
+- `.contentColumn`: `width: min(100%, 880px); margin-inline: auto`.
+
+**Hero**
+- Title: 28px / 800 desktop → 22px mobile; subtitle 14px secondary.
+- Wave emoji: CSS `@keyframes wave`; gate with `useReducedMotion()` + `prefers-reduced-motion` fallback.
+
+**Tutorial card**
+- `` `glass ${classes.videoCard}` `` with §7.3 `iconBox` + `cardHeader` / `cardDivider`.
+- Padding: 22–24px desktop, scales down at 768px / 480px.
+- No card drop shadow — depth from glass surface only.
+
+**Responsive video shell**
+
+Fill the card width by default; only shrink on short viewports (pure CSS, no resize listeners):
+
+```css
+.videoPlayer {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+@media (max-height: 760px) {
+  .videoPlayer {
+    width: min(100%, calc(min(52vh, 540px) * 16 / 9));
+    margin-inline: auto;
+  }
+}
+```
+
+Mobile + short height: `≤480px` and `max-height: 760px` → `min(44vh, 360px)` height cap.
+
+**Removed anti-patterns:** flat opaque card + `box-shadow: 0 8px 32px`, inline iframe styles, dead thumbnail/play-bubble glow CSS.
+
 ---
 
 ## 8. Charts (Recharts)
@@ -417,9 +458,10 @@ When redesigning a page (Call Logs, Billing, Take Calls, etc.):
 
 1. Call Logs (table + filters — high traffic)
 2. Billing (stats + tables)
-3. Welcome / Profile (cards + forms)
-4. Take Calls (complex — migrate section by section)
-5. Admin / QA dashboards (reuse dashboard patterns directly)
+3. ~~Welcome~~ ✓ — [WelcomePage](../src/pages/WelcomePage.jsx) (cards + embedded video)
+4. Profile (cards + forms)
+5. Take Calls (complex — migrate section by section)
+6. Admin / QA dashboards (reuse dashboard patterns directly)
 
 ---
 
