@@ -14,8 +14,17 @@
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background: radial-gradient(100% 40% at 50% 0%, var(--brand-dim), transparent 70%);
-  opacity: 0.25;
+  background:
+    radial-gradient(120% 55% at 50% -12%, var(--brand-dim), transparent 60%),
+    radial-gradient(80% 50% at 100% 0%, color-mix(in srgb, var(--accent-cyan) 6%, transparent), transparent 55%);
+  opacity: 0.35;
+}
+
+[data-theme="light"] .callLogs::before {
+  opacity: 0.55;
+  background:
+    radial-gradient(100% 50% at 50% 0%, var(--brand-dim), transparent 68%),
+    radial-gradient(80% 40% at 100% 20%, color-mix(in srgb, var(--accent-cyan) 8%, transparent), transparent 60%);
 }
 
 .callLogs > * {
@@ -48,18 +57,27 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--surface-container-low);
-  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--glass-edge);
   padding: 10px 16px;
   border-radius: var(--radius-full);
   color: var(--text-secondary);
-  transition: border-color 0.22s ease, background 0.22s ease;
+  transition: border-color 0.22s ease, background 0.22s ease, box-shadow 0.22s ease;
   min-width: 260px;
 }
 
 .searchBox:focus-within {
-  border-color: var(--brand-text);
-  background: var(--surface-container);
+  border-color: color-mix(in srgb, var(--brand-text) 18%, var(--glass-border));
+  background: var(--glass-bg-hover);
+}
+
+[data-theme="light"] .searchBox:focus-within {
+  box-shadow:
+    var(--glass-highlight),
+    0 6px 22px rgba(0, 0, 0, 0.1);
 }
 
 .searchBox input {
@@ -89,6 +107,11 @@
 
 .statCard {
   padding: 20px;
+}
+
+.statCard > * {
+  position: relative;
+  z-index: 1;
 }
 
 .statIconBox {
@@ -128,6 +151,7 @@
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
+  z-index: 2;
 }
 
 .filterGroup {
@@ -145,8 +169,11 @@
 }
 
 .dateSelect {
-  background: var(--surface-container-low);
-  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
+  background: var(--glass-bg) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--glass-highlight), var(--glass-edge);
   border-radius: var(--radius-full);
   padding: 9px 16px;
   color: var(--text-primary);
@@ -154,12 +181,12 @@
   font-weight: 600;
   outline: none;
   cursor: pointer;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
-.dateSelect:focus,
 .dateSelect:hover {
-  border-color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 18%, var(--glass-border)) !important;
+  background: var(--glass-bg-hover) !important;
 }
 
 .dateSelect option {
@@ -171,8 +198,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--surface-container-low);
-  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--glass-edge);
   border-radius: var(--radius-lg);
   padding: 6px 12px;
 }
@@ -193,10 +223,13 @@
 .filterTabs {
   display: flex;
   gap: 4px;
-  background: var(--surface-container-low);
-  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
-  border-radius: var(--radius-lg);
   padding: 4px;
+  border-radius: var(--radius-lg);
+}
+
+.filterTabs > * {
+  position: relative;
+  z-index: 1;
 }
 
 .filterTab {
@@ -238,6 +271,11 @@
   max-width: 100%;
   min-width: 0;
   padding: 0;
+}
+
+.tableWrap > * {
+  position: relative;
+  z-index: 1;
 }
 
 .tableScroll {
@@ -629,16 +667,15 @@
 }
 
 .modalContent {
-  background: var(--surface-container-low);
-  border: 1px solid color-mix(in srgb, #ffffff 9%, transparent);
-  border-radius: var(--radius-xl);
   width: 100%;
-  max-width: 560px;
+  max-width: 520px;
   overflow: hidden;
-  box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   animation: modalFadeIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.modalContent > * {
+  position: relative;
+  z-index: 1;
 }
 
 @keyframes modalFadeIn {
@@ -716,11 +753,20 @@
 }
 
 .recordingBody {
-  padding: 1.25rem 1.4rem 1.4rem;
+  padding: 1.1rem 1.25rem 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
   min-height: 120px;
+}
+
+.playerPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.hiddenAudio {
+  display: none;
 }
 
 .loadingState {
@@ -740,59 +786,97 @@
   padding: 1.5rem 0;
 }
 
-.timeRow {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.78rem;
+.timeLabel {
+  font-size: 0.75rem;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
   letter-spacing: 0.02em;
-  margin-top: -0.2rem;
+  min-width: 2.5rem;
+  flex-shrink: 0;
 }
 
-/* ─── Equalizer (ambient bars) ─── */
-.eqRow {
+.timeLabel:last-child {
+  text-align: right;
+}
+
+.progressBlock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progressBlock .scrubber {
+  flex: 1;
+  padding: 6px 0;
+}
+
+/* ─── Player visualizer ─── */
+.playerVisual {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
+  border: 1px solid var(--glass-border);
+  min-height: 72px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: 6px;
-  height: 36px;
-  padding: 4px 0 2px;
+  padding: 14px 16px 10px;
 }
 
-.eqBar {
-  width: 4px;
-  height: 28px;
-  border-radius: 4px;
+.visualizerBars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 44px;
+  opacity: 0.45;
+}
+
+.visualizerBar {
+  flex: 1;
+  max-width: 6px;
+  height: 100%;
+  border-radius: 999px;
   background: linear-gradient(
     to top,
     var(--brand-solid),
-    color-mix(in srgb, var(--brand-solid) 55%, transparent)
+    color-mix(in srgb, var(--brand-solid) 40%, transparent)
   );
   transform-origin: bottom center;
-  animation: eqPulse 0.9s ease-in-out infinite alternate;
-  opacity: 0.9;
-  box-shadow: 0 0 8px var(--brand-glow);
+  transform: scaleY(0.22);
+  transition: transform 0.25s ease, opacity 0.25s ease;
 }
 
-.eqPaused .eqBar {
-  animation-play-state: paused;
-  transform: scaleY(0.25);
-  opacity: 0.35;
-  box-shadow: none;
+.playerVisualActive .visualizerBar {
+  animation: eqPulse 0.85s ease-in-out infinite alternate;
+  opacity: 0.95;
 }
 
-@keyframes eqPulse {
-  0% { transform: scaleY(0.3); }
-  100% { transform: scaleY(1); }
+.visualizerProgress {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--brand-solid) 18%, transparent),
+    transparent 100%
+  );
+  pointer-events: none;
+  transition: width 0.08s linear;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .eqBar {
+  .playerVisualActive .visualizerBar {
     animation: none !important;
     transform: scaleY(0.55);
   }
+}
+
+@keyframes eqPulse {
+  0% { transform: scaleY(0.25); }
+  100% { transform: scaleY(1); }
 }
 
 /* ─── Scrubber ─── */
@@ -873,16 +957,29 @@
 
 /* ─── Transport controls ─── */
 .controlsRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  column-gap: 16px;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 4px 0 2px;
+  width: 100%;
+}
+
+.controlsRow > .skipBtn:first-child {
+  justify-self: end;
+}
+
+.controlsRow > .playBtn {
+  grid-column: 2;
+}
+
+.controlsRow > .skipBtn:last-child {
+  grid-column: 3;
+  justify-self: start;
 }
 
 .playBtn {
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: var(--brand-solid);
   color: var(--brand-on);
@@ -891,6 +988,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
   transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
   box-shadow: 0 6px 20px var(--brand-glow);
 }
@@ -925,76 +1023,51 @@
   background: var(--surface-container-highest);
 }
 
-/* ─── Footer (speed, volume, download) ─── */
-.footerRow {
+/* ─── Volume (compact, centered) ─── */
+.volumeBlock {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 2px;
-  border-top: 1px solid var(--border);
-  padding-top: 14px;
-}
-
-.speedPill {
-  min-width: 48px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--surface-container-high);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-  font-variant-numeric: tabular-nums;
-  transition: all 0.15s ease;
-}
-
-.speedPill:hover {
-  color: var(--brand-text);
-  border-color: color-mix(in srgb, var(--brand-text) 40%, var(--border));
-}
-
-.volumeWrap {
-  flex: 1;
-  display: flex;
-  align-items: center;
+  justify-content: center;
   gap: 8px;
-  max-width: 220px;
-  margin: 0 auto;
+  width: 100%;
+  margin: -4px 0 0;
+  transform: translateX(-8px);
 }
 
 .volumeBtn {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
   border-radius: 50%;
-  background: transparent;
-  border: none;
+  background: var(--surface-container-high);
+  border: 1px solid var(--border);
   color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
 .volumeBtn:hover {
   color: var(--brand-text);
-  background: var(--surface-container-high);
+  border-color: color-mix(in srgb, var(--brand-text) 35%, var(--border));
+  background: var(--surface-container-highest);
 }
 
 .volumeInput {
   -webkit-appearance: none;
   appearance: none;
-  flex: 1;
+  width: 112px;
+  flex-shrink: 0;
   height: 4px;
   border-radius: 999px;
   outline: none;
   background: linear-gradient(
     to right,
     var(--brand-solid) 0%,
-    var(--brand-solid) calc(var(--volume-pct, 100%)),
-    var(--surface-container-highest) calc(var(--volume-pct, 100%)),
+    var(--brand-solid) var(--volume-pct, 100%),
+    var(--surface-container-highest) var(--volume-pct, 100%),
     var(--surface-container-highest) 100%
   );
   cursor: pointer;
@@ -1018,6 +1091,42 @@
   background: var(--brand-solid);
   border: 2px solid var(--surface);
   cursor: pointer;
+}
+
+.volumeInput::-moz-range-track {
+  background: transparent;
+  height: 4px;
+  border-radius: 999px;
+}
+
+/* ─── Footer actions (speed + download) ─── */
+.footerActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 2px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.speedPill {
+  min-width: 48px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface-container-high);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: all 0.15s ease;
+}
+
+.speedPill:hover {
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 40%, var(--border));
 }
 
 .downloadBtn {
@@ -1117,8 +1226,10 @@
 }
 
 .contestModal {
-  background: var(--surface-container-low);
-  border: 1px solid color-mix(in srgb, #ffffff 9%, transparent);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   width: min(480px, 92vw);
   max-height: 90vh;
@@ -1126,9 +1237,7 @@
   padding: 1.25rem 1.25rem 1.5rem;
   display: flex;
   flex-direction: column;
-  box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: var(--glass-highlight), var(--glass-edge), 0 18px 40px rgba(0, 0, 0, 0.25);
 }
 
 .contestModalHeader {

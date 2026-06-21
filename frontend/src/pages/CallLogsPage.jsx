@@ -298,10 +298,20 @@ function extractRecordingSid(recordingUrl) {
 const SPEED_OPTIONS = [1, 1.25, 1.5, 2, 0.75];
 
 function formatClock(sec) {
-  const s = Math.max(0, Math.floor(Number(sec) || 0));
+  const n = Number(sec);
+  if (!Number.isFinite(n) || n < 0) return '--:--';
+  const s = Math.floor(n);
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${r.toString().padStart(2, '0')}`;
+}
+
+function normalizeDuration(...candidates) {
+  for (const value of candidates) {
+    const n = Number(value);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 0;
 }
 
 function formatRecordingDate(iso) {
@@ -318,23 +328,29 @@ function formatRecordingDate(iso) {
 }
 
 export const RecordingModal = ({ log, onClose }) => {
-  // Prefer the dedicated recordingSid field (stored by backend since the fix).
-  // Fall back to extracting it from the raw recordingUrl for legacy call logs.
   const recordingSidDirect = log?.recordingSid || null;
   const recordingUrl       = log?.recordingUrl  || null;
+  const logDuration        = normalizeDuration(log?.duration);
 
   const [streamUrl, setStreamUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
   const audioRef = useRef(null);
+  const durationRef = useRef(logDuration);
+  const scrubbingRef = useRef(false);
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
-  const [total, setTotal] = useState(0);
+  const [total, setTotal] = useState(logDuration);
   const [buffered, setBuffered] = useState(0);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [speed, setSpeed] = useState(1);
+
+  useEffect(() => {
+    durationRef.current = logDuration;
+    if (logDuration > 0) setTotal(logDuration);
+  }, [logDuration]);
 
   useEffect(() => {
     const prevOverflow = document.body.style.overflow;
@@ -350,7 +366,9 @@ export const RecordingModal = ({ log, onClose }) => {
       try {
         setLoading(true);
         setLoadError(false);
-        // Use direct SID if available; otherwise parse it from the URL
+        setCurrent(0);
+        setBuffered(0);
+        setPlaying(false);
         const recordingSid = recordingSidDirect || extractRecordingSid(recordingUrl);
         if (!recordingSid) {
           throw new Error('Invalid recording SID');
@@ -371,10 +389,87 @@ export const RecordingModal = ({ log, onClose }) => {
     return () => { isMounted = false; };
   }, [recordingSidDirect, recordingUrl]);
 
+  const resolveDuration = useCallback((el) => {
+    const fromAudio = el ? normalizeDuration(el.duration) : 0;
+    const resolved = fromAudio || durationRef.current || logDuration;
+    if (resolved > 0) {
+      durationRef.current = resolved;
+      setTotal(resolved);
+    }
+    return resolved;
+  }, [logDuration]);
+
+  const handlePlaybackEnd = useCallback(() => {
+    const el = audioRef.current;
+    const dur = durationRef.current;
+    if (el) {
+      el.pause();
+      if (dur > 0) el.currentTime = dur;
+    }
+    setPlaying(false);
+    setCurrent(dur > 0 ? dur : 0);
+  }, []);
+
+  const syncTimeFromAudio = useCallback(() => {
+    const el = audioRef.current;
+    if (!el || scrubbingRef.current) return;
+
+    const dur = resolveDuration(el);
+    const t = el.currentTime || 0;
+    setCurrent(t);
+
+    if (dur > 0 && t >= dur - 0.12 && !el.paused) {
+      handlePlaybackEnd();
+    }
+  }, [resolveDuration, handlePlaybackEnd]);
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el || !streamUrl) return undefined;
+
+    const onLoadedMetadata = () => resolveDuration(el);
+    const onDurationChange = () => resolveDuration(el);
+    const onTimeUpdate = () => syncTimeFromAudio();
+    const onProgress = () => {
+      const b = el.buffered;
+      if (b?.length > 0) setBuffered(b.end(b.length - 1));
+    };
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    const onEnded = () => handlePlaybackEnd();
+    const onError = () => setLoadError(true);
+
+    el.addEventListener('loadedmetadata', onLoadedMetadata);
+    el.addEventListener('durationchange', onDurationChange);
+    el.addEventListener('timeupdate', onTimeUpdate);
+    el.addEventListener('progress', onProgress);
+    el.addEventListener('play', onPlay);
+    el.addEventListener('pause', onPause);
+    el.addEventListener('ended', onEnded);
+    el.addEventListener('error', onError);
+
+    return () => {
+      el.removeEventListener('loadedmetadata', onLoadedMetadata);
+      el.removeEventListener('durationchange', onDurationChange);
+      el.removeEventListener('timeupdate', onTimeUpdate);
+      el.removeEventListener('progress', onProgress);
+      el.removeEventListener('play', onPlay);
+      el.removeEventListener('pause', onPause);
+      el.removeEventListener('ended', onEnded);
+      el.removeEventListener('error', onError);
+    };
+  }, [streamUrl, resolveDuration, syncTimeFromAudio, handlePlaybackEnd]);
+
   const togglePlay = useCallback(() => {
     const el = audioRef.current;
     if (!el) return;
-    if (el.paused || el.ended) {
+    const dur = durationRef.current;
+    const atEnd = el.ended || (dur > 0 && el.currentTime >= dur - 0.05);
+    if (el.paused || atEnd) {
+      if (atEnd) {
+        el.currentTime = 0;
+        setCurrent(0);
+      }
       el.play().catch(() => {});
     } else {
       el.pause();
@@ -384,10 +479,16 @@ export const RecordingModal = ({ log, onClose }) => {
   const seekTo = useCallback((secs) => {
     const el = audioRef.current;
     if (!el || !Number.isFinite(secs)) return;
-    const clamped = Math.max(0, Math.min(secs, el.duration || 0));
+    const dur = durationRef.current || normalizeDuration(el.duration, logDuration);
+    const clamped = dur > 0 ? Math.max(0, Math.min(secs, dur)) : Math.max(0, secs);
     el.currentTime = clamped;
     setCurrent(clamped);
-  }, []);
+    if (dur > 0 && clamped >= dur - 0.05) {
+      handlePlaybackEnd();
+    } else if (el.paused === false) {
+      setPlaying(true);
+    }
+  }, [logDuration, handlePlaybackEnd]);
 
   const skip = useCallback((delta) => {
     const el = audioRef.current;
@@ -452,8 +553,11 @@ export const RecordingModal = ({ log, onClose }) => {
   const campaignDisplay = log?.campaignLabel || log?.campaign || 'Call Recording';
   const dateDisplay = formatRecordingDate(log?.timestamp || log?.createdAt);
 
-  const playedPct = total > 0 ? (current / total) * 100 : 0;
-  const bufferedPct = total > 0 ? (buffered / total) * 100 : 0;
+  const effectiveTotal = total > 0 ? total : logDuration;
+  const sliderMax = Math.max(effectiveTotal, 0.001);
+  const sliderValue = Math.min(current, sliderMax);
+  const playedPct = effectiveTotal > 0 ? (sliderValue / effectiveTotal) * 100 : 0;
+  const bufferedPct = effectiveTotal > 0 ? Math.min(100, (buffered / effectiveTotal) * 100) : 0;
 
   return (
     <div
@@ -463,7 +567,7 @@ export const RecordingModal = ({ log, onClose }) => {
       aria-modal="true"
       aria-labelledby="recordingTitle"
     >
-      <div className={classes.modalContent} onClick={(e) => e.stopPropagation()}>
+      <div className={`glass ${classes.modalContent}`} onClick={(e) => e.stopPropagation()}>
         <div className={classes.recordingHeader}>
           <div className={classes.recordingHeaderMain}>
             <h3 id="recordingTitle" className={classes.recordingTitle}>{callerDisplay}</h3>
@@ -485,72 +589,61 @@ export const RecordingModal = ({ log, onClose }) => {
               Could not load playback. The recording may still be processing.
             </div>
           ) : (
-            <>
+            <div className={classes.playerPanel}>
               <audio
                 ref={audioRef}
                 src={streamUrl}
-                preload="metadata"
+                preload="auto"
                 autoPlay
-                style={{ display: 'none' }}
-                onLoadedMetadata={(e) => setTotal(e.currentTarget.duration || 0)}
-                onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime || 0)}
-                onProgress={(e) => {
-                  const b = e.currentTarget.buffered;
-                  if (b && b.length > 0) {
-                    setBuffered(b.end(b.length - 1));
-                  }
-                }}
-                onPlay={() => setPlaying(true)}
-                onPause={() => setPlaying(false)}
-                onEnded={() => {
-                  setPlaying(false);
-                  setCurrent(0);
-                }}
-                onVolumeChange={(e) => {
-                  setVolume(e.currentTarget.volume);
-                  setMuted(e.currentTarget.muted);
-                }}
-                onError={() => setLoadError(true)}
+                className={classes.hiddenAudio}
               />
 
               <div
-                className={`${classes.eqRow} ${playing ? '' : classes.eqPaused}`}
+                className={`${classes.playerVisual} ${playing ? classes.playerVisualActive : ''}`}
                 aria-hidden="true"
               >
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <span
-                    key={i}
-                    className={classes.eqBar}
-                    style={{ animationDelay: `${i * 0.12}s` }}
-                  />
-                ))}
-              </div>
-
-              <div
-                className={classes.scrubber}
-                style={{
-                  '--played-pct': `${playedPct}%`,
-                  '--buffered-pct': `${bufferedPct}%`,
-                }}
-              >
-                <input
-                  type="range"
-                  className={classes.scrubberInput}
-                  min={0}
-                  max={Math.max(total, 0.0001)}
-                  step={0.1}
-                  value={Math.min(current, total || 0)}
-                  onChange={(e) => seekTo(Number(e.target.value))}
-                  aria-label="Seek"
-                  aria-valuemin={0}
-                  aria-valuemax={total || 0}
-                  aria-valuenow={current}
+                <div className={classes.visualizerBars}>
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((i) => (
+                    <span
+                      key={i}
+                      className={classes.visualizerBar}
+                      style={{ animationDelay: `${i * 0.07}s` }}
+                    />
+                  ))}
+                </div>
+                <div
+                  className={classes.visualizerProgress}
+                  style={{ width: `${playedPct}%` }}
                 />
               </div>
 
-              <div className={classes.timeRow}>
-                <span>{formatClock(current)}</span>
-                <span>{formatClock(total)}</span>
+              <div className={classes.progressBlock}>
+                <span className={classes.timeLabel}>{formatClock(current)}</span>
+                <div
+                  className={classes.scrubber}
+                  style={{
+                    '--played-pct': `${playedPct}%`,
+                    '--buffered-pct': `${bufferedPct}%`,
+                  }}
+                >
+                  <input
+                    type="range"
+                    className={classes.scrubberInput}
+                    min={0}
+                    max={sliderMax}
+                    step={0.05}
+                    value={sliderValue}
+                    onPointerDown={() => { scrubbingRef.current = true; }}
+                    onPointerUp={() => { scrubbingRef.current = false; }}
+                    onPointerCancel={() => { scrubbingRef.current = false; }}
+                    onInput={(e) => seekTo(Number(e.target.value))}
+                    aria-label="Seek"
+                    aria-valuemin={0}
+                    aria-valuemax={effectiveTotal || 0}
+                    aria-valuenow={sliderValue}
+                  />
+                </div>
+                <span className={classes.timeLabel}>{formatClock(effectiveTotal)}</span>
               </div>
 
               <div className={classes.controlsRow}>
@@ -568,7 +661,7 @@ export const RecordingModal = ({ log, onClose }) => {
                   onClick={togglePlay}
                   aria-label={playing ? 'Pause' : 'Play'}
                 >
-                  {playing ? <Pause size={20} /> : <Play size={20} style={{ marginLeft: 2 }} />}
+                  {playing ? <Pause size={22} /> : <Play size={22} />}
                 </button>
                 <button
                   type="button"
@@ -580,7 +673,29 @@ export const RecordingModal = ({ log, onClose }) => {
                 </button>
               </div>
 
-              <div className={classes.footerRow}>
+              <div className={classes.volumeBlock}>
+                <button
+                  type="button"
+                  className={classes.volumeBtn}
+                  onClick={toggleMute}
+                  aria-label={muted || volume === 0 ? 'Unmute' : 'Mute'}
+                >
+                  {muted || volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                </button>
+                <input
+                  type="range"
+                  className={classes.volumeInput}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={muted ? 0 : volume}
+                  onChange={(e) => changeVolume(e.target.value)}
+                  aria-label="Volume"
+                  style={{ '--volume-pct': `${(muted ? 0 : volume) * 100}%` }}
+                />
+              </div>
+
+              <div className={classes.footerActions}>
                 <button
                   type="button"
                   className={classes.speedPill}
@@ -590,29 +705,6 @@ export const RecordingModal = ({ log, onClose }) => {
                 >
                   {speed}x
                 </button>
-
-                <div className={classes.volumeWrap}>
-                  <button
-                    type="button"
-                    className={classes.volumeBtn}
-                    onClick={toggleMute}
-                    aria-label={muted || volume === 0 ? 'Unmute' : 'Mute'}
-                  >
-                    {muted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                  </button>
-                  <input
-                    type="range"
-                    className={classes.volumeInput}
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={muted ? 0 : volume}
-                    onChange={(e) => changeVolume(e.target.value)}
-                    aria-label="Volume"
-                    style={{ '--volume-pct': `${(muted ? 0 : volume) * 100}%` }}
-                  />
-                </div>
-
                 <a
                   className={classes.downloadBtn}
                   href={streamUrl}
@@ -623,7 +715,7 @@ export const RecordingModal = ({ log, onClose }) => {
                   <Download size={16} />
                 </a>
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -825,7 +917,7 @@ const CallLogsPage = () => {
 
       <motion.div className={classes.filters} variants={presets.child}>
         <div className={classes.filterGroup}>
-          <div className={classes.filterTabs}>
+          <div className={`glass ${classes.filterTabs}`}>
             {FILTER_OPTIONS.map((opt) => (
               <button
                 key={opt}
@@ -839,6 +931,7 @@ const CallLogsPage = () => {
 
           <div className={classes.dateSwitch}>
             <CustomSelect
+              className={classes.dateSelect}
               options={[
                 { value: 'all_time', label: 'All Time' },
                 { value: 'today', label: 'Today' },
