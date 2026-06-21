@@ -3,6 +3,7 @@
 Design reference extracted from the redesigned Dashboard. Use this document when updating any authenticated `/app` screen so the product feels cohesive.
 
 **Reference implementations:**
+- App shell — [AppShell.jsx](../src/components/layout/AppShell.jsx) + [ambient.css](../src/styles/ambient.css) (global brand gradient)
 - Dashboard — [DashboardPage.jsx](../src/pages/DashboardPage.jsx) + [DashboardPage.module.css](../src/pages/DashboardPage.module.css)
 - Welcome — [WelcomePage.jsx](../src/pages/WelcomePage.jsx) + [WelcomePage.module.css](../src/pages/WelcomePage.module.css)
 
@@ -164,12 +165,12 @@ Apply alongside page-specific CSS module classes:
 
 | Token | Dark | Light |
 |-------|------|-------|
-| `--glass-bg` | 52% `--surface-container-low` + transparent | 92% white + transparent |
-| `--glass-border` | 14% white mix | 10% black mix (defines edge on light bg) |
-| `--glass-highlight` | `inset 0 1px 0 rgba(255,255,255,0.12)` | `inset 0 1px 0 rgba(255,255,255,1)` |
-| `--glass-edge` | `0 1px 0 rgba(0,0,0,0.25)` | `0 4px 18px rgba(0,0,0,0.08)` |
+| `--glass-bg` | 52% `--surface-container-low` + transparent | 54% `--surface-container-low` + transparent |
+| `--glass-border` | 14% white mix | 8% black mix (defines edge on light bg) |
+| `--glass-highlight` | `inset 0 1px 0 rgba(255,255,255,0.12)` | `inset 0 1px 0 rgba(255,255,255,0.72)` |
+| `--glass-edge` | `0 1px 0 rgba(0,0,0,0.25)` | `0 1px 0 rgba(0,0,0,0.07)` (hairline — not drop shadow) |
 
-Pages with ambient wash (e.g. Dashboard `.dashboard::before` at ~35% opacity) give `backdrop-filter` content to frost against.
+The AppShell `.appAmbient` gradient (see §6) gives `backdrop-filter` content to frost against across sidebar, topbar, and main content.
 
 ### Depth rules — do and don't
 
@@ -193,24 +194,23 @@ box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
 
 ## 6. Ambient page background
 
-One subtle wash behind the whole page — not per card.
+One subtle brand gradient behind the **entire authenticated app** — not per page, not per card.
 
-```css
-.pageRoot::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background: radial-gradient(100% 40% at 50% 0%, var(--brand-dim), transparent 70%);
-  opacity: 0.25;
-}
+**Where:** [AppShell.jsx](../src/components/layout/AppShell.jsx) applies `appAmbient` on `.appContainer`. Styles live in [ambient.css](../src/styles/ambient.css).
 
-.pageRoot > * {
-  position: relative;
-  z-index: 1;
-}
-```
+**Why AppShell:** Glass sidebar, topbar, and cards use `backdrop-filter`. They need a tinted layer behind them. `mainContent` must stay `background: transparent` so the gradient shows through.
+
+**Tokens:** Uses `--brand` and `--brand-dim` from [themeStore.js](../src/store/themeStore.js). Color updates instantly when the user changes accent in Settings — no save required for preview.
+
+**Formula** — one full-viewport `::before` layer with three soft radial stops, `filter: blur(64px)` (no visible blob edges), and a 60s drift (~1.2% translate). Brand-only; no `--accent-cyan`.
+
+- `@media (prefers-reduced-motion: reduce)` — animation off
+
+Light mode uses slightly **stronger** ambient stops (30% / 17% / 11%) so the wash matches dark-mode visual weight on pale surfaces. Do not use unblurred circular pseudo-elements — they read as hard shapes behind glass.
+
+Base surface remains `var(--surface)` on `.appContainer` for contrast fallback.
+
+**Do not** add per-page `::before` ambient washes — they double-stack and miss the sidebar/topbar area.
 
 ---
 
@@ -323,7 +323,7 @@ Pill shape, 0.72rem / 600, semantic background at ~14% opacity:
 Simple onboarding screen: hero greeting + single glass tutorial card with embedded video.
 
 **Page shell**
-- `.page` with ambient wash `::before` (same gradient/opacity as Billing/Settings).
+- Content inherits AppShell ambient gradient (§6) — no per-page wash.
 - `.contentColumn`: `width: min(100%, 880px); margin-inline: auto`.
 
 **Hero**

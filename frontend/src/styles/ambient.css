@@ -1,0 +1,43 @@
+/* App-wide ambient gradient — brand-aware, glass-friendly (see docs/DESIGN.md §6) */
+.appAmbient {
+  position: relative;
+  background-color: var(--surface);
+}
+
+/* Single blurred mesh — no hard blob edges */
+.appAmbient::before {
+  content: '';
+  position: fixed;
+  inset: -12%;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 72% 52% at 18% 12%, color-mix(in srgb, var(--brand) 26%, transparent), transparent 72%),
+    radial-gradient(ellipse 68% 48% at 84% 10%, color-mix(in srgb, var(--brand) 14%, transparent), transparent 72%),
+    radial-gradient(ellipse 82% 58% at 50% 92%, color-mix(in srgb, var(--brand) 9%, transparent), transparent 70%);
+  filter: blur(64px);
+  animation: ambientDrift 60s ease-in-out infinite alternate;
+}
+
+[data-theme="light"] .appAmbient::before {
+  /* Light surfaces need slightly stronger stops to match dark-mode visual weight */
+  background:
+    radial-gradient(ellipse 72% 52% at 18% 12%, color-mix(in srgb, var(--brand) 30%, transparent), transparent 72%),
+    radial-gradient(ellipse 68% 48% at 84% 10%, color-mix(in srgb, var(--brand) 17%, transparent), transparent 72%),
+    radial-gradient(ellipse 82% 58% at 50% 92%, color-mix(in srgb, var(--brand) 11%, transparent), transparent 70%);
+}
+
+@keyframes ambientDrift {
+  0% {
+    transform: translate3d(-1.2%, -0.6%, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(1.2%, 0.6%, 0) scale(1.012);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appAmbient::before {
+    animation: none;
+  }
+}

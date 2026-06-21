@@ -8,30 +8,6 @@
   max-width: 100%;
 }
 
-.page::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(120% 55% at 50% -12%, var(--brand-dim), transparent 60%),
-    radial-gradient(80% 50% at 100% 0%, color-mix(in srgb, var(--accent-cyan) 6%, transparent), transparent 55%);
-  opacity: 0.35;
-}
-
-[data-theme="light"] .page::before {
-  opacity: 0.55;
-  background:
-    radial-gradient(100% 50% at 50% 0%, var(--brand-dim), transparent 68%),
-    radial-gradient(80% 40% at 100% 20%, color-mix(in srgb, var(--accent-cyan) 8%, transparent), transparent 60%);
-}
-
-.page > * {
-  position: relative;
-  z-index: 1;
-}
-
 .spinner {
   animation: spin 0.8s linear infinite;
   color: var(--brand-text);
