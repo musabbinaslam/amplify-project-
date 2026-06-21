@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Mic, Volume2, Shield, HeartPulse, Umbrella, AlertCircle,
   ChevronLeft, PhoneOff, Activity, ShieldCheck, Users,
-  PhoneIncoming, DollarSign, Clock, Phone, CheckCircle2, MapPin, PhoneOutgoing, Tv
+  PhoneIncoming, DollarSign, Clock, Phone, CheckCircle2, MapPin, PhoneOutgoing, Tv,
+  Plus, Trash2, Save, Pencil
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import classes from './TakeCallsPage.module.css';
@@ -14,6 +15,7 @@ import useAuthStore from '../store/authStore';
 import { useAudioSettingsStore } from '../store/audioSettingsStore';
 import { apiFetch } from '../services/apiClient';
 import { stripeService } from '../services/stripeService';
+import { getProfile, saveProfile } from '../services/profileService';
 
 // All 50 US States
 const US_STATES = [
@@ -43,6 +45,9 @@ const US_STATES = [
   { code: 'WA', name: 'Washington' }, { code: 'WV', name: 'West Virginia' },
   { code: 'WI', name: 'Wisconsin' }, { code: 'WY', name: 'Wyoming' },
 ];
+
+// Icons for the wizard step rail (Microphone, Campaign, Licensed States, Review)
+const STEP_ICONS = [Mic, PhoneIncoming, MapPin, Phone];
 
 // ─── Step 1: Mic & Speaker Test ─────────────────────────────────────────────
 const StepOne = ({ onNext }) => {
@@ -292,8 +297,8 @@ const StepOne = ({ onNext }) => {
 };
 
 // ─── Step 2: Campaign Selection ──────────────────────────────────────────────
-const StepTwo = ({ onNext, onBack }) => {
-  const [selectedCampaign, setSelectedCampaign] = useState('');
+const StepTwo = ({ onNext, onBack, selected = '' }) => {
+  const [selectedCampaign, setSelectedCampaign] = useState(selected);
   const campaigns = [
     { id: 'fe_transfers', title: 'FE Transfers', subtitle: 'Live transfer Final Expense calls', price: '$35', buffer: '120s buffer', icon: Umbrella },
     { id: 'fe_inbounds', title: 'FE Inbounds', subtitle: 'Direct inbound Final Expense calls', price: '$45', buffer: '90s buffer', icon: PhoneIncoming },
@@ -346,9 +351,27 @@ const StepTwo = ({ onNext, onBack }) => {
 };
 
 // ─── Step 3: Licensed States ─────────────────────────────────────────────────
-const StepThree = ({ onNext, onBack }) => {
+const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedPresetId = null }) => {
+  // Picker mode lists saved categories; editor mode builds a new one.
+  const hasPresets = statePresets.length > 0;
+  const [mode, setMode] = useState(hasPresets ? 'picker' : 'editor');
   const [selectedStates, setSelectedStates] = useState([]);
   const [search, setSearch] = useState('');
+  const [categoryName, setCategoryName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const reduceMotion = useReducedMotion();
+
+  const paneVariants = {
+    hidden: { opacity: 0, y: reduceMotion ? 0 : 12 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1], when: 'beforeChildren', staggerChildren: 0.04 } },
+    exit: { opacity: 0, y: reduceMotion ? 0 : -12, transition: { duration: 0.18, ease: [0.4, 0, 1, 1] } },
+  };
+  const cardVariants = {
+    hidden: { opacity: 0, y: reduceMotion ? 0 : 10, scale: reduceMotion ? 1 : 0.97 },
+    visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.24, ease: [0.22, 1, 0.36, 1] } },
+    exit: { opacity: 0, scale: reduceMotion ? 1 : 0.9, transition: { duration: 0.16 } },
+  };
 
   const toggleState = (code) => {
     setSelectedStates(prev =>
@@ -364,60 +387,245 @@ const StepThree = ({ onNext, onBack }) => {
     s.code.toLowerCase().includes(search.toLowerCase())
   );
 
+  const openEditor = () => {
+    setSelectedStates([]);
+    setSearch('');
+    setCategoryName('');
+    setEditingId(null);
+    setMode('editor');
+  };
+
+  const openEditFor = (preset) => {
+    setSelectedStates(preset.states || []);
+    setSearch('');
+    setCategoryName(preset.name || '');
+    setEditingId(preset.id);
+    setMode('editor');
+  };
+
+  const saveCategory = async () => {
+    const name = categoryName.trim();
+    if (!name) {
+      toast.error('Give this category a name first.');
+      return;
+    }
+    if (selectedStates.length === 0) {
+      toast.error('Select at least one state.');
+      return;
+    }
+    const next = editingId
+      ? statePresets.map(p => (p.id === editingId ? { ...p, name, states: selectedStates } : p))
+      : [...statePresets, { id: (crypto?.randomUUID?.() || `preset_${Date.now()}`), name, states: selectedStates }];
+    setIsSaving(true);
+    try {
+      await onSavePresets?.(next);
+      toast.success(editingId ? `Updated "${name}".` : `Saved "${name}".`);
+      setEditingId(null);
+      setMode('picker');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const deletePreset = (id) => {
+    onSavePresets?.(statePresets.filter(p => p.id !== id));
+  };
+
+  const trimmedName = categoryName.trim();
+  const needsNameAttention = !trimmedName;
+  const canSave = trimmedName && selectedStates.length > 0;
+
   return (
-    <div className={`${classes.stepCard} ${classes.stepCardWide}`}>
-      <div className={classes.stepHead}>
-        <div className={classes.micIconBig}><MapPin size={30} /></div>
-        <h2>Licensed States</h2>
-      </div>
-      <p className={classes.subtitle}>Select every state you are licensed to sell insurance in. You'll only receive calls from these states.</p>
+    <AnimatePresence mode="wait" initial={false}>
+      {mode === 'picker' ? (
+        // ── Picker mode: choose a saved category to instantly go live ──────────
+        <motion.div
+          key="picker"
+          className={`${classes.stepCard} ${classes.stepCardWide}`}
+          variants={paneVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+        >
+          <div className={classes.stepHead}>
+            <div className={classes.micIconBig}><MapPin size={30} /></div>
+            <h2>Licensed States</h2>
+          </div>
+          <p className={classes.subtitle}>Pick a saved state category to apply it and continue, or create a new one.</p>
 
-      <div className={classes.sectionCard}>
-        <div className={classes.statesToolbar}>
-          <input
-            className={classes.stateSearch}
-            type="text"
-            placeholder="Search states..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          <button className={classes.outlineBtn} onClick={selectAll}>Select All</button>
-          <button className={classes.ghostBtn} onClick={clearAll}>Clear</button>
-        </div>
+          <div className={classes.presetLayout}>
+            <div className={classes.presetList}>
+              <AnimatePresence mode="popLayout">
+                {statePresets.map(preset => {
+                  const isSelected = preset.id === selectedPresetId;
+                  return (
+                  <motion.div
+                    key={preset.id}
+                    layout
+                    className={`${classes.presetCard} ${isSelected ? classes.presetCardActive : ''}`}
+                    variants={cardVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    whileHover={reduceMotion ? undefined : { y: -3 }}
+                    transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <button
+                      className={classes.presetCardMain}
+                      onClick={() => onNext(preset.states, preset.id)}
+                      title={`Apply ${preset.name} and continue`}
+                    >
+                      <span className={classes.presetName}>{preset.name}</span>
+                      <span className={classes.presetMeta}>
+                        {isSelected && <CheckCircle2 size={12} />} {preset.states.length} state{preset.states.length !== 1 ? 's' : ''}{isSelected ? ' · Selected' : ''}
+                      </span>
+                      <span className={classes.presetCodes}>{preset.states.join(', ')}</span>
+                    </button>
+                    <div className={classes.presetActions}>
+                      <motion.button
+                        className={classes.presetIconBtn}
+                        onClick={() => openEditFor(preset)}
+                        title={`Edit ${preset.name}`}
+                        aria-label={`Edit ${preset.name}`}
+                        whileTap={reduceMotion ? undefined : { scale: 0.88 }}
+                      >
+                        <Pencil size={14} />
+                      </motion.button>
+                      <motion.button
+                        className={`${classes.presetIconBtn} ${classes.presetDeleteBtn}`}
+                        onClick={() => deletePreset(preset.id)}
+                        title={`Delete ${preset.name}`}
+                        aria-label={`Delete ${preset.name}`}
+                        whileTap={reduceMotion ? undefined : { scale: 0.88 }}
+                      >
+                        <Trash2 size={14} />
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
 
-        <div className={classes.stateCounter}>
-          {selectedStates.length === 0
-            ? <span className={classes.warningText}>No states selected — you won't receive any calls.</span>
-            : <span><strong>{selectedStates.length}</strong> state{selectedStates.length !== 1 ? 's' : ''} selected: {selectedStates.join(', ')}</span>
-          }
-        </div>
-
-        <div className={classes.statesGrid}>
-          {filtered.map(state => {
-            const isSelected = selectedStates.includes(state.code);
-            return (
-              <button
-                key={state.code}
-                className={`${classes.stateChip} ${isSelected ? classes.stateChipActive : ''}`}
-                onClick={() => toggleState(state.code)}
-                title={state.name}
+            <motion.div className={classes.presetAddBox} variants={cardVariants}>
+              <div className={classes.presetAddIcon}><Plus size={22} /></div>
+              <h3>New category</h3>
+              <p>Build a fresh set of licensed states and save it for next time.</p>
+              <motion.button
+                className={classes.primaryBtn}
+                onClick={openEditor}
+                whileTap={reduceMotion ? undefined : { scale: 0.96 }}
               >
-                <span className={classes.stateCode}>{state.code}</span>
-                <span className={classes.stateName}>{state.name}</span>
-                {isSelected && <CheckCircle2 size={12} className={classes.stateCheck} />}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                <Plus size={16} /> Add category
+              </motion.button>
+            </motion.div>
+          </div>
 
-      <div className={classes.stickyActionBar}>
-        <button className={classes.ghostBtn} onClick={onBack}>Back</button>
-        <button className={classes.primaryBtn} onClick={() => onNext(selectedStates)} disabled={selectedStates.length === 0}>
-          Continue
-        </button>
-      </div>
-    </div>
+          <div className={classes.stickyActionBar}>
+            <button className={classes.ghostBtn} onClick={onBack}>Back</button>
+            <span className={classes.actionBarHint}>Select a category above to continue</span>
+          </div>
+        </motion.div>
+      ) : (
+        // ── Editor mode: build and save a category ─────────────────────────────
+        <motion.div
+          key="editor"
+          className={`${classes.stepCard} ${classes.stepCardWide}`}
+          variants={paneVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+        >
+          <div className={classes.stepHead}>
+            <div className={classes.micIconBig}><MapPin size={30} /></div>
+            <h2>{editingId ? 'Edit State Category' : (hasPresets ? 'New State Category' : 'Licensed States')}</h2>
+          </div>
+          <p className={classes.subtitle}>Select every state you are licensed to sell insurance in, then save this as a reusable category.</p>
+
+          <div className={classes.sectionCard}>
+            <div className={classes.categoryNameGroup}>
+              <label className={classes.categoryNameLabel} htmlFor="state-category-name">
+                Category name<span className={classes.requiredMark} aria-hidden="true">*</span>
+              </label>
+              <input
+                id="state-category-name"
+                className={`${classes.presetNameInput} ${needsNameAttention ? classes.presetNameInputAttention : ''}`}
+                type="text"
+                placeholder="e.g. Southeast, My License Set"
+                value={categoryName}
+                onChange={e => setCategoryName(e.target.value)}
+                maxLength={40}
+                required
+                aria-required="true"
+                autoComplete="off"
+              />
+            </div>
+
+            <div className={classes.statesToolbar}>
+              <input
+                className={classes.stateSearch}
+                type="text"
+                placeholder="Search states..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+              <button className={classes.outlineBtn} onClick={selectAll}>Select All</button>
+              <button className={classes.ghostBtn} onClick={clearAll}>Clear</button>
+            </div>
+
+            <div className={classes.stateCounter}>
+              {selectedStates.length === 0
+                ? <span className={classes.warningText}>No states selected — you won't receive any calls.</span>
+                : <span><strong>{selectedStates.length}</strong> state{selectedStates.length !== 1 ? 's' : ''} selected: {selectedStates.join(', ')}</span>
+              }
+            </div>
+
+            <div className={classes.statesGrid}>
+              {filtered.map(state => {
+                const isSelected = selectedStates.includes(state.code);
+                return (
+                  <motion.button
+                    key={state.code}
+                    className={`${classes.stateChip} ${isSelected ? classes.stateChipActive : ''}`}
+                    onClick={() => toggleState(state.code)}
+                    title={state.name}
+                    whileTap={reduceMotion ? undefined : { scale: 0.94 }}
+                  >
+                    <span className={classes.stateCode}>{state.code}</span>
+                    <span className={classes.stateName}>{state.name}</span>
+                    <AnimatePresence>
+                      {isSelected && (
+                        <motion.span
+                          className={classes.stateCheck}
+                          initial={{ opacity: 0, scale: 0.5 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.5 }}
+                          transition={{ duration: 0.15 }}
+                        >
+                          <CheckCircle2 size={12} />
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className={classes.stickyActionBar}>
+            <button className={classes.ghostBtn} onClick={() => { setEditingId(null); hasPresets ? setMode('picker') : onBack(); }}>Back</button>
+            <motion.button
+              className={classes.primaryBtn}
+              onClick={saveCategory}
+              disabled={isSaving || !canSave}
+              whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+            >
+              <Save size={16} /> {isSaving ? 'Saving…' : (editingId ? 'Save changes' : 'Save category')}
+            </motion.button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 
@@ -693,11 +901,27 @@ const TakeCallsPage = () => {
   const { callState, activeCampaign, agentIdentity, licensedStates, leadData, hangUp, goOffline, pendingDispositionCall, clearPendingDisposition, transferStatus } = useDialerStore();
   const user = useAuthStore((s) => s.user);
   const [step, setStep] = useState(1);
+  const [stepDirection, setStepDirection] = useState(1);
   const [campaign, setCampaign] = useState('');
   const [wizardStates, setWizardStates] = useState([]);
+  const [wizardPresetId, setWizardPresetId] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [history, setHistory] = useState([]);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [statePresets, setStatePresets] = useState([]);
+  const reduceMotion = useReducedMotion();
+
+  // Direction-aware step navigation (forward slides left, back slides right).
+  const goStep = (n) => {
+    setStepDirection(n >= step ? 1 : -1);
+    setStep(n);
+  };
+
+  const stepVariants = {
+    enter: (dir) => ({ opacity: 0, x: reduceMotion ? 0 : (dir > 0 ? 48 : -48) }),
+    center: { opacity: 1, x: 0, transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } },
+    exit: (dir) => ({ opacity: 0, x: reduceMotion ? 0 : (dir > 0 ? -48 : 48), transition: { duration: 0.2, ease: [0.4, 0, 1, 1] } }),
+  };
 
   const titles = ['Microphone Test', 'Select Campaign', 'Licensed States', 'Review & Go Live'];
 
@@ -708,8 +932,23 @@ const TakeCallsPage = () => {
       
       const walletData = await stripeService.getWallet();
       if (walletData) setWalletBalance(walletData.balance);
+
+      const profile = await getProfile(user?.uid);
+      if (profile && Array.isArray(profile.statePresets)) {
+        setStatePresets(profile.statePresets);
+      }
     } catch (err) {
       console.error('Error fetching data:', err);
+    }
+  };
+
+  const persistPresets = async (next) => {
+    setStatePresets(next);
+    try {
+      await saveProfile(user?.uid, { statePresets: next });
+    } catch (err) {
+      console.error('Failed to save state categories:', err);
+      toast.error('Failed to save category. Please try again.');
     }
   };
 
@@ -915,34 +1154,75 @@ const TakeCallsPage = () => {
       </motion.div>
 
       <motion.div className={classes.wizardShell} variants={presets.child}>
-        <div className={classes.wizardHeader}>
-          <span className={classes.stepCount}>Step {step} of 4: {titles[step - 1]}</span>
-          <div className={classes.stepDots}>
-            {[1, 2, 3, 4].map(n => (
-              <div key={n} className={`${classes.dot} ${step >= n ? classes.dotActive : ''}`} />
-            ))}
+        <div className={classes.wizardGrid}>
+          <aside className={classes.wizardRail}>
+            <div className={classes.railHeader}>
+              <span className={classes.railEyebrow}>Go Live Setup</span>
+              <p className={classes.railSub}>Finish these steps to start receiving inbound calls.</p>
+            </div>
+            <div className={classes.railSteps}>
+              {titles.map((title, i) => {
+                const n = i + 1;
+                const Icon = STEP_ICONS[i];
+                const isActive = step === n;
+                const isDone = step > n;
+                const canJump = isDone;
+                return (
+                  <button
+                    key={title}
+                    type="button"
+                    className={`${classes.railStep} ${isActive ? classes.railStepActive : ''} ${isDone ? classes.railStepDone : ''}`}
+                    onClick={() => canJump && goStep(n)}
+                    disabled={!canJump}
+                  >
+                    <span className={classes.railIcon}>
+                      {isDone ? <CheckCircle2 size={18} /> : <Icon size={18} />}
+                    </span>
+                    <span className={classes.railText}>
+                      <span className={classes.railStepLabel}>Step {n}</span>
+                      <span className={classes.railTitle}>{title}</span>
+                    </span>
+                    <span className={classes.railStatus}>
+                      {isDone ? 'Done' : isActive ? 'In progress' : 'Up next'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+
+          <div className={classes.wizardMain}>
+            <div className={classes.mainTopbar}>
+              <span className={classes.stepCount}>Step {step} of 4: {titles[step - 1]}</span>
+              <div className={classes.mainProgress}>
+                <motion.div
+                  className={classes.mainProgressFill}
+                  initial={false}
+                  animate={{ width: `${(step / 4) * 100}%` }}
+                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                />
+              </div>
+            </div>
+
+            <div className={classes.stepContent}>
+              <AnimatePresence mode="wait" custom={stepDirection} initial={false}>
+                <motion.div
+                  key={step}
+                  className={classes.stepContentInner}
+                  custom={stepDirection}
+                  variants={stepVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                >
+                  {step === 1 && <StepOne onNext={() => goStep(2)} />}
+                  {step === 2 && <StepTwo selected={campaign} onNext={(sel) => { setCampaign(sel); goStep(3); }} onBack={() => goStep(1)} />}
+                  {step === 3 && <StepThree onNext={(states, presetId) => { setWizardStates(states); setWizardPresetId(presetId ?? null); goStep(4); }} onBack={() => goStep(2)} statePresets={statePresets} onSavePresets={persistPresets} selectedPresetId={wizardPresetId} />}
+                  {step === 4 && <StepFour onBack={() => goStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} />}
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
-        </div>
-
-        <div className={classes.mainProgress}>
-          <div className={classes.mainProgressFill} style={{ width: `${(step / 4) * 100}%` }} />
-        </div>
-
-        <div className={classes.stepContent}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={step}
-              variants={presets.child}
-              initial="hidden"
-              animate="visible"
-              exit="hidden"
-            >
-              {step === 1 && <StepOne onNext={() => setStep(2)} />}
-              {step === 2 && <StepTwo onNext={(sel) => { setCampaign(sel); setStep(3); }} onBack={() => setStep(1)} />}
-              {step === 3 && <StepThree onNext={(states) => { setWizardStates(states); setStep(4); }} onBack={() => setStep(2)} />}
-              {step === 4 && <StepFour onBack={() => setStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} />}
-            </motion.div>
-          </AnimatePresence>
         </div>
       </motion.div>
       {pendingDispositionCall && (
