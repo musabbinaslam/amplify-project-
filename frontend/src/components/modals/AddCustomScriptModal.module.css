@@ -1,54 +1,58 @@
 .overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  padding: 24px;
 }
 
 .modal {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  width: 90%;
-  max-width: 600px;
+  width: 100%;
+  max-width: 560px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+
+.modal > * {
+  position: relative;
+  z-index: 1;
 }
 
 .header {
-  padding: 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
+  padding: 1.1rem 1.25rem 0.9rem;
   border-bottom: 1px solid var(--border);
 }
 
 .header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 1.05rem;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
 .closeBtn {
   background: transparent;
+  border: none;
   color: var(--text-tertiary);
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
 }
 
 .closeBtn:hover {
@@ -56,41 +60,48 @@
   color: var(--text-primary);
 }
 
-.tabs {
+.tabTray {
   display: flex;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-container-low);
+  gap: 4px;
+  margin: 14px 1.25rem 0;
+  padding: 4px;
+  border-radius: var(--radius-lg);
 }
 
 .tab {
   flex: 1;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 16px;
-  background: transparent;
+  padding: 10px 14px;
   border: none;
-  border-bottom: 2px solid transparent;
+  background: transparent;
   color: var(--text-secondary);
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .tab:hover {
   color: var(--text-primary);
-  background: var(--surface-container);
+  background: var(--surface-container-high);
 }
 
-.tab.activeTab {
+.tabActive {
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
   color: var(--brand-text);
-  border-bottom-color: var(--brand-solid);
-  background: var(--surface);
+}
+
+.tabActive:hover {
+  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-text) 16%, transparent);
 }
 
 .body {
-  padding: 24px;
+  padding: 1.25rem;
   overflow-y: auto;
 }
 
@@ -98,62 +109,62 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .formGroup label {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--text-secondary);
 }
 
-.input {
+.input,
+.textarea {
   width: 100%;
-  padding: 12px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-container);
+  padding: 12px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
 }
 
 .textarea {
-  width: 100%;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-container);
-  color: var(--text-primary);
-  font-size: 15px;
   min-height: 200px;
   resize: vertical;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
-.input:focus, .textarea:focus {
-  border-color: var(--brand-text);
+.input:focus,
+.textarea:focus {
   outline: none;
+  border-color: var(--brand-text);
 }
 
 .submitBtn {
   width: 100%;
-  padding: 14px;
+  padding: 12px 20px;
   background: var(--brand-solid);
   color: var(--brand-on);
   border: none;
-  border-radius: var(--radius-md);
-  font-size: 16px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: all 0.2s;
+  transition: filter 0.2s ease;
 }
 
 .submitBtn:hover:not(:disabled) {
-  filter: brightness(1.1);
+  filter: brightness(1.08);
 }
 
 .submitBtn:disabled {
@@ -162,22 +173,22 @@
 }
 
 .uploadBox {
-  border: 2px dashed var(--border);
+  border: 2px dashed var(--glass-border);
   border-radius: var(--radius-lg);
-  padding: 48px 24px;
+  padding: 40px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s;
-  margin-bottom: 24px;
-  background: var(--surface-container);
+  transition: border-color 0.2s ease, background 0.2s ease;
+  margin-bottom: 20px;
+  background: color-mix(in srgb, var(--surface-container-high) 40%, transparent);
 }
 
 .uploadBox:hover {
-  border-color: var(--brand-solid);
-  background: var(--surface-container-high);
+  border-color: color-mix(in srgb, var(--brand-text) 35%, var(--glass-border));
+  background: color-mix(in srgb, var(--surface-container-high) 65%, transparent);
 }
 
 .hiddenInput {
@@ -186,24 +197,24 @@
 
 .uploadIcon {
   color: var(--brand-text);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .uploadTitle {
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 8px 0;
+  margin: 0 0 6px;
 }
 
 .uploadSub {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-tertiary);
   margin: 0;
 }
 
 .fileName {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--brand-text);
   margin: 0;
@@ -216,5 +227,27 @@
 }
 
 @keyframes spin {
-  100% { transform: rotate(360deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 480px) {
+  .overlay {
+    padding: 16px;
+    align-items: flex-end;
+  }
+
+  .modal {
+    max-height: 92vh;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  .tabTray {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+
+  .body {
+    padding: 1rem 14px 1.25rem;
+  }
 }
