@@ -36,6 +36,13 @@
   --border: rgba(255, 255, 255, 0.05); /* very faint line, primarily favor background shifts */
   --border-focus: var(--brand);
 
+  /* Frosted glass card surface */
+  --glass-bg: color-mix(in srgb, var(--surface-container-low) 52%, transparent);
+  --glass-bg-hover: color-mix(in srgb, var(--surface-container) 68%, transparent);
+  --glass-border: color-mix(in srgb, #ffffff 14%, transparent);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --glass-edge: 0 1px 0 rgba(0, 0, 0, 0.25);
+
   /* Radii */
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -87,6 +94,12 @@
 
   --border: rgba(0, 0, 0, 0.14);
   --border-focus: var(--brand-text);
+
+  --glass-bg: color-mix(in srgb, #ffffff 92%, transparent);
+  --glass-bg-hover: color-mix(in srgb, #ffffff 98%, transparent);
+  --glass-border: color-mix(in srgb, #000000 10%, transparent);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 1);
+  --glass-edge: 0 4px 18px rgba(0, 0, 0, 0.08);
 
   --bg-primary: var(--surface);
   --bg-secondary: var(--surface-container-low);

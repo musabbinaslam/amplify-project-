@@ -130,10 +130,12 @@ Use `18px` as the default card grid gap across dashboard-style layouts.
 
 ## 5. Card surface (`.glass`)
 
-The shared card treatment used on Dashboard. Apply **two CSS module classes** in JSX — never rely on CSS Modules `composes` for pseudo-elements or `:hover`.
+Global primitive in [surfaces.css](../src/styles/surfaces.css), imported via [global.css](../src/styles/global.css). Theme tokens live in [variables.css](../src/styles/variables.css) (`--glass-*`).
+
+Apply alongside page-specific CSS module classes:
 
 ```jsx
-<div className={`${classes.glass} ${classes.kpiCard}`} />
+<div className={`glass ${classes.kpiCard}`} />
 ```
 
 ### Base card
@@ -141,28 +143,43 @@ The shared card treatment used on Dashboard. Apply **two CSS module classes** in
 ```css
 .glass {
   position: relative;
-  background: var(--surface-container-low);
-  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transition: border-color 0.22s ease, background 0.22s ease;
+  box-shadow: var(--glass-highlight), var(--glass-edge);
+  transition: background 0.22s ease, border-color 0.22s ease;
 }
 
 .glass:hover {
-  background: var(--surface-container);
-  border-color: color-mix(in srgb, #ffffff 11%, transparent);
+  background: var(--glass-bg-hover);
+  border-color: color-mix(in srgb, var(--brand-text) 18%, var(--glass-border));
 }
 ```
+
+### Glass tokens (dark / light)
+
+| Token | Dark | Light |
+|-------|------|-------|
+| `--glass-bg` | 52% `--surface-container-low` + transparent | 92% white + transparent |
+| `--glass-border` | 14% white mix | 10% black mix (defines edge on light bg) |
+| `--glass-highlight` | `inset 0 1px 0 rgba(255,255,255,0.12)` | `inset 0 1px 0 rgba(255,255,255,1)` |
+| `--glass-edge` | `0 1px 0 rgba(0,0,0,0.25)` | `0 4px 18px rgba(0,0,0,0.08)` |
+
+Pages with ambient wash (e.g. Dashboard `.dashboard::before` at ~35% opacity) give `backdrop-filter` content to frost against.
 
 ### Depth rules — do and don't
 
 | Do | Don't |
 |----|-------|
-| Inset top highlight (`inset 0 1px 0 rgba(255,255,255,0.05)`) | Stacked `box-shadow` layers on dark cards |
-| Surface tier shift on hover | `::before` + `filter: blur()` fake shadows |
-| Hairline white-mix border | Heavy outer glow on every icon |
-| Ambient page wash at 20–25% opacity | Per-card colored top accent bars |
-| Shadow on floating overlays only (dropdowns, tooltips) | Rainbow accent per card |
+| Translucent fill + `backdrop-filter` blur | Solid opaque `--surface-container-low` fill |
+| Theme `--glass-*` tokens for border/highlight/edge | White-on-white borders in light mode |
+| Dark rim (`10% black`) on light cards for edge definition | Light mode `::before` top sheen gradient |
+| Inset top highlight via `--glass-highlight` | Stacked outer `box-shadow` layers on cards |
+| 1px dark separator (`--glass-edge`) in dark mode | `::before` + `filter: blur()` fake shadows |
+| Ambient page wash behind cards | Per-card colored top accent bars |
+| Shadow on floating overlays only (dropdowns, tooltips, modals) | Heavy outer glow on every icon |
 
 Floating overlays (menus, tooltips) may use a single soft shadow because they sit above the page:
 
@@ -387,7 +404,7 @@ Rules of thumb:
 
 When redesigning a page (Call Logs, Billing, Take Calls, etc.):
 
-1. Replace flat `--bg-card` blocks with `${classes.glass} ${classes.yourCard}` pattern.
+1. Replace flat `--bg-card` blocks with `` `glass ${classes.yourCard}` `` pattern.
 2. Swap hardcoded accent colors for `--brand-text` unless semantically required.
 3. Adopt the label/value typography scale for any stat displays.
 4. Use `useSubtlePageMotion()` for page enter stagger.

@@ -14,12 +14,19 @@
   pointer-events: none;
   z-index: 0;
   background: radial-gradient(100% 40% at 50% 0%, var(--brand-dim), transparent 70%);
-  opacity: 0.25;
+  opacity: 0.35;
 }
 
 .dashboard > * {
   position: relative;
   z-index: 1;
+}
+
+[data-theme="light"] .dashboard::before {
+  opacity: 0.55;
+  background:
+    radial-gradient(100% 50% at 50% 0%, var(--brand-dim), transparent 68%),
+    radial-gradient(80% 40% at 100% 20%, color-mix(in srgb, var(--accent-cyan) 8%, transparent), transparent 60%);
 }
 
 .spinner {
@@ -985,7 +992,6 @@
 
 /* ─── Fallback: browsers without backdrop-filter ─── */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass,
   .dropdownTrigger,
   .dropdownMenu,
   .tooltip {
