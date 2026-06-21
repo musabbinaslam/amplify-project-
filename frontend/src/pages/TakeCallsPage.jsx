@@ -431,6 +431,10 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
     onSavePresets?.(statePresets.filter(p => p.id !== id));
   };
 
+  const trimmedName = categoryName.trim();
+  const needsNameAttention = !trimmedName;
+  const canSave = trimmedName && selectedStates.length > 0;
+
   return (
     <AnimatePresence mode="wait" initial={false}>
       {mode === 'picker' ? (
@@ -539,14 +543,23 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
           <p className={classes.subtitle}>Select every state you are licensed to sell insurance in, then save this as a reusable category.</p>
 
           <div className={classes.sectionCard}>
-            <input
-              className={classes.presetNameInput}
-              type="text"
-              placeholder="Category name (e.g. Southeast, My License Set)"
-              value={categoryName}
-              onChange={e => setCategoryName(e.target.value)}
-              maxLength={40}
-            />
+            <div className={classes.categoryNameGroup}>
+              <label className={classes.categoryNameLabel} htmlFor="state-category-name">
+                Category name<span className={classes.requiredMark} aria-hidden="true">*</span>
+              </label>
+              <input
+                id="state-category-name"
+                className={`${classes.presetNameInput} ${needsNameAttention ? classes.presetNameInputAttention : ''}`}
+                type="text"
+                placeholder="e.g. Southeast, My License Set"
+                value={categoryName}
+                onChange={e => setCategoryName(e.target.value)}
+                maxLength={40}
+                required
+                aria-required="true"
+                autoComplete="off"
+              />
+            </div>
 
             <div className={classes.statesToolbar}>
               <input
@@ -604,7 +617,7 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
             <motion.button
               className={classes.primaryBtn}
               onClick={saveCategory}
-              disabled={isSaving || selectedStates.length === 0 || !categoryName.trim()}
+              disabled={isSaving || !canSave}
               whileTap={reduceMotion ? undefined : { scale: 0.96 }}
             >
               <Save size={16} /> {isSaving ? 'Saving…' : (editingId ? 'Save changes' : 'Save category')}

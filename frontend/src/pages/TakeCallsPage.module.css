@@ -476,6 +476,23 @@
 .stateCheck { position: absolute; top: 8px; right: 8px; color: var(--brand-text); }
 
 /* ─── Saved State Categories ─── */
+.categoryNameGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.categoryNameLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.requiredMark {
+  color: var(--accent-red);
+  margin-left: 2px;
+}
+
 .presetNameInput {
   width: 100%;
   border: 1px solid var(--border);
@@ -488,6 +505,10 @@
   font: inherit;
 }
 .presetNameInput:focus { border-color: var(--border-focus); }
+
+.presetNameInputAttention {
+  border-color: var(--brand-text);
+}
 
 .presetLayout {
   display: grid;
