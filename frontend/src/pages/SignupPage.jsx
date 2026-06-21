@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, Navigate, Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
@@ -215,7 +216,7 @@ const SignupPage = () => {
 
   const renderOnboardingFields = () => (
     <>
-      <div className={classes.fieldGroup}>
+      <div className={`${classes.fieldGroup} ${classes.spanFull}`}>
         <label className={classes.label} htmlFor="signup-phone-local">Phone</label>
         <div className={classes.phoneRow}>
           <select
@@ -245,7 +246,7 @@ const SignupPage = () => {
 
       <div className={classes.fieldGroup}>
         <label className={classes.label} htmlFor="signup-weekly-spend">
-          How much are you currently spending per week on leads?
+          Weekly lead spend
           <span className={classes.required}>*</span>
         </label>
         <select
@@ -262,8 +263,26 @@ const SignupPage = () => {
       </div>
 
       <div className={classes.fieldGroup}>
+        <label className={classes.label} htmlFor="signup-hear-about">
+          How did you hear about us?
+          <span className={classes.required}>*</span>
+        </label>
+        <select
+          id="signup-hear-about"
+          className={classes.select}
+          value={form.hearAbout}
+          onChange={(e) => update('hearAbout', e.target.value)}
+        >
+          <option value="" disabled>Select an option</option>
+          {HEAR_ABOUT_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className={`${classes.fieldGroup} ${classes.spanFull}`}>
         <span className={classes.label}>
-          Have you ever used inbound calls before?
+          Used inbound calls before?
           <span className={classes.required}>*</span>
         </span>
         <div className={classes.radioGroup} role="group" aria-label="Inbound call experience">
@@ -292,14 +311,14 @@ const SignupPage = () => {
         </div>
       </div>
 
-      <div className={classes.fieldGroup}>
+      <div className={`${classes.fieldGroup} ${classes.spanFull}`}>
         <span className={classes.label}>
-          Which verticals are you interested in?
+          Vertical interest
           <span className={classes.required}>*</span>
         </span>
-        <div className={classes.verticalsList} role="group" aria-label="Vertical interest">
+        <div className={classes.verticalsWrap} role="group" aria-label="Vertical interest">
           {VERTICALS.map((v) => (
-            <label key={v} className={classes.radioLabel}>
+            <label key={v} className={classes.verticalPill}>
               <input
                 className={classes.radioInput}
                 type="radio"
@@ -313,71 +332,64 @@ const SignupPage = () => {
           ))}
         </div>
       </div>
-
-      <div className={classes.fieldGroup}>
-        <label className={classes.label} htmlFor="signup-hear-about">
-          How did you hear about us?
-          <span className={classes.required}>*</span>
-        </label>
-        <select
-          id="signup-hear-about"
-          className={classes.select}
-          value={form.hearAbout}
-          onChange={(e) => update('hearAbout', e.target.value)}
-        >
-          <option value="" disabled>Select an option</option>
-          {HEAR_ABOUT_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
-          ))}
-        </select>
-      </div>
     </>
   );
 
-  const logoBlock = (
-    <div className={classes.logoBlock}>
-      <img
-        src="/logo.png"
-        alt="Callsflow logo"
-        className={classes.logoImg}
-        loading="eager"
-        decoding="async"
-      />
-      <span className={classes.logoText}>CALLSFLOW</span>
-    </div>
+  const renderBrandPanel = (eyebrow, heading, subtitle) => (
+    <>
+      <div className={classes.logoBlock}>
+        <img
+          src="/logo.png"
+          alt="Callsflow logo"
+          className={classes.logoImg}
+          loading="eager"
+          decoding="async"
+        />
+        <span className={classes.logoText}>CALLSFLOW</span>
+      </div>
+      <span className={classes.eyebrow}>{eyebrow}</span>
+      <h1 className={classes.heading}>{heading}</h1>
+      <p className={classes.subtitle}>{subtitle}</p>
+      <Link to="/" className={classes.backHomeLink}>
+        <ArrowLeft size={14} aria-hidden />
+        Back to Landing Page
+      </Link>
+    </>
   );
 
   if (step === 'onboarding') {
     return (
-      <AuthShell wide>
-        {logoBlock}
-        <p className={classes.eyebrow}>Profile</p>
-        <h1 className={classes.heading}>Complete your profile</h1>
-        <p className={classes.subtitle}>A few details so we can route the right calls to you.</p>
-
+      <AuthShell
+        brand={renderBrandPanel(
+          'Profile',
+          'Complete your profile',
+          'A few details so we can route the right calls to you.',
+        )}
+      >
         <motion.div initial="hidden" animate="visible" variants={formStagger}>
-          <motion.form className={classes.form} onSubmit={handleOnboardingSubmit} variants={fieldMotion}>
+          <motion.form
+            className={`${classes.form} ${classes.formGrid}`}
+            onSubmit={handleOnboardingSubmit}
+            variants={fieldMotion}
+          >
             {renderOnboardingFields()}
-            <button className={classes.submitBtn} type="submit" disabled={submitting}>
+            <button className={`${classes.submitBtn} ${classes.spanFull}`} type="submit" disabled={submitting}>
               {submitting ? 'Saving...' : 'Complete Setup'}
             </button>
           </motion.form>
         </motion.div>
-
-        <Link to="/" className={classes.backHomeLink}>
-          Back to Landing Page
-        </Link>
       </AuthShell>
     );
   }
 
   return (
-    <AuthShell wide>
-      {logoBlock}
-      <p className={classes.eyebrow}>Join CallsFlow</p>
-      <h1 className={classes.heading}>Create your agent account</h1>
-      <p className={classes.subtitle}>Sign up to receive qualified inbound calls in your verticals.</p>
-
+    <AuthShell
+      brand={renderBrandPanel(
+        'Join CallsFlow',
+        'Create your agent account',
+        'Sign up to receive qualified inbound calls in your verticals.',
+      )}
+    >
       {refCode && (
         <div className={classes.referralBanner}>
           <span className={classes.referralIcon} aria-hidden>✦</span>
@@ -408,7 +420,11 @@ const SignupPage = () => {
           <span className={classes.dividerLine} />
         </motion.div>
 
-        <motion.form className={classes.form} onSubmit={handleEmailSubmit} variants={fieldMotion}>
+        <motion.form
+          className={`${classes.form} ${classes.formGrid}`}
+          onSubmit={handleEmailSubmit}
+          variants={fieldMotion}
+        >
           <div className={classes.fieldGroup}>
             <label className={classes.label} htmlFor="signup-full-name">Full Name</label>
             <input
@@ -463,7 +479,7 @@ const SignupPage = () => {
             />
           </div>
 
-          <button className={classes.submitBtn} type="submit" disabled={submitting}>
+          <button className={`${classes.submitBtn} ${classes.spanFull}`} type="submit" disabled={submitting}>
             {submitting ? 'Creating Account...' : 'Continue'}
           </button>
         </motion.form>
@@ -473,9 +489,6 @@ const SignupPage = () => {
         Already have an account?{' '}
         <Link to="/login" className={classes.footerLink}>Sign in</Link>
       </p>
-      <Link to="/" className={classes.backHomeLink}>
-        Back to Landing Page
-      </Link>
     </AuthShell>
   );
 };

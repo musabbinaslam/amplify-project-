@@ -1,20 +1,19 @@
+/* ─── Brand column ─── */
 .logoBlock {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 12px;
-  margin-bottom: 22px;
+  margin-bottom: 20px;
 }
 
 .logoImg {
-  width: 80px;
-  height: 150px;
+  width: auto;
+  height: 72px;
+  max-height: 120px;
   border-radius: 0;
   object-fit: contain;
   object-position: center;
   display: block;
-  filter: drop-shadow(0 0 16px var(--brand-glow));
-  margin-top: 0;
 }
 
 .logoText {
@@ -26,79 +25,107 @@
 }
 
 .eyebrow {
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 5px 12px;
+  margin-bottom: 14px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--brand-text);
-  margin-bottom: 10px;
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+  border-radius: var(--radius-full);
 }
 
 .heading {
-  text-align: center;
-  font-size: clamp(26px, 4.5vw, 32px);
+  font-size: clamp(28px, 4vw, 36px);
   font-weight: 800;
   color: var(--text-primary);
-  margin-bottom: 8px;
+  margin: 0 0 10px;
   letter-spacing: -0.03em;
   line-height: 1.15;
 }
 
 .subtitle {
-  text-align: center;
   font-size: 15px;
   line-height: 1.5;
   color: var(--text-secondary);
-  margin-bottom: 28px;
+  margin: 0 0 24px;
   font-weight: 500;
-  max-width: 34ch;
-  margin-left: auto;
-  margin-right: auto;
+  max-width: 36ch;
 }
 
+.backHomeLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 10px 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.backHomeLink:hover {
+  background: var(--surface-container-high);
+  border-color: color-mix(in srgb, var(--brand-text) 20%, var(--glass-border));
+  color: var(--brand-text);
+}
+
+.backHomeLink:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--brand-dim);
+}
+
+/* ─── Form panel ─── */
 .form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
 }
 
 .fieldGroup {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .input {
   width: 100%;
-  padding: 14px 16px;
-  background: color-mix(in srgb, var(--surface-container) 88%, transparent);
-  border: 1px solid color-mix(in srgb, var(--text-primary) 10%, transparent);
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: 14px;
   font-family: inherit;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .input::placeholder {
   color: var(--text-tertiary);
 }
 
-.input:hover {
-  border-color: color-mix(in srgb, var(--text-primary) 16%, transparent);
-}
-
 .input:focus {
-  border-color: var(--brand-text);
-  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
+  border-color: color-mix(in srgb, var(--brand-text) 35%, var(--glass-border));
+  background: color-mix(in srgb, var(--surface-container-highest) 90%, transparent);
 }
 
 .input:focus-visible {
@@ -107,7 +134,7 @@
 
 .submitBtn {
   width: 100%;
-  padding: 16px 18px;
+  padding: 14px 16px;
   background: var(--brand-solid);
   color: var(--brand-on);
   font-size: 15px;
@@ -116,18 +143,13 @@
   border: none;
   border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-  margin-top: 6px;
-  box-shadow:
-    0 4px 16px var(--brand-glow),
-    inset 0 1px 0 color-mix(in srgb, #ffffff 22%, transparent);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  margin-top: 4px;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 18%, transparent);
 }
 
 .submitBtn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow:
-    0 8px 28px color-mix(in srgb, var(--brand-glow) 80%, transparent),
-    inset 0 1px 0 color-mix(in srgb, #ffffff 22%, transparent);
+  opacity: 0.92;
 }
 
 .submitBtn:active:not(:disabled) {
@@ -137,15 +159,11 @@
 .submitBtn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
 .submitBtn:focus-visible {
   outline: none;
-  box-shadow:
-    0 0 0 3px var(--brand-dim),
-    0 4px 16px var(--brand-glow);
+  box-shadow: 0 0 0 3px var(--brand-dim);
 }
 
 .googleBtn {
@@ -154,22 +172,21 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 14px 16px;
-  background: color-mix(in srgb, var(--surface-container) 72%, transparent);
-  border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
-  margin-bottom: 4px;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .googleBtn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--surface-container-high) 85%, transparent);
-  border-color: color-mix(in srgb, var(--text-primary) 18%, transparent);
+  background: var(--surface-container-high);
+  border-color: color-mix(in srgb, var(--brand-text) 20%, var(--glass-border));
 }
 
 .googleBtn:disabled {
@@ -190,17 +207,17 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 4px;
+  margin: 8px 0;
 }
 
 .dividerLine {
   flex: 1;
   height: 1px;
-  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+  background: color-mix(in srgb, var(--glass-border) 80%, transparent);
 }
 
 .dividerText {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -209,42 +226,18 @@
 
 .footer {
   text-align: center;
-  margin-top: 24px;
+  margin-top: 20px;
   font-size: 14px;
   color: var(--text-secondary);
-}
-
-.backHomeLink {
-  display: inline-flex;
-  justify-content: center;
-  width: 100%;
-  margin-top: 14px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--brand-text);
-  text-decoration: none;
-  transition: opacity 0.2s ease;
-}
-
-.backHomeLink:hover {
-  opacity: 0.85;
-}
-
-.backHomeLink:focus-visible {
-  outline: none;
-  border-radius: 6px;
-  box-shadow: 0 0 0 2px var(--brand-dim);
 }
 
 .footerLink {
   color: var(--brand-text);
   font-weight: 600;
-  cursor: pointer;
   transition: opacity 0.2s;
 }
 
 .footerLink:hover {
-  color: var(--brand-text);
   opacity: 0.85;
 }
 
@@ -266,7 +259,7 @@
   font-weight: 600;
   color: var(--brand-text);
   cursor: pointer;
-  padding: 4px 0;
+  padding: 0;
   transition: opacity 0.2s;
   background: none;
   border: none;
@@ -283,8 +276,27 @@
   box-shadow: 0 0 0 2px var(--brand-dim);
 }
 
+@media (max-width: 1023px) {
+  .logoBlock {
+    justify-content: center;
+  }
+
+  .eyebrow {
+    align-self: center;
+  }
+
+  .heading,
+  .subtitle {
+    text-align: center;
+    margin-inline: auto;
+  }
+
+  .backHomeLink {
+    align-self: center;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .submitBtn:hover:not(:disabled),
   .submitBtn:active:not(:disabled) {
     transform: none;
   }

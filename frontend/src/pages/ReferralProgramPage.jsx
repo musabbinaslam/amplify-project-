@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Gift, Copy, CheckCircle2, Share2, Users, TrendingUp,
-  Clock, ExternalLink, QrCode, MessageCircle, Mail,
-  Award, ChevronDown, ChevronUp, AlertCircle,
+  Clock, ExternalLink, MessageCircle, Mail, Link2,
+  Award, ChevronDown, AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { referralService } from '../services/referralService';
 import PageLoader from '../components/ui/PageLoader';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
+import { EASE_SMOOTH } from '../motion/appMotion';
 import classes from './ReferralProgramPage.module.css';
 
 const STATUS_LABELS = {
@@ -38,13 +39,64 @@ const STAGE_MAP = {
   reversed: 0,
 };
 
+/* eslint-disable react/prop-types -- local stat card helper */
+const StatCard = ({ label, value, icon: Icon, variants }) => {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      className={`glass ${classes.statCard}`}
+      variants={variants}
+      whileHover={reduceMotion ? undefined : { y: -3 }}
+      transition={{ duration: 0.2, ease: EASE_SMOOTH }}
+    >
+      <div className={classes.statIconBox}>
+        <Icon size={18} />
+      </div>
+      <div className={classes.statLabel}>{label}</div>
+      <div className={classes.statValue}>{value}</div>
+    </motion.div>
+  );
+};
+
+/* eslint-disable react/prop-types -- local FAQ accordion helper */
+const FaqAccordionItem = ({ question, answer, isOpen, onToggle, reduceMotion }) => (
+  <div className={classes.faqItem}>
+    <button
+      type="button"
+      className={`${classes.faqQuestion} ${isOpen ? classes.faqQuestionOpen : ''}`}
+      onClick={onToggle}
+      aria-expanded={isOpen}
+    >
+      <span>{question}</span>
+      <ChevronDown
+        size={18}
+        className={`${classes.faqChevron} ${isOpen ? classes.faqChevronOpen : ''}`}
+      />
+    </button>
+    <AnimatePresence initial={false}>
+      {isOpen && (
+        <motion.div
+          className={classes.faqAnswerWrap}
+          initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
+          transition={{ duration: reduceMotion ? 0 : 0.28, ease: EASE_SMOOTH }}
+        >
+          <p className={classes.faqAnswer}>{answer}</p>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
+);
+
 const ReferralProgramPage = () => {
   const presets = useSubtlePageMotion();
+  const reduceMotion = useReducedMotion();
   const [dashboard, setDashboard] = useState(null);
   const [discount, setDiscount] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(null); // 'code' | 'link' | null
+  const [copied, setCopied] = useState(null);
   const [faqOpen, setFaqOpen] = useState(null);
 
   const fetchAll = useCallback(async () => {
@@ -117,59 +169,73 @@ const ReferralProgramPage = () => {
       initial="hidden"
       animate="visible"
     >
-      <motion.div variants={presets.child}>
-        {discount?.hasDiscount && !discount.expired && (
-          <div className={classes.discountBanner}>
-            <Gift size={20} />
-            <div>
-              <strong>You have a {discount.percent}% discount ready for your next top-up!</strong>
-              <span> Expires {new Date(discount.expiresAt).toLocaleDateString()}.</span>
+      {(discount?.hasDiscount && !discount.expired) || discount?.expired ? (
+        <motion.div className={classes.bannerStack} variants={presets.child}>
+          {discount?.hasDiscount && !discount.expired && (
+            <div className={classes.discountBanner}>
+              <Gift size={18} />
+              <span>
+                <strong>You have a {discount.percent}% discount ready for your next top-up!</strong>
+                {' '}Expires {new Date(discount.expiresAt).toLocaleDateString()}.
+              </span>
             </div>
-          </div>
-        )}
-        {discount?.expired && (
-          <div className={classes.expiredBanner}>
-            <AlertCircle size={18} />
-            <span>Your referral discount expired. Check back for future promotions.</span>
-          </div>
-        )}
+          )}
+          {discount?.expired && (
+            <div className={classes.expiredBanner}>
+              <AlertCircle size={18} />
+              <span>Your referral discount expired. Check back for future promotions.</span>
+            </div>
+          )}
+        </motion.div>
+      ) : null}
+
+      <motion.div className={classes.pageHeader} variants={presets.child}>
+        <div className={classes.iconBox} aria-hidden="true">
+          <Gift size={22} />
+        </div>
+        <div>
+          <h2>Referral Program</h2>
+          <p>Share your link and earn discounts when fellow agents go live</p>
+        </div>
       </motion.div>
 
-      <motion.section className={classes.heroCard} variants={presets.child}>
+      <motion.section className={`glass ${classes.heroSection}`} variants={presets.child}>
         <div className={classes.heroContent}>
           <div className={classes.heroTextBlock}>
-            <h1 className={classes.heroTitle}>
-              <Gift size={28} className={classes.heroIcon} />
-              Referral Program
-            </h1>
             <p className={classes.heroSubtitle}>
               Share your code with a fellow agent. When they sign up, top up at least{' '}
               <strong>$500</strong>, and complete their first call —{' '}
               <strong>you earn a {config.discountPercent}% discount</strong> on your next purchase.
             </p>
-            
-            <div style={{ marginTop: '16px', background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)', padding: '12px 16px', borderRadius: '8px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <AlertCircle size={20} color="#eab308" />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <strong style={{ color: '#eab308', fontSize: '14px' }}>Monthly Limit: {stats.monthCount} / {config.maxReferralsPerMonth} Referrals Used</strong>
-                <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px' }}>You can successfully refer up to {config.maxReferralsPerMonth} new agents per calendar month.</span>
+
+            <div className={classes.limitBanner}>
+              <AlertCircle size={18} />
+              <div className={classes.limitBannerText}>
+                <strong>
+                  Monthly Limit: {stats.monthCount} / {config.maxReferralsPerMonth} Referrals Used
+                </strong>
+                <span>
+                  You can successfully refer up to {config.maxReferralsPerMonth} new agents per calendar month.
+                </span>
               </div>
             </div>
+
             <div className={classes.chainNotice}>
-              <span className={classes.chainIcon}>🔗</span>
+              <Link2 size={18} className={classes.chainIcon} />
               <span>
                 <strong>One referral, one reward.</strong> Each person you refer earns you one{' '}
-                20% discount. Once that discount is used, share your link with the next person to
+                {config.discountPercent}% discount. Once that discount is used, share your link with the next person to
                 keep the chain going!
               </span>
             </div>
           </div>
 
           <div className={classes.codeBlock}>
-            <label className={classes.codeLabel}>Your Referral Code</label>
+            <label className={classes.fieldLabel} htmlFor="referral-code">Your Referral Code</label>
             <div className={classes.codeRow}>
-              <span className={classes.codeValue}>{code}</span>
+              <span id="referral-code" className={classes.codeValue}>{code}</span>
               <button
+                type="button"
                 className={`${classes.copyBtn} ${copied === 'code' ? classes.copyBtnDone : ''}`}
                 onClick={() => copyToClipboard(code, 'code')}
               >
@@ -180,10 +246,11 @@ const ReferralProgramPage = () => {
           </div>
 
           <div className={classes.linkBlock}>
-            <label className={classes.codeLabel}>Share Link</label>
+            <label className={classes.fieldLabel} htmlFor="share-link">Share Link</label>
             <div className={classes.codeRow}>
-              <span className={classes.linkValue}>{shareUrl}</span>
+              <span id="share-link" className={classes.linkValue}>{shareUrl}</span>
               <button
+                type="button"
                 className={`${classes.copyBtn} ${copied === 'link' ? classes.copyBtnDone : ''}`}
                 onClick={() => copyToClipboard(shareUrl, 'link')}
               >
@@ -194,16 +261,16 @@ const ReferralProgramPage = () => {
           </div>
 
           <div className={classes.shareRow}>
-            <button className={`${classes.shareBtn} ${classes.whatsapp}`} onClick={() => shareVia('whatsapp')}>
+            <button type="button" className={`${classes.shareBtn} ${classes.whatsapp}`} onClick={() => shareVia('whatsapp')}>
               <MessageCircle size={16} /> WhatsApp
             </button>
-            <button className={`${classes.shareBtn} ${classes.emailShare}`} onClick={() => shareVia('email')}>
+            <button type="button" className={`${classes.shareBtn} ${classes.emailShare}`} onClick={() => shareVia('email')}>
               <Mail size={16} /> Email
             </button>
-            <button className={`${classes.shareBtn} ${classes.xShare}`} onClick={() => shareVia('x')}>
+            <button type="button" className={`${classes.shareBtn} ${classes.xShare}`} onClick={() => shareVia('x')}>
               <ExternalLink size={16} /> X
             </button>
-            <button className={`${classes.shareBtn} ${classes.linkedinShare}`} onClick={() => shareVia('linkedin')}>
+            <button type="button" className={`${classes.shareBtn} ${classes.linkedinShare}`} onClick={() => shareVia('linkedin')}>
               <ExternalLink size={16} /> LinkedIn
             </button>
           </div>
@@ -211,101 +278,85 @@ const ReferralProgramPage = () => {
       </motion.section>
 
       <motion.section className={classes.statsRow} variants={presets.statsStrip}>
-        <motion.div className={classes.statCard} variants={presets.child}>
-          <div className={classes.statIconWrap}><Users size={22} className={classes.statIcon} /></div>
-          <div className={classes.statMeta}>
-            <span className={classes.statValue}>{stats.signups}</span>
-            <span className={classes.statLabel}>Total Signups</span>
-          </div>
-        </motion.div>
-        <motion.div className={classes.statCard} variants={presets.child}>
-          <div className={classes.statIconWrap}><TrendingUp size={22} className={classes.statIcon} /></div>
-          <div className={classes.statMeta}>
-            <span className={classes.statValue}>{stats.qualified}</span>
-            <span className={classes.statLabel}>Qualified</span>
-          </div>
-        </motion.div>
-        <motion.div className={classes.statCard} variants={presets.child}>
-          <div className={classes.statIconWrap}><Clock size={22} className={classes.statIcon} /></div>
-          <div className={classes.statMeta}>
-            <span className={classes.statValue}>{stats.pending}</span>
-            <span className={classes.statLabel}>Pending</span>
-          </div>
-        </motion.div>
+        <StatCard label="Total Signups" value={stats.signups} icon={Users} variants={presets.child} />
+        <StatCard label="Qualified" value={stats.qualified} icon={TrendingUp} variants={presets.child} />
+        <StatCard label="Pending" value={stats.pending} icon={Clock} variants={presets.child} />
       </motion.section>
 
-      <motion.section className={classes.sectionBox} variants={presets.child}>
+      <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
         <div className={classes.sectionHeader}>
           <h3><Users size={20} /> Referral Activity</h3>
           <p>Track your referrals and their progress</p>
         </div>
 
         {recent.length === 0 ? (
-          <div className={classes.emptyState}>
-            <Share2 size={36} className={classes.emptyIcon} />
-            <p>No referrals yet</p>
-            <span>Share your link with fellow agents to get started!</span>
+          <div className={classes.emptyPanel}>
+            <Share2 size={32} className={classes.emptyPanelIcon} />
+            <h4>No referrals yet</h4>
+            <p>Share your link with fellow agents to get started!</p>
           </div>
         ) : (
-          <div className={classes.tableWrap}>
-            <table className={classes.table}>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Referee</th>
-                  <th>Status</th>
-                  <th>Stage</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map((r) => (
-                  <tr key={r.refereeUid}>
-                    <td className={classes.dateCell}>
-                      {r.signupAt ? new Date(r.signupAt).toLocaleDateString() : '—'}
-                    </td>
-                    <td>{r.refereeEmail || r.refereeName || '—'}</td>
-                    <td>
-                      <span className={`${classes.statusPill} ${classes[STATUS_COLORS[r.status]] || ''}`}>
-                        {STATUS_LABELS[r.status] || r.status}
-                      </span>
-                    </td>
-                    <td>
-                      <div className={classes.stageBar}>
-                        {[1, 2, 3].map((s) => (
-                          <div
-                            key={s}
-                            className={`${classes.stageDot} ${(STAGE_MAP[r.status] || 0) >= s ? classes.stageDotActive : ''}`}
-                          />
-                        ))}
-                      </div>
-                    </td>
+          <div className={`glass ${classes.tableWrap}`}>
+            <div className={classes.tableScroll}>
+              <table className={classes.table}>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Referee</th>
+                    <th>Status</th>
+                    <th>Stage</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {recent.map((r) => (
+                    <tr key={r.refereeUid}>
+                      <td className={classes.dateCell}>
+                        {r.signupAt ? new Date(r.signupAt).toLocaleDateString() : '—'}
+                      </td>
+                      <td>{r.refereeEmail || r.refereeName || '—'}</td>
+                      <td>
+                        <span className={`${classes.statusPill} ${classes[STATUS_COLORS[r.status]] || ''}`}>
+                          {STATUS_LABELS[r.status] || r.status}
+                        </span>
+                      </td>
+                      <td>
+                        <div className={classes.stageBar}>
+                          {[1, 2, 3].map((s) => (
+                            <div
+                              key={s}
+                              className={`${classes.stageDot} ${(STAGE_MAP[r.status] || 0) >= s ? classes.stageDotActive : ''}`}
+                            />
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </motion.section>
 
-      <motion.section className={classes.sectionBox} variants={presets.child}>
+      <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
         <div className={classes.sectionHeader}>
           <h3><Gift size={20} /> How It Works</h3>
           <p>Three simple steps to earn your discount</p>
         </div>
         <div className={classes.stepsRow}>
-          <div className={classes.stepCard}>
+          <div className={`glass ${classes.stepCard}`}>
             <div className={classes.stepNumber}>1</div>
             <h4>Sign Up</h4>
             <p>A friend signs up using your referral link or code</p>
           </div>
           <div className={classes.stepConnector} />
-          <div className={classes.stepCard}>
+          <div className={`glass ${classes.stepCard}`}>
             <div className={classes.stepNumber}>2</div>
             <h4>Top Up $500+</h4>
             <p>They make a qualifying top-up of at least <strong>$500</strong></p>
           </div>
           <div className={classes.stepConnector} />
-          <div className={classes.stepCard}>
+          <div className={`glass ${classes.stepCard}`}>
             <div className={classes.stepNumber}>3</div>
             <h4>Go Live</h4>
             <p>They complete their first call — you get {config.discountPercent}% off your next purchase!</p>
@@ -314,14 +365,14 @@ const ReferralProgramPage = () => {
       </motion.section>
 
       {leaderboard.length > 0 && (
-        <motion.section className={classes.sectionBox} variants={presets.child}>
+        <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
           <div className={classes.sectionHeader}>
             <h3><Award size={20} className={classes.goldIcon} /> Top Referrers</h3>
             <p>Agents who have made the most successful referrals</p>
           </div>
           <div className={classes.leaderboardList}>
             {leaderboard.map((entry) => (
-              <div key={entry.rank} className={classes.leaderboardItem}>
+              <div key={entry.rank} className={`glass ${classes.leaderboardItem}`}>
                 <span className={`${classes.leaderRank} ${entry.rank <= 3 ? classes[`rank${entry.rank}`] : ''}`}>
                   #{entry.rank}
                 </span>
@@ -333,9 +384,9 @@ const ReferralProgramPage = () => {
         </motion.section>
       )}
 
-      <motion.section className={classes.sectionBox} variants={presets.child}>
+      <motion.section className={`glass ${classes.sectionCard} ${classes.faqSection}`} variants={presets.child}>
         <div className={classes.sectionHeader}>
-          <h3>FAQ & Terms</h3>
+          <h3>FAQ &amp; Terms</h3>
         </div>
         {[
           { q: 'What does "going live" mean?', a: 'Going live means completing your first inbound call that lasts at least 30 seconds. Short or missed calls don\'t count.' },
@@ -346,13 +397,14 @@ const ReferralProgramPage = () => {
           { q: 'Is there a cash value?', a: 'No. The discount is applied as bonus wallet credits after your discounted purchase. It has no cash value and cannot be withdrawn.' },
           { q: 'How many people can I refer?', a: `You can successfully refer up to ${config.maxReferralsPerMonth} people per calendar month. Each person can only use one referral code, and each successful referral earns you one ${config.discountPercent}% discount.` },
         ].map((faq, i) => (
-          <div key={i} className={classes.faqItem}>
-            <button className={classes.faqQuestion} onClick={() => setFaqOpen(faqOpen === i ? null : i)}>
-              <span>{faq.q}</span>
-              {faqOpen === i ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-            </button>
-            {faqOpen === i && <p className={classes.faqAnswer}>{faq.a}</p>}
-          </div>
+          <FaqAccordionItem
+            key={faq.q}
+            question={faq.q}
+            answer={faq.a}
+            isOpen={faqOpen === i}
+            onToggle={() => setFaqOpen(faqOpen === i ? null : i)}
+            reduceMotion={reduceMotion}
+          />
         ))}
       </motion.section>
     </motion.div>

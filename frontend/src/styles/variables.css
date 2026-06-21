@@ -64,11 +64,11 @@
 
 /* ── Light Theme ── */
 [data-theme="light"] {
-  --surface: #fafafa;
-  --surface-container-low: #f0f0f0;
-  --surface-container: #e6e6e6;
-  --surface-container-high: #dbdbdb;
-  --surface-container-highest: #cfcfcf;
+  --surface: #f0f0f2;
+  --surface-container-low: #e8e8eb;
+  --surface-container: #dedee2;
+  --surface-container-high: #d4d4d9;
+  --surface-container-highest: #c8c8ce;
 
   --accent-green: #18a818;
   --accent-green-dim: rgba(24, 168, 24, 0.12);
@@ -92,14 +92,15 @@
   --text-secondary: #555555;
   --text-tertiary: #6a6a6a;
 
-  --border: rgba(0, 0, 0, 0.14);
+  --border: rgba(0, 0, 0, 0.08);
   --border-focus: var(--brand-text);
 
-  --glass-bg: color-mix(in srgb, #ffffff 92%, transparent);
-  --glass-bg-hover: color-mix(in srgb, #ffffff 98%, transparent);
-  --glass-border: color-mix(in srgb, #000000 10%, transparent);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 1);
-  --glass-edge: 0 4px 18px rgba(0, 0, 0, 0.08);
+  /* Mirror dark glass translucency — frosted, not opaque white boxes */
+  --glass-bg: color-mix(in srgb, var(--surface-container-low) 54%, transparent);
+  --glass-bg-hover: color-mix(in srgb, var(--surface-container) 68%, transparent);
+  --glass-border: color-mix(in srgb, #000000 8%, transparent);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  --glass-edge: 0 1px 0 rgba(0, 0, 0, 0.07);
 
   --bg-primary: var(--surface);
   --bg-secondary: var(--surface-container-low);

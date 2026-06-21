@@ -59,6 +59,25 @@ export function postAdminBroadcastNotification(body) {
   return apiFetch('/api/admin/notifications/broadcast', { method: 'POST', body });
 }
 
+export function listAdminBroadcasts({ limit = 50, cursor } = {}) {
+  const qs = new URLSearchParams();
+  if (limit) qs.set('limit', String(limit));
+  if (cursor) qs.set('cursor', cursor);
+  return apiFetch(`/api/admin/notifications/broadcasts${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
+}
+
+export function getAdminBroadcast(id) {
+  return apiFetch(`/api/admin/notifications/broadcasts/${encodeURIComponent(id)}`, { method: 'GET' });
+}
+
+export function patchAdminBroadcast(id, body) {
+  return apiFetch(`/api/admin/notifications/broadcasts/${encodeURIComponent(id)}`, { method: 'PATCH', body });
+}
+
+export function deleteAdminBroadcast(id) {
+  return apiFetch(`/api/admin/notifications/broadcasts/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 export function getAdminMaintenanceState() {
   return apiFetch('/api/admin/maintenance', { method: 'GET' });
 }
