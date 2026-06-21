@@ -10,7 +10,7 @@
 }
 
 .contentColumn {
-  width: min(100%, 880px);
+  width: min(100%, 1440px);
   margin-inline: auto;
   display: flex;
   flex-direction: column;

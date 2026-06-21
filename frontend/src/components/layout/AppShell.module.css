@@ -1,3 +1,10 @@
+.appShell {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
 .appContainer {
   position: relative;
   display: flex;

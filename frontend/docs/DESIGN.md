@@ -4,6 +4,7 @@ Design reference extracted from the redesigned Dashboard. Use this document when
 
 **Reference implementations:**
 - App shell — [AppShell.jsx](../src/components/layout/AppShell.jsx) + [ambient.css](../src/styles/ambient.css) (global brand gradient)
+- Auth — [AuthShell.jsx](../src/components/auth/AuthShell.jsx) + [LoginPage.jsx](../src/pages/LoginPage.jsx) / [SignupPage.jsx](../src/pages/SignupPage.jsx)
 - Dashboard — [DashboardPage.jsx](../src/pages/DashboardPage.jsx) + [DashboardPage.module.css](../src/pages/DashboardPage.module.css)
 - Welcome — [WelcomePage.jsx](../src/pages/WelcomePage.jsx) + [WelcomePage.module.css](../src/pages/WelcomePage.module.css)
 
@@ -356,6 +357,33 @@ Fill the card width by default; only shrink on short viewports (pure CSS, no res
 Mobile + short height: `≤480px` and `max-height: 760px` → `min(44vh, 360px)` height cap.
 
 **Removed anti-patterns:** flat opaque card + `box-shadow: 0 8px 32px`, inline iframe styles, dead thumbnail/play-bubble glow CSS.
+
+### 7.11 Auth pages (Login / Signup)
+
+Guest routes use [AuthShell.jsx](../src/components/auth/AuthShell.jsx) — two-column split on desktop, shared glass form patterns.
+
+**Layout (desktop ≥1024px)**
+- Left **brand column:** logo, eyebrow chip, heading, subtitle, back link — on ambient + grid (no glass card).
+- Right **form panel:** `` `glass ${classes.formPanel}` `` — Google btn, divider, fields, submit, footer links.
+- Shell: `max-width: 1120px`, `grid-template-columns: 1fr 1fr`, `gap: 48px`; page `overflow: hidden` (panel scrolls if needed on short heights).
+- Mobile: stack brand above form; single-column form grid.
+
+**Background**
+- Reuses `appAmbient` (§6) + subtle auth grid overlay — brand-only, no `--accent-cyan`.
+
+**Form controls**
+- Inputs/selects: `--glass-border`, `surface-container-high` mix (Settings pattern).
+- Google button: ghost pill (`--glass-border`).
+- Submit: `--brand-solid` + inset highlight only — no glow shadow stack.
+- Eyebrow: glass pill chip in brand column.
+
+**Signup density**
+- Credentials step: `.formGrid` 2 columns — name | email, weekly spend | hear-about, password | confirm; phone, inbound, verticals span full width.
+- Verticals: horizontal pill row (radio in label), not stacked list.
+
+**Chrome**
+- Theme toggle: fixed top-right ghost pill (`useUIStore`).
+- Removed: gradient card border, colored top accent bar, logo drop-shadow glow, `wide` prop.
 
 ---
 

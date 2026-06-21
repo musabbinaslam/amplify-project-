@@ -211,7 +211,8 @@ const AppShell = () => {
   }, [maintenance, nowTs]);
 
   return (
-    <div className={`${classes.appContainer} appAmbient`}>
+    <div className={`${classes.appShell} appAmbient`}>
+      <div className={classes.appContainer}>
       <div className={classes.mainLayout}>
         <Sidebar />
         <div className={`${classes.contentWrapper} ${isSidebarCollapsed ? classes.collapsed : ''}`}>
@@ -252,6 +253,7 @@ const AppShell = () => {
           </main>
         </div>
       </div>
+    </div>
     </div>
   );
 };
