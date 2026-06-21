@@ -432,3 +432,5 @@ src/styles/variables.css         — tokens (reuse, do not duplicate)
 ```
 
 Consider extracting `.glass`, trend pills, icon boxes, and section headers into `src/components/ui/` shared modules once a second page adopts them.
+
+**Shared surface primitive:** [surfaces.css](../src/styles/surfaces.css) — import via [global.css](../src/styles/global.css). Apply as `className="glass"` alongside page-specific CSS module classes.
