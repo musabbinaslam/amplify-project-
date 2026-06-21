@@ -1,12 +1,15 @@
-import React, { useMemo, useRef, useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { useMemo, useRef, useState, useEffect } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Wallet, Moon, Sun, Bell } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
-import classes from './Topbar.module.css';
 import useDialerStore from '../../store/useDialerStore';
+import { dropdownPanelMotion } from '../../motion/appMotion';
+import NotificationDetailModal from '../modals/NotificationDetailModal';
+import classes from './Topbar.module.css';
 
+/* eslint-disable react/prop-types -- topbar props wired from AppShell */
 const Topbar = ({
   notifications = [],
   adminNotifications = [],
@@ -19,20 +22,20 @@ const Topbar = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
   const user = useAuthStore((s) => s.user);
   const { theme, toggleTheme } = useUIStore();
   const [balanceCents, setBalanceCents] = useState(null);
   const [isInboxOpen, setIsInboxOpen] = useState(false);
-  const [isInboxClosing, setIsInboxClosing] = useState(false);
   const [isBellAnimating, setIsBellAnimating] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [inboxTab, setInboxTab] = useState('general');
   const inboxRef = useRef(null);
-  const notificationModalRef = useRef(null);
   const { callState } = useDialerStore();
-  
+
   const isOnline = callState !== 'offline' && callState !== 'error';
-  
+  const inboxMotion = dropdownPanelMotion(reduceMotion);
+
   useEffect(() => {
     const fetchBalance = async () => {
       try {
@@ -64,20 +67,16 @@ const Topbar = ({
   }, [user]);
 
   useEffect(() => {
-    if (!isInboxOpen || isInboxClosing) return undefined;
+    if (!isInboxOpen) return undefined;
     const onClickOutside = (event) => {
-      if (!inboxRef.current) return;
-      if (!inboxRef.current.contains(event.target)) {
-        setIsInboxClosing(true);
-        window.setTimeout(() => {
-          setIsInboxOpen(false);
-          setIsInboxClosing(false);
-        }, 170);
+      if (!inboxRef.current?.contains(event.target)) {
+        setIsInboxOpen(false);
+        setInboxTab('general');
       }
     };
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
-  }, [isInboxOpen, isInboxClosing]);
+  }, [isInboxOpen]);
 
   useEffect(() => {
     if (!notificationTick) return;
@@ -86,26 +85,6 @@ const Topbar = ({
     return () => window.clearTimeout(timer);
   }, [notificationTick]);
 
-  useEffect(() => {
-    if (!selectedNotification) return undefined;
-    const onEsc = (event) => {
-      if (event.key === 'Escape') setSelectedNotification(null);
-    };
-    const onOutside = (event) => {
-      if (!notificationModalRef.current) return;
-      if (!notificationModalRef.current.contains(event.target)) {
-        setSelectedNotification(null);
-      }
-    };
-    document.addEventListener('keydown', onEsc);
-    document.addEventListener('mousedown', onOutside);
-    return () => {
-      document.removeEventListener('keydown', onEsc);
-      document.removeEventListener('mousedown', onOutside);
-    };
-  }, [selectedNotification]);
-
-  // Format pathname to Title Case for the header
   const getPageTitle = (pathname) => {
     const stripped = pathname.replace(/^\/app\/?/, '');
     if (!stripped) return 'Lets get started';
@@ -127,6 +106,13 @@ const Topbar = ({
     return (cents / 100).toFixed(2);
   };
 
+  const formatTime = (value) => {
+    if (!value) return 'Just now';
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return 'Just now';
+    return dt.toLocaleString();
+  };
+
   const generalItems = useMemo(() => notifications.slice(0, 12), [notifications]);
   const adminItems = useMemo(
     () => (isAdmin ? adminNotifications.slice(0, 12) : []),
@@ -144,18 +130,13 @@ const Topbar = ({
   const activeTabEmpty = activeItems.length === 0;
 
   const closeInbox = () => {
-    setIsInboxClosing(true);
-    window.setTimeout(() => {
-      setIsInboxOpen(false);
-      setIsInboxClosing(false);
-      setInboxTab('general');
-    }, 170);
+    setIsInboxOpen(false);
+    setInboxTab('general');
   };
 
   const openNotification = (row) => {
     if (row.id && onMarkRead) onMarkRead(row.id);
 
-    // Actionable alerts — navigate directly (no detail modal flash).
     if (row.linkPath && (row.type === 'admin_alert' || row.type === 'contest_credited')) {
       closeInbox();
       navigate(row.linkPath);
@@ -166,54 +147,53 @@ const Topbar = ({
     setSelectedNotification(row);
   };
 
-  const renderInboxItems = (rows) => rows.map((row) => (
-    <button
-      type="button"
-      key={row.id || `${row.title}-${row.createdAt}`}
-      className={`${classes.inboxItem} ${!row.read ? classes.inboxItemUnread : ''} ${
-        latestNotificationId && row.id === latestNotificationId ? classes.inboxItemNew : ''
-      } ${row.type === 'admin_alert' ? classes.inboxItemAdmin : ''}`}
-      onClick={() => openNotification(row)}
-    >
-      <span className={classes.itemTitle}>{row.title || 'Notification'}</span>
-      <span className={classes.itemBody}>{row.body || ''}</span>
-      <span className={classes.itemTime}>{formatTime(row.createdAt || row.createdAtIso)}</span>
-    </button>
-  ));
   const toggleInbox = () => {
-    if (isInboxOpen && !isInboxClosing) {
-      setIsInboxClosing(true);
-      window.setTimeout(() => {
-        setIsInboxOpen(false);
-        setIsInboxClosing(false);
-        setInboxTab('general');
-      }, 170);
+    if (isInboxOpen) {
+      closeInbox();
       return;
     }
     setInboxTab('general');
     setIsInboxOpen(true);
   };
-  const formatTime = (value) => {
-    if (!value) return 'Just now';
-    const dt = new Date(value);
-    if (Number.isNaN(dt.getTime())) return 'Just now';
-    return dt.toLocaleString();
-  };
+
+  const renderInboxItems = (rows) => rows.map((row) => (
+    <button
+      type="button"
+      key={row.id || `${row.title}-${row.createdAt}`}
+      className={`${classes.notificationCard} ${!row.read ? classes.notificationCardUnread : ''} ${
+        latestNotificationId && row.id === latestNotificationId ? classes.notificationCardNew : ''
+      } ${row.type === 'admin_alert' ? classes.notificationCardAdmin : ''}`}
+      onClick={() => openNotification(row)}
+    >
+      {!row.read && <span className={classes.unreadDot} aria-hidden="true" />}
+      <div className={classes.cardMain}>
+        <div className={classes.cardTitleRow}>
+          <span className={classes.itemTitle}>{row.title || 'Notification'}</span>
+          {row.type === 'admin_alert' && (
+            <span className={classes.adminChip}>Admin</span>
+          )}
+        </div>
+        {row.body ? <span className={classes.itemBody}>{row.body}</span> : null}
+        <span className={classes.itemTime}>{formatTime(row.createdAt || row.createdAtIso)}</span>
+      </div>
+    </button>
+  ));
 
   return (
     <header className={classes.topbar}>
       <div className={classes.pageInfo}>
         <h1 className={classes.title}>{getPageTitle(location.pathname)}</h1>
-        {/* <span className={classes.subtitle}>{user?.name || 'Agent'}</span> */}
       </div>
 
       <div className={classes.actions}>
         <div className={classes.inboxWrap} ref={inboxRef}>
           <button
-            className={`${classes.iconBtn} ${isBellAnimating ? classes.bellAnimated : ''}`}
+            className={`${classes.iconBtn} ${isInboxOpen ? classes.iconBtnActive : ''} ${isBellAnimating ? classes.bellAnimated : ''}`}
             onClick={toggleInbox}
             title="Notifications"
             type="button"
+            aria-expanded={isInboxOpen}
+            aria-haspopup="dialog"
           >
             <Bell size={18} className={classes.bellIcon} />
             {unreadCount > 0 ? (
@@ -222,64 +202,76 @@ const Topbar = ({
               </span>
             ) : null}
           </button>
-          {isInboxOpen ? (
-            <div
-              className={`${classes.inboxPanel} ${
-                isInboxClosing ? classes.inboxPanelClose : classes.inboxPanelOpen
-              }`}
-            >
-              <div className={classes.inboxHeader}>
-                <strong>Notifications</strong>
-                <button
-                  type="button"
-                  className={classes.inlineBtn}
-                  onClick={() => onMarkAllRead?.(inboxTab === 'admin' && isAdmin ? 'admin' : 'general')}
-                >
-                  Mark all read
-                </button>
-              </div>
-              {isAdmin ? (
-                <div className={classes.inboxTabs} role="tablist" aria-label="Notification sections">
+
+          <AnimatePresence>
+            {isInboxOpen && (
+              <motion.div
+                className={classes.inboxPanel}
+                role="dialog"
+                aria-label="Notifications"
+                {...inboxMotion}
+              >
+                <div className={classes.inboxHeader}>
+                  <strong>Notifications</strong>
                   <button
                     type="button"
-                    role="tab"
-                    aria-selected={inboxTab === 'general'}
-                    className={`${classes.inboxTab} ${inboxTab === 'general' ? classes.inboxTabActive : ''}`}
-                    onClick={() => setInboxTab('general')}
+                    className={classes.inlineBtn}
+                    onClick={() => onMarkAllRead?.(inboxTab === 'admin' && isAdmin ? 'admin' : 'general')}
                   >
-                    Updates
-                    {generalUnread > 0 ? (
-                      <span className={classes.inboxTabBadge}>{generalUnread > 99 ? '99+' : generalUnread}</span>
-                    ) : null}
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={inboxTab === 'admin'}
-                    className={`${classes.inboxTab} ${inboxTab === 'admin' ? classes.inboxTabActiveAdmin : ''}`}
-                    onClick={() => setInboxTab('admin')}
-                  >
-                    Admin
-                    {adminUnread > 0 ? (
-                      <span className={`${classes.inboxTabBadge} ${classes.inboxTabBadgeAdmin}`}>
-                        {adminUnread > 99 ? '99+' : adminUnread}
-                      </span>
-                    ) : null}
+                    Mark all read
                   </button>
                 </div>
-              ) : null}
-              {activeTabEmpty ? (
-                <p className={classes.emptyText}>
-                  {inboxTab === 'admin' ? 'No admin alerts right now.' : 'No notifications yet.'}
-                </p>
-              ) : (
-                <div className={classes.inboxList}>
-                  {renderInboxItems(activeItems)}
+
+                {isAdmin ? (
+                  <div className={classes.inboxTabs} role="tablist" aria-label="Notification sections">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={inboxTab === 'general'}
+                      className={`${classes.inboxTab} ${inboxTab === 'general' ? classes.inboxTabActive : ''}`}
+                      onClick={() => setInboxTab('general')}
+                    >
+                      Updates
+                      {generalUnread > 0 ? (
+                        <span className={classes.inboxTabBadge}>{generalUnread > 99 ? '99+' : generalUnread}</span>
+                      ) : null}
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={inboxTab === 'admin'}
+                      className={`${classes.inboxTab} ${inboxTab === 'admin' ? classes.inboxTabActiveAdmin : ''}`}
+                      onClick={() => setInboxTab('admin')}
+                    >
+                      Admin
+                      {adminUnread > 0 ? (
+                        <span className={`${classes.inboxTabBadge} ${classes.inboxTabBadgeAdmin}`}>
+                          {adminUnread > 99 ? '99+' : adminUnread}
+                        </span>
+                      ) : null}
+                    </button>
+                  </div>
+                ) : null}
+
+                <div className={classes.inboxBody}>
+                  {activeTabEmpty ? (
+                    <div className={classes.emptyPanel}>
+                      <Bell size={22} className={classes.emptyPanelIcon} aria-hidden="true" />
+                      <p>
+                        {inboxTab === 'admin' ? 'No admin alerts right now.' : 'No notifications yet.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className={classes.inboxList}>
+                      {renderInboxItems(activeItems)}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          ) : null}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
+
         <button
           type="button"
           className={classes.walletBox}
@@ -293,37 +285,25 @@ const Topbar = ({
           )}
         </button>
 
-
-        <button className={classes.iconBtn} onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+        <button
+          type="button"
+          className={classes.iconBtn}
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
-        
+
         <div className={`${classes.statusBadge} ${isOnline ? classes.statusOnline : ''}`}>
-          <span className={classes.statusDot}></span>
+          <span className={classes.statusDot} />
           {isOnline ? 'Online' : 'Offline'}
         </div>
       </div>
-      {selectedNotification ? createPortal(
-        <div className={classes.notificationModalBackdrop}>
-          <div className={classes.notificationModal} ref={notificationModalRef}>
-            <div className={classes.notificationModalHeader}>
-              <h3>{selectedNotification.title || 'Notification'}</h3>
-              <button
-                type="button"
-                className={classes.notificationCloseBtn}
-                onClick={() => setSelectedNotification(null)}
-              >
-                Close
-              </button>
-            </div>
-            <div className={classes.notificationModalMeta}>
-              <span>{formatTime(selectedNotification.createdAt || selectedNotification.createdAtIso)}</span>
-              <span>{String(selectedNotification.type || 'general').replace(/_/g, ' ')}</span>
-            </div>
-            <p className={classes.notificationModalBody}>{selectedNotification.body || 'No description available.'}</p>
-          </div>
-        </div>
-      , document.body) : null}
+
+      <NotificationDetailModal
+        notification={selectedNotification}
+        onClose={() => setSelectedNotification(null)}
+      />
     </header>
   );
 };
