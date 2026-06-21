@@ -2,7 +2,10 @@
 
 Design reference extracted from the redesigned Dashboard. Use this document when updating any authenticated `/app` screen so the product feels cohesive.
 
-**Reference implementation:** [DashboardPage.jsx](../src/pages/DashboardPage.jsx) + [DashboardPage.module.css](../src/pages/DashboardPage.module.css)
+**Reference implementations:**
+- App shell — [AppShell.jsx](../src/components/layout/AppShell.jsx) + [ambient.css](../src/styles/ambient.css) (global brand gradient)
+- Dashboard — [DashboardPage.jsx](../src/pages/DashboardPage.jsx) + [DashboardPage.module.css](../src/pages/DashboardPage.module.css)
+- Welcome — [WelcomePage.jsx](../src/pages/WelcomePage.jsx) + [WelcomePage.module.css](../src/pages/WelcomePage.module.css)
 
 **Token source of truth:** [variables.css](../src/styles/variables.css)  
 **Motion source of truth:** [appMotion.js](../src/motion/appMotion.js)
@@ -130,10 +133,12 @@ Use `18px` as the default card grid gap across dashboard-style layouts.
 
 ## 5. Card surface (`.glass`)
 
-The shared card treatment used on Dashboard. Apply **two CSS module classes** in JSX — never rely on CSS Modules `composes` for pseudo-elements or `:hover`.
+Global primitive in [surfaces.css](../src/styles/surfaces.css), imported via [global.css](../src/styles/global.css). Theme tokens live in [variables.css](../src/styles/variables.css) (`--glass-*`).
+
+Apply alongside page-specific CSS module classes:
 
 ```jsx
-<div className={`${classes.glass} ${classes.kpiCard}`} />
+<div className={`glass ${classes.kpiCard}`} />
 ```
 
 ### Base card
@@ -141,28 +146,43 @@ The shared card treatment used on Dashboard. Apply **two CSS module classes** in
 ```css
 .glass {
   position: relative;
-  background: var(--surface-container-low);
-  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transition: border-color 0.22s ease, background 0.22s ease;
+  box-shadow: var(--glass-highlight), var(--glass-edge);
+  transition: background 0.22s ease, border-color 0.22s ease;
 }
 
 .glass:hover {
-  background: var(--surface-container);
-  border-color: color-mix(in srgb, #ffffff 11%, transparent);
+  background: var(--glass-bg-hover);
+  border-color: color-mix(in srgb, var(--brand-text) 18%, var(--glass-border));
 }
 ```
+
+### Glass tokens (dark / light)
+
+| Token | Dark | Light |
+|-------|------|-------|
+| `--glass-bg` | 52% `--surface-container-low` + transparent | 54% `--surface-container-low` + transparent |
+| `--glass-border` | 14% white mix | 8% black mix (defines edge on light bg) |
+| `--glass-highlight` | `inset 0 1px 0 rgba(255,255,255,0.12)` | `inset 0 1px 0 rgba(255,255,255,0.72)` |
+| `--glass-edge` | `0 1px 0 rgba(0,0,0,0.25)` | `0 1px 0 rgba(0,0,0,0.07)` (hairline — not drop shadow) |
+
+The AppShell `.appAmbient` gradient (see §6) gives `backdrop-filter` content to frost against across sidebar, topbar, and main content.
 
 ### Depth rules — do and don't
 
 | Do | Don't |
 |----|-------|
-| Inset top highlight (`inset 0 1px 0 rgba(255,255,255,0.05)`) | Stacked `box-shadow` layers on dark cards |
-| Surface tier shift on hover | `::before` + `filter: blur()` fake shadows |
-| Hairline white-mix border | Heavy outer glow on every icon |
-| Ambient page wash at 20–25% opacity | Per-card colored top accent bars |
-| Shadow on floating overlays only (dropdowns, tooltips) | Rainbow accent per card |
+| Translucent fill + `backdrop-filter` blur | Solid opaque `--surface-container-low` fill |
+| Theme `--glass-*` tokens for border/highlight/edge | White-on-white borders in light mode |
+| Dark rim (`10% black`) on light cards for edge definition | Light mode `::before` top sheen gradient |
+| Inset top highlight via `--glass-highlight` | Stacked outer `box-shadow` layers on cards |
+| 1px dark separator (`--glass-edge`) in dark mode | `::before` + `filter: blur()` fake shadows |
+| Ambient page wash behind cards | Per-card colored top accent bars |
+| Shadow on floating overlays only (dropdowns, tooltips, modals) | Heavy outer glow on every icon |
 
 Floating overlays (menus, tooltips) may use a single soft shadow because they sit above the page:
 
@@ -174,24 +194,23 @@ box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
 
 ## 6. Ambient page background
 
-One subtle wash behind the whole page — not per card.
+One subtle brand gradient behind the **entire authenticated app** — not per page, not per card.
 
-```css
-.pageRoot::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background: radial-gradient(100% 40% at 50% 0%, var(--brand-dim), transparent 70%);
-  opacity: 0.25;
-}
+**Where:** [AppShell.jsx](../src/components/layout/AppShell.jsx) applies `appAmbient` on `.appContainer`. Styles live in [ambient.css](../src/styles/ambient.css).
 
-.pageRoot > * {
-  position: relative;
-  z-index: 1;
-}
-```
+**Why AppShell:** Glass sidebar, topbar, and cards use `backdrop-filter`. They need a tinted layer behind them. `mainContent` must stay `background: transparent` so the gradient shows through.
+
+**Tokens:** Uses `--brand` and `--brand-dim` from [themeStore.js](../src/store/themeStore.js). Color updates instantly when the user changes accent in Settings — no save required for preview.
+
+**Formula** — one full-viewport `::before` layer with three soft radial stops, `filter: blur(64px)` (no visible blob edges), and a 60s drift (~1.2% translate). Brand-only; no `--accent-cyan`.
+
+- `@media (prefers-reduced-motion: reduce)` — animation off
+
+Light mode uses slightly **stronger** ambient stops (30% / 17% / 11%) so the wash matches dark-mode visual weight on pale surfaces. Do not use unblurred circular pseudo-elements — they read as hard shapes behind glass.
+
+Base surface remains `var(--surface)` on `.appContainer` for contrast fallback.
+
+**Do not** add per-page `::before` ambient washes — they double-stack and miss the sidebar/topbar area.
 
 ---
 
@@ -299,6 +318,45 @@ Pill shape, 0.72rem / 600, semantic background at ~14% opacity:
 - Error banner: red 10% bg, 40% border, `--radius-lg`.
 - Loading: `PageLoader` on first paint; inline spinner for section-level loads.
 
+### 7.10 Welcome page
+
+Simple onboarding screen: hero greeting + single glass tutorial card with embedded video.
+
+**Page shell**
+- Content inherits AppShell ambient gradient (§6) — no per-page wash.
+- `.contentColumn`: `width: min(100%, 880px); margin-inline: auto`.
+
+**Hero**
+- Title: 28px / 800 desktop → 22px mobile; subtitle 14px secondary.
+- Wave emoji: CSS `@keyframes wave`; gate with `useReducedMotion()` + `prefers-reduced-motion` fallback.
+
+**Tutorial card**
+- `` `glass ${classes.videoCard}` `` with §7.3 `iconBox` + `cardHeader` / `cardDivider`.
+- Padding: 22–24px desktop, scales down at 768px / 480px.
+- No card drop shadow — depth from glass surface only.
+
+**Responsive video shell**
+
+Fill the card width by default; only shrink on short viewports (pure CSS, no resize listeners):
+
+```css
+.videoPlayer {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+@media (max-height: 760px) {
+  .videoPlayer {
+    width: min(100%, calc(min(52vh, 540px) * 16 / 9));
+    margin-inline: auto;
+  }
+}
+```
+
+Mobile + short height: `≤480px` and `max-height: 760px` → `min(44vh, 360px)` height cap.
+
+**Removed anti-patterns:** flat opaque card + `box-shadow: 0 8px 32px`, inline iframe styles, dead thumbnail/play-bubble glow CSS.
+
 ---
 
 ## 8. Charts (Recharts)
@@ -387,7 +445,7 @@ Rules of thumb:
 
 When redesigning a page (Call Logs, Billing, Take Calls, etc.):
 
-1. Replace flat `--bg-card` blocks with `${classes.glass} ${classes.yourCard}` pattern.
+1. Replace flat `--bg-card` blocks with `` `glass ${classes.yourCard}` `` pattern.
 2. Swap hardcoded accent colors for `--brand-text` unless semantically required.
 3. Adopt the label/value typography scale for any stat displays.
 4. Use `useSubtlePageMotion()` for page enter stagger.
@@ -400,9 +458,10 @@ When redesigning a page (Call Logs, Billing, Take Calls, etc.):
 
 1. Call Logs (table + filters — high traffic)
 2. Billing (stats + tables)
-3. Welcome / Profile (cards + forms)
-4. Take Calls (complex — migrate section by section)
-5. Admin / QA dashboards (reuse dashboard patterns directly)
+3. ~~Welcome~~ ✓ — [WelcomePage](../src/pages/WelcomePage.jsx) (cards + embedded video)
+4. Profile (cards + forms)
+5. Take Calls (complex — migrate section by section)
+6. Admin / QA dashboards (reuse dashboard patterns directly)
 
 ---
 
@@ -432,3 +491,5 @@ src/styles/variables.css         — tokens (reuse, do not duplicate)
 ```
 
 Consider extracting `.glass`, trend pills, icon boxes, and section headers into `src/components/ui/` shared modules once a second page adopts them.
+
+**Shared surface primitive:** [surfaces.css](../src/styles/surfaces.css) — import via [global.css](../src/styles/global.css). Apply as `className="glass"` alongside page-specific CSS module classes.

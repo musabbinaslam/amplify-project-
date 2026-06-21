@@ -98,8 +98,8 @@ function applyBrand(hex) {
 
   const root = document.documentElement.style;
   root.setProperty('--brand', clean);
-  root.setProperty('--brand-dim', `rgba(${r}, ${g}, ${b}, 0.15)`);
-  root.setProperty('--brand-glow', `rgba(${r}, ${g}, ${b}, 0.3)`);
+  root.setProperty('--brand-dim', `rgba(${r}, ${g}, ${b}, ${theme === 'light' ? 0.22 : 0.15})`);
+  root.setProperty('--brand-glow', `rgba(${r}, ${g}, ${b}, ${theme === 'light' ? 0.28 : 0.3})`);
   root.setProperty('--brand-solid', brandSolid);
   root.setProperty('--brand-text', brandText);
   root.setProperty('--brand-on', brandOn);

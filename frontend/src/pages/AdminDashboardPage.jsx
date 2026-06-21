@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  Shield, Users, Phone, Radio, RefreshCw, Trash2, Plus, CalendarDays, CircleDollarSign, Activity, Play, X, ChevronDown, FileText
+  Shield, Users, Phone, Radio, RefreshCw, Trash2, Plus, CalendarDays,
+  CircleDollarSign, Activity, Play, X, ChevronDown, FileText, TrendingUp,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   AreaChart,
   Area,
+  Line,
+  ComposedChart,
   CartesianGrid,
   XAxis,
   YAxis,
@@ -39,6 +42,264 @@ import { RecordingModal } from './CallLogsPage';
 import { auth } from '../config/firebase';
 import { getApiBaseUrl } from '../config/apiBase';
 import classes from './AdminDashboardPage.module.css';
+
+const CHART_TOOLTIP_STYLE = {
+  background: 'color-mix(in srgb, var(--surface-container-highest) 92%, transparent)',
+  border: '1px solid var(--glass-border)',
+  borderRadius: 'var(--radius-lg)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  fontSize: 13,
+};
+
+const formatChartDay = (day) => {
+  if (!day) return '';
+  const d = new Date(`${day}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return String(day);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+
+const hasChartData = (data, keys) => {
+  if (!data?.length) return false;
+  return data.some((row) => keys.some((k) => Number(row[k]) > 0));
+};
+
+/* eslint-disable react/prop-types -- local presentation helpers */
+const StatCard = ({ label, value, icon: Icon, variants, loading, wide }) => {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      className={`glass ${classes.statCard}`}
+      variants={variants}
+      whileHover={reduceMotion ? undefined : { y: -3 }}
+      transition={{ duration: 0.2, ease: EASE_SMOOTH }}
+    >
+      <div className={classes.statIconBox}>
+        <Icon size={18} />
+      </div>
+      <div className={classes.statLabel}>{label}</div>
+      <div className={classes.statValue}>
+        {loading ? <span className={wide ? classes.skeletonNumWide : classes.skeletonNum} /> : value}
+      </div>
+    </motion.div>
+  );
+};
+
+const ChartLegend = ({ items }) => (
+  <div className={classes.chartLegend}>
+    {items.map((item) => (
+      <span key={item.label} className={classes.chartLegendItem}>
+        <span className={classes.chartLegendDot} style={{ background: item.color }} />
+        {item.label}
+      </span>
+    ))}
+  </div>
+);
+
+const AdminCallTrendChart = ({ data, loading, reduceMotion, totalCalls, answerRatePct }) => {
+  if (loading) {
+    return (
+      <div className={classes.chartEmpty}>
+        <p>Loading analytics…</p>
+      </div>
+    );
+  }
+  if (!hasChartData(data, ['totalCalls', 'answeredCalls'])) {
+    return (
+      <div className={classes.chartEmpty}>
+        <TrendingUp size={32} className={classes.chartEmptyIcon} />
+        <h4>No call data in selected range</h4>
+        <p>Try a wider date range or refresh after more activity.</p>
+      </div>
+    );
+  }
+  return (
+    <>
+      <div className={classes.chartHead}>
+        <div>
+          <h3 className={classes.cardTitle}>Call trends</h3>
+          <div className={classes.chartMeta}>
+            <span>{totalCalls} total calls</span>
+            <span>{answerRatePct}% answer rate</span>
+          </div>
+        </div>
+        <ChartLegend items={[
+          { label: 'Total calls', color: 'var(--brand-text)' },
+          { label: 'Answered', color: 'var(--accent-cyan)' },
+        ]}
+        />
+      </div>
+      <div className={classes.chartWrap}>
+        <ResponsiveContainer width="100%" height={260}>
+          <AreaChart data={data}>
+            <defs>
+              <linearGradient id="adminTotalCallsFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--brand-text)" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="var(--brand-text)" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="adminAnsweredFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--accent-cyan)" stopOpacity={0.22} />
+                <stop offset="100%" stopColor="var(--accent-cyan)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis
+              dataKey="day"
+              tickFormatter={formatChartDay}
+              tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              allowDecimals={false}
+              tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip
+              contentStyle={CHART_TOOLTIP_STYLE}
+              labelFormatter={formatChartDay}
+              formatter={(value, name) => [value, name === 'totalCalls' ? 'Total calls' : 'Answered']}
+            />
+            <Area
+              type="monotone"
+              dataKey="totalCalls"
+              stroke="var(--brand-text)"
+              fill="url(#adminTotalCallsFill)"
+              strokeWidth={2}
+              isAnimationActive={!reduceMotion}
+              animationDuration={1000}
+            />
+            <Area
+              type="monotone"
+              dataKey="answeredCalls"
+              stroke="var(--accent-cyan)"
+              fill="url(#adminAnsweredFill)"
+              strokeWidth={2}
+              isAnimationActive={!reduceMotion}
+              animationDuration={1000}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </>
+  );
+};
+
+const AdminDrilldownTrendChart = ({ data, loading, reduceMotion }) => {
+  const chartData = useMemo(
+    () => (data || []).map((row) => ({
+      ...row,
+      answerRatePct: Math.round((row.answerRate || 0) * 100),
+      billableRatePct: Math.round((row.billableRate || 0) * 100),
+    })),
+    [data],
+  );
+
+  if (loading) {
+    return (
+      <div className={classes.chartEmpty}>
+        <p>Loading trend…</p>
+      </div>
+    );
+  }
+  if (!hasChartData(chartData, ['calls'])) {
+    return (
+      <div className={classes.chartEmpty}>
+        <TrendingUp size={32} className={classes.chartEmptyIcon} />
+        <h4>No trend data in selected range</h4>
+        <p>Select another campaign or agent, or widen the date range.</p>
+      </div>
+    );
+  }
+  return (
+    <>
+      <ChartLegend items={[
+        { label: 'Calls', color: 'var(--brand-text)' },
+        { label: 'Answer rate', color: 'var(--accent-cyan)' },
+        { label: 'Billable rate', color: 'var(--accent-green)' },
+      ]}
+      />
+      <div className={classes.chartWrap}>
+        <ResponsiveContainer width="100%" height={260}>
+          <ComposedChart data={chartData}>
+            <defs>
+              <linearGradient id="adminDrilldownCallsFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--brand-text)" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="var(--brand-text)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis
+              dataKey="day"
+              tickFormatter={formatChartDay}
+              tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              yAxisId="left"
+              allowDecimals={false}
+              tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              domain={[0, 100]}
+              tickFormatter={(v) => `${v}%`}
+              tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip
+              contentStyle={CHART_TOOLTIP_STYLE}
+              labelFormatter={formatChartDay}
+              formatter={(value, name) => {
+                if (name === 'calls') return [value, 'Calls'];
+                if (name === 'answerRatePct') return [`${value}%`, 'Answer rate'];
+                if (name === 'billableRatePct') return [`${value}%`, 'Billable rate'];
+                return [value, name];
+              }}
+            />
+            <Area
+              yAxisId="left"
+              type="monotone"
+              dataKey="calls"
+              stroke="var(--brand-text)"
+              fill="url(#adminDrilldownCallsFill)"
+              strokeWidth={2}
+              isAnimationActive={!reduceMotion}
+              animationDuration={1000}
+            />
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="answerRatePct"
+              stroke="var(--accent-cyan)"
+              strokeWidth={2}
+              dot={false}
+              isAnimationActive={!reduceMotion}
+              animationDuration={1000}
+            />
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="billableRatePct"
+              stroke="var(--accent-green)"
+              strokeWidth={2}
+              strokeDasharray="4 4"
+              dot={false}
+              isAnimationActive={!reduceMotion}
+              animationDuration={1000}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+    </>
+  );
+};
 
 async function fetchContestProofBlob(url) {
   if (!url) throw new Error('No proof URL');
@@ -179,7 +440,7 @@ function ContestReviewCard({
     c.status === 'pending' ? classes.dispAnswered : c.status === 'approved' ? classes.dispSold : classes.dispMissed;
 
   return (
-    <article className={`${classes.contestCard} ${expanded ? classes.contestCardExpanded : ''}`}>
+    <article className={`glass ${classes.contestCard} ${expanded ? classes.contestCardExpanded : ''}`}>
       <button type="button" className={classes.contestCardSummary} onClick={onToggle}>
         <div className={classes.contestCardSummaryMain}>
           <div className={classes.contestCardIdentity}>
@@ -369,7 +630,7 @@ function AdminActionModal({ modal, note, onNoteChange, submitting, onClose, onSu
       onClick={onClose}
     >
       <motion.div
-        className={classes.modalBox}
+        className={`glass ${classes.modalBox}`}
         initial={{ scale: 0.96, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         onClick={(e) => e.stopPropagation()}
@@ -415,6 +676,7 @@ function AdminActionModal({ modal, note, onNoteChange, submitting, onClose, onSu
 
 const AdminDashboardPage = () => {
   const presets = useSubtlePageMotion();
+  const reduceMotion = useReducedMotion();
   const refreshUserRole = useAuthStore((s) => s.refreshUserRole);
   const [rangePreset, setRangePreset] = useState('7d');
   const [loading, setLoading] = useState(true); // initial shell
@@ -907,26 +1169,6 @@ const AdminDashboardPage = () => {
     });
   }, [agentStats, agentSearch, getAgentId, getAgentName]);
 
-  const agentNameById = useMemo(() => {
-    const out = new Map();
-    (agentStats || []).forEach((row) => {
-      const id = getAgentId(row);
-      const name = getAgentName(row);
-      if (id && name) out.set(id, name);
-    });
-    (overview?.agents || []).forEach((row) => {
-      const id = getAgentId(row);
-      const name = getAgentName(row);
-      if (id && name && !out.has(id)) out.set(id, name);
-    });
-    (liveCalls || []).forEach((row) => {
-      const id = getAgentId(row);
-      const name = getAgentName(row);
-      if (id && name && !out.has(id)) out.set(id, name);
-    });
-    return out;
-  }, [agentStats, overview?.agents, liveCalls, getAgentId, getAgentName]);
-
   const filteredSortedDrilldownLogs = useMemo(() => {
     const all = Array.isArray(drilldown?.recentLogs) ? [...drilldown.recentLogs] : [];
     const dayFiltered = drilldownDay
@@ -964,64 +1206,51 @@ const AdminDashboardPage = () => {
   const byCampaign = overview?.byCampaign || {};
 
   return (
+    <>
     <motion.div
       className={classes.page}
       variants={presets.root}
       initial="hidden"
       animate="visible"
     >
-      <motion.div className={classes.header} variants={presets.child}>
-        <div className={classes.iconBox}>
-          <Shield size={24} />
+      <motion.div className={classes.pageHeader} variants={presets.child}>
+        <div className={classes.iconBox} aria-hidden="true">
+          <Shield size={22} />
         </div>
         <div>
-          <h1 className={classes.title}>Admin</h1>
-          <p className={classes.subtitle}>Owner analytics, live operations, and routing control center</p>
+          <h2>Admin</h2>
+          <p>Owner analytics, live operations, and routing control center</p>
         </div>
       </motion.div>
 
-      <motion.section className={classes.card} variants={presets.child}>
+      <motion.section className={`glass ${classes.sectionCard} ${classes.summarySection}`} variants={presets.child}>
         <div className={classes.cardTopRow}>
           <h2 className={classes.cardTitle}>Summary ({rangePreset === 'today' ? 'Today' : rangePreset === '30d' ? 'Last 30 days' : 'Last 7 days'})</h2>
-          <div className={classes.filterRow}>
-            <button type="button" className={`${classes.filterBtn} ${rangePreset === 'today' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('today')}>Today</button>
-            <button type="button" className={`${classes.filterBtn} ${rangePreset === '7d' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('7d')}>Last 7 days</button>
-            <button type="button" className={`${classes.filterBtn} ${rangePreset === '30d' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('30d')}>Last 30 days</button>
-            <button
-              type="button"
-              className={classes.refreshBtn}
-              onClick={async () => {
-                await loadShell();
-                await loadAnalytics();
-              }}
-              disabled={loading}
-            >
-              <RefreshCw size={16} className={loading ? classes.spin : ''} />
-              Refresh
-            </button>
+          <div className={`glass ${classes.toolbar}`}>
+            <div className={classes.filterRow}>
+              <button type="button" className={`${classes.filterBtn} ${rangePreset === 'today' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('today')}>Today</button>
+              <button type="button" className={`${classes.filterBtn} ${rangePreset === '7d' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('7d')}>Last 7 days</button>
+              <button type="button" className={`${classes.filterBtn} ${rangePreset === '30d' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('30d')}>Last 30 days</button>
+              <button
+                type="button"
+                className={classes.refreshBtn}
+                onClick={async () => {
+                  await loadShell();
+                  await loadAnalytics();
+                }}
+                disabled={loading}
+              >
+                <RefreshCw size={16} className={loading ? classes.spin : ''} />
+                Refresh
+              </button>
+            </div>
           </div>
         </div>
-        <div className={classes.grid}>
-          <div className={classes.statCard}>
-            <Phone size={18} className={classes.statIcon} />
-            <span className={classes.statLabel}>Total calls</span>
-            <span className={classes.statValue}>{analyticsLoading ? <span className={classes.skeletonNum} /> : statsSummary.totalCalls}</span>
-          </div>
-          <div className={classes.statCard}>
-            <Activity size={18} className={classes.statIcon} />
-            <span className={classes.statLabel}>Answer rate</span>
-            <span className={classes.statValue}>{analyticsLoading ? <span className={classes.skeletonNum} /> : `${Math.round((statsSummary.answerRate || 0) * 100)}%`}</span>
-          </div>
-          <div className={classes.statCard}>
-            <Radio size={18} className={classes.statIcon} />
-            <span className={classes.statLabel}>Billable rate</span>
-            <span className={classes.statValue}>{analyticsLoading ? <span className={classes.skeletonNum} /> : `${Math.round((statsSummary.billableRate || 0) * 100)}%`}</span>
-          </div>
-          <div className={classes.statCard}>
-            <CircleDollarSign size={18} className={classes.statIcon} />
-            <span className={classes.statLabel}>Total cost</span>
-            <span className={classes.statValue}>{analyticsLoading ? <span className={classes.skeletonNumWide} /> : `$${(statsSummary.totalCost || 0).toFixed(2)}`}</span>
-          </div>
+        <div className={classes.statsRow}>
+          <StatCard label="Total calls" value={statsSummary.totalCalls} icon={Phone} variants={presets.child} loading={analyticsLoading} />
+          <StatCard label="Answer rate" value={`${Math.round((statsSummary.answerRate || 0) * 100)}%`} icon={Activity} variants={presets.child} loading={analyticsLoading} />
+          <StatCard label="Billable rate" value={`${Math.round((statsSummary.billableRate || 0) * 100)}%`} icon={Radio} variants={presets.child} loading={analyticsLoading} />
+          <StatCard label="Total cost" value={`$${(statsSummary.totalCost || 0).toFixed(2)}`} icon={CircleDollarSign} variants={presets.child} loading={analyticsLoading} wide />
         </div>
         <div className={classes.metaRow}>
           <span className={classes.muted}>
@@ -1033,30 +1262,14 @@ const AdminDashboardPage = () => {
         </div>
       </motion.section>
 
-      <motion.div className={classes.grid} variants={presets.statsStrip}>
-        <motion.div className={classes.statCard} variants={presets.child}>
-          <Users size={18} className={classes.statIcon} />
-          <span className={classes.statLabel}>Live agents</span>
-          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (overview?.totalAgents ?? 0)}</span>
-        </motion.div>
-        <motion.div className={classes.statCard} variants={presets.child}>
-          <Radio size={18} className={classes.statIcon} />
-          <span className={classes.statLabel}>Available</span>
-          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (pool.available?.length ?? 0)}</span>
-        </motion.div>
-        <motion.div className={classes.statCard} variants={presets.child}>
-          <Phone size={18} className={classes.statIcon} />
-          <span className={classes.statLabel}>Ringing</span>
-          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (pool.ringing?.length ?? 0)}</span>
-        </motion.div>
-        <motion.div className={classes.statCard} variants={presets.child}>
-          <Phone size={18} className={classes.statIcon} />
-          <span className={classes.statLabel}>Busy</span>
-          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (pool.busy?.length ?? 0)}</span>
-        </motion.div>
+      <motion.div className={classes.statsRow} variants={presets.statsStrip}>
+        <StatCard label="Live agents" value={overview?.totalAgents ?? 0} icon={Users} variants={presets.child} loading={loading} />
+        <StatCard label="Available" value={pool.available?.length ?? 0} icon={Radio} variants={presets.child} loading={loading} />
+        <StatCard label="Ringing" value={pool.ringing?.length ?? 0} icon={Phone} variants={presets.child} loading={loading} />
+        <StatCard label="Busy" value={pool.busy?.length ?? 0} icon={Phone} variants={presets.child} loading={loading} />
       </motion.div>
 
-      <motion.section className={classes.card} variants={presets.child}>
+      <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
         <h2 className={classes.cardTitle}>Live operations</h2>
         <div className={classes.liveCallsWrap}>
           <h3 className={classes.subTitle}><CalendarDays size={14} /> Live calls</h3>
@@ -1067,7 +1280,11 @@ const AdminDashboardPage = () => {
               <div className={classes.skeletonRow} />
             </div>
           ) : liveCalls.length === 0 ? (
-            <p className={classes.muted}>No active calls right now</p>
+            <div className={classes.emptyPanel}>
+              <Phone size={28} className={classes.emptyPanelIcon} />
+              <h4>No active calls right now</h4>
+              <p>Live calls will appear here when agents are on the phone.</p>
+            </div>
           ) : (
             <div className={classes.liveCallList}>
               {liveCalls.map((row, idx) => (
@@ -1097,7 +1314,11 @@ const AdminDashboardPage = () => {
         <h3 className={classes.subTitle}>Agents by campaign</h3>
         <div className={classes.chipRow}>
           {Object.keys(byCampaign).length === 0 ? (
-            <span className={classes.muted}>No agents in pool</span>
+            <div className={classes.emptyPanel}>
+              <Users size={28} className={classes.emptyPanelIcon} />
+              <h4>No agents in pool</h4>
+              <p>Agents will appear here when they go online.</p>
+            </div>
           ) : (
             Object.entries(byCampaign).map(([id, n]) => (
               <span key={id} className={classes.chip}>
@@ -1108,31 +1329,20 @@ const AdminDashboardPage = () => {
         </div>
       </motion.section>
 
-      <motion.section className={classes.card} variants={presets.child}>
-        <h2 className={classes.cardTitle}>Call trends</h2>
-        <div className={classes.chartWrap}>
-          {analyticsLoading ? (
-            <p className={classes.muted}>Loading analytics…</p>
-          ) : !callStats?.byDay?.length ? (
-            <p className={classes.muted}>No call data in selected range</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={callStats.byDay}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Area type="monotone" dataKey="totalCalls" stroke="#34d399" fill="#34d39944" />
-                <Area type="monotone" dataKey="answeredCalls" stroke="#60a5fa" fill="#60a5fa33" />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </div>
+      <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
+        <AdminCallTrendChart
+          data={callStats?.byDay}
+          loading={analyticsLoading}
+          reduceMotion={reduceMotion}
+          totalCalls={statsSummary.totalCalls}
+          answerRatePct={Math.round((statsSummary.answerRate || 0) * 100)}
+        />
       </motion.section>
 
-      <motion.section className={classes.card} variants={presets.child}>
+      <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
         <h2 className={classes.cardTitle}>Active agents</h2>
         <div className={classes.tableWrap}>
+          <div className={classes.tableScroll}>
           <table className={classes.table}>
             <thead>
               <tr>
@@ -1153,8 +1363,12 @@ const AdminDashboardPage = () => {
                 </>
               ) : (overview?.agents || []).length === 0 ? (
                 <tr>
-                  <td colSpan={6} className={classes.muted}>
-                    No agents online
+                  <td colSpan={6}>
+                    <div className={classes.emptyPanel}>
+                      <Users size={28} className={classes.emptyPanelIcon} />
+                      <h4>No agents online</h4>
+                      <p>Online agents will appear in this table.</p>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -1205,12 +1419,14 @@ const AdminDashboardPage = () => {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </motion.section>
 
-      <motion.section className={classes.card} variants={presets.child}>
+      <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
         <h2 className={classes.cardTitle}>Campaign performance</h2>
         <div className={classes.tableWrap}>
+          <div className={classes.tableScroll}>
           <table className={classes.table}>
             <thead>
               <tr>
@@ -1226,7 +1442,13 @@ const AdminDashboardPage = () => {
               {analyticsLoading ? (
                 <tr><td colSpan={6} className={classes.muted}>Loading analytics…</td></tr>
               ) : campaignStats.length === 0 ? (
-                <tr><td colSpan={6} className={classes.muted}>No campaign stats in selected range</td></tr>
+                <tr><td colSpan={6}>
+                  <div className={classes.emptyPanel}>
+                    <TrendingUp size={28} className={classes.emptyPanelIcon} />
+                    <h4>No campaign stats</h4>
+                    <p>No campaign data in the selected range.</p>
+                  </div>
+                </td></tr>
               ) : (
                 campaignStats.map((row) => (
                   <tr
@@ -1248,10 +1470,11 @@ const AdminDashboardPage = () => {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </motion.section>
 
-      <motion.section className={classes.card} variants={presets.child}>
+      <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
         <div className={classes.cardTopRow}>
           <h2 className={classes.cardTitle}>Agent performance</h2>
           <input
@@ -1262,6 +1485,7 @@ const AdminDashboardPage = () => {
           />
         </div>
         <div className={classes.tableWrap}>
+          <div className={classes.tableScroll}>
           <table className={classes.table}>
             <thead>
               <tr>
@@ -1325,10 +1549,11 @@ const AdminDashboardPage = () => {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </motion.section>
 
-      <motion.section className={classes.card} variants={presets.child}>
+      <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
         <div className={classes.cardTopRow}>
           <h2 className={classes.cardTitle}>Drilldown</h2>
           {(selectedCampaign || selectedAgent) ? (
@@ -1389,7 +1614,11 @@ const AdminDashboardPage = () => {
           ) : null}
         </div>
         {(!selectedCampaign && !selectedAgent) ? (
-          <p className={classes.muted}>Click a campaign or agent row to open detailed trend and outcomes.</p>
+          <div className={classes.emptyPanel}>
+            <TrendingUp size={32} className={classes.emptyPanelIcon} />
+            <h4>Select a campaign or agent</h4>
+            <p>Click a campaign or agent row to open detailed trend and outcomes.</p>
+          </div>
         ) : drilldownLoading ? (
           <div className={classes.skeletonList}>
             <div className={classes.skeletonRow} />
@@ -1399,19 +1628,10 @@ const AdminDashboardPage = () => {
           <p className={classes.muted}>No drilldown data available.</p>
         ) : (
           <>
-            <div className={classes.grid}>
-              <div className={classes.statCard}>
-                <span className={classes.statLabel}>Calls</span>
-                <span className={classes.statValue}>{drilldown.summary?.calls ?? 0}</span>
-              </div>
-              <div className={classes.statCard}>
-                <span className={classes.statLabel}>Answer Rate</span>
-                <span className={classes.statValue}>{Math.round((drilldown.summary?.answerRate || 0) * 100)}%</span>
-              </div>
-              <div className={classes.statCard}>
-                <span className={classes.statLabel}>Billable Rate</span>
-                <span className={classes.statValue}>{Math.round((drilldown.summary?.billableRate || 0) * 100)}%</span>
-              </div>
+            <div className={`${classes.statsRow} ${classes.statsRowThree}`}>
+              <StatCard label="Calls" value={drilldown.summary?.calls ?? 0} icon={Phone} variants={presets.child} />
+              <StatCard label="Answer rate" value={`${Math.round((drilldown.summary?.answerRate || 0) * 100)}%`} icon={Activity} variants={presets.child} />
+              <StatCard label="Billable rate" value={`${Math.round((drilldown.summary?.billableRate || 0) * 100)}%`} icon={Radio} variants={presets.child} />
             </div>
             <div className={classes.metaRow}>
               <span className={classes.muted}>Source: {drilldown.meta?.source || 'n/a'}</span>
@@ -1420,25 +1640,27 @@ const AdminDashboardPage = () => {
                 Updated: {drilldown.meta?.generatedAt ? new Date(drilldown.meta.generatedAt).toLocaleTimeString() : '—'}
               </span>
             </div>
-            <div className={classes.chartWrap}>
-              {!drilldown.trend?.length ? (
-                <p className={classes.muted}>No trend data in selected range.</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={260}>
-                  <AreaChart data={drilldown.trend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" />
-                    <YAxis />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="calls" stroke="#34d399" fill="#34d39933" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </div>
+            <AdminDrilldownTrendChart
+              data={drilldown.trend}
+              loading={false}
+              reduceMotion={reduceMotion}
+            />
             {drilldown.recentLogs && drilldown.recentLogs.length > 0 && (
-              <div className={classes.tableWrap} style={{marginTop: '24px'}}>
+              <div className={`${classes.tableWrap} ${classes.drilldownTableWrap}`}>
                 <h3 className={classes.subTitle}>Recent Calls</h3>
-                <table className={classes.table}>
+                <table className={`${classes.table} ${classes.drilldownTable}`}>
+                  <colgroup>
+                    <col className={classes.colAgent} />
+                    <col className={classes.colCampaign} />
+                    <col className={classes.colDuration} />
+                    <col className={classes.colStatus} />
+                    <col className={classes.colDisposition} />
+                    <col className={classes.colCost} />
+                    <col className={classes.colContest} />
+                    <col className={classes.colRecording} />
+                    <col className={classes.colDate} />
+                    <col className={classes.colActions} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Agent</th>
@@ -1448,23 +1670,25 @@ const AdminDashboardPage = () => {
                       <th>Disposition</th>
                       <th>Cost</th>
                       <th>Contest</th>
-                      <th>Recording (QA)</th>
+                      <th>Recording</th>
                       <th>Date</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredSortedDrilldownLogs.map((log) => (
+                    {filteredSortedDrilldownLogs.map((log) => {
+                      const created = log.createdAt ? new Date(log.createdAt) : null;
+                      return (
                       <tr key={log.id}>
                         <td className={classes.agentCell}>
-                          <details style={{ cursor: 'pointer' }}>
-                            <summary style={{ listStyle: 'none' }} title="Tap to view phone number">
+                          <details className={classes.agentDetails}>
+                            <summary title="Tap to view phone number">
                               <strong>{getAgentName(log)}</strong>
                               {getAgentName(log) !== getAgentId(log) ? (
-                                <span className={classes.agentSubId}>{getAgentId(log)}</span>
+                                <span className={classes.agentSubId} title={getAgentId(log)}>{getAgentId(log)}</span>
                               ) : null}
                             </summary>
-                            <div style={{ marginTop: '6px' }}>
+                            <div className={classes.agentPhoneReveal}>
                               {log.phone ? (
                                 <a href={`tel:${log.phone}`} className={classes.agentPhone}>
                                   {log.phone}
@@ -1475,50 +1699,51 @@ const AdminDashboardPage = () => {
                             </div>
                           </details>
                         </td>
-                        <td>{log.campaign}</td>
-                        <td>{log.duration}s</td>
-                        <td>
+                        <td className={classes.campaignCell} title={log.campaign}>{log.campaign}</td>
+                        <td className={classes.compactCell}>{log.duration}s</td>
+                        <td className={classes.pillCell}>
                           {log.isBillable ? (
-                            <span className={`${classes.statusPill} ${classes.dispSold}`}>Sold</span>
+                            <span className={`${classes.drillPill} ${classes.dispSold}`}>Sold</span>
                           ) : log.status === 'completed' ? (
-                            <span className={`${classes.statusPill} ${classes.dispAnswered}`}>Answered</span>
+                            <span className={`${classes.drillPill} ${classes.dispAnswered}`}>Answered</span>
                           ) : (
-                            <span className={`${classes.statusPill} ${classes.dispMissed}`}>Missed</span>
+                            <span className={`${classes.drillPill} ${classes.dispMissed}`}>Missed</span>
                           )}
                         </td>
-                        <td>
+                        <td className={`${classes.pillCell} ${classes.pillCellWrap}`}>
                           {log.disposition === 'sold' ? (
-                            <span className={`${classes.statusPill} ${classes.dispSold}`}>Sold</span>
+                            <span className={`${classes.drillPill} ${classes.dispSold}`}>Sold</span>
                           ) : log.disposition === 'callback' ? (
-                            <span className={`${classes.statusPill} ${classes.dispAnswered}`}>Call back</span>
+                            <span className={`${classes.drillPill} ${classes.dispAnswered}`}>Call back</span>
                           ) : log.disposition === 'not_interested' ? (
-                            <span className={`${classes.statusPill} ${classes.dispMissed}`}>Not Interested</span>
+                            <span className={`${classes.drillPill} ${classes.dispMissed}`}>Not Interested</span>
                           ) : log.disposition === 'busy' ? (
-                            <span className={`${classes.statusPill} ${classes.dispMissed}`}>Busy</span>
+                            <span className={`${classes.drillPill} ${classes.dispMissed}`}>Busy</span>
                           ) : log.disposition === 'dead_air' ? (
-                            <span className={`${classes.statusPill} ${classes.dispMissed}`}>Dead Air</span>
+                            <span className={`${classes.drillPill} ${classes.dispMissed}`}>Dead Air</span>
                           ) : log.disposition === 'policy_closed' ? (
-                            <span className={`${classes.statusPill} ${classes.dispAnswered}`} style={{borderColor: 'var(--brand-text)'}}>Policy Closed</span>
+                            <span className={`${classes.drillPill} ${classes.dispAnswered}`} style={{borderColor: 'var(--brand-text)'}}>Policy Closed</span>
                           ) : (
                             <span className={classes.muted}>—</span>
                           )}
                         </td>
-                        <td>{log.cost > 0 ? `$${log.cost.toFixed(2)}` : '—'}</td>
-                        <td>
+                        <td className={classes.compactCell}>{log.cost > 0 ? `$${log.cost.toFixed(2)}` : '—'}</td>
+                        <td className={classes.pillCell}>
                           {log.refunded ? (
-                            <span className={`${classes.statusPill} ${classes.dispSold}`}>Credited</span>
+                            <span className={`${classes.drillPill} ${classes.dispSold}`}>Credited</span>
                           ) : log.contestStatus === 'pending' ? (
-                            <span className={`${classes.statusPill} ${classes.dispAnswered}`}>Pending</span>
+                            <span className={`${classes.drillPill} ${classes.dispAnswered}`}>Pending</span>
                           ) : log.contestStatus === 'denied' ? (
-                            <span className={`${classes.statusPill} ${classes.dispMissed}`}>Denied</span>
+                            <span className={`${classes.drillPill} ${classes.dispMissed}`}>Denied</span>
                           ) : (
                             <span className={classes.muted}>—</span>
                           )}
                         </td>
                         <td>
                           {(log.recordingSid || log.recordingUrl) ? (
-                            <button 
-                              style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--brand-accent)', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                            <button
+                              type="button"
+                              className={classes.playBtn}
                               onClick={() => setActiveRecording(log)}
                             >
                               <Play size={12} /> Play
@@ -1527,12 +1752,23 @@ const AdminDashboardPage = () => {
                             <span className={classes.muted}>—</span>
                           )}
                         </td>
-                        <td className={classes.muted}>{new Date(log.createdAt).toLocaleString()}</td>
-                        <td>
+                        <td className={classes.dateCell}>
+                          {created ? (
+                            <>
+                              <span className={classes.datePrimary}>{created.toLocaleDateString()}</span>
+                              <span className={classes.dateSub}>
+                                {created.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                              </span>
+                            </>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td className={classes.actionsCell}>
                           {log.isBillable && log.cost > 0 && !log.refunded && log.contestStatus !== 'pending' ? (
                             <button
                               type="button"
-                              className={classes.refreshBtn}
+                              className={`${classes.refreshBtn} ${classes.refundBtn}`}
                               disabled={refundingLogId === log.id}
                               onClick={() => openRefundCallModal(log)}
                             >
@@ -1543,7 +1779,7 @@ const AdminDashboardPage = () => {
                           )}
                         </td>
                       </tr>
-                    ))}
+                    );})}
                     {filteredSortedDrilldownLogs.length === 0 ? (
                       <tr>
                         <td colSpan={10} className={classes.muted}>No calls found for selected day.</td>
@@ -1557,10 +1793,10 @@ const AdminDashboardPage = () => {
         )}
       </motion.section>
 
-      <motion.section className={classes.card} variants={presets.child}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <h2 className={classes.cardTitle} style={{ margin: 0 }}>Call charge contests</h2>
-          <motion.div style={{ display: 'flex', gap: '8px', alignItems: 'center' }} whileHover={{ scale: 1.01 }}>
+      <motion.section className={`glass ${classes.sectionCard} ${classes.contestSection}`} variants={presets.child}>
+        <div className={classes.cardTopRow}>
+          <h2 className={classes.cardTitle}>Call charge contests</h2>
+          <div className={classes.filterRow}>
             <select
               className={classes.select}
               value={contestFilter}
@@ -1575,15 +1811,19 @@ const AdminDashboardPage = () => {
               <option value="all">All</option>
             </select>
             <button type="button" className={classes.refreshBtn} onClick={() => loadCallContests(contestFilter)}>
-              <RefreshCw size={14} className={contestsLoading ? classes.spinner : ''} /> Refresh
+              <RefreshCw size={14} className={contestsLoading ? classes.spin : ''} /> Refresh
             </button>
-          </motion.div>
+          </div>
         </div>
         <p className={classes.hint}>Agents contest billable calls with proof. Review and approve (credit wallet) or deny.</p>
         {contestsLoading && !callContests.length ? (
           <p className={classes.muted}>Loading contests...</p>
         ) : !callContests.length ? (
-          <p className={classes.muted}>No {contestFilter === 'all' ? '' : contestFilter} contests.</p>
+          <div className={classes.emptyPanel}>
+            <FileText size={28} className={classes.emptyPanelIcon} />
+            <h4>No {contestFilter === 'all' ? '' : contestFilter} contests</h4>
+            <p>Pending contest reviews will appear here.</p>
+          </div>
         ) : (
           <div className={classes.contestList}>
             {callContests.map((c) => (
@@ -1593,7 +1833,15 @@ const AdminDashboardPage = () => {
                 expanded={expandedContestId === c.id}
                 onToggle={() => setExpandedContestId(expandedContestId === c.id ? null : c.id)}
                 onOpenProof={openContestProofUrl}
-                onPlayRecording={() => setActiveRecording({ recordingUrl: c.recordingUrl, campaign: c.campaignLabel })}
+                onPlayRecording={() => setActiveRecording({
+                  recordingUrl: c.recordingUrl,
+                  recordingSid: c.recordingSid || null,
+                  campaign: c.campaignLabel || c.campaign,
+                  campaignLabel: c.campaignLabel || c.campaign,
+                  duration: c.duration,
+                  createdAt: c.submittedAt || c.createdAt,
+                  isBillable: c.isBillable,
+                })}
                 onApprove={() => openApproveContestModal(c)}
                 onDeny={() => openDenyContestModal(c)}
               />
@@ -1602,29 +1850,32 @@ const AdminDashboardPage = () => {
         )}
       </motion.section>
 
-      <motion.section className={classes.card} variants={presets.child}>
+      <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
         <h2 className={classes.cardTitle}>Agent Emergency Management</h2>
         <p className={classes.hint}>
-          If an agent is "stuck" in a call or appears online when they aren't, enter their Agent ID here to manually evict them from all active pools and records.
+          If an agent is stuck in a call or appears online when they are not, enter their Agent ID here to manually evict them from all active pools and records.
         </p>
-        <form className={classes.didForm} style={{ gridTemplateColumns: '1fr auto', alignItems: 'end' }} onSubmit={handleForceRemoveAgent}>
+        <form className={classes.emergencyForm} onSubmit={handleForceRemoveAgent}>
           <div className={classes.formField}>
-            <label>Agent ID</label>
-            <input
-              className={classes.input}
-              placeholder="e.g. h4L9bs2BgXMPT9KrX56mSJbbKnW2"
-              value={forceRemoveAgentId}
-              onChange={(e) => setForceRemoveAgentId(e.target.value)}
-            />
+            <label htmlFor="forceRemoveAgentId">Agent ID</label>
+            <div className={classes.emergencyInputRow}>
+              <input
+                id="forceRemoveAgentId"
+                className={classes.input}
+                placeholder="e.g. h4L9bs2BgXMPT9KrX56mSJbbKnW2"
+                value={forceRemoveAgentId}
+                onChange={(e) => setForceRemoveAgentId(e.target.value)}
+              />
+              <button type="submit" className={`${classes.dangerBtn} ${classes.emergencySubmitBtn}`}>
+                <Trash2 size={16} />
+                Force remove from pool
+              </button>
+            </div>
           </div>
-          <button type="submit" className={classes.dangerBtn} style={{ height: '42px', padding: '0 20px' }}>
-            <Trash2 size={16} />
-            Force remove from pool
-          </button>
         </form>
       </motion.section>
 
-      <motion.section className={classes.card} variants={presets.child}>
+      <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
         <h2 className={classes.cardTitle}>Notifications & maintenance</h2>
         <div className={classes.notificationGrid}>
           <form className={classes.notificationForm} onSubmit={handleSendBroadcast}>
@@ -1706,7 +1957,7 @@ const AdminDashboardPage = () => {
         </div>
       </motion.section>
 
-      <motion.section className={classes.card} variants={presets.child}>
+      <motion.section className={`glass ${classes.sectionCard} ${classes.didSection}`} variants={presets.child}>
         <h2 className={classes.cardTitle}>Phone numbers → campaign</h2>
         <p className={classes.hint}>
           Incoming Twilio calls use the called number to resolve the campaign when no query/body campaign is set.
@@ -1763,6 +2014,7 @@ const AdminDashboardPage = () => {
         </form>
 
         <div className={classes.tableWrap}>
+          <div className={classes.tableScroll}>
           <table className={classes.table}>
             <thead>
               <tr>
@@ -1800,18 +2052,22 @@ const AdminDashboardPage = () => {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </motion.section>
-      {activeRecording && <RecordingModal log={activeRecording} onClose={() => setActiveRecording(null)} />}
-      <AdminActionModal
-        modal={actionModal}
-        note={actionNote}
-        onNoteChange={setActionNote}
-        submitting={actionSubmitting}
-        onClose={closeActionModal}
-        onSubmit={submitActionModal}
-      />
     </motion.div>
+    {activeRecording && (
+      <RecordingModal log={activeRecording} onClose={() => setActiveRecording(null)} />
+    )}
+    <AdminActionModal
+      modal={actionModal}
+      note={actionNote}
+      onNoteChange={setActionNote}
+      submitting={actionSubmitting}
+      onClose={closeActionModal}
+      onSubmit={submitActionModal}
+    />
+    </>
   );
 };
 

@@ -218,7 +218,7 @@ const KpiCard = ({ title, displayValue, icon: Icon, spark, sparkKey, delta, vari
   const reduceMotion = useReducedMotion();
   return (
     <motion.div
-      className={`${classes.glass} ${classes.kpiCard}`}
+      className={`glass ${classes.kpiCard}`}
       variants={variants}
       whileHover={reduceMotion ? undefined : { y: -3 }}
       transition={{ duration: 0.2, ease: EASE_SMOOTH }}
@@ -239,7 +239,7 @@ const Gauge = ({ label, value, sub, gradId }) => {
   const safe = Math.max(0, Math.min(100, value || 0));
   const gaugeData = [{ name: label, value: safe }];
   return (
-    <div className={`${classes.glass} ${classes.gaugeCard}`}>
+    <div className={`glass ${classes.gaugeCard}`}>
       <div className={classes.gaugeChart}>
         <ResponsiveContainer width="100%" height={170}>
           <RadialBarChart
@@ -279,7 +279,7 @@ const Gauge = ({ label, value, sub, gradId }) => {
 };
 
 const StatTile = ({ title, value, icon: Icon, sub }) => (
-  <div className={`${classes.glass} ${classes.statTile}`}>
+  <div className={`glass ${classes.statTile}`}>
     <div className={classes.statTileHeader}>
       <span className={classes.statTileTitle}>{title}</span>
       <div className={classes.statTileIcon}><Icon size={18} /></div>
@@ -293,7 +293,7 @@ const CampaignCard = ({ title, desc, price, buffer, variants }) => {
   const reduceMotion = useReducedMotion();
   return (
     <motion.div
-      className={`${classes.glass} ${classes.campaignCard}`}
+      className={`glass ${classes.campaignCard}`}
       variants={variants}
       whileHover={reduceMotion ? undefined : { y: -3 }}
       transition={{ duration: 0.2, ease: EASE_SMOOTH }}
@@ -578,7 +578,7 @@ const DashboardPage = () => {
       </motion.div>
 
       <div className={classes.chartsRow}>
-        <motion.div className={`${classes.glass} ${classes.chartSection}`} variants={presets.child}>
+        <motion.div className={`glass ${classes.chartSection}`} variants={presets.child}>
           <div className={classes.chartHeader}>
             <div className={classes.chartTitleBox}>
               <div className={classes.chartIcon}><TrendingUp size={16} /></div>
@@ -620,7 +620,7 @@ const DashboardPage = () => {
           </div>
         </motion.div>
 
-        <motion.div className={`${classes.glass} ${classes.donutSection}`} variants={presets.child}>
+        <motion.div className={`glass ${classes.donutSection}`} variants={presets.child}>
           <div className={classes.chartHeader}>
             <div className={classes.chartTitleBox}>
               <div className={classes.chartIcon}><PhoneIncoming size={16} /></div>
@@ -674,7 +674,7 @@ const DashboardPage = () => {
         </motion.div>
       </div>
 
-      <motion.div className={`${classes.glass} ${classes.campaignSection}`} variants={presets.child}>
+      <motion.div className={`glass ${classes.campaignSection}`} variants={presets.child}>
         <div className={classes.sectionHeader}>
           <h3><DollarSign size={18} /> Campaign Pricing</h3>
         </div>
@@ -698,7 +698,7 @@ const DashboardPage = () => {
         )}
       </motion.div>
 
-      <motion.div className={`${classes.glass} ${classes.callsSection}`} variants={presets.child}>
+      <motion.div className={`glass ${classes.callsSection}`} variants={presets.child}>
         <div className={classes.sectionHeader}>
           <h3><PhoneCall size={18} /> Recent Calls</h3>
           <button className={classes.viewAllBtn} onClick={() => navigate('/app/call-logs')}>View All</button>

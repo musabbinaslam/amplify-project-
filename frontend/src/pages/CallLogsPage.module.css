@@ -1,8 +1,9 @@
 .callLogs {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  padding-bottom: 40px;
+  gap: 24px;
+  padding-bottom: 32px;
   min-width: 0;
   max-width: 100%;
 }
@@ -12,35 +13,47 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 16px;
 }
 
 .header h2 {
-  font-size: 1.5rem;
-  font-weight: 800;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--text-primary);
-  margin: 0 0 0.2rem;
+  margin: 0 0 4px;
 }
 
 .subtitle {
-  color: var(--text-muted);
-  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-size: 14px;
   margin: 0;
 }
 
 .searchBox {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  background: var(--surface-container-low);
-  border: 1px solid var(--border);
-  padding: 0.55rem 1rem;
-  border-radius: 8px;
+  gap: 10px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--glass-edge);
+  padding: 10px 16px;
+  border-radius: var(--radius-full);
   color: var(--text-secondary);
-  transition: border-color 0.2s;
+  transition: border-color 0.22s ease, background 0.22s ease, box-shadow 0.22s ease;
+  min-width: 260px;
 }
 
 .searchBox:focus-within {
-  border-color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 18%, var(--glass-border));
+  background: var(--glass-bg-hover);
+}
+
+[data-theme="light"] .searchBox:focus-within {
+  box-shadow:
+    var(--glass-highlight),
+    0 6px 22px rgba(0, 0, 0, 0.1);
 }
 
 .searchBox input {
@@ -48,8 +61,9 @@
   border: none !important;
   color: var(--text-primary);
   outline: none !important;
-  width: 220px;
-  font-size: 0.85rem;
+  width: 100%;
+  min-width: 180px;
+  font-size: 14px;
   padding: 0 !important;
   margin: 0;
   box-shadow: none !important;
@@ -57,48 +71,53 @@
 }
 
 .searchBox input::placeholder {
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
-/* ─── Stats row ─── */
+/* ─── Stats row (KPI pattern) ─── */
 .statsRow {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.75rem;
+  gap: 18px;
 }
 
 .statCard {
+  padding: 20px;
+}
+
+.statCard > * {
+  position: relative;
+  z-index: 1;
+}
+
+.statIconBox {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 1.15rem;
-  background: var(--surface-container-low);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  justify-content: center;
   color: var(--brand-text);
-}
-
-.statCard div {
-  display: flex;
-  flex-direction: column;
-}
-
-.statValue {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.2;
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+  margin-bottom: 16px;
 }
 
 .statLabel {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
 }
 
-.statIcon {
-  font-size: 1.1rem;
-  font-weight: 700;
+.statValue {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  margin-top: 6px;
+  line-height: 1.05;
 }
 
 /* ─── Filters ─── */
@@ -106,35 +125,44 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  z-index: 2;
 }
 
 .filterGroup {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
 .dateSwitch {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .dateSelect {
-  background: var(--surface-container-low);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.4rem 0.8rem;
+  background: var(--glass-bg) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--glass-highlight), var(--glass-edge);
+  border-radius: var(--radius-full);
+  padding: 9px 16px;
   color: var(--text-primary);
-  font-size: 0.82rem;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   outline: none;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
-.dateSelect:focus, .dateSelect:hover {
-  border-color: var(--brand-text);
+.dateSelect:hover {
+  border-color: color-mix(in srgb, var(--brand-text) 18%, var(--glass-border)) !important;
+  background: var(--glass-bg-hover) !important;
 }
 
 .dateSelect option {
@@ -145,74 +173,85 @@
 .customDateInputs {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background: var(--surface-container-low);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.2rem 0.6rem;
+  gap: 8px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--glass-edge);
+  border-radius: var(--radius-lg);
+  padding: 6px 12px;
 }
 
 .customDateInputs input[type="date"] {
   background: transparent;
   border: none;
   color: var(--text-primary);
-  font-size: 0.8rem;
+  font-size: 13px;
   outline: none;
   cursor: pointer;
 }
 
 .customDateInputs span {
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .filterTabs {
   display: flex;
-  gap: 0.35rem;
-  background: var(--surface-container-low);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.2rem;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-lg);
+}
+
+.filterTabs > * {
+  position: relative;
+  z-index: 1;
 }
 
 .filterTab {
-  padding: 0.4rem 1rem;
+  padding: 8px 16px;
   border: none;
   background: transparent;
-  color: var(--text-muted);
-  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-size: 13px;
   font-weight: 600;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .filterTab:hover {
   color: var(--text-primary);
+  background: var(--surface-container-high);
 }
 
 .filterActive {
-  background: var(--brand-solid);
-  color: var(--brand-on);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  color: var(--brand-text);
 }
 
 .filterActive:hover {
-  color: #000;
+  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-text) 16%, transparent);
 }
 
 .totalCalls {
-  color: var(--text-muted);
-  font-size: 0.82rem;
-  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 /* ─── Table ─── */
 .tableWrap {
-  background: var(--surface-container-low);
-  border: 1px solid var(--border);
-  border-radius: 10px;
   overflow: hidden;
   max-width: 100%;
   min-width: 0;
+  padding: 0;
+}
+
+.tableWrap > * {
+  position: relative;
+  z-index: 1;
 }
 
 .tableScroll {
@@ -229,15 +268,15 @@
 }
 
 .table thead {
-  background: color-mix(in srgb, var(--surface-container-high) 60%, transparent);
+  background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
 }
 
 .table th {
   text-align: left;
   padding: 0.7rem 1rem;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   border-bottom: 1px solid var(--border);
@@ -254,8 +293,12 @@
   border-bottom: none;
 }
 
+.table tbody tr {
+  transition: background 0.15s ease;
+}
+
 .table tbody tr:hover {
-  background: color-mix(in srgb, var(--surface-container-high) 40%, transparent);
+  background: color-mix(in srgb, var(--surface-container-high) 35%, transparent);
 }
 
 .rowMissed {
@@ -340,13 +383,13 @@
 }
 
 .typeInbound {
-  background: color-mix(in srgb, var(--accent-green) 15%, transparent);
-  color: var(--accent-green);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  color: var(--brand-text);
 }
 
 .typeOutbound {
-  background: color-mix(in srgb, #3b82f6 15%, transparent);
-  color: #3b82f6;
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+  color: var(--accent-cyan);
 }
 
 /* ─── Disposition badge ─── */
@@ -387,46 +430,53 @@
 }
 
 .dispSold {
-  background: color-mix(in srgb, var(--accent-green) 15%, transparent);
-  color: var(--accent-green);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  color: var(--brand-text);
 }
 
 .dispCallback {
-  background: color-mix(in srgb, #f59e0b 15%, transparent);
-  color: #f59e0b;
+  background: color-mix(in srgb, var(--accent-yellow) 16%, transparent);
+  color: var(--accent-yellow);
 }
 
 .dispNotInterested {
-  background: color-mix(in srgb, #ef4444 12%, transparent);
-  color: #ef4444;
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent);
+  color: var(--accent-red);
 }
 
 .dispNoAnswer {
-  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
-  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-tertiary) 12%, transparent);
+  color: var(--text-tertiary);
 }
 
 .dispAnswered {
-  background: color-mix(in srgb, #3b82f6 15%, transparent);
-  color: #3b82f6;
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+  color: var(--accent-cyan);
 }
 
 .dispMissed {
-  background: color-mix(in srgb, #ef4444 12%, transparent);
-  color: #ef4444;
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent);
+  color: var(--accent-red);
+}
+
+.dispPolicyClosed {
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  color: var(--brand-text);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 28%, transparent);
 }
 
 /* ─── Campaign tag ─── */
 .campaignTag {
   display: inline-block;
-  padding: 0.2rem 0.6rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  background: color-mix(in srgb, var(--brand-text) 15%, transparent);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
   color: var(--brand-text);
-  letter-spacing: 0.02em;
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+  letter-spacing: 0.04em;
   white-space: nowrap;
 }
 
@@ -434,7 +484,7 @@
 .costValue {
   font-weight: 700;
   font-size: 0.85rem;
-  color: var(--accent-green);
+  color: var(--brand-text);
 }
 
 /* ─── Spinner ─── */
@@ -455,8 +505,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  color: var(--text-muted);
-  font-size: 0.88rem;
+  color: var(--text-secondary);
+  font-size: 14px;
   text-align: center;
   padding: 3rem 1rem;
 }
@@ -495,21 +545,22 @@
 .loadAudioBtn {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.8rem;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
   background: var(--surface-container-high);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
+  border-radius: var(--radius-full);
   color: var(--text-primary);
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .loadAudioBtn:hover {
   background: var(--surface-container-highest);
   border-color: var(--brand-text);
+  color: var(--brand-text);
 }
 
 .loadAudioBtn:disabled {
@@ -536,21 +587,22 @@
   gap: 1rem;
   padding: 1rem;
   border-top: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-container-low) 50%, transparent);
+  background: color-mix(in srgb, var(--surface-container-high) 25%, transparent);
+  flex-wrap: wrap;
 }
 
 .pageBtn {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.5rem 0.75rem;
+  padding: 8px 16px;
   background: var(--surface-container-high);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
+  border-radius: var(--radius-full);
   color: var(--text-primary);
-  font-size: 0.8rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .pageBtn:not(:disabled):hover {
@@ -565,9 +617,9 @@
 }
 
 .pageInfo {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 /* ─── Recording Modal ─── */
@@ -591,16 +643,15 @@
 }
 
 .modalContent {
-  background: var(--surface-container-low);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
   width: 100%;
-  max-width: 560px;
+  max-width: 520px;
   overflow: hidden;
-  box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   animation: modalFadeIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.modalContent > * {
+  position: relative;
+  z-index: 1;
 }
 
 @keyframes modalFadeIn {
@@ -678,11 +729,20 @@
 }
 
 .recordingBody {
-  padding: 1.25rem 1.4rem 1.4rem;
+  padding: 1.1rem 1.25rem 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
   min-height: 120px;
+}
+
+.playerPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.hiddenAudio {
+  display: none;
 }
 
 .loadingState {
@@ -702,59 +762,97 @@
   padding: 1.5rem 0;
 }
 
-.timeRow {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.78rem;
+.timeLabel {
+  font-size: 0.75rem;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
   letter-spacing: 0.02em;
-  margin-top: -0.2rem;
+  min-width: 2.5rem;
+  flex-shrink: 0;
 }
 
-/* ─── Equalizer (ambient bars) ─── */
-.eqRow {
+.timeLabel:last-child {
+  text-align: right;
+}
+
+.progressBlock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progressBlock .scrubber {
+  flex: 1;
+  padding: 6px 0;
+}
+
+/* ─── Player visualizer ─── */
+.playerVisual {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
+  border: 1px solid var(--glass-border);
+  min-height: 72px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: 6px;
-  height: 36px;
-  padding: 4px 0 2px;
+  padding: 14px 16px 10px;
 }
 
-.eqBar {
-  width: 4px;
-  height: 28px;
-  border-radius: 4px;
+.visualizerBars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 44px;
+  opacity: 0.45;
+}
+
+.visualizerBar {
+  flex: 1;
+  max-width: 6px;
+  height: 100%;
+  border-radius: 999px;
   background: linear-gradient(
     to top,
     var(--brand-solid),
-    color-mix(in srgb, var(--brand-solid) 55%, transparent)
+    color-mix(in srgb, var(--brand-solid) 40%, transparent)
   );
   transform-origin: bottom center;
-  animation: eqPulse 0.9s ease-in-out infinite alternate;
-  opacity: 0.9;
-  box-shadow: 0 0 8px var(--brand-glow);
+  transform: scaleY(0.22);
+  transition: transform 0.25s ease, opacity 0.25s ease;
 }
 
-.eqPaused .eqBar {
-  animation-play-state: paused;
-  transform: scaleY(0.25);
-  opacity: 0.35;
-  box-shadow: none;
+.playerVisualActive .visualizerBar {
+  animation: eqPulse 0.85s ease-in-out infinite alternate;
+  opacity: 0.95;
 }
 
-@keyframes eqPulse {
-  0% { transform: scaleY(0.3); }
-  100% { transform: scaleY(1); }
+.visualizerProgress {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--brand-solid) 18%, transparent),
+    transparent 100%
+  );
+  pointer-events: none;
+  transition: width 0.08s linear;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .eqBar {
+  .playerVisualActive .visualizerBar {
     animation: none !important;
     transform: scaleY(0.55);
   }
+}
+
+@keyframes eqPulse {
+  0% { transform: scaleY(0.25); }
+  100% { transform: scaleY(1); }
 }
 
 /* ─── Scrubber ─── */
@@ -835,16 +933,29 @@
 
 /* ─── Transport controls ─── */
 .controlsRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  column-gap: 16px;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 4px 0 2px;
+  width: 100%;
+}
+
+.controlsRow > .skipBtn:first-child {
+  justify-self: end;
+}
+
+.controlsRow > .playBtn {
+  grid-column: 2;
+}
+
+.controlsRow > .skipBtn:last-child {
+  grid-column: 3;
+  justify-self: start;
 }
 
 .playBtn {
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: var(--brand-solid);
   color: var(--brand-on);
@@ -853,6 +964,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
   transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
   box-shadow: 0 6px 20px var(--brand-glow);
 }
@@ -887,76 +999,51 @@
   background: var(--surface-container-highest);
 }
 
-/* ─── Footer (speed, volume, download) ─── */
-.footerRow {
+/* ─── Volume (compact, centered) ─── */
+.volumeBlock {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 2px;
-  border-top: 1px solid var(--border);
-  padding-top: 14px;
-}
-
-.speedPill {
-  min-width: 48px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--surface-container-high);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-  font-variant-numeric: tabular-nums;
-  transition: all 0.15s ease;
-}
-
-.speedPill:hover {
-  color: var(--brand-text);
-  border-color: color-mix(in srgb, var(--brand-text) 40%, var(--border));
-}
-
-.volumeWrap {
-  flex: 1;
-  display: flex;
-  align-items: center;
+  justify-content: center;
   gap: 8px;
-  max-width: 220px;
-  margin: 0 auto;
+  width: 100%;
+  margin: -4px 0 0;
+  transform: translateX(-8px);
 }
 
 .volumeBtn {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
   border-radius: 50%;
-  background: transparent;
-  border: none;
+  background: var(--surface-container-high);
+  border: 1px solid var(--border);
   color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
 .volumeBtn:hover {
   color: var(--brand-text);
-  background: var(--surface-container-high);
+  border-color: color-mix(in srgb, var(--brand-text) 35%, var(--border));
+  background: var(--surface-container-highest);
 }
 
 .volumeInput {
   -webkit-appearance: none;
   appearance: none;
-  flex: 1;
+  width: 112px;
+  flex-shrink: 0;
   height: 4px;
   border-radius: 999px;
   outline: none;
   background: linear-gradient(
     to right,
     var(--brand-solid) 0%,
-    var(--brand-solid) calc(var(--volume-pct, 100%)),
-    var(--surface-container-highest) calc(var(--volume-pct, 100%)),
+    var(--brand-solid) var(--volume-pct, 100%),
+    var(--surface-container-highest) var(--volume-pct, 100%),
     var(--surface-container-highest) 100%
   );
   cursor: pointer;
@@ -982,6 +1069,42 @@
   cursor: pointer;
 }
 
+.volumeInput::-moz-range-track {
+  background: transparent;
+  height: 4px;
+  border-radius: 999px;
+}
+
+/* ─── Footer actions (speed + download) ─── */
+.footerActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 2px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.speedPill {
+  min-width: 48px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface-container-high);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: all 0.15s ease;
+}
+
+.speedPill:hover {
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 40%, var(--border));
+}
+
 .downloadBtn {
   width: 36px;
   height: 36px;
@@ -1004,32 +1127,93 @@
 }
 
 /* ─── Responsive ─── */
+@media (max-width: 1024px) {
+  .callLogs {
+    gap: 20px;
+  }
+
+  .statsRow {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  .statValue {
+    font-size: 28px;
+  }
+}
+
 @media (max-width: 768px) {
   .header {
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 12px;
   }
 
-  .searchBox input {
+  .searchBox {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .filters {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filterGroup {
     width: 100%;
   }
 
   .statsRow {
     grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 
+  .statCard {
+    padding: 16px;
+  }
+
+  .statValue {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .callLogs {
+    gap: 16px;
+  }
+
+  .statsRow {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .statIconBox {
+    width: 36px;
+    height: 36px;
+    margin-bottom: 12px;
+  }
+
+  .statValue {
+    font-size: 21px;
+  }
+
+  .statLabel {
+    font-size: 11px;
+  }
 }
 
 .contestModal {
-  background: var(--surface-container);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
   width: min(480px, 92vw);
   max-height: 90vh;
   overflow-y: auto;
   padding: 1.25rem 1.25rem 1.5rem;
   display: flex;
   flex-direction: column;
+  box-shadow: var(--glass-highlight), var(--glass-edge), 0 18px 40px rgba(0, 0, 0, 0.25);
 }
 
 .contestModalHeader {

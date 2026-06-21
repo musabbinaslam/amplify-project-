@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   FileText, Phone, User, Heart, DollarSign, CheckCircle2,
   Circle, AlertTriangle, Loader2, Save, Plus, Trash2
@@ -13,6 +13,7 @@ import { apiFetch } from '../services/apiClient';
 import CustomSelect from '../components/ui/CustomSelect';
 import PageLoader from '../components/ui/PageLoader';
 import AddCustomScriptModal from '../components/modals/AddCustomScriptModal';
+import DeleteScriptModal from '../components/modals/DeleteScriptModal';
 import classes from './ScriptPage.module.css';
 
 const ICON_MAP = {
@@ -34,6 +35,8 @@ const ScriptPage = () => {
   const [saving, setSaving] = useState(false);
   const [customScripts, setCustomScripts] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const saveTimeoutRef = useRef(null);
 
   const script = SCRIPTS[selectedScript];
@@ -41,8 +44,7 @@ const ScriptPage = () => {
   useEffect(() => {
     if (!user?.uid) return;
     setLoading(true);
-    
-    // Load custom scripts list
+
     const fetchCustomScripts = async () => {
       try {
         const data = await apiFetch('/api/users/me/custom-scripts');
@@ -55,12 +57,7 @@ const ScriptPage = () => {
     };
 
     const loadData = async () => {
-      if (selectedScript.startsWith('custom_')) {
-        // Find it in custom scripts
-        const csId = selectedScript.replace('custom_', '');
-        // For custom scripts, we don't need loadScriptData because the text is in the customScripts array.
-        // We'll rely on fetchCustomScripts to populate it if needed, but it's handled below.
-      } else {
+      if (!selectedScript.startsWith('custom_')) {
         try {
           const data = await loadScriptData(user.uid, selectedScript);
           setValues(data || {});
@@ -70,13 +67,9 @@ const ScriptPage = () => {
       }
     };
 
-    Promise.all([
-      fetchCustomScripts(),
-      loadData()
-    ]).finally(() => setLoading(false));
+    Promise.all([fetchCustomScripts(), loadData()]).finally(() => setLoading(false));
   }, [user?.uid, selectedScript]);
 
-  // When custom scripts load or selectedScript changes to a custom one, ensure values.text is synced
   useEffect(() => {
     if (selectedScript.startsWith('custom_') && customScripts.length > 0) {
       const cs = customScripts.find(s => `custom_${s.id}` === selectedScript);
@@ -122,7 +115,6 @@ const ScriptPage = () => {
     setSaving(true);
     try {
       if (selectedScript.startsWith('custom_')) {
-        // Find current text in values or customScripts state
         const cs = customScripts.find(s => `custom_${s.id}` === selectedScript);
         if (cs) {
           await apiFetch(`/api/users/me/custom-scripts/${cs.id}`, {
@@ -142,19 +134,21 @@ const ScriptPage = () => {
     }
   };
 
-  const handleDeleteScript = async () => {
+  const confirmDeleteScript = async () => {
     if (!user?.uid || !selectedScript.startsWith('custom_')) return;
-    
+
     const csId = selectedScript.replace('custom_', '');
-    if (!window.confirm('Are you sure you want to delete this custom script?')) return;
-    
+    setDeleting(true);
     try {
       await apiFetch(`/api/users/me/custom-scripts/${csId}`, { method: 'DELETE' });
       setCustomScripts(prev => prev.filter(s => s.id !== csId));
       setSelectedScript('final-expense-en');
+      setDeleteModalOpen(false);
       toast.success('Script deleted');
     } catch {
       toast.error('Failed to delete script');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -236,7 +230,7 @@ const ScriptPage = () => {
       <p key={idx} className={`${classes.promptText} ${p.italic ? classes.italic : ''}`}>
         <span dangerouslySetInnerHTML={{ __html: p.text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }} />
         {p.badge && (
-          <span className={`${classes.badge} ${p.badgeColor === 'orange' ? classes.badgeOrange : classes.badgeGreen}`}>
+          <span className={`${classes.scriptChip} ${p.badgeColor === 'orange' ? classes.scriptChipWarn : classes.scriptChipBrand}`}>
             {p.badge}
           </span>
         )}
@@ -246,22 +240,26 @@ const ScriptPage = () => {
 
   const renderSection = (section) => {
     const Icon = ICON_MAP[section.icon] || FileText;
+    const toneClass = classes[`tone_${section.color}`] || classes.tone_green;
 
     return (
-      <div key={section.id} className={`${classes.sectionCard} ${classes[`border_${section.color}`]}`}>
-        <div className={`${classes.sectionHeader} ${classes[`header_${section.color}`]}`}>
-          <Icon size={18} />
+      <motion.div
+        key={section.id}
+        className={`${classes.sectionCard} ${toneClass}`}
+        variants={presets.child}
+      >
+        <div className={classes.sectionHeader}>
+          <div className={classes.sectionIconBox}>
+            <Icon size={18} />
+          </div>
           <h3>{section.title}</h3>
         </div>
 
         <div className={classes.sectionBody}>
           {section.prompts?.map(renderPrompt)}
-
           {section.fields && renderFieldGrid(section.fields, section.fieldLayout)}
-
           {section.additionalPrompts?.map(renderPrompt)}
           {section.additionalFields && renderFieldGrid(section.additionalFields, section.additionalFieldLayout)}
-
           {section.tip && <p className={classes.tip}>{section.tip}</p>}
 
           {section.conditionGroup && (
@@ -274,7 +272,6 @@ const ScriptPage = () => {
                       type="checkbox"
                       checked={(values[section.conditionGroup.id] || []).includes(opt)}
                       onChange={() => handleCheckboxToggle(section.conditionGroup.id, opt)}
-                      className={classes.checkbox}
                     />
                     <span>{opt}</span>
                   </label>
@@ -330,16 +327,13 @@ const ScriptPage = () => {
 
           {section.morePrompts?.map(renderPrompt)}
           {section.moreFields && renderFieldGrid(section.moreFields, null)}
-
           {section.finalPrompts?.map(renderPrompt)}
           {section.finalFields && renderFieldGrid(section.finalFields, null)}
-
           {section.bankPrompts?.map(renderPrompt)}
           {section.bankFields && renderFieldGrid(section.bankFields, section.bankFieldLayout)}
-
           {section.closingPrompts?.map(renderPrompt)}
         </div>
-      </div>
+      </motion.div>
     );
   };
 
@@ -358,66 +352,79 @@ const ScriptPage = () => {
 
   return (
     <>
-    <motion.div
-      className={classes.page}
-      variants={presets.root}
-      initial="hidden"
-      animate="visible"
-    >
-      <motion.div className={classes.topBar} variants={presets.child}>
-        <div className={classes.selectorWrap}>
-          <span className={classes.selectorLabel}>Script:</span>
-          <CustomSelect
-            options={allScriptOptions}
-            value={selectedScript}
-            onChange={handleScriptChange}
-          />
-          <button className={classes.addBtn} onClick={() => setIsModalOpen(true)} title="Add Script">
-            <Plus size={18} />
-          </button>
-        </div>
-        <button type="button" className={classes.saveBtn} onClick={handleSave} disabled={saving}>
-          {saving ? <Loader2 size={16} className={classes.spinner} /> : <Save size={16} />}
-          {saving ? 'Saving...' : 'Save'}
-        </button>
-      </motion.div>
-
-      {isCustom ? (
-        <motion.div className={classes.customScriptContainer} variants={presets.child}>
-          <div className={classes.scriptHeaderRow}>
-            <div className={classes.scriptTitleLeft}>
-              <h1>{customScriptObj?.title?.toUpperCase()}</h1>
-              <p>Custom Uploaded Script</p>
-            </div>
-            <button className={classes.deleteBtn} onClick={handleDeleteScript} title="Delete Script">
-              <Trash2 size={16} /> Delete
+      <motion.div
+        className={classes.page}
+        variants={presets.root}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div className={`glass ${classes.toolbar}`} variants={presets.child}>
+          <div className={classes.selectorWrap}>
+            <span className={classes.selectorLabel}>Script</span>
+            <CustomSelect
+              className={classes.scriptSelect}
+              options={allScriptOptions}
+              value={selectedScript}
+              onChange={handleScriptChange}
+            />
+            <button type="button" className={classes.addBtn} onClick={() => setIsModalOpen(true)} title="Add Script" aria-label="Add custom script">
+              <Plus size={18} />
             </button>
           </div>
-          <textarea
-            className={classes.customTextarea}
-            value={values.text || ''}
-            onChange={(e) => {
-              setValues({ text: e.target.value });
-              if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-              saveTimeoutRef.current = setTimeout(handleSave, 2000);
-            }}
-          />
+          <button type="button" className={classes.saveBtn} onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 size={16} className={classes.spinner} /> : <Save size={16} />}
+            {saving ? 'Saving...' : 'Save'}
+          </button>
         </motion.div>
-      ) : (
-        <motion.div variants={presets.child}>
-          <div className={classes.scriptTitle}>
-            <h1>{script?.title?.toUpperCase()} CALL SCRIPT</h1>
-            <p>{script?.subtitle}</p>
-          </div>
-          {script?.sections?.map(renderSection)}
-        </motion.div>
-      )}
-    </motion.div>
+
+        {isCustom ? (
+          <motion.div className={`glass ${classes.customScriptPanel}`} variants={presets.child}>
+            <div className={classes.scriptHeaderRow}>
+              <div className={classes.scriptTitleLeft}>
+                <h1>{customScriptObj?.title?.toUpperCase()}</h1>
+                <p>Custom script</p>
+              </div>
+              <button type="button" className={classes.deleteBtn} onClick={() => setDeleteModalOpen(true)} title="Delete Script">
+                <Trash2 size={16} /> Delete
+              </button>
+            </div>
+            <textarea
+              className={classes.customTextarea}
+              value={values.text || ''}
+              onChange={(e) => {
+                setValues({ text: e.target.value });
+                if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+                saveTimeoutRef.current = setTimeout(handleSave, 2000);
+              }}
+              aria-label="Custom script content"
+            />
+          </motion.div>
+        ) : (
+          <motion.div className={`glass ${classes.scriptContent}`} variants={presets.child}>
+            <div className={classes.scriptTitle}>
+              <span className={classes.scriptTitleMeta}>Call script</span>
+              <h1>{script?.title?.toUpperCase()} CALL SCRIPT</h1>
+              <p>{script?.subtitle}</p>
+            </div>
+            <motion.div className={classes.sectionsGrid} variants={presets.grid}>
+              {script?.sections?.map(renderSection)}
+            </motion.div>
+          </motion.div>
+        )}
+      </motion.div>
 
       <AddCustomScriptModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onScriptAdded={handleCustomScriptAdded}
+      />
+
+      <DeleteScriptModal
+        isOpen={deleteModalOpen}
+        scriptTitle={customScriptObj?.title}
+        deleting={deleting}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={confirmDeleteScript}
       />
     </>
   );

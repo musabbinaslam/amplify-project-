@@ -6,22 +6,6 @@
   padding-bottom: 32px;
 }
 
-/* Subtle ambient wash — no heavy glow behind cards */
-.dashboard::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background: radial-gradient(100% 40% at 50% 0%, var(--brand-dim), transparent 70%);
-  opacity: 0.25;
-}
-
-.dashboard > * {
-  position: relative;
-  z-index: 1;
-}
-
 .spinner {
   animation: dashSpin 1s linear infinite;
 }
@@ -70,23 +54,6 @@
   align-items: center;
   gap: 10px;
   font-size: 14px;
-}
-
-/* ════════════════════════════════════════════
-   Shared glass surface — depth via border + fill, not drop shadows
-   ════════════════════════════════════════════ */
-.glass {
-  position: relative;
-  background: var(--surface-container-low);
-  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
-  border-radius: var(--radius-xl);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transition: border-color 0.22s ease, background 0.22s ease;
-}
-
-.glass:hover {
-  background: var(--surface-container);
-  border-color: color-mix(in srgb, #ffffff 11%, transparent);
 }
 
 /* ─── Hero KPI row ─── */
@@ -1002,7 +969,6 @@
 
 /* ─── Fallback: browsers without backdrop-filter ─── */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass,
   .dropdownTrigger,
   .dropdownMenu,
   .tooltip {
@@ -1012,7 +978,6 @@
 
 /* ─── Reduced motion ─── */
 @media (prefers-reduced-motion: reduce) {
-  .glass,
   .callsTable tbody tr,
   .dropdownTrigger,
   .dropdownIcon {
