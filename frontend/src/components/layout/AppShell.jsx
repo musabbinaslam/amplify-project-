@@ -138,6 +138,27 @@ const AppShell = () => {
         window.dispatchEvent(new CustomEvent('contest:resolved', { detail: payload }));
       }
     });
+    socket.on('notification:updated', (payload) => {
+      if (!payload?.broadcastId) return;
+      const patch = (row) => (
+        row.broadcastId === payload.broadcastId
+          ? {
+            ...row,
+            title: payload.title ?? row.title,
+            body: payload.body ?? row.body,
+            priority: payload.priority ?? row.priority,
+            expiresAt: payload.expiresAt ?? row.expiresAt,
+          }
+          : row
+      );
+      setNotifications((rows) => rows.map(patch));
+      setNotificationTick((n) => n + 1);
+    });
+    socket.on('notification:removed', (payload) => {
+      if (!payload?.broadcastId) return;
+      setNotifications((rows) => rows.filter((row) => row.broadcastId !== payload.broadcastId));
+      setNotificationTick((n) => n + 1);
+    });
     socket.on('wallet:updated', (payload) => {
       const balance = Number(payload?.balance);
       if (Number.isFinite(balance)) {

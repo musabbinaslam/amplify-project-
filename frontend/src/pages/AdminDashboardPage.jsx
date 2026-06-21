@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Shield, Users, Phone, Radio, RefreshCw, Trash2, Plus, CalendarDays,
-  CircleDollarSign, Activity, Play, X, ChevronDown, FileText, TrendingUp,
+  CircleDollarSign, Activity, Play, X, ChevronDown, FileText, TrendingUp, Bell,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -24,9 +25,6 @@ import {
   createAdminDid,
   patchAdminDid,
   deleteAdminDid,
-  postAdminBroadcastNotification,
-  getAdminMaintenanceState,
-  patchAdminMaintenanceState,
   forceRemoveAgent,
   listAdminCallContests,
   approveAdminCallContest,
@@ -399,16 +397,6 @@ function ContestProofImage({ url, name, onOpen }) {
   );
 }
 
-const toLocalDateTimeInput = (value) => {
-  if (!value) return '';
-  const dt = new Date(value);
-  if (Number.isNaN(dt.getTime())) return '';
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
-};
-
-const nowLocalInput = () => toLocalDateTimeInput(new Date());
-
 function formatContestCategory(category) {
   if (!category) return '—';
   return String(category).replace(/_/g, ' ');
@@ -703,19 +691,6 @@ const AdminDashboardPage = () => {
     label: '',
     active: true,
   });
-  const [broadcastForm, setBroadcastForm] = useState({
-    title: '',
-    body: '',
-    priority: 'normal',
-    expiresAt: '',
-  });
-  const [maintenanceForm, setMaintenanceForm] = useState({
-    active: false,
-    title: '',
-    message: '',
-    startsAt: '',
-    endsAt: '',
-  });
   const [forceRemoveAgentId, setForceRemoveAgentId] = useState('');
   const [callContests, setCallContests] = useState([]);
   const [contestFilter, setContestFilter] = useState('pending');
@@ -828,31 +803,14 @@ const AdminDashboardPage = () => {
     }
   }, [contestFilter]);
 
-  const refreshMaintenance = useCallback(async () => {
-    try {
-      const out = await getAdminMaintenanceState();
-      const m = out?.maintenance || {};
-      setMaintenanceForm({
-        active: Boolean(m.active),
-        title: m.title || '',
-        message: m.message || '',
-        startsAt: toLocalDateTimeInput(m.startsAt),
-        endsAt: toLocalDateTimeInput(m.endsAt),
-      });
-    } catch (err) {
-      toast.error(err.message || 'Failed to load maintenance state');
-    }
-  }, []);
-
   useEffect(() => {
     // One-time shell + DIDs load (range-independent).
     Promise.all([
       loadShell(),
       refreshDids(),
-      refreshMaintenance(),
       loadCallContests('pending'),
     ]);
-  }, [loadShell, refreshDids, refreshMaintenance, loadCallContests]);
+  }, [loadShell, refreshDids, loadCallContests]);
 
   useEffect(() => {
     // Re-fetch analytics whenever the selected range changes. loadAnalytics'
@@ -1061,35 +1019,6 @@ const AdminDashboardPage = () => {
     }
   };
 
-  const handleSendBroadcast = async (e) => {
-    e.preventDefault();
-    if (!broadcastForm.title.trim() || !broadcastForm.body.trim()) {
-      toast.error('Broadcast title and message are required');
-      return;
-    }
-    try {
-      const now = Date.now();
-      if (broadcastForm.expiresAt) {
-        const expiresMs = new Date(broadcastForm.expiresAt).getTime();
-        if (!Number.isFinite(expiresMs) || expiresMs < now) {
-          toast.error('Broadcast expiry must be in the future');
-          return;
-        }
-      }
-      const payload = {
-        title: broadcastForm.title.trim(),
-        body: broadcastForm.body.trim(),
-        priority: broadcastForm.priority,
-        ...(broadcastForm.expiresAt ? { expiresAt: new Date(broadcastForm.expiresAt).toISOString() } : {}),
-      };
-      const out = await postAdminBroadcastNotification(payload);
-      toast.success(`Broadcast sent to ${out.recipientCount || 0} users`);
-      setBroadcastForm((prev) => ({ ...prev, title: '', body: '' }));
-    } catch (err) {
-      toast.error(err.message || 'Failed to send broadcast');
-    }
-  };
-
   const handleForceRemoveAgent = async (e) => {
     e.preventDefault();
     const agentId = forceRemoveAgentId.trim();
@@ -1114,42 +1043,6 @@ const AdminDashboardPage = () => {
     }
   };
 
-
-  const handleSaveMaintenance = async (e) => {
-    e.preventDefault();
-    try {
-      const isActive = Boolean(maintenanceForm.active);
-      const now = Date.now();
-      const startsMs = maintenanceForm.startsAt ? new Date(maintenanceForm.startsAt).getTime() : null;
-      const endsMs = maintenanceForm.endsAt ? new Date(maintenanceForm.endsAt).getTime() : null;
-
-      if (isActive && maintenanceForm.startsAt && (!Number.isFinite(startsMs) || startsMs < now)) {
-        toast.error('Maintenance start time must be in the future');
-        return;
-      }
-      if (isActive && maintenanceForm.endsAt && (!Number.isFinite(endsMs) || endsMs < now)) {
-        toast.error('Maintenance end time must be in the future');
-        return;
-      }
-      if (isActive && startsMs && endsMs && startsMs > endsMs) {
-        toast.error('Maintenance end time must be after start time');
-        return;
-      }
-
-      const payload = {
-        active: isActive,
-        title: isActive ? maintenanceForm.title.trim() : '',
-        message: isActive ? maintenanceForm.message.trim() : '',
-        startsAt: isActive && maintenanceForm.startsAt ? new Date(maintenanceForm.startsAt).toISOString() : null,
-        endsAt: isActive && maintenanceForm.endsAt ? new Date(maintenanceForm.endsAt).toISOString() : null,
-      };
-      await patchAdminMaintenanceState(payload);
-      toast.success(maintenanceForm.active ? 'Maintenance update published' : 'Maintenance mode turned off');
-      await refreshMaintenance();
-    } catch (err) {
-      toast.error(err.message || 'Failed to save maintenance state');
-    }
-  };
 
   const getAgentName = useCallback((row) => (
     row?.agentName || row?.displayName || row?.name || row?.agentId || row?.id || 'Unknown'
@@ -1876,85 +1769,14 @@ const AdminDashboardPage = () => {
       </motion.section>
 
       <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
-        <h2 className={classes.cardTitle}>Notifications & maintenance</h2>
-        <div className={classes.notificationGrid}>
-          <form className={classes.notificationForm} onSubmit={handleSendBroadcast}>
-            <h3 className={classes.subTitle}>Broadcast to all users</h3>
-            <input
-              className={classes.input}
-              placeholder="Notification title"
-              value={broadcastForm.title}
-              onChange={(e) => setBroadcastForm((prev) => ({ ...prev, title: e.target.value }))}
-            />
-            <textarea
-              className={classes.textarea}
-              placeholder="Message"
-              value={broadcastForm.body}
-              onChange={(e) => setBroadcastForm((prev) => ({ ...prev, body: e.target.value }))}
-            />
-            <div className={classes.formRow}>
-              <select
-                className={classes.select}
-                value={broadcastForm.priority}
-                onChange={(e) => setBroadcastForm((prev) => ({ ...prev, priority: e.target.value }))}
-              >
-                <option value="low">Low priority</option>
-                <option value="normal">Normal priority</option>
-                <option value="high">High priority</option>
-              </select>
-              <input
-                type="datetime-local"
-                className={classes.input}
-                value={broadcastForm.expiresAt}
-                onChange={(e) => setBroadcastForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
-                min={nowLocalInput()}
-              />
-            </div>
-            <button type="submit" className={classes.primaryBtn}>Send broadcast</button>
-          </form>
-          <form className={classes.notificationForm} onSubmit={handleSaveMaintenance}>
-            <h3 className={classes.subTitle}>Maintenance banner</h3>
-            <label className={classes.check}>
-              <input
-                type="checkbox"
-                checked={maintenanceForm.active}
-                onChange={(e) => setMaintenanceForm((prev) => ({ ...prev, active: e.target.checked }))}
-              />
-              Maintenance active
-            </label>
-            <input
-              className={classes.input}
-              placeholder="Maintenance title"
-              value={maintenanceForm.title}
-              onChange={(e) => setMaintenanceForm((prev) => ({ ...prev, title: e.target.value }))}
-            />
-            <textarea
-              className={classes.textarea}
-              placeholder="Maintenance message"
-              value={maintenanceForm.message}
-              onChange={(e) => setMaintenanceForm((prev) => ({ ...prev, message: e.target.value }))}
-            />
-            <div className={classes.formRow}>
-              <input
-                type="datetime-local"
-                className={classes.input}
-                value={maintenanceForm.startsAt}
-                onChange={(e) => setMaintenanceForm((prev) => ({ ...prev, startsAt: e.target.value }))}
-                min={nowLocalInput()}
-              />
-              <input
-                type="datetime-local"
-                className={classes.input}
-                value={maintenanceForm.endsAt}
-                onChange={(e) => setMaintenanceForm((prev) => ({ ...prev, endsAt: e.target.value }))}
-                min={maintenanceForm.startsAt || nowLocalInput()}
-              />
-            </div>
-            <button type="submit" className={classes.primaryBtn}>
-              {maintenanceForm.active ? 'Publish maintenance update' : 'Save maintenance off'}
-            </button>
-          </form>
-        </div>
+        <h2 className={classes.cardTitle}>Notifications</h2>
+        <p className={classes.hint}>
+          Send broadcasts, manage maintenance alerts, and edit or revoke past pushes.
+        </p>
+        <Link to="/app/admin/notifications" className={classes.primaryBtn}>
+          <Bell size={16} />
+          Open notification settings
+        </Link>
       </motion.section>
 
       <motion.section className={`glass ${classes.sectionCard} ${classes.didSection}`} variants={presets.child}>

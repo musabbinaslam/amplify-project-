@@ -7,6 +7,11 @@ const {
   broadcastNotificationToAllUsers,
   setMaintenanceState,
   getMaintenanceState,
+  listBroadcasts,
+  getBroadcast,
+  updateBroadcast,
+  revokeBroadcast,
+  maintenanceDocRef,
 } = require('../services/notificationService');
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
@@ -1051,10 +1056,12 @@ async function postBroadcastNotification(req, res) {
         expiresAt: req.body?.expiresAt,
       },
       req.user?.uid || 'admin',
+      req.user?.uid || null,
     );
     payload.created.forEach(({ uid, id }) => {
       socketRegistry.emitToAgent(uid, 'notification:new', {
         id,
+        broadcastId: payload.broadcastId,
         type: payload.type,
         title: payload.title,
         body: payload.body,
@@ -1067,6 +1074,7 @@ async function postBroadcastNotification(req, res) {
     });
     res.status(201).json({
       success: true,
+      broadcastId: payload.broadcastId,
       recipientCount: payload.recipientCount,
       createdCount: payload.createdCount,
       message: 'Broadcast sent',
@@ -1097,10 +1105,14 @@ async function patchMaintenance(req, res) {
           expiresAt: maintenance.endsAt || null,
         },
         req.user?.uid || 'admin',
+        req.user?.uid || null,
       );
+      await maintenanceDocRef().set({ broadcastId: payload.broadcastId }, { merge: true });
+      const linkedMaintenance = await getMaintenanceState();
       payload.created.forEach(({ uid, id }) => {
         socketRegistry.emitToAgent(uid, 'notification:new', {
           id,
+          broadcastId: payload.broadcastId,
           type: payload.type,
           title: payload.title,
           body: payload.body,
@@ -1111,12 +1123,84 @@ async function patchMaintenance(req, res) {
           expiresAt: payload.expiresAt || null,
         });
       });
+      usersSnap.docs.forEach((doc) => {
+        socketRegistry.emitToAgent(doc.id, 'maintenance:update', linkedMaintenance);
+      });
+      res.json({ maintenance: linkedMaintenance, broadcastId: payload.broadcastId });
+      return;
     }
     res.json({ maintenance });
   } catch (err) {
     console.error('[Admin] patchMaintenance:', err.message);
     const status = /required|exceeds|must|valid date/i.test(err.message) ? 400 : 500;
     res.status(status).json({ error: err.message || 'Failed to update maintenance state' });
+  }
+}
+
+async function getBroadcastNotifications(req, res) {
+  try {
+    const out = await listBroadcasts({
+      limit: req.query?.limit,
+      cursor: req.query?.cursor,
+    });
+    res.json(out);
+  } catch (err) {
+    console.error('[Admin] getBroadcastNotifications:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to list broadcasts' });
+  }
+}
+
+async function getBroadcastNotification(req, res) {
+  try {
+    const out = await getBroadcast(req.params.id);
+    res.json(out);
+  } catch (err) {
+    console.error('[Admin] getBroadcastNotification:', err.message);
+    const status = /not found/i.test(err.message) ? 404 : 500;
+    res.status(status).json({ error: err.message || 'Failed to read broadcast' });
+  }
+}
+
+async function patchBroadcastNotification(req, res) {
+  try {
+    const out = await updateBroadcast(req.params.id, req.body || {}, req.user?.uid || null);
+    const syncPayload = {
+      broadcastId: out.row.id,
+      type: out.row.type,
+      title: out.row.title,
+      body: out.row.body,
+      priority: out.row.priority,
+      expiresAt: out.row.expiresAt || null,
+    };
+    out.affectedUids.forEach((uid) => {
+      socketRegistry.emitToAgent(uid, 'notification:updated', syncPayload);
+    });
+    if (out.maintenance) {
+      const db = getDb();
+      const usersSnap = await db.collection('users').select().limit(20000).get();
+      usersSnap.docs.forEach((doc) => {
+        socketRegistry.emitToAgent(doc.id, 'maintenance:update', out.maintenance);
+      });
+    }
+    res.json({ row: out.row, updatedCount: out.affectedUids.length });
+  } catch (err) {
+    console.error('[Admin] patchBroadcastNotification:', err.message);
+    const status = /not found/i.test(err.message) ? 404 : (/revoked|required|exceeds|must|Invalid|priority/i.test(err.message) ? 400 : 500);
+    res.status(status).json({ error: err.message || 'Failed to update broadcast' });
+  }
+}
+
+async function deleteBroadcastNotification(req, res) {
+  try {
+    const out = await revokeBroadcast(req.params.id, req.user?.uid || null);
+    out.affectedUids.forEach((uid) => {
+      socketRegistry.emitToAgent(uid, 'notification:removed', { broadcastId: req.params.id });
+    });
+    res.json({ row: out.row, removedCount: out.affectedUids.length });
+  } catch (err) {
+    console.error('[Admin] deleteBroadcastNotification:', err.message);
+    const status = /not found/i.test(err.message) ? 404 : 500;
+    res.status(status).json({ error: err.message || 'Failed to revoke broadcast' });
   }
 }
 
@@ -1313,6 +1397,10 @@ module.exports = {
   grantDiscount: grantDiscountHandler,
   revokeDiscount: revokeDiscountHandler,
   postBroadcastNotification,
+  getBroadcastNotifications,
+  getBroadcastNotification,
+  patchBroadcastNotification,
+  deleteBroadcastNotification,
   patchMaintenance,
   getMaintenance,
   getPoolDebug,
