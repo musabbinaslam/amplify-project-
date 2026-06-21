@@ -1,4 +1,4 @@
-/* Frosted glass card/panel surface */
+/* Frosted glass card/panel surface (see docs/DESIGN.md) */
 .glass {
   position: relative;
   isolation: isolate;
@@ -11,6 +11,7 @@
   transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
 }
 
+/* Light-mode top sheen — cards read as elevated glass, not flat white boxes */
 [data-theme="light"] .glass::before {
   content: '';
   position: absolute;

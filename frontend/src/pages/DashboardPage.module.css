@@ -1,15 +1,32 @@
-/* Hidden caller phone (non-billable calls) — matches CallLogsPage.hiddenPhone styling. */
-.hiddenPhone {
-  color: var(--text-muted);
-  font-style: italic;
-  opacity: 0.8;
-}
-
 .dashboard {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
   padding-bottom: 32px;
+}
+
+/* Subtle ambient wash — no heavy glow behind cards */
+.dashboard::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(100% 40% at 50% 0%, var(--brand-dim), transparent 70%);
+  opacity: 0.35;
+}
+
+.dashboard > * {
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="light"] .dashboard::before {
+  opacity: 0.55;
+  background:
+    radial-gradient(100% 50% at 50% 0%, var(--brand-dim), transparent 68%),
+    radial-gradient(80% 40% at 100% 20%, color-mix(in srgb, var(--accent-cyan) 8%, transparent), transparent 60%);
 }
 
 .spinner {
@@ -19,6 +36,12 @@
 @keyframes dashSpin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+.hiddenPhone {
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.8;
 }
 
 .errorBanner {
@@ -31,8 +54,8 @@
   font-weight: 500;
 }
 
-.chartLoading, .chartEmpty {
-  height: 250px;
+.chartEmpty {
+  height: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -56,177 +79,100 @@
   font-size: 14px;
 }
 
-.mutedNote {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.sectionStats {
+/* ─── Hero KPI row ─── */
+.kpiGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
+  gap: 18px;
 }
 
-.statCard {
-  background: var(--surface-container-low);
-  border-radius: var(--radius-xl);
-  padding: 24px;
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+.kpiCard {
+  padding: 20px 20px 16px;
 }
 
-.statCard:hover {
-  background: var(--surface-container);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-}
-
-.statHeader {
+.kpiTop {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 16px;
 }
 
-.statTitle {
+.kpiIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+}
+
+.kpiTitle {
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 }
 
-.iconWrapper {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-full);
-  background: var(--surface-container-highest);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--brand-text);
-}
-
-.statValue {
-  font-size: 32px;
+.kpiValue {
+  font-size: 34px;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: var(--text-primary);
+  margin-top: 6px;
+  line-height: 1.05;
 }
 
-.campaignSection {
-  background: var(--surface-container-low);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  padding: 32px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+.sparkline {
+  margin: 10px -20px -4px;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
 }
 
-.sectionHeader {
-  display: flex;
-  justify-content: space-between;
+/* Trend pills (glass chips) */
+.trendPill {
+  display: inline-flex;
   align-items: center;
-  margin-bottom: 24px;
-  color: var(--text-primary);
-}
-
-.sectionHeader h3 {
-  font-size: 20px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.dollarBtn {
-  width: 40px;
-  height: 40px;
+  gap: 4px;
+  padding: 4px 10px;
   border-radius: var(--radius-full);
-  background: var(--surface-container-highest);
-  color: var(--brand-text);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 10px var(--brand-glow);
-}
-
-.campaignGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-}
-
-.campaignCard {
-  background: var(--surface-container);
-  border-radius: var(--radius-lg);
-  padding: 24px;
-  border: 1px solid var(--border);
-  transition: background 0.2s ease;
-}
-
-.campaignCard:hover {
-  background: var(--surface-container-high);
-}
-
-.campaignHeader {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.campaignDesc {
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.4;
-  margin-bottom: 20px;
-}
-
-.blueIcon {
-  color: var(--accent-blue);
-}
-
-.tvIcon {
-  color: var(--accent-cyan);
-}
-
-.campaignTitle {
-  color: var(--text-primary);
-  font-size: 18px;
+  font-size: 12px;
   font-weight: 700;
+  border: 1px solid transparent;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
 
-.campaignPrice {
-  margin-bottom: 16px;
+.trendUp {
+  color: var(--accent-green);
+  background: color-mix(in srgb, var(--accent-green) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent-green) 24%, transparent);
 }
 
-.priceLarge {
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--brand-text);
+.trendDown {
+  color: var(--accent-red);
+  background: color-mix(in srgb, var(--accent-red) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent-red) 24%, transparent);
 }
 
-.priceSub {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.campaignBuffer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
+.trendFlat {
   color: var(--text-tertiary);
+  background: color-mix(in srgb, var(--text-tertiary) 14%, transparent);
+  border-color: color-mix(in srgb, var(--text-tertiary) 22%, transparent);
 }
 
+/* ─── Performance header ─── */
 .performanceHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 32px;
+  margin-top: 6px;
 }
 
 .performanceHeader h3 {
@@ -234,19 +180,23 @@
   align-items: center;
   gap: 12px;
   font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
-/* Custom Dropdown Styling */
+/* Dropdown */
 .customDropdown {
   position: relative;
   display: inline-block;
 }
 
 .dropdownTrigger {
-  background: var(--surface-container-highest);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-container-highest) 70%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in srgb, #ffffff 10%, transparent);
   color: var(--text-primary);
-  padding: 8px 16px;
+  padding: 9px 16px;
   border-radius: var(--radius-full);
   font-size: 14px;
   font-weight: 600;
@@ -259,8 +209,8 @@
 }
 
 .dropdownTrigger:hover {
-  background: var(--surface-container-high);
   border-color: var(--brand-text);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--brand-glow) 40%, transparent);
 }
 
 .dropdownIcon {
@@ -276,12 +226,14 @@
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  background: var(--surface-container-high);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-container-high) 85%, transparent);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid color-mix(in srgb, #ffffff 9%, transparent);
   border-radius: var(--radius-lg);
   padding: 8px;
   min-width: 160px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
   z-index: 50;
   display: flex;
   flex-direction: column;
@@ -308,98 +260,385 @@
   color: var(--brand-text);
 }
 
-.perfStatsGrid {
+/* ─── Performance band (gauges + tiles) ─── */
+.perfBand {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  grid-template-columns: 1fr 1fr 1.4fr;
+  gap: 18px;
 }
 
-.wideCard {
-  grid-column: span 2;
+.gaugeCard {
+  padding: 24px;
+  text-align: center;
 }
 
-.statSub {
-  font-size: 13px;
-  font-weight: 500;
+.gaugeChart {
+  position: relative;
+}
+
+.gaugeCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.gaugeValue {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.gaugeCenterLabel {
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--text-secondary);
-  margin-top: 8px;
 }
 
-.chartSection, .statesSection, .callsSection {
-  background: var(--surface-container-low);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
-  padding: 32px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+.gaugeSub {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
 }
 
-.chartHeader {
+.tileStack {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 18px;
+}
+
+.statTile {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.statTileHeader {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 32px;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
-.chartTitleBox {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
+.statTileTitle {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
-.chartIcon {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-full);
-  background: var(--surface-container-highest);
+.statTileIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 20%, transparent);
   color: var(--brand-text);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.chartTitle {
-  color: var(--text-secondary);
-  font-size: 14px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 4px;
-}
-
-.chartValue {
-  font-size: 32px;
+.statTileValue {
+  font-size: 27px;
   font-weight: 800;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
 }
 
-.chartStats {
-  text-align: right;
+.statTileSub {
+  font-size: 12.5px;
   color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* ─── Charts row (area + donut) ─── */
+.chartsRow {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 18px;
+}
+
+.chartSection,
+.donutSection,
+.campaignSection,
+.callsSection {
+  padding: 28px;
+}
+
+.chartHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.chartTitleBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.chartIcon {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+  color: var(--brand-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.chartTitle {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 5px;
+}
+
+.chartValue {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.chartValueSub {
   font-size: 14px;
-  font-weight: 500;
-  line-height: 1.6;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.chartLegend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.legendDot {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-full);
+  display: inline-block;
 }
 
 .chartContainer {
-  margin-top: 24px;
+  margin-top: 8px;
 }
 
-/* ─── State pills ─── */
-.statesPills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.5rem 0;
+/* Custom tooltip */
+.tooltip {
+  background: color-mix(in srgb, var(--surface-container-highest) 85%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid color-mix(in srgb, #ffffff 10%, transparent);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
 }
 
-.statePill {
-  display: inline-block;
-  padding: 0.35rem 0.85rem;
-  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
-  color: var(--brand-text);
-  border-radius: 999px;
-  font-size: 0.8rem;
+.tooltipLabel {
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.tooltipRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.tooltipDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+}
+
+.tooltipName {
+  color: var(--text-secondary);
+  margin-right: auto;
+}
+
+.tooltipVal {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+/* ─── Donut ─── */
+.donutBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.donutChart {
+  position: relative;
+}
+
+.donutCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.donutTotal {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.donutTotalLabel {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.donutLegend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.donutLegendItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.donutLegendName {
+  color: var(--text-secondary);
+  margin-right: auto;
+}
+
+.donutLegendVal {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+/* ─── Section headers ─── */
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  color: var(--text-primary);
+}
+
+.sectionHeader h3 {
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ─── Campaign cards ─── */
+.campaignGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.campaignCard {
+  border-radius: var(--radius-lg);
+  padding: 22px;
+}
+
+.campaignHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.campaignIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 20%, transparent);
+  color: var(--brand-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.campaignTitle {
+  color: var(--text-primary);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.campaignDesc {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 18px;
+}
+
+.campaignPrice {
+  margin-bottom: 14px;
+}
+
+.priceLarge {
+  font-size: 29px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--brand-text);
+}
+
+.priceSub {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.campaignBuffer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-tertiary);
 }
 
 /* ─── Calls table ─── */
@@ -413,7 +652,7 @@
 }
 
 .callsTable thead {
-  background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
+  background: color-mix(in srgb, var(--surface-container-high) 40%, transparent);
 }
 
 .callsTable th {
@@ -428,7 +667,7 @@
 }
 
 .callsTable td {
-  padding: 0.6rem 1rem;
+  padding: 0.7rem 1rem;
   font-size: 0.85rem;
   color: var(--text-secondary);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
@@ -436,6 +675,10 @@
 
 .callsTable tbody tr:last-child td {
   border-bottom: none;
+}
+
+.callsTable tbody tr {
+  transition: background 0.15s ease;
 }
 
 .callsTable tbody tr:hover {
@@ -466,8 +709,8 @@
 }
 
 .callOutbound {
-  background: color-mix(in srgb, #3b82f6 14%, transparent);
-  color: #3b82f6;
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+  color: var(--accent-cyan);
 }
 
 .callDuration {
@@ -498,13 +741,13 @@
 }
 
 .dispCallback {
-  background: color-mix(in srgb, #f59e0b 14%, transparent);
-  color: #f59e0b;
+  background: color-mix(in srgb, var(--accent-yellow) 16%, transparent);
+  color: var(--accent-yellow);
 }
 
 .dispNotInterested {
-  background: color-mix(in srgb, #ef4444 12%, transparent);
-  color: #ef4444;
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent);
+  color: var(--accent-red);
 }
 
 .dispNoAnswer {
@@ -512,7 +755,7 @@
   color: var(--text-muted);
 }
 
-.editBtn, .viewAllBtn {
+.viewAllBtn {
   color: var(--brand-text);
   font-size: 14px;
   font-weight: 600;
@@ -521,81 +764,94 @@
   border: none;
 }
 
-.editBtn:hover, .viewAllBtn:hover {
+.viewAllBtn:hover {
   opacity: 0.8;
 }
 
-/* ─── Responsive: Tablet ≤ 1024px ─── */
+/* ─── Responsive: ≤ 1024px ─── */
 @media (max-width: 1024px) {
   .dashboard {
-    gap: 24px;
+    gap: 18px;
   }
 
-  .sectionStats {
+  .kpiGrid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+    gap: 14px;
+  }
+
+  .perfBand {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .tileStack {
+    grid-column: span 2;
+    grid-template-rows: none;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .chartsRow {
+    grid-template-columns: 1fr;
   }
 
   .campaignGrid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+    gap: 14px;
   }
 
-  .perfStatsGrid {
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-
-  .campaignSection,
   .chartSection,
-  .statesSection,
+  .donutSection,
+  .campaignSection,
   .callsSection {
     padding: 24px;
   }
 
-  .statValue {
-    font-size: 28px;
-  }
-
+  .kpiValue,
   .chartValue {
-    font-size: 28px;
-  }
-
-  .priceLarge {
-    font-size: 24px;
+    font-size: 26px;
   }
 }
 
-/* ─── Responsive: Small Tablet ≤ 768px ─── */
+/* ─── Responsive: ≤ 768px ─── */
 @media (max-width: 768px) {
-  .dashboard {
-    gap: 20px;
-  }
-
-  .sectionStats {
+  .kpiGrid {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
 
-  .statCard {
-    padding: 16px;
+  .kpiCard {
+    padding: 16px 16px 0;
   }
 
-  .statHeader {
-    margin-bottom: 12px;
+  .sparkline {
+    margin: 10px -16px 0;
   }
 
-  .statTitle {
-    font-size: 12px;
+  .kpiTitle {
+    font-size: 11px;
   }
 
-  .statValue {
+  .kpiValue {
     font-size: 24px;
   }
 
-  .iconWrapper {
-    width: 32px;
-    height: 32px;
+  .kpiIcon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .perfBand {
+    grid-template-columns: 1fr;
+  }
+
+  .tileStack {
+    grid-column: span 1;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .performanceHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
 
   .campaignGrid {
@@ -611,59 +867,21 @@
     font-size: 15px;
   }
 
-  .campaignDesc {
-    font-size: 12px;
-    margin-bottom: 14px;
-  }
-
-  .priceLarge {
-    font-size: 22px;
-  }
-
-  .campaignSection,
   .chartSection,
-  .statesSection,
+  .donutSection,
+  .campaignSection,
   .callsSection {
     padding: 20px;
   }
 
-  .sectionHeader h3 {
+  .sectionHeader h3,
+  .performanceHeader h3 {
     font-size: 17px;
-  }
-
-  .performanceHeader {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    margin-top: 24px;
-  }
-
-  .perfStatsGrid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .wideCard {
-    grid-column: span 1;
   }
 
   .chartHeader {
     flex-direction: column;
-    gap: 16px;
-    margin-bottom: 20px;
-  }
-
-  .chartStats {
-    text-align: left;
-  }
-
-  .chartIcon {
-    width: 40px;
-    height: 40px;
-  }
-
-  .chartValue {
-    font-size: 24px;
+    gap: 14px;
   }
 
   .callsTable table {
@@ -671,37 +889,45 @@
   }
 }
 
-/* ─── Responsive: Mobile ≤ 480px ─── */
+/* ─── Responsive: ≤ 480px ─── */
 @media (max-width: 480px) {
   .dashboard {
     gap: 16px;
   }
 
-  .sectionStats {
+  .kpiGrid {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
   }
 
-  .statCard {
-    padding: 14px;
+  .kpiCard {
+    padding: 14px 14px 0;
   }
 
-  .statTitle {
-    font-size: 11px;
+  .sparkline {
+    margin: 8px -14px 0;
   }
 
-  .statValue {
-    font-size: 20px;
+  .kpiTitle {
+    font-size: 10.5px;
   }
 
-  .iconWrapper {
-    width: 28px;
-    height: 28px;
+  .kpiValue {
+    font-size: 21px;
   }
 
-  .iconWrapper svg {
-    width: 14px;
-    height: 14px;
+  .kpiIcon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .kpiIcon svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .tileStack {
+    grid-template-columns: 1fr;
   }
 
   .campaignGrid {
@@ -713,47 +939,30 @@
     padding: 16px;
   }
 
-  .campaignTitle {
-    font-size: 16px;
-  }
-
   .priceLarge {
     font-size: 24px;
   }
 
-  .campaignSection,
   .chartSection,
-  .statesSection,
+  .donutSection,
+  .campaignSection,
   .callsSection {
     padding: 16px;
     border-radius: var(--radius-lg);
   }
 
-  .sectionHeader h3 {
+  .sectionHeader h3,
+  .performanceHeader h3 {
     font-size: 16px;
     gap: 8px;
   }
 
-  .dollarBtn {
-    width: 32px;
-    height: 32px;
-  }
-
-  .performanceHeader h3 {
-    font-size: 16px;
-  }
-
-  .chartIcon {
-    width: 36px;
-    height: 36px;
-  }
-
-  .chartTitle {
-    font-size: 12px;
-  }
-
   .chartValue {
-    font-size: 20px;
+    font-size: 22px;
+  }
+
+  .statTileValue {
+    font-size: 22px;
   }
 
   .callsTable table {
@@ -778,5 +987,27 @@
   .dropdownItem {
     padding: 8px 12px;
     font-size: 13px;
+  }
+}
+
+/* ─── Fallback: browsers without backdrop-filter ─── */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .dropdownTrigger,
+  .dropdownMenu,
+  .tooltip {
+    background: var(--surface-container-low);
+  }
+}
+
+/* ─── Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  .callsTable tbody tr,
+  .dropdownTrigger,
+  .dropdownIcon {
+    transition: none;
+  }
+
+  .spinner {
+    animation: none;
   }
 }
