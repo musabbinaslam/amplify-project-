@@ -3,12 +3,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 32px;
-  background-color: color-mix(in srgb, var(--surface) 50%, transparent);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: none;
-  border-bottom: 1px solid var(--border);
+  gap: 16px;
+  padding: 0 28px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight);
   position: sticky;
   top: 0;
   z-index: 50;
@@ -17,13 +18,19 @@
 .pageInfo {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .title {
+  margin: 0;
   font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text-primary);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .subtitle {
@@ -36,38 +43,54 @@
 .actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .walletBox {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--surface-container-highest);
-  padding: 8px 16px;
-  border-radius: var(--radius-xl);
-  border: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  padding: 8px 14px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--surface-container-high) 65%, transparent);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--glass-edge);
+  transition: background 0.15s ease, border-color 0.15s ease;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.walletBox:hover {
+  background: color-mix(in srgb, var(--surface-container-highest) 80%, transparent);
+  border-color: color-mix(in srgb, var(--brand-text) 18%, var(--glass-border));
 }
 
 .walletIcon {
   color: var(--brand-text);
+  flex-shrink: 0;
 }
 
 .balance {
   color: var(--text-primary);
   font-weight: 700;
   font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .noCreditsBadge {
-  background: var(--accent-red);
-  color: white;
-  font-size: 11px;
-  padding: 2px 8px;
+  background: color-mix(in srgb, var(--accent-red) 18%, transparent);
+  color: var(--accent-red);
+  border: 1px solid color-mix(in srgb, var(--accent-red) 32%, transparent);
+  font-size: 10px;
+  padding: 3px 8px;
   border-radius: var(--radius-full);
   font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .iconBtn {
@@ -75,16 +98,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: var(--radius-full);
-  background: var(--surface-container-low);
-  transition: all 0.2s ease;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 45%, transparent);
+  box-shadow: var(--glass-highlight), var(--glass-edge);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   position: relative;
 }
 
 .iconBtn:hover {
-  background: var(--surface-container-highest);
+  background: var(--surface-container-high);
+  border-color: color-mix(in srgb, var(--brand-text) 18%, var(--glass-border));
   color: var(--text-primary);
 }
 
@@ -92,32 +118,34 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 16px;
-  background: var(--surface-container-low);
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--glass-edge);
   border-radius: var(--radius-full);
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .statusDot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: var(--text-secondary);
-  opacity: 0.5;
-  transition: all 0.3s ease;
+  background-color: var(--text-tertiary);
+  flex-shrink: 0;
+  transition: background-color 0.2s ease;
 }
 
 .statusOnline {
-  background: var(--accent-green-dim) !important;
-  color: var(--accent-green) !important;
+  background: color-mix(in srgb, var(--accent-green) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent-green) 30%, var(--glass-border));
+  color: var(--accent-green);
 }
 
 .statusOnline .statusDot {
   background-color: var(--accent-green);
-  box-shadow: 0 0 8px var(--accent-green-glow);
-  opacity: 1;
 }
 
 .inboxWrap {
@@ -134,24 +162,28 @@
   border-radius: var(--radius-full);
   background: var(--accent-red);
   color: #fff;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border: 1px solid color-mix(in srgb, #ffffff 20%, transparent);
 }
 
 .inboxPanel {
   position: absolute;
   top: calc(100% + 10px);
-  left: 0;
-  width: 360px;
+  right: 0;
+  left: auto;
+  width: min(360px, calc(100vw - 32px));
   max-height: 420px;
   overflow: hidden;
   border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
-  background: var(--surface-container-low);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: var(--glass-highlight), var(--glass-edge), 0 18px 40px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
   z-index: 90;
@@ -159,12 +191,12 @@
 
 .inboxPanelOpen {
   animation: inboxDropIn 220ms ease-out;
-  transform-origin: top left;
+  transform-origin: top right;
 }
 
 .inboxPanelClose {
   animation: inboxDropOut 170ms ease-in forwards;
-  transform-origin: top left;
+  transform-origin: top right;
 }
 
 .inboxHeader {
@@ -172,17 +204,29 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
   color: var(--text-primary);
 }
 
+.inboxHeader strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .inlineBtn {
-  border: 1px solid var(--border);
-  background: var(--surface-container);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
   border-radius: var(--radius-full);
   font-size: 12px;
+  font-weight: 600;
   color: var(--text-primary);
-  padding: 5px 10px;
+  padding: 6px 12px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.inlineBtn:hover {
+  background: var(--surface-container-high);
+  border-color: color-mix(in srgb, var(--brand-text) 18%, var(--glass-border));
 }
 
 .inboxList {
@@ -196,7 +240,7 @@
   display: flex;
   gap: 6px;
   padding: 8px 10px 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
 }
 
 .inboxTab {
@@ -206,7 +250,7 @@
   justify-content: center;
   gap: 6px;
   padding: 8px 10px;
-  border: none;
+  border: 1px solid transparent;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   background: transparent;
@@ -214,25 +258,25 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  border-radius: 8px 8px 0 0;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
 .inboxTab:hover {
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--surface-container) 70%, transparent);
+  background: color-mix(in srgb, var(--surface-container-high) 60%, transparent);
 }
 
 .inboxTabActive {
   color: var(--text-primary);
   border-bottom-color: var(--text-secondary);
-  background: color-mix(in srgb, var(--surface-container) 80%, transparent);
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
 }
 
 .inboxTabActiveAdmin {
   color: var(--brand-text);
   border-bottom-color: var(--brand-text);
-  background: color-mix(in srgb, var(--brand-dim) 40%, transparent);
+  background: color-mix(in srgb, var(--brand-text) 10%, transparent);
 }
 
 .inboxTabBadge {
@@ -240,20 +284,22 @@
   height: 18px;
   padding: 0 5px;
   border-radius: var(--radius-full);
-  background: var(--surface-container-highest);
+  background: color-mix(in srgb, var(--surface-container-highest) 80%, transparent);
   color: var(--text-secondary);
   font-size: 10px;
   font-weight: 700;
   line-height: 18px;
+  border: 1px solid var(--glass-border);
 }
 
 .inboxTabBadgeAdmin {
-  background: color-mix(in srgb, var(--brand-dim) 80%, transparent);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
   color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 28%, transparent);
 }
 
 .inboxItemAdmin {
-  border-left: 2px solid var(--brand-text);
+  border-left: 3px solid var(--brand-text);
 }
 
 .inboxItem {
@@ -264,17 +310,18 @@
   gap: 4px;
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   padding: 12px 14px;
   color: var(--text-primary);
+  transition: background 0.15s ease;
 }
 
 .inboxItem:hover {
-  background: var(--surface-container);
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
 }
 
 .inboxItemUnread {
-  background: color-mix(in srgb, var(--brand-dim) 35%, transparent);
+  background: color-mix(in srgb, var(--brand-text) 8%, transparent);
 }
 
 .inboxItemNew {
@@ -301,7 +348,7 @@
 .itemBody {
   font-size: 12px;
   color: var(--text-secondary);
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .itemTime {
@@ -331,11 +378,13 @@
   width: min(560px, 100%);
   max-height: min(74vh, 700px);
   overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface-container-low);
-  box-shadow: 0 14px 34px color-mix(in srgb, black 30%, transparent);
-  padding: 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: var(--glass-highlight), var(--glass-edge), 0 18px 40px rgba(0, 0, 0, 0.4);
+  padding: 18px;
 }
 
 .notificationModalHeader {
@@ -353,18 +402,20 @@
 }
 
 .notificationCloseBtn {
-  border: 1px solid var(--border);
-  background: var(--surface-container);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
   color: var(--text-secondary);
-  border-radius: 8px;
-  padding: 6px 10px;
+  border-radius: var(--radius-full);
+  padding: 6px 12px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .notificationCloseBtn:hover {
   background: var(--surface-container-high);
+  border-color: color-mix(in srgb, var(--brand-text) 18%, var(--glass-border));
   color: var(--text-primary);
 }
 
@@ -411,12 +462,10 @@
   0% {
     opacity: 0;
     transform: translateX(-8px);
-    filter: brightness(1.06);
   }
   100% {
     opacity: 1;
     transform: translateX(0);
-    filter: brightness(1);
   }
 }
 
@@ -431,14 +480,65 @@
 
 @keyframes badgePulse {
   0%, 100% { transform: scale(1); }
-  35% { transform: scale(1.22); }
-  65% { transform: scale(0.95); }
+  35% { transform: scale(1.15); }
+  65% { transform: scale(0.96); }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
+  .topbar {
+    padding: 0 16px;
+    gap: 12px;
+  }
+
+  .actions {
+    gap: 8px;
+  }
+
+  .walletBox {
+    padding: 7px 10px;
+  }
+
+  .balance {
+    font-size: 13px;
+  }
+
+  .noCreditsBadge {
+    display: none;
+  }
+
+  .statusBadge {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
   .notificationModal {
     padding: 14px;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .iconBtn,
+  .walletBox,
+  .inlineBtn,
+  .notificationCloseBtn,
+  .inboxItem {
+    transition: none;
+  }
+
+  .inboxPanelOpen,
+  .inboxPanelClose,
+  .inboxItemNew,
+  .bellAnimated .bellIcon,
+  .badgeAnimated {
+    animation: none;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .topbar,
+  .inboxPanel,
+  .notificationModal {
+    background: var(--surface-container-low);
+  }
+}

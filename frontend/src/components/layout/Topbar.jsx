@@ -280,13 +280,18 @@ const Topbar = ({
             </div>
           ) : null}
         </div>
-        <div className={classes.walletBox} onClick={() => navigate('/app/billing')} style={{cursor: 'pointer'}}>
+        <button
+          type="button"
+          className={classes.walletBox}
+          onClick={() => navigate('/app/billing')}
+          title="View billing"
+        >
           <Wallet size={16} className={classes.walletIcon} />
           <span className={classes.balance}>{formatBalance(balanceCents)}</span>
           {balanceCents !== null && balanceCents < 5000 && (
             <span className={classes.noCreditsBadge}>Low Credits</span>
           )}
-        </div>
+        </button>
 
 
         <button className={classes.iconBtn} onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
