@@ -1,28 +1,150 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
   width: 100%;
   max-width: 1600px;
   margin: 0 auto;
-  padding-bottom: 48px;
+  padding-bottom: 32px;
 }
 
 .pageHeader h1 {
   margin: 0;
-  font-size: 30px;
+  font-size: 28px;
+  font-weight: 800;
   letter-spacing: -0.02em;
+  color: var(--text-primary);
 }
 
 .pageHeader p {
   margin: 6px 0 0;
   color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ─── Shared design-system utilities ─── */
+.iconBox {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: var(--radius-lg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+}
+
+.labelUpper {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.sectionHeader h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-primary);
+}
+
+.errorBanner {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--accent-red) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-red) 40%, transparent);
+  color: var(--accent-red);
+  font-weight: 600;
+}
+
+.errorBannerText {
+  flex: 1;
+}
+
+.errorBannerText p {
+  margin: 0;
+  padding: 0;
+}
+
+.errorBannerText span {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.errorBannerBtn {
+  background: var(--accent-red);
+  color: var(--text-primary);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 12%, transparent);
+}
+
+.warningBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--accent-yellow) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-yellow) 35%, transparent);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.warningBannerIcon {
+  padding: 6px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent-yellow);
+  background: color-mix(in srgb, var(--accent-yellow) 14%, transparent);
+}
+
+.warningBannerBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.warningBannerTitle {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent-yellow);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.warningBannerBody p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.warningBannerBody strong {
+  color: var(--accent-yellow);
 }
 
 .wizardShell {
-  background: var(--surface-container-low);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
   padding: 0;
   overflow: hidden;
 }
@@ -35,8 +157,7 @@
 }
 
 .wizardRail {
-  background: var(--surface-container);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid color-mix(in srgb, var(--glass-border) 80%, transparent);
   padding: 28px 22px;
   display: flex;
   flex-direction: column;
@@ -45,7 +166,7 @@
 .railHeader { display: flex; flex-direction: column; gap: 6px; }
 .railEyebrow {
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--brand-text);
@@ -87,7 +208,7 @@
 .railStepActive .railIcon {
   background: var(--brand-solid);
   color: var(--brand-on);
-  box-shadow: 0 0 12px var(--brand-glow);
+  border: 1px solid color-mix(in srgb, var(--brand-solid) 80%, transparent);
 }
 .railStepDone .railIcon { color: var(--accent-green); }
 .railText { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
@@ -151,22 +272,10 @@
   margin-bottom: 4px;
 }
 
-.micIconBig {
-  width: 52px;
-  height: 52px;
-  flex-shrink: 0;
-  border-radius: var(--radius-lg);
-  background: var(--surface-container-highest);
-  color: var(--brand-text);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 14px var(--brand-glow);
-}
-
 .stepCard h2 {
   margin: 0;
-  font-size: 23px;
+  font-size: 20px;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 
@@ -185,13 +294,11 @@
 }
 
 .sectionCard {
-  border: 1px solid var(--border);
-  background: var(--surface-container);
-  border-radius: var(--radius-xl);
   padding: 20px 22px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  border-radius: var(--radius-xl);
 }
 
 .inlineLabel {
@@ -305,9 +412,7 @@
 .stickyActionBar {
   position: static;
   margin-top: 4px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   border-radius: var(--radius-xl);
-  background: var(--surface-container-low);
   padding: 14px 16px;
   display: flex;
   align-items: center;
@@ -349,25 +454,25 @@
 .primaryBtn {
   background: var(--brand-solid);
   color: var(--brand-on);
-  box-shadow: 0 0 14px var(--brand-glow);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 14%, transparent);
 }
 .primaryBtn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 .ghostBtn {
-  background: var(--surface-container-high);
-  border-color: var(--border);
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
+  border-color: var(--glass-border);
   color: var(--text-primary);
 }
 .outlineBtn {
-  background: transparent;
-  border-color: var(--border);
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
+  border-color: var(--glass-border);
   color: var(--text-primary);
 }
 .dangerBtn {
-  background: rgba(255, 115, 81, 0.1);
-  border-color: rgba(255, 115, 81, 0.3);
+  background: color-mix(in srgb, var(--accent-red) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent-red) 32%, var(--glass-border));
   color: var(--accent-red);
 }
 
@@ -380,36 +485,35 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   padding: 16px 18px;
   cursor: pointer;
-  background: var(--surface-container-high);
+  border-radius: var(--radius-lg);
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .campaignSelectCard:hover {
-  border-color: color-mix(in srgb, var(--brand-text) 30%, var(--border));
+  border-color: color-mix(in srgb, var(--brand-text) 18%, var(--glass-border));
 }
 .campaignSelectActive {
-  border-color: color-mix(in srgb, var(--brand-text) 48%, var(--border));
-  background: color-mix(in srgb, var(--brand-dim) 38%, var(--surface-container-high));
+  border-color: color-mix(in srgb, var(--brand-text) 48%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-dim) 38%, transparent);
 }
 .campIconWrapper {
-  width: 52px;
-  height: 52px;
-  border-radius: var(--radius-md);
-  background: var(--surface-container-highest);
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--brand-text);
   flex-shrink: 0;
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
 }
 .campaignInfoCol { flex: 1; display: flex; flex-direction: column; gap: 5px; text-align: left; }
-.campaignInfoCol h3 { margin: 0; font-size: 18px; }
+.campaignInfoCol h3 { margin: 0; font-size: 20px; font-weight: 700; }
 .campaignDesc { margin: 0; color: var(--text-secondary); font-size: 13px; }
 .campaignMetrics { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
-.campaignPrice { font-weight: 800; font-size: 15px; color: var(--brand-text); }
+.campaignPrice { font-weight: 800; font-size: 29px; letter-spacing: -0.02em; color: var(--brand-text); }
 .campaignBuffer { color: var(--text-tertiary); font-size: 12px; }
 .campaignRadio { align-self: center; padding-top: 0; }
 .radioCircle {
@@ -526,11 +630,9 @@
 }
 .presetCard {
   position: relative;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-container-high);
   overflow: hidden;
   min-height: 116px;
+  border-radius: var(--radius-lg);
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .presetCard:hover {
@@ -594,14 +696,13 @@
   color: var(--text-primary);
 }
 .presetDeleteBtn:hover {
-  background: rgba(255, 115, 81, 0.12);
-  border-color: rgba(255, 115, 81, 0.3);
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent-red) 32%, var(--glass-border));
   color: var(--accent-red);
 }
 .presetAddBox {
-  border: 1px dashed color-mix(in srgb, var(--border) 95%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--glass-border) 95%, transparent);
   border-radius: var(--radius-lg);
-  background: var(--surface-container-low);
   padding: 24px 18px;
   display: flex;
   flex-direction: column;
@@ -611,14 +712,15 @@
   gap: 10px;
 }
 .presetAddIcon {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-full);
-  background: var(--surface-container-highest);
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-lg);
   color: var(--brand-text);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
 }
 .presetAddBox h3 { margin: 4px 0 0; font-size: 16px; }
 .presetAddBox p { margin: 0 0 8px; font-size: 12px; color: var(--text-tertiary); line-height: 1.5; }
@@ -633,12 +735,16 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-container-high);
   padding: 14px 16px;
+  border-radius: var(--radius-lg);
 }
-.summaryLabel { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
+.summaryLabel {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
 .summaryValue { font-size: 15px; text-align: left; color: var(--text-primary); font-weight: 700; }
 .summaryValueAccent { color: var(--brand-text); }
 
@@ -680,64 +786,58 @@
 .activeDialerLayout {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 24px;
 }
 .topStatsRow {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 18px;
 }
 .statBox {
-  border: 1px solid var(--border);
-  background: var(--surface-container-low);
-  border-radius: var(--radius-lg);
-  padding: 12px;
+  padding: 20px;
+  border-radius: var(--radius-xl);
 }
 .statLabel {
-  color: var(--text-tertiary);
-  font-size: 11px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
-.statValue { font-weight: 700; }
+.statValue {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--text-primary);
+}
 .budgetGreen { color: var(--accent-green); }
 
 .liveStatusCard {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  background: var(--surface-container-low);
-  padding: 24px;
+  padding: 28px 24px;
   text-align: center;
+  border-radius: var(--radius-xl);
 }
 .liveStatusCard h2 {
   margin: 8px 0;
-  font-size: 30px;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 .liveStatusCard p {
   color: var(--text-secondary);
   margin: 0;
 }
-.pulsingGlow {
-  position: absolute;
-  width: 380px;
-  height: 380px;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--brand-dim), transparent 65%);
-  opacity: 0.45;
-  pointer-events: none;
-}
 .liveBadge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid color-mix(in srgb, var(--brand-text) 44%, transparent);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--brand-dim) 34%, transparent);
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
   color: var(--brand-text);
   padding: 6px 12px;
   font-size: 12px;
@@ -758,23 +858,25 @@
 .actionButtons {
   margin-top: 16px;
   display: flex;
+  gap: 10px;
   justify-content: center;
+  flex-wrap: wrap;
 }
 .hangUpBtn {
   background: var(--accent-red);
-  border-color: rgba(255, 115, 81, 0.3);
-  color: #fff;
+  border-color: color-mix(in srgb, var(--accent-red) 45%, var(--glass-border));
+  color: var(--text-primary);
 }
 
 .liveStatesCard {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-container-low);
-  padding: 10px 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-xl);
 }
 .liveStatesLabel {
-  color: var(--text-tertiary);
-  font-size: 11px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   display: inline-flex;
   align-items: center;
@@ -787,24 +889,28 @@
   gap: 6px;
 }
 .liveStateChip {
-  border: 1px solid color-mix(in srgb, var(--brand-text) 42%, transparent);
-  background: color-mix(in srgb, var(--brand-dim) 36%, transparent);
-  color: var(--brand-text);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 65%, transparent);
+  color: var(--text-primary);
   border-radius: var(--radius-full);
-  padding: 3px 9px;
+  padding: 4px 10px;
   font-size: 11px;
   font-weight: 700;
 }
 
+.logsTableWrapper {
+  width: 100%;
+}
+
 .activeLogsSection {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-container-low);
-  padding: 12px;
+  padding: 20px 22px;
+  border-radius: var(--radius-xl);
 }
 .logsTitle {
-  margin: 0 0 10px;
-  font-size: 14px;
+  margin: 0 0 16px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 .logsHeader,
 .logItem {
@@ -814,19 +920,32 @@
   align-items: center;
 }
 .logsHeader {
-  color: var(--text-tertiary);
-  font-size: 11px;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 0 6px 8px;
+  padding: 0.6rem 1rem 0.8rem;
   border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 .logsList { display: flex; flex-direction: column; }
 .logItem {
-  padding: 10px 6px;
-  border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  font-size: 13px;
+  transition: background 0.15s ease;
+}
+.logItem:hover {
+  background: color-mix(in srgb, var(--surface-container-high) 35%, transparent);
 }
 .logItem:last-child { border-bottom: none; }
+.colCaller {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
 .colDuration {
   display: inline-flex;
   align-items: center;
@@ -842,19 +961,53 @@
   font-size: 10px;
   text-transform: uppercase;
 }
-.badgeSale {
+.badgeSale,
+.badgeAnswered,
+.badgeMissed,
+.badgeCallback,
+.badgeNeutral,
+.badgeEmpty {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   border-radius: var(--radius-full);
-  padding: 3px 8px;
-  background: color-mix(in srgb, var(--brand-dim) 40%, transparent);
-  color: var(--brand-text);
-  border: 1px solid color-mix(in srgb, var(--brand-text) 42%, transparent);
-  font-size: 11px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
-.badgeAnswered { color: var(--text-secondary); font-size: 11px; }
-.badgeMissed { color: var(--accent-red); font-size: 11px; }
+.badgeSale {
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  color: var(--brand-text);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 28%, transparent);
+}
+.badgeAnswered {
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+  color: var(--accent-cyan);
+  border: 1px solid color-mix(in srgb, var(--accent-cyan) 28%, transparent);
+}
+.badgeMissed {
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent);
+  color: var(--accent-red);
+  border: 1px solid color-mix(in srgb, var(--accent-red) 28%, transparent);
+}
+.badgeCallback {
+  background: color-mix(in srgb, var(--accent-yellow) 14%, transparent);
+  color: var(--accent-yellow);
+  border: 1px solid color-mix(in srgb, var(--accent-yellow) 28%, transparent);
+}
+.badgeNeutral {
+  background: color-mix(in srgb, var(--text-secondary) 12%, transparent);
+  color: var(--text-secondary);
+  border: 1px solid color-mix(in srgb, var(--text-secondary) 24%, transparent);
+}
+.badgeEmpty {
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-weight: 500;
+}
 .emptyLogs {
   color: var(--text-tertiary);
   padding: 20px 8px;
@@ -865,83 +1018,19 @@
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: rgba(2, 6, 23, 0.82);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.callCard {
-  width: min(460px, calc(100vw - 28px));
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
-  background: var(--surface-container-low);
-  padding: 24px;
-  text-align: center;
-}
-.incomingBadge {
-  display: inline-block;
-  border-radius: var(--radius-full);
-  border: 1px solid color-mix(in srgb, var(--brand-text) 42%, transparent);
-  background: color-mix(in srgb, var(--brand-dim) 34%, transparent);
-  color: var(--brand-text);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 5px 10px;
-}
-.callerIcon {
-  width: 86px;
-  height: 86px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface-container);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 14px auto 10px;
-}
-.pulseIcon { color: var(--brand-text); animation: heartbeat 1.4s ease infinite; }
-@keyframes heartbeat {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.08); }
-  100% { transform: scale(1); }
-}
-.callCard h2 { margin: 0 0 6px; font-size: 24px; }
-.callCard p { margin: 0 0 16px; color: var(--text-secondary); }
-.callActions { display: flex; flex-direction: column; gap: 8px; }
-.acceptBtn {
-  width: 100%;
-  border-radius: var(--radius-lg);
-  border: none;
-  padding: 12px;
-  background: var(--brand-solid);
-  color: var(--brand-on);
-  font-weight: 700;
-}
-.declineBtn {
-  width: 100%;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-secondary);
-  padding: 10px;
-  font-weight: 600;
-}
-.blurred {
-  filter: blur(7px) brightness(0.6);
-  pointer-events: none;
-}
 
 .dispositionModal {
   width: min(420px, calc(100vw - 28px));
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
-  background: var(--surface-container-low);
   padding: 24px;
   text-align: center;
+  border-radius: var(--radius-xl);
 }
 .dispositionModal h3 { margin: 0 0 6px; font-size: 20px; }
 .dispositionModal p { margin: 0 0 16px; color: var(--text-secondary); font-size: 14px; }
@@ -951,6 +1040,14 @@
   gap: 10px;
   margin-bottom: 20px;
 }
+.dispositionSubmitBtn {
+  width: 100%;
+}
+.blurred {
+  filter: blur(7px) brightness(0.6);
+  pointer-events: none;
+}
+
 .dispositionOptionBtn {
   border: 1px solid var(--border);
   background: var(--surface-container-high);
@@ -1017,17 +1114,15 @@
 
 /* ─── ACA Transfer Styles ─── */
 .acaTransferCard {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  background: var(--surface-container-low);
-  padding: 24px;
+  padding: 28px 24px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  border-radius: var(--radius-xl);
 }
-.acaTransferCard h3 { margin: 0; font-size: 20px; }
+.acaTransferCard h3 { margin: 0; font-size: 20px; font-weight: 700; }
 .acaTransferCard p { margin: 0; color: var(--text-secondary); font-size: 14px; }
 .transferStatusBadge {
   display: inline-flex;

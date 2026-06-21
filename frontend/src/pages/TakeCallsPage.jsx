@@ -233,13 +233,13 @@ const StepOne = ({ onNext }) => {
   return (
     <div className={classes.stepCard}>
       <div className={classes.stepHead}>
-        <div className={classes.micIconBig}><Mic size={30} /></div>
+        <div className={classes.iconBox}><Mic size={20} /></div>
         <h2>Test Your Microphone</h2>
         <p className={classes.subtitle}>Speak into your microphone to make sure it's working properly.</p>
       </div>
       {audioError && <p className={classes.errorText}>{audioError}</p>}
 
-      <div className={classes.sectionCard}>
+      <div className={`glass ${classes.sectionCard}`}>
         <div className={classes.levelContainer}>
           <div className={classes.levelHeader}><span>Input Level</span><span className={classes.levelPercent}>{micLevel}%</span></div>
           <div className={classes.progressBar}>
@@ -255,7 +255,7 @@ const StepOne = ({ onNext }) => {
         }
       </div>
 
-      <div className={classes.sectionCard}>
+      <div className={`glass ${classes.sectionCard}`}>
         <div className={classes.speakerHeader}>
           <div className={classes.inlineLabel}><Volume2 size={16} /> Test Your Speaker</div>
           <button className={classes.outlineBtn} onClick={playTestSound}><Volume2 size={14} /> Play Test Sound</button>
@@ -264,7 +264,7 @@ const StepOne = ({ onNext }) => {
         {speakerTested && <div className={classes.successBox}><CheckCircle2 size={16} /> Sound played successfully</div>}
       </div>
 
-      <div className={classes.sectionCard}>
+      <div className={`glass ${classes.sectionCard}`}>
         <div className={classes.deviceSelects}>
           <div className={classes.selectGroup}>
             <label><Mic size={14} /> Microphone</label>
@@ -286,7 +286,7 @@ const StepOne = ({ onNext }) => {
         </div>
       </div>
 
-      <div className={classes.stickyActionBar}>
+      <div className={`glass ${classes.stickyActionBar}`}>
         <p className={classes.continueSub}>
           {isReady ? 'Ready to continue.' : 'Test your microphone and speaker to continue.'}
         </p>
@@ -315,11 +315,11 @@ const StepTwo = ({ onNext, onBack, selected = '' }) => {
         <h2>Choose Your Campaign</h2>
       </div>
       <p className={classes.subtitle}>Select the campaign you'd like to receive calls from</p>
-      <div className={classes.sectionCard}>
+      <div className={`glass ${classes.sectionCard}`}>
         <div className={classes.campaignsList}>
           {campaigns.map(c => (
             <div key={c.id}
-              className={`${classes.campaignSelectCard} ${selectedCampaign === c.id ? classes.campaignSelectActive : ''}`}
+              className={`glass ${classes.campaignSelectCard} ${selectedCampaign === c.id ? classes.campaignSelectActive : ''}`}
               onClick={() => setSelectedCampaign(c.id)}>
               <div className={classes.campaignIconCol}><div className={classes.campIconWrapper}><c.icon size={24} /></div></div>
               <div className={classes.campaignInfoCol}>
@@ -340,7 +340,7 @@ const StepTwo = ({ onNext, onBack, selected = '' }) => {
         </div>
       </div>
 
-      <div className={classes.stickyActionBar}>
+      <div className={`glass ${classes.stickyActionBar}`}>
         <button className={classes.ghostBtn} onClick={onBack}>Back</button>
         <button className={classes.primaryBtn} onClick={() => onNext(selectedCampaign)} disabled={!selectedCampaign}>
           Continue
@@ -448,7 +448,7 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
           exit="exit"
         >
           <div className={classes.stepHead}>
-            <div className={classes.micIconBig}><MapPin size={30} /></div>
+            <div className={classes.iconBox}><MapPin size={20} /></div>
             <h2>Licensed States</h2>
           </div>
           <p className={classes.subtitle}>Pick a saved state category to apply it and continue, or create a new one.</p>
@@ -462,7 +462,7 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
                   <motion.div
                     key={preset.id}
                     layout
-                    className={`${classes.presetCard} ${isSelected ? classes.presetCardActive : ''}`}
+                    className={`glass ${classes.presetCard} ${isSelected ? classes.presetCardActive : ''}`}
                     variants={cardVariants}
                     initial="hidden"
                     animate="visible"
@@ -507,7 +507,7 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
               </AnimatePresence>
             </div>
 
-            <motion.div className={classes.presetAddBox} variants={cardVariants}>
+            <motion.div className={`glass ${classes.presetAddBox}`} variants={cardVariants}>
               <div className={classes.presetAddIcon}><Plus size={22} /></div>
               <h3>New category</h3>
               <p>Build a fresh set of licensed states and save it for next time.</p>
@@ -521,7 +521,7 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
             </motion.div>
           </div>
 
-          <div className={classes.stickyActionBar}>
+          <div className={`glass ${classes.stickyActionBar}`}>
             <button className={classes.ghostBtn} onClick={onBack}>Back</button>
             <span className={classes.actionBarHint}>Select a category above to continue</span>
           </div>
@@ -537,12 +537,12 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
           exit="exit"
         >
           <div className={classes.stepHead}>
-            <div className={classes.micIconBig}><MapPin size={30} /></div>
+            <div className={classes.iconBox}><MapPin size={20} /></div>
             <h2>{editingId ? 'Edit State Category' : (hasPresets ? 'New State Category' : 'Licensed States')}</h2>
           </div>
           <p className={classes.subtitle}>Select every state you are licensed to sell insurance in, then save this as a reusable category.</p>
 
-          <div className={classes.sectionCard}>
+          <div className={`glass ${classes.sectionCard}`}>
             <div className={classes.categoryNameGroup}>
               <label className={classes.categoryNameLabel} htmlFor="state-category-name">
                 Category name<span className={classes.requiredMark} aria-hidden="true">*</span>
@@ -612,7 +612,7 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
             </div>
           </div>
 
-          <div className={classes.stickyActionBar}>
+          <div className={`glass ${classes.stickyActionBar}`}>
             <button className={classes.ghostBtn} onClick={() => { setEditingId(null); hasPresets ? setMode('picker') : onBack(); }}>Back</button>
             <motion.button
               className={classes.primaryBtn}
@@ -655,18 +655,18 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
   return (
     <div className={classes.stepCard}>
       <div className={classes.stepHead}>
-        <div className={classes.micIconBig}><Phone size={30} /></div>
+        <div className={classes.iconBox}><Phone size={20} /></div>
         <h2>Review & Go Live</h2>
       </div>
       <p className={classes.subtitle}>Confirm your setup before going live</p>
 
-      <div className={classes.sectionCard}>
+      <div className={`glass ${classes.sectionCard}`}>
         <div className={classes.summaryBox}>
-          <div className={classes.summaryRow}>
+          <div className={`glass ${classes.summaryRow}`}>
             <span className={classes.summaryLabel}>Campaign</span>
             <span className={classes.summaryValue}>{campaignLabels[campaign] || campaign}</span>
           </div>
-          <div className={classes.summaryRow}>
+          <div className={`glass ${classes.summaryRow}`}>
             <span className={classes.summaryLabel}>Licensed States</span>
             <span className={`${classes.summaryValue} ${classes.summaryValueAccent}`}>
               {licensedStates.length} state{licensedStates.length !== 1 ? 's' : ''}: {licensedStates.join(', ')}
@@ -685,24 +685,24 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
           <p>You will ONLY receive calls from your {licensedStates.length} selected states. If you're missing a state, go back and add it.</p>
         </div>
         {!hasBalance && (
-          <div style={{marginTop: '16px', background: 'rgba(255, 77, 79, 0.1)', border: '1px solid #ff4d4f', color: '#ff4d4f', padding: '16px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px', fontWeight: '600'}}>
+          <div className={classes.errorBanner}>
             <AlertCircle size={24} />
-            <div style={{flex: 1}}>
-               <p style={{margin: 0, padding: 0}}>Insufficient Credits</p>
-               <span style={{fontSize: '13px', fontWeight: '500'}}>Your wallet balance is lower than the required campaign price. You must add credits before you can go live.</span>
+            <div className={classes.errorBannerText}>
+               <p>Insufficient Credits</p>
+               <span>Your wallet balance is lower than the required campaign price. You must add credits before you can go live.</span>
             </div>
           </div>
         )}
       </div>
 
-      <div className={classes.stickyActionBar}>
+      <div className={`glass ${classes.stickyActionBar}`}>
         <button className={classes.ghostBtn} onClick={onBack} disabled={isConnecting}>Back</button>
         {hasBalance ? (
           <button className={classes.primaryBtn} onClick={onGoLive} disabled={isConnecting}>
             {isConnecting ? 'Connecting...' : 'I Agree, Go Live'}
           </button>
         ) : (
-          <button className={classes.primaryBtn} onClick={() => window.location.href = '/app/billing'} style={{background: '#ff4d4f', color: '#fff', boxShadow: 'none'}}>
+          <button className={`${classes.primaryBtn} ${classes.errorBannerBtn}`} onClick={() => window.location.href = '/app/billing'}>
             Go Admin Top Up
           </button>
         )}
@@ -746,7 +746,7 @@ const DispositionModal = ({ callSid, onComplete }) => {
 
   return (
     <div className={classes.callOverlay}>
-      <div className={classes.dispositionModal}>
+      <div className={`glass ${classes.dispositionModal}`}>
         <h3>Call Completed</h3>
         <p>Please select a disposition for the call that just ended.</p>
         <div className={classes.dispositionOptions}>
@@ -761,10 +761,9 @@ const DispositionModal = ({ callSid, onComplete }) => {
           ))}
         </div>
         <button 
-          className={classes.primaryBtn} 
+          className={`${classes.primaryBtn} ${classes.dispositionSubmitBtn}`}
           onClick={handleSubmit}
           disabled={!selected || submitting}
-          style={{ width: '100%' }}
         >
           {submitting ? 'Saving...' : 'Submit & Ready'}
         </button>
@@ -809,17 +808,17 @@ const CallHistory = ({ logs }) => {
               {log.isBillable ? (
                 <span className={classes.badgeSale}>Sold</span>
               ) : log.disposition === 'callback' ? (
-                <span className={classes.badgeAnswered}>Call back</span>
+                <span className={classes.badgeCallback}>Call back</span>
               ) : log.disposition === 'not_interested' ? (
-                <span className={classes.badgeMissed} style={{color: 'var(--text-secondary)'}}>Not Interested</span>
+                <span className={classes.badgeNeutral}>Not Interested</span>
               ) : log.disposition === 'busy' ? (
-                <span className={classes.badgeMissed} style={{color: 'var(--text-secondary)'}}>Busy</span>
+                <span className={classes.badgeNeutral}>Busy</span>
               ) : log.disposition === 'dead_air' ? (
-                <span className={classes.badgeMissed} style={{color: 'var(--text-secondary)'}}>Dead Air</span>
+                <span className={classes.badgeNeutral}>Dead Air</span>
               ) : log.disposition === 'policy_closed' ? (
-                <span className={classes.badgeSale} style={{borderColor: 'var(--brand-text)'}}>Policy Closed</span>
+                <span className={classes.badgeSale}>Policy Closed</span>
               ) : (
-                <span style={{color: 'var(--text-muted)'}}>—</span>
+                <span className={classes.badgeEmpty}>—</span>
               )}
             </div>
           </div>
@@ -864,7 +863,7 @@ const AcaTransferPanel = () => {
 
   if (transferStatus === 'idle') {
     return (
-      <div className={classes.acaTransferCard}>
+      <div className={`glass ${classes.acaTransferCard}`}>
         <h3>Marketplace Transfer</h3>
         <p>Transfer the caller to the Marketplace broker line when ready.</p>
         <button className={classes.primaryBtn} onClick={handleTransfer}>
@@ -875,7 +874,7 @@ const AcaTransferPanel = () => {
   }
 
   return (
-    <div className={classes.acaTransferCard}>
+    <div className={`glass ${classes.acaTransferCard}`}>
       <h3>Marketplace Broker Line</h3>
       <div className={classes.transferStatusBadge}>
         <span className={classes.liveDot} />
@@ -1031,22 +1030,21 @@ const TakeCallsPage = () => {
           </motion.div>
 
           <motion.div className={classes.topStatsRow} variants={presets.statsStrip}>
-            <motion.div className={classes.statBox} variants={presets.child}>
+            <motion.div className={`glass ${classes.statBox}`} variants={presets.child}>
               <div className={classes.statLabel}>Agent Name</div>
               <div className={classes.statValue}>{user?.name || agentIdentity || '---'}</div>
             </motion.div>
-            <motion.div className={classes.statBox} variants={presets.child}>
+            <motion.div className={`glass ${classes.statBox}`} variants={presets.child}>
               <div className={classes.statLabel}>Campaign</div>
               <div className={classes.statValue}>{activeCampaign?.replace(/_/g, ' ').toUpperCase() || '---'}</div>
             </motion.div>
-            <motion.div className={classes.statBox} variants={presets.child}>
+            <motion.div className={`glass ${classes.statBox}`} variants={presets.child}>
               <div className={classes.statLabel}>Remaining Budget</div>
               <div className={`${classes.statValue} ${classes.budgetGreen}`}>${remainingBudget.toFixed(2)}</div>
             </motion.div>
           </motion.div>
 
-          <motion.div className={classes.liveStatusCard} variants={presets.child}>
-            <div className={classes.pulsingGlow} />
+          <motion.div className={`glass ${classes.liveStatusCard}`} variants={presets.child}>
             <div className={classes.liveBadge}><div className={classes.liveDot} />Dialer Active</div>
 
             <h2>{callState === 'active' ? 'Currently On Call' : 'Listening for Calls'}</h2>
@@ -1056,7 +1054,7 @@ const TakeCallsPage = () => {
                 : 'You are connected to the CallsFlow engine. Stand by for inbound calls.'}
             </p>
 
-            <div className={classes.actionButtons} style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <div className={classes.actionButtons}>
               {callState === 'active'
                 ? (
                   <>
@@ -1078,7 +1076,7 @@ const TakeCallsPage = () => {
           </motion.div>
 
           {licensedStates && licensedStates.length > 0 && (
-            <motion.div className={classes.liveStatesCard} variants={presets.child}>
+            <motion.div className={`glass ${classes.liveStatesCard}`} variants={presets.child}>
               <span className={classes.liveStatesLabel}><MapPin size={12} /> Licensed States</span>
               <div className={classes.liveStateChips}>
                 {licensedStates.map(s => (
@@ -1089,27 +1087,14 @@ const TakeCallsPage = () => {
           )}
 
           {activeCampaign === 'fe_transfers' && (
-            <motion.div variants={presets.child} style={{ 
-              marginBottom: '20px', 
-              padding: '16px', 
-              backgroundColor: 'var(--card-bg, #1a1a1a)', 
-              color: '#f59e0b', 
-              borderRadius: '16px',
-              fontSize: '14px',
-              fontWeight: '500',
-              border: '1px solid rgba(245, 158, 11, 0.2)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '12px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-            }}>
-              <div style={{ padding: '6px', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <motion.div className={`glass ${classes.warningBanner}`} variants={presets.child}>
+              <div className={classes.warningBannerIcon}>
                 <Clock size={20} />
               </div>
-              <div style={{ flex: 1 }}>
-                <strong style={{ display: 'block', marginBottom: '4px', color: '#fbbf24', fontSize: '15px' }}>Break Hours Schedule</strong>
-                <p style={{ margin: 0, color: 'var(--text-secondary, #adaaaa)', lineHeight: '1.5' }}>
-                  Please note that <strong style={{ color: '#f59e0b' }}>1:00 PM to 2:00 PM (EST)</strong> are scheduled break hours for FE Transfers. You will not receive any calls during this time.
+              <div className={classes.warningBannerBody}>
+                <strong className={classes.warningBannerTitle}>Break Hours Schedule</strong>
+                <p>
+                  Please note that <strong>1:00 PM to 2:00 PM (EST)</strong> are scheduled break hours for FE Transfers. You will not receive any calls during this time.
                 </p>
               </div>
             </motion.div>
@@ -1121,7 +1106,7 @@ const TakeCallsPage = () => {
             </motion.div>
           )}
 
-          <motion.div className={classes.activeLogsSection} variants={presets.child}>
+          <motion.div className={`glass ${classes.activeLogsSection}`} variants={presets.child}>
             <CallHistory logs={history} />
           </motion.div>
 
@@ -1153,7 +1138,7 @@ const TakeCallsPage = () => {
         </div>
       </motion.div>
 
-      <motion.div className={classes.wizardShell} variants={presets.child}>
+      <motion.div className={`glass ${classes.wizardShell}`} variants={presets.child}>
         <div className={classes.wizardGrid}>
           <aside className={classes.wizardRail}>
             <div className={classes.railHeader}>

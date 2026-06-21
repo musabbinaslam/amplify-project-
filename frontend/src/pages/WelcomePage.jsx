@@ -33,7 +33,8 @@ const WelcomePage = () => {
           <p className={classes.subtitle}>Get started by watching our platform tutorial below.</p>
         </motion.div>
 
-        <motion.div className={`glass ${classes.videoCard}`} variants={presets.child}>
+        <motion.div variants={presets.child}>
+          <div className={`glass ${classes.videoCard}`}>
           <div className={classes.cardHeader}>
             <div className={classes.iconBox} aria-hidden="true">
               <Play size={20} />
@@ -57,6 +58,7 @@ const WelcomePage = () => {
                 title="How to Use CallsFlow"
               />
             </div>
+          </div>
           </div>
         </motion.div>
       </div>

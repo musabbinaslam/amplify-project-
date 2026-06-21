@@ -1,3 +1,10 @@
+.appShell {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
 .appContainer {
   position: relative;
   display: flex;
@@ -36,148 +43,194 @@
 }
 
 .maintenanceBanner {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 14px;
-  padding: 10px 20px;
+  padding: 11px 18px;
   position: relative;
-  overflow: hidden;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--accent-red) 32%, var(--surface-container-low)),
-    color-mix(in srgb, var(--accent-red) 18%, var(--surface-container-low))
-  );
-  border-bottom: 1px solid color-mix(in srgb, var(--accent-red) 45%, var(--border));
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent-red) 25%, transparent) inset,
-    0 0 20px color-mix(in srgb, var(--accent-red) 28%, transparent);
+  border-bottom: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  box-shadow: var(--glass-highlight);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  animation:
-    maintenanceEnter 320ms ease-out,
-    maintenanceGlow 2.8s ease-in-out infinite;
+  animation: maintenanceEnter 320ms ease-out;
 }
 
-.maintenanceBanner strong {
-  color: #fff;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
-  font-size: 12px;
+.maintenanceActive {
+  background: color-mix(in srgb, var(--accent-red) 18%, var(--surface-container-high) 35%);
+  border-bottom-color: color-mix(in srgb, var(--accent-red) 55%, var(--glass-border));
+}
+
+.maintenanceUpcoming {
+  background: color-mix(in srgb, var(--accent-yellow) 16%, var(--surface-container-high) 35%);
+  border-bottom-color: color-mix(in srgb, var(--accent-yellow) 50%, var(--glass-border));
+}
+
+.maintenanceIcon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
+  border: 1px solid var(--glass-border);
+}
+
+.maintenanceActive .maintenanceIcon {
+  color: var(--accent-red);
+  background: color-mix(in srgb, var(--accent-red) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent-red) 35%, var(--glass-border));
+}
+
+.maintenanceUpcoming .maintenanceIcon {
+  color: var(--accent-yellow);
+  background: color-mix(in srgb, var(--accent-yellow) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent-yellow) 35%, var(--glass-border));
 }
 
 .maintenanceMain {
   display: flex;
   flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.maintenanceHeadline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.maintenanceEyebrow {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.maintenanceActive .maintenanceEyebrow {
+  color: var(--accent-red);
+}
+
+.maintenanceUpcoming .maintenanceEyebrow {
+  color: var(--accent-yellow);
+}
+
+.maintenanceMain strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.maintenanceMessage {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .maintenanceMeta {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  font-size: 11px;
-  color: color-mix(in srgb, var(--text-primary) 78%, transparent);
-  text-align: center;
 }
 
-.maintenanceMeta b {
-  color: var(--text-primary);
+.maintenanceMetaItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  min-width: 0;
+  border-left: 1px solid color-mix(in srgb, var(--glass-border) 80%, transparent);
+}
+
+.maintenanceMetaItem:first-child {
+  border-left: none;
+  padding-left: 0;
+}
+
+.maintenanceMetaLabel {
+  font-size: 10px;
   font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.maintenanceMetaValue {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
 }
 
 .maintenanceTimer {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  padding: 5px 10px;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--accent-red) 38%, var(--border));
-  background: color-mix(in srgb, var(--accent-red) 20%, var(--surface-container-low));
-  min-width: 114px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
 }
 
-.maintenanceTimer span {
+.maintenanceActive .maintenanceTimer {
+  border-color: color-mix(in srgb, var(--accent-red) 40%, var(--glass-border));
+  background: color-mix(in srgb, var(--accent-red) 16%, transparent);
+}
+
+.maintenanceUpcoming .maintenanceTimer {
+  border-color: color-mix(in srgb, var(--accent-yellow) 40%, var(--glass-border));
+  background: color-mix(in srgb, var(--accent-yellow) 16%, transparent);
+}
+
+.maintenanceTimerLabel {
   font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-primary);
-}
-
-.maintenanceTimer strong {
-  font-size: 15px;
-  line-height: 1;
-}
-
-.activeTimer {
-  background: color-mix(in srgb, var(--accent-orange) 24%, var(--surface-container-low));
-  border-color: color-mix(in srgb, var(--accent-orange) 45%, var(--border));
-}
-
-.maintenanceBanner::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -40%;
-  width: 32%;
-  height: 100%;
-  background: linear-gradient(
-    100deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.24) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  transform: skewX(-18deg);
-  animation: maintenanceSweep 2.8s ease-in-out infinite;
-}
-
-:global([data-theme="light"]) .maintenanceBanner {
-  background: linear-gradient(
-    90deg,
-    #ffd9d1 0%,
-    #ffc7ba 45%,
-    #ffb5a6 100%
-  );
-  border-bottom: 1px solid rgba(171, 45, 17, 0.45);
-  box-shadow:
-    0 0 0 1px rgba(171, 45, 17, 0.22) inset,
-    0 0 14px rgba(217, 74, 43, 0.25);
-  color: #3e1208;
   font-weight: 700;
-  animation:
-    maintenanceEnter 320ms ease-out,
-    maintenanceGlowLight 2.4s ease-in-out infinite;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
-:global([data-theme="light"]) .maintenanceMain span,
-:global([data-theme="light"]) .maintenanceMeta {
-  color: #5e2a1f;
+.maintenanceActive .maintenanceTimerLabel {
+  color: color-mix(in srgb, var(--accent-red) 85%, var(--text-secondary));
 }
 
-:global([data-theme="light"]) .maintenanceMeta b {
-  color: #3e1208;
+.maintenanceUpcoming .maintenanceTimerLabel {
+  color: color-mix(in srgb, var(--accent-yellow) 85%, var(--text-secondary));
 }
 
-:global([data-theme="light"]) .maintenanceTimer {
-  background: rgba(255, 255, 255, 0.5);
-}
-
-:global([data-theme="light"]) .maintenanceBanner strong {
-  color: #7a210f;
-}
-
-:global([data-theme="light"]) .maintenanceBanner::after {
-  background: linear-gradient(
-    100deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.68) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  width: 38%;
-  animation: maintenanceSweepLight 3.8s ease-in-out infinite;
+.maintenanceTimerValue {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text-primary);
 }
 
 @keyframes maintenanceEnter {
@@ -191,86 +244,61 @@
   }
 }
 
-@keyframes maintenanceSweep {
-  0% {
-    left: -40%;
-    opacity: 0;
-  }
-  20% {
-    opacity: 1;
-  }
-  55% {
-    left: 120%;
-    opacity: 0.9;
-  }
-  100% {
-    left: 120%;
-    opacity: 0;
-  }
-}
-
-@keyframes maintenanceSweepLight {
-  0% {
-    left: -50%;
-    opacity: 0;
-  }
-  15% {
-    opacity: 1;
-  }
-  60% {
-    left: 125%;
-    opacity: 1;
-  }
-  100% {
-    left: 125%;
-    opacity: 0;
-  }
-}
-
-@keyframes maintenanceGlow {
-  0% {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--accent-red) 20%, transparent) inset,
-      0 0 10px color-mix(in srgb, var(--accent-red) 20%, transparent);
-  }
-  50% {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--accent-red) 38%, transparent) inset,
-      0 0 24px color-mix(in srgb, var(--accent-red) 40%, transparent);
-  }
-  100% {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--accent-red) 20%, transparent) inset,
-      0 0 10px color-mix(in srgb, var(--accent-red) 20%, transparent);
-  }
-}
-
-@keyframes maintenanceGlowLight {
-  0% {
-    box-shadow:
-      0 0 0 1px rgba(171, 45, 17, 0.20) inset,
-      0 0 10px rgba(217, 74, 43, 0.24);
-  }
-  50% {
-    box-shadow:
-      0 0 0 1px rgba(171, 45, 17, 0.35) inset,
-      0 0 22px rgba(217, 74, 43, 0.42);
-  }
-  100% {
-    box-shadow:
-      0 0 0 1px rgba(171, 45, 17, 0.20) inset,
-      0 0 10px rgba(217, 74, 43, 0.24);
+@media (prefers-reduced-motion: reduce) {
+  .maintenanceBanner {
+    animation: none;
   }
 }
 
 @media (max-width: 1100px) {
   .maintenanceBanner {
-    grid-template-columns: 1fr;
-    gap: 8px;
-    align-items: flex-start;
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding: 10px 16px;
+  }
+
+  .maintenanceMain {
+    flex: 1 1 calc(100% - 52px);
+    order: 1;
+  }
+
+  .maintenanceIcon {
+    order: 0;
+  }
+
+  .maintenanceMeta {
+    order: 2;
+    flex: 1 1 100%;
+    padding-left: 50px;
+  }
+
+  .maintenanceMetaItem:first-child {
+    padding-left: 0;
   }
 
   .maintenanceTimer {
-    align-items: flex-start;
+    order: 3;
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .maintenanceBanner {
+    padding: 9px 14px;
+    gap: 10px;
+  }
+
+  .maintenanceMeta {
+    padding-left: 0;
+    flex-wrap: wrap;
+    gap: 4px 0;
+  }
+
+  .maintenanceMetaItem {
+    padding: 0 8px;
+  }
+
+  .maintenanceMetaItem:first-child {
+    padding-left: 0;
   }
 }

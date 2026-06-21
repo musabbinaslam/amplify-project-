@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
@@ -94,8 +95,8 @@ const LoginPage = () => {
     }
   };
 
-  return (
-    <AuthShell>
+  const brandPanel = (
+    <>
       <div className={classes.logoBlock}>
         <img
           src="/logo.png"
@@ -106,11 +107,18 @@ const LoginPage = () => {
         />
         <span className={classes.logoText}>CALLSFLOW</span>
       </div>
-
-      <p className={classes.eyebrow}>Agent Portal</p>
+      <span className={classes.eyebrow}>Agent Portal</span>
       <h1 className={classes.heading}>Welcome back</h1>
       <p className={classes.subtitle}>Sign in to access your dashboard and go live.</p>
+      <Link to="/" className={classes.backHomeLink}>
+        <ArrowLeft size={14} aria-hidden />
+        Back to Landing Page
+      </Link>
+    </>
+  );
 
+  return (
+    <AuthShell brand={brandPanel}>
       <motion.div initial="hidden" animate="visible" variants={formStagger}>
         <motion.div variants={fieldMotion}>
           <button
@@ -181,9 +189,6 @@ const LoginPage = () => {
         Don&apos;t have an account?{' '}
         <Link to="/signup" className={classes.footerLink}>Sign up</Link>
       </p>
-      <Link to="/" className={classes.backHomeLink}>
-        Back to Landing Page
-      </Link>
     </AuthShell>
   );
 };

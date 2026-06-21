@@ -3,9 +3,11 @@
 Design reference extracted from the redesigned Dashboard. Use this document when updating any authenticated `/app` screen so the product feels cohesive.
 
 **Reference implementations:**
-- App shell — [AppShell.jsx](../src/components/layout/AppShell.jsx) + [ambient.css](../src/styles/ambient.css) (global brand gradient)
+- App shell — [AppShell.jsx](../src/components/layout/AppShell.jsx) + [ambient.css](../src/styles/ambient.css) (global brand gradient + maintenance banner)
+- Auth — [AuthShell.jsx](../src/components/auth/AuthShell.jsx) + [LoginPage.jsx](../src/pages/LoginPage.jsx) / [SignupPage.jsx](../src/pages/SignupPage.jsx)
 - Dashboard — [DashboardPage.jsx](../src/pages/DashboardPage.jsx) + [DashboardPage.module.css](../src/pages/DashboardPage.module.css)
 - Welcome — [WelcomePage.jsx](../src/pages/WelcomePage.jsx) + [WelcomePage.module.css](../src/pages/WelcomePage.module.css)
+- Take Calls — [TakeCallsPage.jsx](../src/pages/TakeCallsPage.jsx) + [TakeCallsPage.module.css](../src/pages/TakeCallsPage.module.css)
 
 **Token source of truth:** [variables.css](../src/styles/variables.css)  
 **Motion source of truth:** [appMotion.js](../src/motion/appMotion.js)
@@ -357,6 +359,86 @@ Mobile + short height: `≤480px` and `max-height: 760px` → `min(44vh, 360px)`
 
 **Removed anti-patterns:** flat opaque card + `box-shadow: 0 8px 32px`, inline iframe styles, dead thumbnail/play-bubble glow CSS.
 
+### 7.11 Auth pages (Login / Signup)
+
+Guest routes use [AuthShell.jsx](../src/components/auth/AuthShell.jsx) — two-column split on desktop, shared glass form patterns.
+
+**Layout (desktop ≥1024px)**
+- Left **brand column:** logo, eyebrow chip, heading, subtitle, back link — on ambient + grid (no glass card).
+- Right **form panel:** `` `glass ${classes.formPanel}` `` — Google btn, divider, fields, submit, footer links.
+- Shell: `max-width: 1120px`, `grid-template-columns: 1fr 1fr`, `gap: 48px`; page `overflow: hidden` (panel scrolls if needed on short heights).
+- Mobile: stack brand above form; single-column form grid.
+
+**Background**
+- Reuses `appAmbient` (§6) + subtle auth grid overlay — brand-only, no `--accent-cyan`.
+
+**Form controls**
+- Inputs/selects: `--glass-border`, `surface-container-high` mix (Settings pattern).
+- Google button: ghost pill (`--glass-border`).
+- Submit: `--brand-solid` + inset highlight only — no glow shadow stack.
+- Eyebrow: glass pill chip in brand column.
+
+**Signup density**
+- Credentials step: `.formGrid` 2 columns — name | email, weekly spend | hear-about, password | confirm; phone, inbound, verticals span full width.
+- Verticals: horizontal pill row (radio in label), not stacked list.
+
+**Chrome**
+- Theme toggle: fixed top-right ghost pill (`useUIStore`).
+- Removed: gradient card border, colored top accent bar, logo drop-shadow glow, `wide` prop.
+
+### 7.12 Take Calls page
+
+Two views driven by dialer `callState` — setup wizard (offline/error) and live dialer (online). Logic unchanged; surfaces follow §5 glass + Dashboard patterns.
+
+**Setup wizard**
+- Outer `` `glass ${classes.wizardShell}` `` — two-pane grid: left rail (step nav), right main (step content + progress).
+- Step panels: `` `glass ${classes.sectionCard}` `` for mic test, campaign list, state editor, review summary.
+- Nested cards: `` `glass ${classes.campaignSelectCard}` ``, `` `glass ${classes.presetCard}` ``, `` `glass ${classes.summaryRow}` ``.
+- Footer: `` `glass ${classes.stickyActionBar}` `` with ghost back + brand primary.
+- Icons: shared `.iconBox` (§7.3) on step headers — no `--brand-glow` halos.
+- Errors: `.errorBanner` / `.errorBannerBtn` for insufficient credits (§7.9).
+
+**Live dialer**
+- KPI strip: `` `glass ${classes.statBox}` `` ×3 — uppercase `.statLabel`, 34px / 800 `.statValue`.
+- Status hero: `` `glass ${classes.liveStatusCard}` `` — glass `.liveBadge` + blinking dot; **no** `.pulsingGlow` per-card wash.
+- States bar: `` `glass ${classes.liveStatesCard}` `` with neutral glass chips.
+- FE break hours: `` `glass ${classes.warningBanner}` `` — `--accent-yellow` tokens, no card drop shadow.
+- Activity: `` `glass ${classes.activeLogsSection}` `` — §7.8 table header mix, row hover, mono caller column.
+- Dispositions: §7.7 pill badges (`.badgeSale`, `.badgeAnswered`, `.badgeMissed`, `.badgeCallback`, `.badgeNeutral`).
+- Overlays: disposition modal + ACA transfer panel use `` `glass` ``; overlay uses themed surface mix + blur.
+
+**Page shell**
+- `.page`: `gap: 24px`, `padding-bottom: 32px`; inherits AppShell ambient (§6) — no per-page wash.
+- Motion: existing `useSubtlePageMotion()` + step `AnimatePresence` (unchanged).
+
+**Removed anti-patterns:** opaque `--surface-container-*` card fills, `box-shadow: var(--brand-glow)` on primary buttons/icons, hardcoded hex inline banners, per-card radial `.pulsingGlow`, plain-text disposition colors.
+
+### 7.13 Maintenance banner
+
+Full-width alert strip in [AppShell.jsx](../src/components/layout/AppShell.jsx) above Topbar when maintenance is active or upcoming. Styles in [AppShell.module.css](../src/components/layout/AppShell.module.css).
+
+**Layout**
+- Three-column grid: lead (icon + title) | meta chips (Start / End / Downtime) | countdown pill.
+- Mobile (`≤1100px`): stacks vertically; meta chips wrap.
+
+**States**
+- `.maintenanceActive` — `--accent-red` tint (10% bg mix, 35% border) per §7.9 error banner pattern.
+- `.maintenanceUpcoming` — `--accent-yellow` tint per Take Calls `.warningBanner`.
+
+**Surface**
+- Frosted strip: `backdrop-filter: blur(12px)`, `--glass-border`, inset `--glass-highlight` only — **no** outer glow, sweep animation, or gradient fill.
+- `.maintenanceIcon` — §7.3 icon box; color matches state (red / yellow).
+- `.maintenanceMetaChip` — glass pills with uppercase `.maintenanceMetaLabel`.
+- `.maintenanceTimerValue` — tabular-nums mono countdown (18px / 800).
+
+**Content**
+- Eyebrow: "Maintenance active" vs "Scheduled maintenance".
+- Optional admin `message` line below title when set.
+
+**Motion**
+- Enter: `maintenanceEnter` 320ms on mount only.
+- `@media (prefers-reduced-motion: reduce)` — animation off.
+
 ---
 
 ## 8. Charts (Recharts)
@@ -460,7 +542,7 @@ When redesigning a page (Call Logs, Billing, Take Calls, etc.):
 2. Billing (stats + tables)
 3. ~~Welcome~~ ✓ — [WelcomePage](../src/pages/WelcomePage.jsx) (cards + embedded video)
 4. Profile (cards + forms)
-5. Take Calls (complex — migrate section by section)
+5. Take Calls (complex — migrate section by section) ✓ — [TakeCallsPage](../src/pages/TakeCallsPage.jsx)
 6. Admin / QA dashboards (reuse dashboard patterns directly)
 
 ---
