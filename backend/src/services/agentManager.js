@@ -356,6 +356,7 @@ class AgentManager {
          const presence = await this.validateAgentPresence(campaignId, id, {
             requireAvailable: true,
             requireFresh: true,
+            requireVoiceReady: true,
          });
          if (!presence.ok) return false;
          const data = presence.data;
