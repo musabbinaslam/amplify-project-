@@ -5,7 +5,7 @@ import {
   Palette, RotateCcw, Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
@@ -30,8 +30,16 @@ const BRAND_PRESETS = [
 
 const HEX_RE = /^#[0-9a-f]{6}$/i;
 
+const SECTION_META = [
+  { id: 'audio', label: 'Audio', icon: Mic },
+  { id: 'privacy', label: 'Privacy', icon: Shield },
+  { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'account', label: 'Account', icon: Trash2, danger: true },
+];
+
 const SettingsPage = () => {
   const presets = useSubtlePageMotion();
+  const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
@@ -83,6 +91,7 @@ const SettingsPage = () => {
   // Privacy state
   const [revoking, setRevoking] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [activeSection, setActiveSection] = useState('audio');
 
   const isPasswordUser = user?.authProvider === 'password';
   const canDelete = deletePw.trim().length > 0 && deletePhrase.trim().toUpperCase() === 'DELETE';
@@ -271,7 +280,6 @@ const SettingsPage = () => {
         analyser.getByteFrequencyData(data);
         total += data.reduce((a, b) => a + b, 0) / data.length;
         samples += 1;
-        // eslint-disable-next-line no-await-in-loop
         await new Promise((r) => setTimeout(r, 80));
       }
       stream.getTracks().forEach((t) => t.stop());
@@ -417,402 +425,482 @@ const SettingsPage = () => {
     } catch { return 'Unknown'; }
   })();
 
-  return (
+  const navSections = SECTION_META.filter((s) => s.id !== 'account' || isPasswordUser);
+
+  const sectionDirty = (id) => {
+    if (id === 'audio') return audioDirty;
+    if (id === 'appearance') return brandDirty;
+    return false;
+  };
+
+  const renderNavButton = (section, mobile = false) => {
+    const Icon = section.icon;
+    const active = activeSection === section.id;
+    const itemClass = mobile
+      ? `${classes.mobileNavItem} ${active ? classes.mobileNavItemActive : ''} ${section.danger ? classes.mobileNavItemDanger : ''}`
+      : `${classes.navItem} ${active ? classes.navItemActive : ''} ${section.danger ? classes.navItemDanger : ''}`;
+
+    return (
+      <button
+        key={section.id}
+        type="button"
+        className={itemClass}
+        onClick={() => setActiveSection(section.id)}
+        aria-current={active ? 'page' : undefined}
+      >
+        <Icon size={16} />
+        {section.label}
+        {sectionDirty(section.id) && <span className={classes.navDirtyDot} aria-label="Unsaved changes" />}
+      </button>
+    );
+  };
+
+  const renderAudioSection = () => (
     <>
-    <motion.div
-      className={classes.settingsPage}
-      variants={presets.root}
-      initial="hidden"
-      animate="visible"
-    >
-      <motion.div className={classes.header} variants={presets.child}>
-        <div className={classes.iconBox}><Settings size={24} /></div>
-        <div>
-          <h2>Settings</h2>
-          <p>Manage your devices and privacy</p>
-          {!isDirty && savedLabel && <p className={classes.savedLabelInline}>{savedLabel}</p>}
+      <div className={classes.sectionIntro}>
+        <div className={classes.sectionIntroRow}>
+          <div>
+            <h3>Audio</h3>
+            <p>Configure your microphone and speaker for calls. Changes apply when you save.</p>
+          </div>
+          <button type="button" className={classes.ghostBtn} onClick={enumerateDevices}>
+            <RefreshCw size={14} />
+            Refresh devices
+          </button>
         </div>
-      </motion.div>
+      </div>
 
-      <motion.div className={classes.twoCol} variants={presets.child}>
-        {/* ── Audio Devices (left) ── */}
-        <div className={classes.card}>
-          <h3><Mic size={18} /> Audio Devices</h3>
-          <div className={classes.groupMetaRow}>
-            <span className={isDirty ? classes.unsavedPill : classes.savedPill}>
-              {isDirty ? 'Unsaved' : 'Saved'}
-            </span>
-            <button type="button" className={classes.outlineBtn} onClick={enumerateDevices}>
-              <RefreshCw size={14} />
-              Refresh Devices
-            </button>
+      <div className={classes.audioGrid}>
+        <div className={classes.audioPanel}>
+          <div className={classes.audioPanelHead}>
+            <div className={classes.audioPanelIcon}><Mic size={18} /></div>
+            <h4>Microphone</h4>
           </div>
-
-          <div className={classes.fieldGroup}>
-            <label>Microphone</label>
-            <CustomSelect
-              options={[
-                { value: '', label: 'System Default' },
-                ...inputDevices.map((d) => ({ value: d.deviceId, label: d.label || `Microphone ${d.deviceId.slice(0, 8)}` }))
-              ]}
-              value={staged.audioInputDeviceId}
-              onChange={(v) => handleDeviceChange('input', v)}
-              placeholder="System Default"
+          <CustomSelect
+            className={classes.profileSelect}
+            options={[
+              { value: '', label: 'System Default' },
+              ...inputDevices.map((d) => ({ value: d.deviceId, label: d.label || `Microphone ${d.deviceId.slice(0, 8)}` })),
+            ]}
+            value={staged.audioInputDeviceId}
+            onChange={(v) => handleDeviceChange('input', v)}
+            placeholder="System Default"
+          />
+          <div className={classes.gainRow}>
+            <span className={classes.gainLabel}>Gain</span>
+            <input
+              type="range"
+              min={0}
+              max={200}
+              value={staged.micGain}
+              onChange={(e) => handleGainChange(Number(e.target.value))}
+              className={classes.gainSlider}
+              aria-label="Microphone gain"
             />
-            <div className={classes.gainRow}>
-              <label className={classes.gainLabel}>Gain</label>
-              <input
-                type="range"
-                min={0}
-                max={200}
-                value={staged.micGain}
-                onChange={(e) => handleGainChange(Number(e.target.value))}
-                className={classes.gainSlider}
-              />
-              <span className={classes.gainValue}>{staged.micGain}%</span>
-            </div>
-            <div className={classes.testRow}>
-              <button type="button" className={classes.testBtn} onClick={startMicTest}>
-                {testingMic ? 'Stop Test' : 'Test Microphone'}
-              </button>
-              <button type="button" className={classes.testBtn} onClick={autoCalibrateMic}>
-                <SlidersHorizontal size={14} />
-                Auto-Calibrate
-              </button>
-              {testingMic && (
-                <div className={classes.meterTrack}>
-                  <div className={classes.meterFill} style={{ width: `${micLevel * 100}%` }} />
-                </div>
-              )}
-            </div>
-            <div className={classes.toggleGrid}>
-              <label className={classes.switchRow}>
-                <input
-                  type="checkbox"
-                  className={classes.switchCheckbox}
-                  checked={staged.noiseSuppression}
-                  disabled={!supportsNoiseSuppression}
-                  onChange={(e) => patchStaged({ noiseSuppression: e.target.checked })}
-                />
-                <span className={classes.switchText}>Noise suppression</span>
-              </label>
-              <label className={classes.switchRow}>
-                <input
-                  type="checkbox"
-                  className={classes.switchCheckbox}
-                  checked={staged.echoCancellation}
-                  disabled={!supportsEchoCancellation}
-                  onChange={(e) => patchStaged({ echoCancellation: e.target.checked })}
-                />
-                <span className={classes.switchText}>Echo cancellation</span>
-              </label>
-            </div>
-            {(!supportsNoiseSuppression || !supportsEchoCancellation) && (
-              <p className={classes.hintText}>
-                Some audio enhancement constraints are unsupported in this browser and will be gracefully skipped.
-              </p>
-            )}
+            <span className={classes.gainValue}>{staged.micGain}%</span>
           </div>
-
-          <div className={classes.fieldGroup}>
-            <label>Speaker</label>
-            <CustomSelect
-              options={[
-                { value: '', label: 'System Default' },
-                ...outputDevices.map((d) => ({ value: d.deviceId, label: d.label || `Speaker ${d.deviceId.slice(0, 8)}` }))
-              ]}
-              value={staged.audioOutputDeviceId}
-              onChange={(v) => handleDeviceChange('output', v)}
-              placeholder="System Default"
-            />
-            <div className={classes.gainRow}>
-              <label className={classes.gainLabel}>Speaker Volume</label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={staged.speakerVolume}
-                onChange={(e) => patchStaged({ speakerVolume: Number(e.target.value) })}
-                className={classes.gainSlider}
-              />
-              <span className={classes.gainValue}>{staged.speakerVolume}%</span>
-            </div>
-            <button type="button" className={classes.testBtn} onClick={testSpeaker}>
-              <Volume2 size={14} /> Test Speaker
+          <div className={classes.btnRow}>
+            <button type="button" className={classes.testBtn} onClick={startMicTest}>
+              {testingMic ? 'Stop test' : 'Test mic'}
             </button>
-            {!sinkIdSupported && (
-              <p className={classes.hintText}>Output device routing is unsupported in this browser. System default will be used.</p>
-            )}
-          </div>
-          {deviceState !== 'ready' && (
-            <div className={classes.deviceStateCard}>
-              <AlertTriangle size={16} />
-              <div>
-                <strong>{deviceState === 'loading' ? 'Loading devices...' : 'Audio setup attention needed'}</strong>
-                <p>{deviceMessage}</p>
+            <button type="button" className={classes.testBtn} onClick={autoCalibrateMic}>
+              <SlidersHorizontal size={14} />
+              Calibrate
+            </button>
+            {testingMic && (
+              <div className={classes.meterTrack}>
+                <div className={classes.meterFill} style={{ width: `${micLevel * 100}%` }} />
               </div>
-              <button type="button" className={classes.outlineBtn} onClick={enumerateDevices}>
-                <RefreshCw size={14} />
-                Retry
-              </button>
-            </div>
+            )}
+          </div>
+          <div className={classes.toggleGrid}>
+            <label className={classes.switchRow}>
+              <input
+                type="checkbox"
+                className={classes.switchCheckbox}
+                checked={staged.noiseSuppression}
+                disabled={!supportsNoiseSuppression}
+                onChange={(e) => patchStaged({ noiseSuppression: e.target.checked })}
+              />
+              <span className={classes.switchText}>Noise suppression</span>
+            </label>
+            <label className={classes.switchRow}>
+              <input
+                type="checkbox"
+                className={classes.switchCheckbox}
+                checked={staged.echoCancellation}
+                disabled={!supportsEchoCancellation}
+                onChange={(e) => patchStaged({ echoCancellation: e.target.checked })}
+              />
+              <span className={classes.switchText}>Echo cancellation</span>
+            </label>
+          </div>
+          {(!supportsNoiseSuppression || !supportsEchoCancellation) && (
+            <p className={classes.hintText}>
+              Some audio enhancements are unsupported in this browser and will be skipped.
+            </p>
           )}
         </div>
 
-        {/* ── Privacy & Security (right) ── */}
-        <div className={classes.card}>
-          <h3><Shield size={18} /> Privacy & Security</h3>
-          <div className={classes.groupMetaRow}>
-            <span className={isDirty ? classes.unsavedPill : classes.savedPill}>
-              {isDirty ? 'Unsaved' : 'Saved'}
-            </span>
+        <div className={classes.audioPanel}>
+          <div className={classes.audioPanelHead}>
+            <div className={classes.audioPanelIcon}><Volume2 size={18} /></div>
+            <h4>Speaker</h4>
           </div>
+          <CustomSelect
+            className={classes.profileSelect}
+            options={[
+              { value: '', label: 'System Default' },
+              ...outputDevices.map((d) => ({ value: d.deviceId, label: d.label || `Speaker ${d.deviceId.slice(0, 8)}` })),
+            ]}
+            value={staged.audioOutputDeviceId}
+            onChange={(v) => handleDeviceChange('output', v)}
+            placeholder="System Default"
+          />
+          <div className={classes.gainRow}>
+            <span className={classes.gainLabel}>Vol</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={staged.speakerVolume}
+              onChange={(e) => patchStaged({ speakerVolume: Number(e.target.value) })}
+              className={classes.gainSlider}
+              aria-label="Speaker volume"
+            />
+            <span className={classes.gainValue}>{staged.speakerVolume}%</span>
+          </div>
+          <button type="button" className={classes.testBtn} onClick={testSpeaker}>
+            <Volume2 size={14} /> Test speaker
+          </button>
+          {!sinkIdSupported && (
+            <p className={classes.hintText}>Output routing is unsupported — system default will be used.</p>
+          )}
+        </div>
+      </div>
 
-          <div className={classes.fieldGroup}>
+      {deviceState !== 'ready' && (
+        <div className={classes.deviceBanner}>
+          <AlertTriangle size={16} />
+          <div className={classes.deviceBannerBody}>
+            <strong>{deviceState === 'loading' ? 'Loading devices...' : 'Audio setup attention needed'}</strong>
+            <p>{deviceMessage}</p>
+          </div>
+          <button type="button" className={classes.ghostBtn} onClick={enumerateDevices}>
+            <RefreshCw size={14} />
+            Retry
+          </button>
+        </div>
+      )}
+    </>
+  );
+
+  const renderPrivacySection = () => (
+    <>
+      <div className={classes.sectionIntro}>
+        <h3>Privacy & Security</h3>
+        <p>Manage sessions, authentication, and your personal data.</p>
+      </div>
+
+      <div className={classes.settingGroup}>
+        <p className={classes.groupTitle}>Security</p>
+        <div className={classes.settingList}>
+          <div className={classes.settingRow}>
             <div className={classes.toggleRow}>
               <div>
-                <span className={classes.toggleLabel}>Two-Factor Authentication</span>
-                <span className={classes.comingSoon}>Coming Soon</span>
+                <span className={classes.toggleLabel}>Two-factor authentication</span>
+                <span className={classes.comingSoon}>Coming soon</span>
               </div>
-              <button type="button" className={classes.toggle} disabled>
+              <button type="button" className={classes.toggle} disabled aria-label="Two-factor authentication">
                 <span className={classes.toggleThumb} />
               </button>
             </div>
           </div>
-
-          <div className={classes.fieldGroup}>
-            <label>Active Session</label>
-            <p className={classes.sessionInfo}>{sessionMeta}</p>
-            <button
-              type="button"
-              className={classes.outlineBtn}
-              onClick={handleRevokeAll}
-              disabled={revoking}
-            >
-              <LogOut size={14} />
-              {revoking ? 'Revoking...' : 'Sign Out All Devices'}
-            </button>
-          </div>
-
-          <div className={classes.fieldGroup}>
-            <label>Export Data</label>
-            <button
-              type="button"
-              className={classes.outlineBtn}
-              onClick={handleExport}
-              disabled={exporting}
-            >
-              <Download size={14} />
-              {exporting ? 'Exporting...' : 'Download My Data'}
-            </button>
-          </div>
         </div>
-      </motion.div>
+      </div>
 
-      <motion.div className={classes.card} variants={presets.child}>
-        <div className={classes.appearanceHeader}>
-          <div>
-            <h3 className={classes.appearanceTitle}>
-              <Palette size={18} /> Appearance
-            </h3>
-            <p className={classes.appearanceSubtitle}>
-              Pick an accent color — it applies instantly to buttons, the sidebar, focus rings, and CTAs.
-            </p>
-          </div>
-          <div className={classes.appearanceHeaderRight}>
-            <span className={brandDirty ? classes.unsavedPill : classes.savedPill}>
-              {brandDirty ? 'Unsaved' : 'Saved'}
-            </span>
-            <button
-              type="button"
-              className={classes.resetGhostBtn}
-              onClick={handleResetBrand}
-              disabled={brandColor.toLowerCase() === DEFAULT_BRAND.toLowerCase()}
-              title="Reset to default green"
-            >
-              <RotateCcw size={14} />
-              Reset
-            </button>
-          </div>
-        </div>
-
-        <div className={classes.appearanceGrid}>
-          {/* Left: picker */}
-          <div className={classes.appearanceLeft}>
-            <div className={classes.appearanceSubheading}>Presets</div>
-            <div className={classes.swatchGrid}>
-              {BRAND_PRESETS.map((p) => {
-                const active = brandColor.toLowerCase() === p.value.toLowerCase();
-                return (
-                  <button
-                    key={p.value}
-                    type="button"
-                    className={`${classes.swatchTile} ${active ? classes.swatchTileActive : ''}`}
-                    onClick={() => handlePickBrand(p.value)}
-                    aria-label={`${p.label} (${p.value})`}
-                    title={`${p.label} — ${p.value}`}
-                  >
-                    <span
-                      className={classes.swatchDot}
-                      style={{
-                        background: p.value,
-                        boxShadow: active ? `0 0 16px ${p.value}66, inset 0 0 0 2px rgba(255,255,255,0.14)` : undefined,
-                      }}
-                    >
-                      {active && <Check size={14} strokeWidth={3.5} />}
-                    </span>
-                    <span className={classes.swatchTileLabel}>{p.label}</span>
-                  </button>
-                );
-              })}
+      <div className={classes.settingGroup}>
+        <p className={classes.groupTitle}>Sessions</p>
+        <div className={classes.settingList}>
+          <div className={classes.settingRow}>
+            <div className={classes.settingRowLabel}>
+              <strong>Current session</strong>
+              <span>{sessionMeta}</span>
             </div>
-
-            <div className={classes.appearanceSubheading} style={{ marginTop: 20 }}>Custom</div>
-            <div className={classes.customColorRow}>
-              <label
-                className={classes.colorPickerPill}
-                style={{
-                  background: `linear-gradient(135deg, ${brandColor} 0%, color-mix(in srgb, ${brandColor} 70%, #000) 100%)`,
-                }}
+            <div className={classes.settingRowControl}>
+              <button
+                type="button"
+                className={classes.ghostBtn}
+                onClick={handleRevokeAll}
+                disabled={revoking}
               >
-                <input
-                  type="color"
-                  value={brandColor}
-                  onChange={(e) => handleHexInput(e.target.value)}
-                  className={classes.colorInput}
-                  aria-label="Pick custom color"
-                />
-                <Palette size={14} strokeWidth={2.5} className={classes.colorPickerIcon} />
-              </label>
-              <div className={classes.hexField}>
-                <span className={classes.hexPrefix}>HEX</span>
-                <input
-                  type="text"
-                  value={hexInput}
-                  onChange={(e) => handleHexInput(e.target.value)}
-                  className={classes.hexInput}
-                  placeholder="25f425"
-                  spellCheck="false"
-                  maxLength={7}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Right: live preview */}
-          <div className={classes.appearanceRight}>
-            <div className={classes.previewHeader}>
-              <span className={classes.previewLabel}>Live preview</span>
-              <span className={classes.previewDot} />
-            </div>
-
-            <div className={classes.previewCard}>
-              <div className={classes.previewGlow} />
-
-              {/* Mock sidebar row */}
-              <div className={classes.previewNavRow}>
-                <div className={classes.previewNavRail} />
-                <div className={classes.previewNavIcon}>
-                  <Palette size={14} />
-                </div>
-                <div className={classes.previewNavLabel}>Dashboard</div>
-              </div>
-
-              {/* Row of actions */}
-              <div className={classes.previewActionRow}>
-                <button type="button" className={classes.previewPrimaryBtn}>
-                  <Check size={13} strokeWidth={3} />
-                  Save changes
-                </button>
-                <span className={classes.previewChip}>Active</span>
-              </div>
-
-              {/* Focus input demo */}
-              <div className={classes.previewInputWrap}>
-                <input
-                  type="text"
-                  defaultValue="Focus to see the ring"
-                  className={classes.previewInput}
-                />
-              </div>
-
-              {/* Progress bar */}
-              <div className={classes.previewProgressTrack}>
-                <div className={classes.previewProgressFill} />
-              </div>
+                <LogOut size={14} />
+                {revoking ? 'Revoking...' : 'Sign out all devices'}
+              </button>
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
 
-      {isPasswordUser && (
-        <motion.div className={`${classes.card} ${classes.dangerCard}`} variants={presets.child}>
-          <h3><Trash2 size={18} /> Danger Zone</h3>
-          <p className={classes.dangerText}>
-            Permanently delete your account and all associated data. This action cannot be undone.
-          </p>
-          {!showDeleteConfirm ? (
-            <button
-              type="button"
-              className={classes.dangerBtn}
-              onClick={() => setShowDeleteConfirm(true)}
+      <div className={classes.settingGroup}>
+        <p className={classes.groupTitle}>Your data</p>
+        <div className={classes.settingList}>
+          <div className={classes.settingRow}>
+            <div className={classes.settingRowLabel}>
+              <strong>Export account data</strong>
+              <span>Download a copy of your profile, settings, and activity.</span>
+            </div>
+            <div className={classes.settingRowControl}>
+              <button
+                type="button"
+                className={classes.ghostBtn}
+                onClick={handleExport}
+                disabled={exporting}
+              >
+                <Download size={14} />
+                {exporting ? 'Exporting...' : 'Download'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
+  const renderAppearanceSection = () => (
+    <>
+      <div className={classes.sectionIntro}>
+        <div className={classes.sectionIntroRow}>
+          <div>
+            <h3>Appearance</h3>
+            <p>Choose an accent color — it updates buttons, the sidebar, and focus rings instantly.</p>
+          </div>
+          <button
+            type="button"
+            className={classes.ghostBtn}
+            onClick={handleResetBrand}
+            disabled={brandColor.toLowerCase() === DEFAULT_BRAND.toLowerCase()}
+            title="Reset to default green"
+          >
+            <RotateCcw size={14} />
+            Reset default
+          </button>
+        </div>
+      </div>
+
+      <div className={classes.appearanceLayout}>
+        <div className={classes.colorHero}>
+          <div className={classes.colorHeroTop}>
+            <h4>Accent color</h4>
+            <span className={classes.currentSwatch} style={{ background: brandColor }} aria-hidden="true" />
+          </div>
+
+          <div className={classes.swatchStrip}>
+            {BRAND_PRESETS.map((p) => {
+              const active = brandColor.toLowerCase() === p.value.toLowerCase();
+              return (
+                <button
+                  key={p.value}
+                  type="button"
+                  className={`${classes.swatchBtn} ${active ? classes.swatchBtnActive : ''}`}
+                  onClick={() => handlePickBrand(p.value)}
+                  aria-label={`${p.label} (${p.value})`}
+                  title={`${p.label} — ${p.value}`}
+                >
+                  <span className={classes.swatchBtnInner} style={{ background: p.value }}>
+                    {active && <Check size={16} strokeWidth={3} />}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className={classes.customColorRow}>
+            <label
+              className={classes.colorPickerPill}
+              style={{
+                background: `linear-gradient(135deg, ${brandColor} 0%, color-mix(in srgb, ${brandColor} 70%, #000) 100%)`,
+              }}
             >
-              Delete Account
-            </button>
-          ) : (
-            <div className={classes.deleteConfirm}>
-              <div className={classes.deleteChecklist}>
-                <p>Before deleting:</p>
-                <ul>
-                  <li>Your account and settings are permanently removed</li>
-                  <li>Profile, scripts, and integrations are deleted</li>
-                  <li>Process typically completes within a few minutes</li>
-                </ul>
-              </div>
+              <input
+                type="color"
+                value={brandColor}
+                onChange={(e) => handleHexInput(e.target.value)}
+                className={classes.colorInput}
+                aria-label="Pick custom color"
+              />
+              <Palette size={14} strokeWidth={2.5} className={classes.colorPickerIcon} />
+            </label>
+            <div className={classes.hexField}>
+              <span className={classes.hexPrefix}>HEX</span>
               <input
                 type="text"
-                value={deletePhrase}
-                onChange={(e) => setDeletePhrase(e.target.value)}
-                placeholder='Type "DELETE" to continue'
-                className={classes.input}
+                value={hexInput}
+                onChange={(e) => handleHexInput(e.target.value)}
+                className={classes.hexInput}
+                placeholder="25f425"
+                spellCheck="false"
+                maxLength={7}
               />
-              <input
-                type="password"
-                value={deletePw}
-                onChange={(e) => setDeletePw(e.target.value)}
-                placeholder="Enter password to confirm"
-                className={classes.input}
+            </div>
+          </div>
+        </div>
+
+        <div className={classes.previewPanel}>
+          <div className={classes.previewHeader}>
+            <span className={classes.previewLabel}>Live preview</span>
+            <span className={`${classes.previewDot} ${reduceMotion ? classes.previewDotReduced : ''}`} />
+          </div>
+          <div className={classes.previewNavRow}>
+            <div className={classes.previewNavRail} />
+            <div className={classes.previewNavIcon}><Palette size={14} /></div>
+            <div className={classes.previewNavLabel}>Dashboard</div>
+          </div>
+          <div className={classes.previewActionRow}>
+            <button type="button" className={classes.previewPrimaryBtn}>
+              <Check size={13} strokeWidth={3} />
+              Save changes
+            </button>
+            <span className={classes.previewChip}>Active</span>
+          </div>
+          <div className={classes.previewInputWrap}>
+            <input type="text" defaultValue="Focus to see the ring" className={classes.previewInput} readOnly />
+          </div>
+          <div className={classes.previewProgressTrack}>
+            <div className={classes.previewProgressFill} />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
+  const renderAccountSection = () => (
+    <>
+      <div className={classes.sectionIntro}>
+        <h3>Account</h3>
+        <p>Permanently remove your account and all associated data.</p>
+      </div>
+
+      <div className={classes.dangerPanel}>
+        <h4><Trash2 size={16} /> Delete account</h4>
+        <p className={classes.dangerText}>
+          This action cannot be undone. Your profile, scripts, integrations, and settings will be permanently deleted.
+        </p>
+        {!showDeleteConfirm ? (
+          <button
+            type="button"
+            className={classes.dangerBtn}
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            Delete account
+          </button>
+        ) : (
+          <div className={classes.deleteConfirm}>
+            <div className={classes.deleteChecklist}>
+              <p>Before deleting:</p>
+              <ul>
+                <li>Your account and settings are permanently removed</li>
+                <li>Profile, scripts, and integrations are deleted</li>
+                <li>Process typically completes within a few minutes</li>
+              </ul>
+            </div>
+            <input
+              type="text"
+              value={deletePhrase}
+              onChange={(e) => setDeletePhrase(e.target.value)}
+              placeholder='Type "DELETE" to continue'
+              className={classes.input}
+            />
+            <input
+              type="password"
+              value={deletePw}
+              onChange={(e) => setDeletePw(e.target.value)}
+              placeholder="Enter password to confirm"
+              className={classes.input}
+            />
+            <div className={classes.deleteActions}>
+              <button
+                type="button"
+                className={`${classes.dangerBtn} ${classes.dangerBtnPrimary}`}
+                onClick={handleDeleteAccount}
+                disabled={deleting || !canDelete}
+              >
+                {deleting ? <Loader2 size={14} className={classes.spinner} /> : 'Confirm delete'}
+              </button>
+              <button
+                type="button"
+                className={classes.cancelBtn}
+                onClick={() => { setShowDeleteConfirm(false); setDeletePw(''); setDeletePhrase(''); }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+
+  const renderActiveSection = () => {
+    switch (activeSection) {
+      case 'privacy': return renderPrivacySection();
+      case 'appearance': return renderAppearanceSection();
+      case 'account': return renderAccountSection();
+      default: return renderAudioSection();
+    }
+  };
+
+  return (
+    <>
+      <motion.div
+        className={classes.page}
+        variants={presets.root}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div className={classes.pageHeader} variants={presets.child}>
+          <div className={classes.pageHeaderMain}>
+            <div className={classes.iconBox} aria-hidden="true"><Settings size={22} /></div>
+            <div>
+              <h2>Settings</h2>
+              <p>Devices, privacy, and personalization</p>
+            </div>
+          </div>
+          <div className={classes.headerMeta}>
+            <span className={isDirty ? classes.unsavedPill : classes.savedPill}>
+              {isDirty ? 'Unsaved changes' : savedLabel || 'Saved'}
+            </span>
+          </div>
+        </motion.div>
+
+        <div className={classes.mobileNav} role="tablist" aria-label="Settings sections">
+          {navSections.map((s) => renderNavButton(s, true))}
+        </div>
+
+        <motion.div className={`glass ${classes.workspace}`} variants={presets.child}>
+          <div className={classes.workspaceMain}>
+            <nav className={classes.sectionNav} aria-label="Settings sections">
+              <p className={classes.navLabel}>Preferences</p>
+              {navSections.map((s) => renderNavButton(s))}
+            </nav>
+
+            <div className={classes.contentPanel} role="tabpanel">
+              {renderActiveSection()}
+            </div>
+          </div>
+
+          {isDirty && (
+            <div className={classes.unsavedWrap}>
+              <UnsavedChangesBar
+                visible
+                onDiscard={handleDiscardChanges}
+                onSave={handleSaveChanges}
+                saving={saving}
               />
-              <div className={classes.deleteActions}>
-                <button
-                  type="button"
-                  className={classes.dangerBtn}
-                  onClick={handleDeleteAccount}
-                  disabled={deleting || !canDelete}
-                >
-                  {deleting ? <Loader2 size={14} className={classes.spinner} /> : 'Confirm Delete'}
-                </button>
-                <button
-                  type="button"
-                  className={classes.cancelBtn}
-                  onClick={() => { setShowDeleteConfirm(false); setDeletePw(''); setDeletePhrase(''); }}
-                >
-                  Cancel
-                </button>
-              </div>
             </div>
           )}
         </motion.div>
-      )}
-
-    </motion.div>
-
-      <UnsavedChangesBar
-        visible={isDirty}
-        onDiscard={handleDiscardChanges}
-        onSave={handleSaveChanges}
-        saving={saving}
-      />
+      </motion.div>
     </>
   );
 };

@@ -1,4 +1,4 @@
-import { apiFetch } from './apiClient';
+import { apiFetchWithRetry as apiFetch } from './apiClient';
 import { getApiBaseUrl } from '../config/apiBase';
 
 /**

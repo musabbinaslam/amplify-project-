@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Cropper from 'react-easy-crop';
-import { User, Camera, Copy, Check, Link2, Key, Loader2, X, Eye, EyeOff, RefreshCw, Upload, Trash2, ShieldCheck, ChevronDown } from 'lucide-react';
+import { User, Camera, Copy, Check, Link2, Key, Loader2, X, Eye, EyeOff, RefreshCw, Upload, ShieldCheck, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
@@ -14,6 +13,8 @@ import {
 import CustomSelect from '../components/ui/CustomSelect';
 import UnsavedChangesBar from '../components/ui/UnsavedChangesBar';
 import PageLoader from '../components/ui/PageLoader';
+import RegenerateApiKeyModal from '../components/modals/RegenerateApiKeyModal';
+import AvatarEditorModal from '../components/modals/AvatarEditorModal';
 import classes from './ProfilePage.module.css';
 
 const SPENDING_OPTIONS = ['Less than $500', '$500 - $1,000', '$1,000 - $2,500', '$2,500 - $5,000', '$5,000+', 'Not currently spending'];
@@ -216,7 +217,13 @@ const ProfilePage = () => {
   const setField = (k, v) => setForm((prev) => ({ ...prev, [k]: v }));
   const toggleVertical = (v) => setForm((prev) => ({ ...prev, verticals: prev.verticals.includes(v) ? prev.verticals.filter((x) => x !== v) : [...prev.verticals, v] }));
   const handleCopy = async (text, field) => {
-    try { await navigator.clipboard.writeText(text); setCopiedField(field); setTimeout(() => setCopiedField(null), 2000); } catch {}
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      toast.error('Could not copy to clipboard');
+    }
   };
   const discardChanges = () => initialForm && setForm(initialForm);
 
@@ -318,210 +325,305 @@ const ProfilePage = () => {
 
   return (
     <>
-    <motion.div
-      className={classes.profilePage}
-      variants={presets.root}
-      initial="hidden"
-      animate="visible"
-    >
-      <motion.div className={classes.header} variants={presets.child}>
-        <div className={classes.iconBox}><User size={24} /></div>
-        <div><h2>Profile & Landing Page</h2><p>Customize your public profile for lead capture</p></div>
-      </motion.div>
+      <motion.div
+        className={classes.page}
+        variants={presets.root}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div className={classes.pageHeader} variants={presets.child}>
+          <div className={classes.iconBox} aria-hidden="true">
+            <User size={20} />
+          </div>
+          <div>
+            <h2>Profile & Landing Page</h2>
+            <p>Customize your public profile for lead capture</p>
+          </div>
+        </motion.div>
 
-      <motion.div className={classes.twoCol} variants={presets.child}>
-        <div className={classes.mainBox}>
-          <h3>Your Profile</h3>
-          <div className={classes.avatarRow}>
-            <button type="button" className={classes.avatarBtn} onClick={handleAvatarClick} onDragOver={(e) => e.preventDefault()} onDrop={handleDropAvatar}>
-              {form.avatarUrl ? <img src={form.avatarUrl} alt="Avatar" className={classes.avatarImg} /> : <span className={classes.avatarInitial}>{form.displayName?.charAt(0)?.toUpperCase() || 'A'}</span>}
-              <div className={classes.avatarOverlay}>{uploadingAvatar ? <Loader2 size={20} className={classes.spinner} /> : <Camera size={20} />}</div>
-            </button>
-            <input ref={fileInputRef} type="file" accept="image/*" className={classes.hiddenInput} onChange={handleFileChange} />
-            <div>
-              <h4>{user?.name || 'Agent'}</h4>
-              <p>{user?.email || ''}</p>
-              <button type="button" className={classes.uploadBtn} onClick={handleAvatarClick}><Upload size={14} /> Open Avatar Editor</button>
+        <motion.div className={classes.twoCol} variants={presets.child}>
+          <section className={`glass ${classes.profileCard}`}>
+            <div className={classes.cardHeader}>
+              <div className={classes.cardHeaderText}>
+                <h3>Your Profile</h3>
+                <p>Photo, bio, and landing page details</p>
+              </div>
             </div>
-          </div>
+            <div className={classes.cardDivider} />
 
-          <div className={classes.summaryBox}>
-            <div className={classes.summaryTop}><h4>Profile completeness</h4><span>{completion.score}%</span></div>
-            <div className={classes.progressBar}><div className={classes.progressFill} style={{ width: `${completion.score}%` }} /></div>
-            <div className={classes.checklist}>{completion.items.map((it) => <div className={classes.checkItem} key={it.label}>{it.done ? <Check size={14} /> : <X size={14} />}<span>{it.label}</span></div>)}</div>
-          </div>
-
-          <div className={classes.formGroup}>
-            <label>Display Name</label>
-            <div className={classes.nameField}><input type="text" value={form.displayName} onChange={(e) => setField('displayName', e.target.value)} className={classes.nameInput} /></div>
-          </div>
-          <div className={classes.formGroup}>
-            <label>Landing Page URL</label>
-            <div className={classes.urlInputGroup}><span className={classes.urlPrefix}>https://callsflow.io/a/</span><input type="text" value={form.slug} onChange={(e) => setField('slug', normalizeSlug(e.target.value))} className={classes.urlInput} /></div>
-            <div className={classes.validationText}>
-              {slugStatus === 'checking' && <span>Checking availability…</span>}
-              {slugStatus === 'available' && <span className={classes.valid}>Slug is available.</span>}
-              {slugStatus === 'taken' && <span className={classes.invalid}>Slug is already taken.</span>}
-              {slugStatus === 'invalid' && <span className={classes.invalid}>Use at least {MIN_SLUG_LEN} characters.</span>}
+            <div className={classes.avatarRow}>
+              <button type="button" className={classes.avatarBtn} onClick={handleAvatarClick} onDragOver={(e) => e.preventDefault()} onDrop={handleDropAvatar}>
+                {form.avatarUrl ? <img src={form.avatarUrl} alt="Avatar" className={classes.avatarImg} /> : <span className={classes.avatarInitial}>{form.displayName?.charAt(0)?.toUpperCase() || 'A'}</span>}
+                <div className={classes.avatarOverlay}>{uploadingAvatar ? <Loader2 size={20} className={classes.spinner} /> : <Camera size={20} />}</div>
+              </button>
+              <input ref={fileInputRef} type="file" accept="image/*" className={classes.hiddenInput} onChange={handleFileChange} />
+              <div className={classes.avatarMeta}>
+                <h4>{user?.name || 'Agent'}</h4>
+                <p>{user?.email || ''}</p>
+                <button type="button" className={classes.uploadBtn} onClick={handleAvatarClick}>
+                  <Upload size={14} />
+                  Open Avatar Editor
+                </button>
+              </div>
             </div>
-          </div>
-          <div className={classes.formGroup}>
-            <label>Bio</label>
-            <textarea className={classes.bioInput} value={form.bio} onChange={(e) => setField('bio', e.target.value)} maxLength={500} rows={4} />
-            <div className={classes.charCount}>{form.bio.length}/500 characters</div>
-            <div className={classes.validationText}>{bioValid ? <span className={classes.valid}>Bio looks good.</span> : <span className={classes.invalid}>Add at least 20 characters.</span>}</div>
-          </div>
-        </div>
 
-        <div className={classes.accountBox}>
-          <div className={classes.accountHeader}><h3>Account Details</h3></div>
-          <div className={classes.editGrid}>
-            <div className={classes.editGroup}>
-              <label className={classes.editLabel}>Phone Number</label>
-              <div className={classes.profilePhoneRow}>
-                <select
-                  className={classes.profileCountrySelect}
-                  value={form.phoneCountry}
-                  onChange={(e) => setField('phoneCountry', e.target.value)}
-                  aria-label="Phone country"
-                >
-                  {COUNTRY_DIAL_CODES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.name} ({c.dial})
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className={classes.profilePhoneInput}
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel-national"
-                  placeholder="Mobile number (no country code)"
-                  value={form.phone}
-                  onChange={(e) => setField('phone', e.target.value)}
+            <div className={classes.completenessPanel}>
+              <div className={classes.completenessTop}>
+                <h4>Profile completeness</h4>
+                <span>{completion.score}%</span>
+              </div>
+              <div className={classes.progressBar}>
+                <div className={classes.progressFill} style={{ width: `${completion.score}%` }} />
+              </div>
+              <div className={classes.checklist}>
+                {completion.items.map((it) => (
+                  <div className={`${classes.checkItem} ${it.done ? classes.checkItemDone : ''}`} key={it.label}>
+                    {it.done ? <Check size={14} /> : <X size={14} />}
+                    <span>{it.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className={classes.formGroup}>
+              <label htmlFor="displayName">Display Name</label>
+              <input id="displayName" type="text" value={form.displayName} onChange={(e) => setField('displayName', e.target.value)} className={classes.textInput} />
+            </div>
+            <div className={classes.formGroup}>
+              <label htmlFor="landingSlug">Landing Page URL</label>
+              <div className={classes.urlInputGroup}>
+                <span className={classes.urlPrefix}>https://callsflow.io/a/</span>
+                <input id="landingSlug" type="text" value={form.slug} onChange={(e) => setField('slug', normalizeSlug(e.target.value))} className={classes.urlInput} />
+              </div>
+              <div className={classes.validationText}>
+                {slugStatus === 'checking' && <span>Checking availability…</span>}
+                {slugStatus === 'available' && <span className={classes.valid}>Slug is available.</span>}
+                {slugStatus === 'taken' && <span className={classes.invalid}>Slug is already taken.</span>}
+                {slugStatus === 'invalid' && <span className={classes.invalid}>Use at least {MIN_SLUG_LEN} characters.</span>}
+              </div>
+            </div>
+            <div className={classes.formGroup}>
+              <label htmlFor="bio">Bio</label>
+              <textarea id="bio" className={classes.bioInput} value={form.bio} onChange={(e) => setField('bio', e.target.value)} maxLength={500} rows={4} />
+              <div className={classes.charCount}>{form.bio.length}/500 characters</div>
+              <div className={classes.validationText}>
+                {bioValid ? <span className={classes.valid}>Bio looks good.</span> : <span className={classes.invalid}>Add at least 20 characters.</span>}
+              </div>
+            </div>
+          </section>
+
+          <section className={`glass ${classes.accountCard}`}>
+            <div className={classes.cardHeader}>
+              <div className={classes.cardHeaderText}>
+                <h3>Account Details</h3>
+                <p>Contact info and onboarding preferences</p>
+              </div>
+            </div>
+            <div className={classes.cardDivider} />
+
+            <div className={classes.editGrid}>
+              <div className={classes.editGroup}>
+                <label className={classes.editLabel} htmlFor="phoneCountry">Phone Number</label>
+                <div className={classes.profilePhoneRow}>
+                  <select
+                    id="phoneCountry"
+                    className={classes.profileCountrySelect}
+                    value={form.phoneCountry}
+                    onChange={(e) => setField('phoneCountry', e.target.value)}
+                    aria-label="Phone country"
+                  >
+                    {COUNTRY_DIAL_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.name} ({c.dial})
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className={classes.profilePhoneInput}
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel-national"
+                    placeholder="Mobile number (no country code)"
+                    value={form.phone}
+                    onChange={(e) => setField('phone', e.target.value)}
+                  />
+                </div>
+                <div className={classes.validationText}>
+                  {phoneValid ? <span className={classes.valid}>Phone format looks valid.</span> : <span className={classes.invalid}>Invalid phone format.</span>}
+                </div>
+              </div>
+              <div className={classes.editGroup}>
+                <label className={classes.editLabel}>Weekly Lead Spend</label>
+                <CustomSelect
+                  className={classes.profileSelect}
+                  options={['', ...SPENDING_OPTIONS].map((o) => ({ value: o, label: o || 'Select an option' }))}
+                  value={form.weeklySpend}
+                  onChange={(v) => setField('weeklySpend', v)}
+                  placeholder="Select an option"
                 />
               </div>
-              <div className={classes.validationText}>{phoneValid ? <span className={classes.valid}>Phone format looks valid.</span> : <span className={classes.invalid}>Invalid phone format.</span>}</div>
+              <div className={classes.editGroup}>
+                <label className={classes.editLabel}>Used Inbound Before</label>
+                <div className={classes.editRadioRow}>
+                  {['Yes', 'No'].map((v) => (
+                    <label key={v} className={`${classes.editRadio} ${form.usedInbound === v ? classes.editRadioActive : ''}`}>
+                      <input type="radio" value={v} checked={form.usedInbound === v} onChange={(e) => setField('usedInbound', e.target.value)} />
+                      {v}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className={classes.editGroup}>
+                <label className={classes.editLabel}>Verticals</label>
+                <div className={classes.chipTray}>
+                  <div className={classes.verticalChips}>
+                    {VERTICALS.map((v) => (
+                      <button type="button" key={v} className={`${classes.verticalChip} ${form.verticals.includes(v) ? classes.verticalChipActive : ''}`} onClick={() => toggleVertical(v)}>
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className={classes.editGroup}>
+                <label className={classes.editLabel}>How Did You Hear About Us</label>
+                <CustomSelect
+                  className={classes.profileSelect}
+                  options={['', ...HEAR_ABOUT_OPTIONS].map((o) => ({ value: o, label: o || 'Select an option' }))}
+                  value={form.hearAbout}
+                  onChange={(v) => setField('hearAbout', v)}
+                  placeholder="Select an option"
+                />
+              </div>
             </div>
-            <div className={classes.editGroup}>
-              <label className={classes.editLabel}>Weekly Lead Spend</label>
-              <CustomSelect
-                options={['', ...SPENDING_OPTIONS].map((o) => ({ value: o, label: o || 'Select an option' }))}
-                value={form.weeklySpend}
-                onChange={(v) => setField('weeklySpend', v)}
-                placeholder="Select an option"
-              />
-            </div>
-            <div className={classes.editGroup}>
-              <label className={classes.editLabel}>Used Inbound Before</label>
-              <div className={classes.editRadioRow}>{['Yes', 'No'].map((v) => <label key={v} className={classes.editRadio}><input type="radio" value={v} checked={form.usedInbound === v} onChange={(e) => setField('usedInbound', e.target.value)} />{v}</label>)}</div>
-            </div>
-            <div className={classes.editGroup}>
-              <label className={classes.editLabel}>Verticals</label>
-              <div className={classes.verticalChips}>{VERTICALS.map((v) => <button type="button" key={v} className={`${classes.verticalChip} ${form.verticals.includes(v) ? classes.verticalChipActive : ''}`} onClick={() => toggleVertical(v)}>{v}</button>)}</div>
-            </div>
-            <div className={classes.editGroup}>
-              <label className={classes.editLabel}>How Did You Hear About Us</label>
-              <CustomSelect
-                options={['', ...HEAR_ABOUT_OPTIONS].map((o) => ({ value: o, label: o || 'Select an option' }))}
-                value={form.hearAbout}
-                onChange={(v) => setField('hearAbout', v)}
-                placeholder="Select an option"
-              />
+          </section>
+        </motion.div>
+
+        <motion.section className={`glass ${classes.integrationSection}`} variants={presets.child}>
+          <div className={classes.cardHeader}>
+            <div className={classes.cardHeaderText}>
+              <h3>Integration & Links</h3>
+              <p>Webhook and API credentials for lead integrations</p>
             </div>
           </div>
+          <div className={classes.cardDivider} />
+
+          <div className={classes.integrationRow}>
+            <div className={classes.integrationLabel}>
+              <Link2 size={16} />
+              <span>Webhook URL</span>
+              <span className={classes.integrationBadge}>For Integrations</span>
+            </div>
+            <div className={classes.integrationField}>
+              <input type="text" readOnly value={webhookUrl} className={classes.readonlyInput} />
+              <button type="button" className={classes.copyBtn} onClick={() => handleCopy(webhookUrl, 'webhook')} aria-label="Copy webhook URL">
+                {copiedField === 'webhook' ? <Check size={16} /> : <Copy size={16} />}
+              </button>
+            </div>
+          </div>
+          <div className={classes.integrationRow}>
+            <div className={classes.integrationLabel}>
+              <Key size={16} />
+              <span>API Key</span>
+              <span className={classes.integrationBadge}>Header: X-Agent-Key</span>
+            </div>
+            <div className={classes.integrationField}>
+              <input type="text" readOnly value={showApiKey ? apiKey : maskedApiKey} className={classes.readonlyInput} />
+              <button type="button" className={classes.copyBtn} onClick={() => setShowApiKey((s) => !s)} aria-label={showApiKey ? 'Hide API key' : 'Show API key'}>
+                {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+              <button type="button" className={classes.copyBtn} onClick={() => handleCopy(apiKey, 'apikey')} aria-label="Copy API key">
+                {copiedField === 'apikey' ? <Check size={16} /> : <Copy size={16} />}
+              </button>
+            </div>
+            <div className={classes.apiMetaRow}>
+              <span>Last rotated: {apiKeyRotatedAt ? new Date(apiKeyRotatedAt).toLocaleString() : 'Never'}</span>
+              <button type="button" className={classes.regenBtn} onClick={() => setShowRegenerateConfirm(true)}>
+                <RefreshCw size={14} />
+                Regenerate Key
+              </button>
+            </div>
+          </div>
+        </motion.section>
+
+        <motion.section className={`glass ${classes.auditSection}`} variants={presets.child}>
+          <div className={classes.auditHeader}>
+            <h3>Audit & Activity</h3>
+            <button
+              type="button"
+              className={classes.auditToggleBtn}
+              onClick={() => setAuditCollapsed((v) => !v)}
+              aria-expanded={!auditCollapsed}
+              aria-label={auditCollapsed ? 'Expand audit activity' : 'Collapse audit activity'}
+            >
+              <ChevronDown size={16} className={auditCollapsed ? classes.auditChevronCollapsed : ''} />
+              {auditCollapsed ? 'Expand' : 'Collapse'}
+            </button>
+          </div>
+          <div className={`${classes.auditContent} ${auditCollapsed ? classes.auditContentCollapsed : ''}`}>
+            <div className={classes.metaRow}>
+              <div className={classes.metaItem}>
+                <span>Member since</span>
+                <strong>{memberSince ? new Date(memberSince).toLocaleDateString() : 'Unknown'}</strong>
+              </div>
+              <div className={classes.metaItem}>
+                <span>Last updated</span>
+                <strong>{lastUpdated ? new Date(lastUpdated).toLocaleString() : 'Unknown'}</strong>
+              </div>
+              <div className={classes.metaItem}>
+                <span>Autosave</span>
+                <strong>{autosaving ? 'Saving...' : 'Idle'}</strong>
+              </div>
+            </div>
+            <div className={classes.timeline}>
+              {activity.length === 0 ? (
+                <p className={classes.noData}>No activity yet.</p>
+              ) : (
+                activity.map((it) => (
+                  <div className={classes.timelineItem} key={it.id}>
+                    <ShieldCheck size={16} />
+                    <div>
+                      <p>{it.message}</p>
+                      <span>{it.createdAt ? new Date(it.createdAt).toLocaleString() : 'Now'}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </motion.section>
+
+        <div className={`glass ${classes.unsavedWrap}`}>
+          <UnsavedChangesBar
+            visible={isDirty}
+            onDiscard={discardChanges}
+            onSave={handleSaveAll}
+            saving={savingAll}
+          />
         </div>
       </motion.div>
 
-      <motion.div className={classes.integrationBox} variants={presets.child}>
-        <h3>Integration & Links</h3>
-        <div className={classes.integrationRow}>
-          <div className={classes.integrationLabel}><Link2 size={16} /><span>Webhook URL</span><span className={classes.badge}>For Integrations</span></div>
-          <div className={classes.integrationField}><input type="text" readOnly value={webhookUrl} className={classes.readonlyInput} /><button type="button" className={classes.copyBtn} onClick={() => handleCopy(webhookUrl, 'webhook')}>{copiedField === 'webhook' ? <Check size={16} /> : <Copy size={16} />}</button></div>
-        </div>
-        <div className={classes.integrationRow}>
-          <div className={classes.integrationLabel}><Key size={16} /><span>API Key</span><span className={classes.badge}>Header: X-Agent-Key</span></div>
-          <div className={classes.integrationField}>
-            <input type="text" readOnly value={showApiKey ? apiKey : maskedApiKey} className={classes.readonlyInput} />
-            <button type="button" className={classes.copyBtn} onClick={() => setShowApiKey((s) => !s)}>{showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}</button>
-            <button type="button" className={classes.copyBtn} onClick={() => handleCopy(apiKey, 'apikey')}>{copiedField === 'apikey' ? <Check size={16} /> : <Copy size={16} />}</button>
-          </div>
-          <div className={classes.apiMetaRow}>
-            <span>Last rotated: {apiKeyRotatedAt ? new Date(apiKeyRotatedAt).toLocaleString() : 'Never'}</span>
-            <button type="button" className={classes.regenBtn} onClick={() => setShowRegenerateConfirm(true)}><RefreshCw size={14} /> Regenerate Key</button>
-          </div>
-        </div>
-      </motion.div>
-
-      <motion.div className={classes.auditBox} variants={presets.child}>
-        <div className={classes.auditHeader}>
-          <h3>Audit & Activity</h3>
-          <button
-            type="button"
-            className={classes.auditToggleBtn}
-            onClick={() => setAuditCollapsed((v) => !v)}
-            aria-expanded={!auditCollapsed}
-            aria-label={auditCollapsed ? 'Expand audit activity' : 'Collapse audit activity'}
-          >
-            <ChevronDown size={16} className={auditCollapsed ? classes.auditChevronCollapsed : ''} />
-            {auditCollapsed ? 'Expand' : 'Collapse'}
-          </button>
-        </div>
-        <div className={`${classes.auditContent} ${auditCollapsed ? classes.auditContentCollapsed : ''}`}>
-          <div className={classes.metaRow}>
-            <div className={classes.metaItem}><span>Member since</span><strong>{memberSince ? new Date(memberSince).toLocaleDateString() : 'Unknown'}</strong></div>
-            <div className={classes.metaItem}><span>Last updated</span><strong>{lastUpdated ? new Date(lastUpdated).toLocaleString() : 'Unknown'}</strong></div>
-            <div className={classes.metaItem}><span>Autosave</span><strong>{autosaving ? 'Saving...' : 'Idle'}</strong></div>
-          </div>
-          <div className={classes.timeline}>
-            {activity.length === 0 ? <p className={classes.noData}>No activity yet.</p> : activity.map((it) => <div className={classes.timelineItem} key={it.id}><ShieldCheck size={16} /><div><p>{it.message}</p><span>{it.createdAt ? new Date(it.createdAt).toLocaleString() : 'Now'}</span></div></div>)}
-          </div>
-        </div>
-      </motion.div>
-
-    </motion.div>
-
-      <UnsavedChangesBar
-        visible={isDirty}
-        onDiscard={discardChanges}
-        onSave={handleSaveAll}
-        saving={savingAll}
+      <RegenerateApiKeyModal
+        isOpen={showRegenerateConfirm}
+        regenerating={regeneratingKey}
+        onClose={() => setShowRegenerateConfirm(false)}
+        onConfirm={handleRegenerateApiKey}
       />
 
-      {showRegenerateConfirm && (
-        <div className={classes.modalOverlay}>
-          <div className={classes.modalCard}>
-            <h4>Regenerate API key?</h4>
-            <p>This revokes your old key immediately.</p>
-            <div className={classes.modalActions}>
-              <button type="button" className={classes.cancelBtn} onClick={() => setShowRegenerateConfirm(false)}>Cancel</button>
-              <button type="button" className={classes.saveBtn} onClick={handleRegenerateApiKey} disabled={regeneratingKey}>{regeneratingKey ? 'Regenerating...' : 'Regenerate'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showAvatarModal && (
-        <div className={classes.modalOverlay}>
-          <div className={classes.avatarModal}>
-            <div className={classes.avatarCropWrap}>
-              <Cropper image={avatarSource} crop={avatarCrop} zoom={avatarZoom} aspect={1} onCropChange={setAvatarCrop} onZoomChange={setAvatarZoom} onCropComplete={(_, px) => setAvatarCropPixels(px)} />
-            </div>
-            <div className={classes.sliderRow}><span>Zoom</span><input type="range" min={1} max={3} step={0.1} value={avatarZoom} onChange={(e) => setAvatarZoom(Number(e.target.value))} /></div>
-            {uploadingAvatar && <div className={classes.uploadProgress}><div style={{ width: `${avatarUploadProgress}%` }} /></div>}
-            <div className={`${classes.modalActions} ${classes.avatarModalActions}`}>
-              <button type="button" className={classes.avatarActionGhost} onClick={() => setShowAvatarModal(false)}>Cancel</button>
-              <button type="button" className={classes.avatarActionDanger} onClick={removeAvatar}>
-                <Trash2 size={14} />
-                Remove Photo
-              </button>
-              <button type="button" className={classes.avatarActionPrimary} onClick={applyAvatar} disabled={uploadingAvatar}>
-                {uploadingAvatar ? 'Uploading...' : 'Apply'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AvatarEditorModal
+        isOpen={showAvatarModal}
+        avatarSource={avatarSource}
+        avatarCrop={avatarCrop}
+        avatarZoom={avatarZoom}
+        uploadingAvatar={uploadingAvatar}
+        avatarUploadProgress={avatarUploadProgress}
+        onClose={() => setShowAvatarModal(false)}
+        onCropChange={setAvatarCrop}
+        onZoomChange={setAvatarZoom}
+        onCropComplete={(_, px) => setAvatarCropPixels(px)}
+        onApply={applyAvatar}
+        onRemove={removeAvatar}
+      />
     </>
   );
 };

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Brain, TrendingUp, ClipboardCheck, Clock3, Target, Filter, RefreshCw,
+  LineChart as LineChartIcon, Inbox, ListChecks,
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Line,
 } from 'recharts';
+import { motion, useReducedMotion } from 'framer-motion';
 import { AI_RANGE_PRESETS } from '../constants/aiTrainingMockData';
 import {
   getAiTrainingBundle,
@@ -12,7 +14,6 @@ import {
   updateAiCoachingTask,
 } from '../services/aiTrainingService';
 import { useUIStore } from '../store/uiStore';
-import { motion } from 'framer-motion';
 import PageLoader from '../components/ui/PageLoader';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import classes from './AITrainingPage.module.css';
@@ -30,8 +31,32 @@ function fmtDuration(sec) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+function statusClass(status) {
+  return classes[`status${String(status || 'new').replace('-', '')}`] || classes.statusnew;
+}
+
+/* eslint-disable react/prop-types -- local stat card helper */
+function StatCard({ icon: Icon, label, value, suffix, variants }) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      className={`glass ${classes.statCard}`}
+      variants={variants}
+      whileHover={reduceMotion ? undefined : { y: -3 }}
+    >
+      <div className={classes.statIconBox}><Icon size={20} /></div>
+      <div className={classes.statLabel}>{label}</div>
+      <div className={classes.statValue}>
+        {value ?? '—'}
+        {suffix ? <span className={classes.statMax}>{suffix}</span> : null}
+      </div>
+    </motion.div>
+  );
+}
+
 const AITrainingPage = () => {
   const presets = useSubtlePageMotion();
+  const reduceMotion = useReducedMotion();
   const isSidebarCollapsed = useUIStore((s) => s.isSidebarCollapsed);
   const [range, setRange] = useState('7d');
   const [loading, setLoading] = useState(true);
@@ -142,7 +167,7 @@ const AITrainingPage = () => {
   };
 
   const handleCoachingTaskUpdate = async (taskId, status) => {
-    const evidenceNote = String(taskDraftById[taskId] || '').trim();
+    const evidenceNote = String(taskDraftById[taskId] ?? '').trim();
     if (status === 'completed' && evidenceNote.length < 10) {
       setError('Add at least 10 characters of evidence before completing the task.');
       return;
@@ -156,6 +181,7 @@ const AITrainingPage = () => {
         status,
         ...(evidenceNote ? { evidenceNote } : {}),
       });
+      setError('');
     } catch {
       setError('Failed to update coaching task');
       setCoachingTasks(prev);
@@ -172,118 +198,162 @@ const AITrainingPage = () => {
       animate="visible"
     >
       <motion.div variants={presets.child}>
-        <div className={classes.header}>
-          <div className={classes.iconBox}><Brain size={24} /></div>
+        <div className={classes.pageHeader}>
+          <div className={classes.iconBox}><Brain size={22} /></div>
           <div>
             <h2>AI Training</h2>
             <p>Post-call scorecards, targeted drills, and coaching progress</p>
           </div>
         </div>
-
-        <div className={classes.topBar}>
-          <div className={classes.rangePills}>
-            {AI_RANGE_PRESETS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                className={`${classes.pillBtn} ${range === p ? classes.pillBtnActive : ''}`}
-                onClick={() => setRange(p)}
-              >
-                {p === '7d' ? 'Last 7d' : p === '30d' ? 'Last 30d' : 'Last 90d'}
-              </button>
-            ))}
-          </div>
-          <div className={classes.topActions}>
-            <button type="button" className={classes.refreshBtn} onClick={load} disabled={loading}>
-              <RefreshCw size={16} className={loading ? classes.spin : ''} />
-              Refresh
-            </button>
-            <button
-              type="button"
-              className={classes.refreshBtn}
-              onClick={() => load({ refreshPlan: true })}
-              disabled={loading}
-            >
-              Regenerate Plan
-            </button>
-          </div>
-        </div>
-
-        {error && (
-          <div className={classes.errorBar}>
-            <span>{error}</span>
-            <button type="button" className={classes.retryBtn} onClick={load}>Retry</button>
-          </div>
-        )}
       </motion.div>
+
+      <motion.div className={`glass ${classes.toolbar}`} variants={presets.child}>
+        <div className={`glass ${classes.rangePills}`}>
+          {AI_RANGE_PRESETS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className={`${classes.pillBtn} ${range === p ? classes.pillBtnActive : ''}`}
+              onClick={() => setRange(p)}
+            >
+              {p === '7d' ? 'Last 7d' : p === '30d' ? 'Last 30d' : 'Last 90d'}
+            </button>
+          ))}
+        </div>
+        <div className={classes.topActions}>
+          <button type="button" className={classes.refreshBtn} onClick={load} disabled={loading}>
+            <RefreshCw size={16} className={loading ? classes.spin : ''} />
+            Refresh
+          </button>
+          <button
+            type="button"
+            className={classes.regenerateBtn}
+            onClick={() => load({ refreshPlan: true })}
+            disabled={loading}
+          >
+            Regenerate Plan
+          </button>
+        </div>
+      </motion.div>
+
+      {error ? (
+        <motion.div className={classes.errorBanner} variants={presets.child}>
+          <span>{error}</span>
+          <button type="button" className={classes.retryBtn} onClick={load}>Retry</button>
+        </motion.div>
+      ) : null}
 
       <motion.div className={classes.statsGrid} variants={presets.statsStrip}>
-        <motion.div className={classes.statCard} variants={presets.child}>
-          <div className={classes.statIcon}><Target size={18} /></div>
-          <span className={classes.statLabel}>Average Score</span>
-          <span className={classes.statValue}>{summary?.avgScore ?? '—'}<span className={classes.statMax}>/100</span></span>
-        </motion.div>
-        <motion.div className={classes.statCard} variants={presets.child}>
-          <div className={classes.statIcon}><ClipboardCheck size={18} /></div>
-          <span className={classes.statLabel}>Reviewed Calls</span>
-          <span className={classes.statValue}>{summary?.reviewedCalls ?? '—'}</span>
-        </motion.div>
-        <motion.div className={classes.statCard} variants={presets.child}>
-          <div className={classes.statIcon}><TrendingUp size={18} /></div>
-          <span className={classes.statLabel}>Improvement</span>
-          <span className={classes.statValue}>{summary?.improvementPct ?? '—'}%</span>
-        </motion.div>
-        <motion.div className={classes.statCard} variants={presets.child}>
-          <div className={classes.statIcon}><Clock3 size={18} /></div>
-          <span className={classes.statLabel}>Pending Drills</span>
-          <span className={classes.statValue}>{summary?.pendingDrills ?? '—'}</span>
-        </motion.div>
+        <StatCard
+          icon={Target}
+          label="Average Score"
+          value={summary?.avgScore ?? null}
+          suffix="/100"
+          variants={presets.child}
+        />
+        <StatCard
+          icon={ClipboardCheck}
+          label="Reviewed Calls"
+          value={summary?.reviewedCalls ?? null}
+          variants={presets.child}
+        />
+        <StatCard
+          icon={TrendingUp}
+          label="Improvement"
+          value={summary?.improvementPct != null ? `${summary.improvementPct}%` : null}
+          variants={presets.child}
+        />
+        <StatCard
+          icon={Clock3}
+          label="Pending Drills"
+          value={summary?.pendingDrills ?? null}
+          variants={presets.child}
+        />
       </motion.div>
 
-      <motion.div className={classes.card} variants={presets.child}>
+      <motion.div className={`glass ${classes.sectionCard}`} variants={presets.child}>
         <div className={classes.cardHead}>
           <h3>Training Progress Trend</h3>
         </div>
         <div className={classes.chartWrap}>
-          {loading ? <p className={classes.empty}>Loading trend...</p> : null}
-          {!loading && !trend.length ? <p className={classes.empty}>No trend data for selected range.</p> : null}
-          <ResponsiveContainer key={chartRenderKey} width="100%" height={230}>
-            <LineChart data={trend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="day" tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
-              <YAxis domain={[0, 100]} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
-              <Tooltip
-                contentStyle={{
-                  background: 'var(--surface-container-high)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                }}
-                formatter={(v) => [`${v}/100`, 'Score']}
-              />
-              <Line type="monotone" dataKey="score" stroke="var(--brand-text)" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
+          {loading ? (
+            <div className={classes.chartEmpty}>
+              <p>Loading trend…</p>
+            </div>
+          ) : trend.length > 0 ? (
+            <ResponsiveContainer key={chartRenderKey} width="100%" height={230}>
+              <LineChart data={trend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+                  axisLine={{ stroke: 'var(--border)' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+                  axisLine={{ stroke: 'var(--border)' }}
+                  tickLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: 'color-mix(in srgb, var(--surface-container-highest) 92%, transparent)',
+                    border: '1px solid var(--glass-border)',
+                    borderRadius: 'var(--radius-lg)',
+                    backdropFilter: 'blur(12px)',
+                  }}
+                  formatter={(v) => [`${v}/100`, 'Score']}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="score"
+                  stroke="var(--brand-text)"
+                  strokeWidth={2}
+                  isAnimationActive={!reduceMotion}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className={classes.chartEmpty}>
+              <LineChartIcon size={32} className={classes.chartEmptyIcon} />
+              <h4>No trend data yet</h4>
+              <p>Try a wider date range or refresh after more calls are reviewed.</p>
+            </div>
+          )}
         </div>
       </motion.div>
 
       <motion.div className={classes.twoCol} variants={presets.child}>
-        <div className={classes.card}>
+        <div className={`glass ${classes.scorecardsPane}`}>
           <div className={classes.cardHead}>
             <h3><Filter size={16} /> Scorecards</h3>
             <div className={classes.filters}>
-              <select value={campaignFilter} onChange={(e) => setCampaignFilter(e.target.value)}>
+              <select
+                className={classes.filterSelect}
+                value={campaignFilter}
+                onChange={(e) => setCampaignFilter(e.target.value)}
+              >
                 {campaignOptions.map((o) => (
                   <option key={o} value={o}>{o === 'all' ? 'All campaigns' : o}</option>
                 ))}
               </select>
-              <select value={outcomeFilter} onChange={(e) => setOutcomeFilter(e.target.value)}>
+              <select
+                className={classes.filterSelect}
+                value={outcomeFilter}
+                onChange={(e) => setOutcomeFilter(e.target.value)}
+              >
                 <option value="all">All outcomes</option>
                 <option value="sale">Sale</option>
                 <option value="no-sale">No sale</option>
                 <option value="callback">Callback</option>
                 <option value="hangup">Hangup</option>
               </select>
-              <select value={minScoreFilter} onChange={(e) => setMinScoreFilter(e.target.value)}>
+              <select
+                className={classes.filterSelect}
+                value={minScoreFilter}
+                onChange={(e) => setMinScoreFilter(e.target.value)}
+              >
                 <option value="all">Any score</option>
                 <option value="70">70+</option>
                 <option value="80">80+</option>
@@ -299,7 +369,11 @@ const AITrainingPage = () => {
               <div className={classes.skeletonRow} />
             </div>
           ) : filteredScorecards.length === 0 ? (
-            <p className={classes.empty}>No scorecards match your filters.</p>
+            <div className={classes.emptyPanel}>
+              <Inbox size={28} className={classes.emptyPanelIcon} />
+              <h4>No scorecards match</h4>
+              <p>Adjust your filters or try a wider date range.</p>
+            </div>
           ) : (
             <div className={classes.list}>
               {filteredScorecards.map((row) => (
@@ -320,15 +394,22 @@ const AITrainingPage = () => {
           )}
         </div>
 
-        <div className={classes.card}>
+        <div className={`glass ${classes.detailPane}`}>
           <div className={classes.cardHead}><h3>Scorecard Details</h3></div>
           {!selectedScorecard ? (
-            <p className={classes.empty}>Select a scorecard to view training insights.</p>
+            <div className={classes.emptyPanel}>
+              <ClipboardCheck size={28} className={classes.emptyPanelIcon} />
+              <h4>Select a scorecard</h4>
+              <p>Choose a call from the list to view rubric scores and coaching feedback.</p>
+            </div>
           ) : (
             <div className={classes.detail}>
               <div className={classes.detailMeta}>
-                <span>{selectedScorecard.callId}</span>
-                <span>Confidence: {Math.round(selectedScorecard.confidence * 100)}%</span>
+                <span className={classes.metaChip}>{selectedScorecard.callId}</span>
+                <span className={classes.metaChip}>
+                  Confidence {Math.round(selectedScorecard.confidence * 100)}%
+                </span>
+                <span className={classes.metaChip}>{selectedScorecard.outcome}</span>
               </div>
 
               <div className={classes.rubric}>
@@ -346,11 +427,11 @@ const AITrainingPage = () => {
               </div>
 
               <div className={classes.feedbackBlocks}>
-                <div>
+                <div className={classes.feedbackPanel}>
                   <h4>What went well</h4>
                   <ul>{selectedScorecard.strengths.map((s) => <li key={s}>{s}</li>)}</ul>
                 </div>
-                <div>
+                <div className={classes.feedbackPanel}>
                   <h4>What to improve</h4>
                   <ul>{selectedScorecard.improvements.map((s) => <li key={s}>{s}</li>)}</ul>
                 </div>
@@ -360,26 +441,38 @@ const AITrainingPage = () => {
         </div>
       </motion.div>
 
-      <motion.div className={classes.card} variants={presets.child}>
+      <motion.div className={`glass ${classes.sectionCard}`} variants={presets.child}>
         <div className={classes.cardHead}>
           <h3>Recommended Drills</h3>
         </div>
         {!derivedDrills.length ? (
-          <p className={classes.empty}>No drills right now.</p>
+          <div className={classes.emptyPanel}>
+            <Target size={28} className={classes.emptyPanelIcon} />
+            <h4>No drills right now</h4>
+            <p>Drills appear when scorecards highlight areas to practice.</p>
+          </div>
         ) : (
           <div className={classes.drillGrid}>
             {derivedDrills.map((d) => (
               <div key={d.id} className={classes.drillCard}>
                 <div className={classes.drillTop}>
                   <h4>{d.title}</h4>
-                  <span className={`${classes.drillStatus} ${classes[`status${d.status.replace('-', '')}`]}`}>{d.status}</span>
+                  <span className={`${classes.statusBadge} ${statusClass(d.status)}`}>{d.status}</span>
                 </div>
                 <p className={classes.drillReason}>{d.reason}</p>
                 <p className={classes.drillScript}>{d.recommendedScript}</p>
                 <div className={classes.drillActions}>
-                  <button type="button" onClick={() => handleDrillState(d.id, 'in-progress')}>Start</button>
-                  <button type="button" onClick={() => handleDrillState(d.id, 'completed')}>Mark Complete</button>
-                  <button type="button" onClick={() => handleDrillState(d.id, 'snoozed')}>Snooze</button>
+                  <button type="button" className={classes.startBtn} onClick={() => handleDrillState(d.id, 'in-progress')}>
+                    Start
+                  </button>
+                  {d.status === 'in-progress' ? (
+                    <button type="button" className={classes.completeBtn} onClick={() => handleDrillState(d.id, 'completed')}>
+                      Mark Complete
+                    </button>
+                  ) : null}
+                  <button type="button" className={classes.snoozeBtn} onClick={() => handleDrillState(d.id, 'snoozed')}>
+                    Snooze
+                  </button>
                 </div>
               </div>
             ))}
@@ -388,10 +481,14 @@ const AITrainingPage = () => {
       </motion.div>
 
       <motion.div className={classes.twoCol} variants={presets.child}>
-        <div className={classes.card}>
+        <div className={`glass ${classes.sectionCard}`}>
           <div className={classes.cardHead}><h3>Guided Improvement Plan</h3></div>
           {!coachingPlan?.focusAreas?.length ? (
-            <p className={classes.empty}>No guided plan generated yet. Refresh to regenerate from recent calls.</p>
+            <div className={classes.emptyPanel}>
+              <Brain size={28} className={classes.emptyPanelIcon} />
+              <h4>No guided plan yet</h4>
+              <p>Use Regenerate Plan to build a plan from recent calls.</p>
+            </div>
           ) : (
             <div className={classes.guidedList}>
               {coachingPlan.focusAreas.map((area) => (
@@ -404,61 +501,114 @@ const AITrainingPage = () => {
                   <ul>
                     {(area.steps || []).map((step) => <li key={step}>{step}</li>)}
                   </ul>
-                  <p className={classes.scriptLine}>{area.scriptExample}</p>
+                  <p className={classes.scriptQuote}>{area.scriptExample}</p>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        <div className={classes.card}>
+        <div className={`glass ${classes.sectionCard}`}>
           <div className={classes.cardHead}><h3>Impact Tracker</h3></div>
           {!coachingImpact?.competencies?.length ? (
-            <p className={classes.empty}>No impact data yet for this window.</p>
+            <div className={classes.emptyPanel}>
+              <TrendingUp size={28} className={classes.emptyPanelIcon} />
+              <h4>No impact data yet</h4>
+              <p>Impact metrics appear after coaching tasks are completed.</p>
+            </div>
           ) : (
             <div className={classes.impactGrid}>
-              {coachingImpact.competencies.map((row) => (
-                <div key={row.key} className={classes.impactRow}>
-                  <strong>{row.competency}</strong>
-                  <span>{row.baselineScore} {'->'} {row.currentScore}</span>
-                  <b className={row.delta >= 0 ? classes.deltaUp : classes.deltaDown}>
-                    {row.delta >= 0 ? `+${row.delta}` : row.delta}
-                  </b>
-                </div>
-              ))}
+              {coachingImpact.competencies.map((row) => {
+                const pct = Math.min(100, Math.max(0, row.currentScore));
+                return (
+                  <div key={row.key} className={classes.impactRow}>
+                    <strong>{row.competency}</strong>
+                    <span>{row.baselineScore} → {row.currentScore}</span>
+                    <span className={`${classes.deltaPill} ${row.delta >= 0 ? classes.deltaUp : classes.deltaDown}`}>
+                      {row.delta >= 0 ? `+${row.delta}` : row.delta}
+                    </span>
+                    <div className={classes.impactBarWrap}>
+                      <div className={classes.impactBar} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
       </motion.div>
 
-      <motion.div className={classes.card} variants={presets.child}>
+      <motion.div className={`glass ${classes.sectionCard}`} variants={presets.child}>
         <div className={classes.cardHead}><h3>Task Checklist</h3></div>
         {!coachingTasks.length ? (
-          <p className={classes.empty}>No coaching tasks yet.</p>
+          <div className={classes.emptyPanel}>
+            <ListChecks size={28} className={classes.emptyPanelIcon} />
+            <h4>No coaching tasks yet</h4>
+            <p>Tasks are generated with your guided improvement plan.</p>
+          </div>
         ) : (
           <div className={classes.taskList}>
-            {coachingTasks.map((task) => (
-              <div key={task.id} className={classes.taskRow}>
-                <div className={classes.taskMeta}>
-                  <strong>{task.title || `${task.competency} task`}</strong>
-                  <span>{task.competency}</span>
+            {coachingTasks.map((task) => {
+              const draft = taskDraftById[task.id] ?? task.evidenceNote ?? '';
+              const showEvidence = task.status === 'in-progress' || task.status === 'blocked';
+              const canComplete = String(draft).trim().length >= 10;
+
+              return (
+                <div key={task.id} className={classes.taskCard}>
+                  <div className={classes.taskHeader}>
+                    <div>
+                      <strong>{task.title || `${task.competency} task`}</strong>
+                    </div>
+                    <span className={classes.competencyChip}>{task.competency}</span>
+                  </div>
+
+                  <span className={`${classes.statusBadge} ${statusClass(task.status)}`}>
+                    {task.status || 'new'}
+                  </span>
+
+                  {showEvidence ? (
+                    <>
+                      <textarea
+                        className={classes.taskEvidence}
+                        placeholder="Add evidence note (min. 10 characters to complete)"
+                        value={draft}
+                        onChange={(e) => setTaskDraftById((prev) => ({ ...prev, [task.id]: e.target.value }))}
+                      />
+                      {!canComplete ? (
+                        <p className={classes.taskEvidenceHint}>
+                          {10 - String(draft).trim().length} more characters needed to complete
+                        </p>
+                      ) : null}
+                    </>
+                  ) : null}
+
+                  <div className={classes.taskActions}>
+                    <button
+                      type="button"
+                      className={classes.taskStartBtn}
+                      onClick={() => handleCoachingTaskUpdate(task.id, 'in-progress')}
+                    >
+                      Start
+                    </button>
+                    <button
+                      type="button"
+                      className={classes.taskBlockBtn}
+                      onClick={() => handleCoachingTaskUpdate(task.id, 'blocked')}
+                    >
+                      Block
+                    </button>
+                    <button
+                      type="button"
+                      className={classes.taskCompleteBtn}
+                      disabled={!canComplete}
+                      onClick={() => handleCoachingTaskUpdate(task.id, 'completed')}
+                    >
+                      Complete
+                    </button>
+                  </div>
                 </div>
-                <textarea
-                  className={classes.taskNote}
-                  placeholder="Add evidence note (required for complete)"
-                  value={taskDraftById[task.id] ?? task.evidenceNote ?? ''}
-                  onChange={(e) => setTaskDraftById((prev) => ({ ...prev, [task.id]: e.target.value }))}
-                />
-                <div className={classes.taskActions}>
-                  <button type="button" onClick={() => handleCoachingTaskUpdate(task.id, 'in-progress')}>Start</button>
-                  <button type="button" onClick={() => handleCoachingTaskUpdate(task.id, 'blocked')}>Block</button>
-                  <button type="button" onClick={() => handleCoachingTaskUpdate(task.id, 'completed')}>Complete</button>
-                </div>
-                <span className={`${classes.drillStatus} ${classes[`status${String(task.status || 'new').replace('-', '')}`]}`}>
-                  {task.status || 'new'}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </motion.div>

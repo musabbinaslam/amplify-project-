@@ -1,20 +1,17 @@
+/* ─── Brand column (shared with login) ─── */
 .logoBlock {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 12px;
-  margin-bottom: 22px;
+  margin-bottom: 20px;
 }
 
 .logoImg {
-  width: 80px;
-  height: 150px;
-  border-radius: 0;
+  width: auto;
+  height: 72px;
+  max-height: 120px;
   object-fit: contain;
-  object-position: center;
   display: block;
-  filter: drop-shadow(0 0 16px var(--brand-glow));
-  margin-top: 0;
 }
 
 .logoText {
@@ -26,56 +23,87 @@
 }
 
 .eyebrow {
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 5px 12px;
+  margin-bottom: 14px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--brand-text);
-  margin-bottom: 10px;
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+  border-radius: var(--radius-full);
 }
 
 .heading {
-  text-align: center;
-  font-size: clamp(26px, 4.5vw, 32px);
+  font-size: clamp(28px, 4vw, 36px);
   font-weight: 800;
   color: var(--text-primary);
-  margin-bottom: 8px;
+  margin: 0 0 10px;
   letter-spacing: -0.03em;
   line-height: 1.15;
 }
 
 .subtitle {
-  text-align: center;
   font-size: 15px;
   line-height: 1.5;
   color: var(--text-secondary);
-  margin-bottom: 24px;
+  margin: 0 0 24px;
   font-weight: 500;
   max-width: 36ch;
-  margin-left: auto;
-  margin-right: auto;
 }
 
+.backHomeLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 10px 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.backHomeLink:hover {
+  background: var(--surface-container-high);
+  border-color: color-mix(in srgb, var(--brand-text) 20%, var(--glass-border));
+  color: var(--brand-text);
+}
+
+.backHomeLink:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--brand-dim);
+}
+
+/* ─── Form panel ─── */
 .referralBanner {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 12px 16px;
+  padding: 10px 14px;
   border-radius: var(--radius-lg);
-  margin-bottom: 20px;
-  font-size: 13px;
+  margin-bottom: 16px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.45;
   color: var(--brand-text);
-  background: color-mix(in srgb, var(--brand-dim) 55%, transparent);
-  border: 1px solid color-mix(in srgb, var(--brand-solid) 35%, transparent);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
 }
 
 .referralIcon {
   flex-shrink: 0;
   margin-top: 1px;
-  opacity: 0.9;
   font-size: 14px;
 }
 
@@ -88,17 +116,28 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+
+.spanFull {
+  grid-column: 1 / -1;
 }
 
 .fieldGroup {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
 }
 
 .label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -111,30 +150,25 @@
 .input,
 .select {
   width: 100%;
-  padding: 14px 16px;
-  background: color-mix(in srgb, var(--surface-container) 88%, transparent);
-  border: 1px solid color-mix(in srgb, var(--text-primary) 10%, transparent);
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: 14px;
   font-family: inherit;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .input::placeholder {
   color: var(--text-tertiary);
 }
 
-.input:hover,
-.select:hover {
-  border-color: color-mix(in srgb, var(--text-primary) 16%, transparent);
-}
-
 .input:focus,
 .select:focus {
-  border-color: var(--brand-text);
-  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
+  border-color: color-mix(in srgb, var(--brand-text) 35%, var(--glass-border));
+  background: color-mix(in srgb, var(--surface-container-highest) 90%, transparent);
 }
 
 .input:focus-visible,
@@ -146,7 +180,7 @@
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b6b6b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-color: color-mix(in srgb, var(--surface-container) 88%, transparent);
+  background-color: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
   background-position: right 14px center;
   padding-right: 40px;
   cursor: pointer;
@@ -162,27 +196,27 @@
   gap: 0;
   align-items: stretch;
   border-radius: var(--radius-lg);
-  border: 1px solid color-mix(in srgb, var(--text-primary) 10%, transparent);
+  border: 1px solid var(--glass-border);
   overflow: hidden;
-  background: color-mix(in srgb, var(--surface-container) 88%, transparent);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .phoneRow:focus-within {
-  border-color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 35%, var(--glass-border));
   box-shadow: 0 0 0 3px var(--brand-dim);
 }
 
 .countrySelect {
   flex: 0 0 min(42%, 200px);
   min-width: 0;
-  padding: 14px 28px 14px 12px;
-  background-color: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
+  padding: 12px 28px 12px 12px;
+  background-color: color-mix(in srgb, var(--surface-container-highest) 85%, transparent);
   border: none;
-  border-right: 1px solid color-mix(in srgb, var(--text-primary) 10%, transparent);
+  border-right: 1px solid var(--glass-border);
   border-radius: 0;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 12px;
   font-family: inherit;
   outline: none;
   cursor: pointer;
@@ -192,33 +226,19 @@
   background-position: right 10px center;
 }
 
-.countrySelect:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--brand-text);
-}
-
-.countrySelect option {
-  background: var(--surface-container);
-  color: var(--text-primary);
-}
-
 .phoneInput,
 .phoneInput:focus {
   flex: 1;
   min-width: 0;
-  padding: 14px 16px;
+  padding: 12px 14px;
   background: transparent !important;
-  background-color: transparent !important;
   border: none !important;
   border-radius: 0 !important;
   box-shadow: none !important;
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: 14px;
   font-family: inherit;
   outline: none;
-}
-
-.phoneInput:focus-visible {
-  box-shadow: none !important;
 }
 
 .phoneInput::placeholder {
@@ -227,8 +247,7 @@
 
 .radioGroup {
   display: flex;
-  gap: 20px;
-  padding-top: 4px;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
@@ -236,22 +255,22 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-primary);
   cursor: pointer;
 }
 
 .radioInput {
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border: 2px solid color-mix(in srgb, var(--text-primary) 18%, transparent);
   border-radius: 50%;
   background: transparent;
   cursor: pointer;
   position: relative;
   flex-shrink: 0;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.15s ease;
 }
 
 .radioInput:focus-visible {
@@ -266,25 +285,52 @@
 .radioInput:checked::after {
   content: '';
   position: absolute;
-  top: 3px;
-  left: 3px;
+  top: 2px;
+  left: 2px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--brand-text);
-  box-shadow: 0 0 8px var(--brand-glow);
 }
 
-.verticalsList {
+.verticalsWrap {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding-top: 4px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.verticalPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 75%, transparent);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.verticalPill:has(.radioInput:checked) {
+  border-color: color-mix(in srgb, var(--brand-text) 30%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  color: var(--brand-text);
+}
+
+.verticalPill .radioInput {
+  width: 0;
+  height: 0;
+  opacity: 0;
+  position: absolute;
+  pointer-events: none;
 }
 
 .submitBtn {
   width: 100%;
-  padding: 16px 18px;
+  padding: 14px 16px;
   background: var(--brand-solid);
   color: var(--brand-on);
   font-size: 15px;
@@ -293,18 +339,13 @@
   border: none;
   border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-  margin-top: 6px;
-  box-shadow:
-    0 4px 16px var(--brand-glow),
-    inset 0 1px 0 color-mix(in srgb, #ffffff 22%, transparent);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  margin-top: 4px;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 18%, transparent);
 }
 
 .submitBtn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow:
-    0 8px 28px color-mix(in srgb, var(--brand-glow) 80%, transparent),
-    inset 0 1px 0 color-mix(in srgb, #ffffff 22%, transparent);
+  opacity: 0.92;
 }
 
 .submitBtn:active:not(:disabled) {
@@ -314,15 +355,11 @@
 .submitBtn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
 .submitBtn:focus-visible {
   outline: none;
-  box-shadow:
-    0 0 0 3px var(--brand-dim),
-    0 4px 16px var(--brand-glow);
+  box-shadow: 0 0 0 3px var(--brand-dim);
 }
 
 .googleBtn {
@@ -331,22 +368,21 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 14px 16px;
-  background: color-mix(in srgb, var(--surface-container) 72%, transparent);
-  border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
-  margin-bottom: 4px;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .googleBtn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--surface-container-high) 85%, transparent);
-  border-color: color-mix(in srgb, var(--text-primary) 18%, transparent);
+  background: var(--surface-container-high);
+  border-color: color-mix(in srgb, var(--brand-text) 20%, var(--glass-border));
 }
 
 .googleBtn:disabled {
@@ -367,17 +403,17 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 4px;
+  margin: 8px 0;
 }
 
 .dividerLine {
   flex: 1;
   height: 1px;
-  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+  background: color-mix(in srgb, var(--glass-border) 80%, transparent);
 }
 
 .dividerText {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -386,7 +422,7 @@
 
 .footer {
   text-align: center;
-  margin-top: 24px;
+  margin-top: 20px;
   font-size: 14px;
   color: var(--text-secondary);
 }
@@ -394,12 +430,10 @@
 .footerLink {
   color: var(--brand-text);
   font-weight: 600;
-  cursor: pointer;
   transition: opacity 0.2s;
 }
 
 .footerLink:hover {
-  color: var(--brand-text);
   opacity: 0.85;
 }
 
@@ -409,30 +443,35 @@
   box-shadow: 0 0 0 2px var(--brand-dim);
 }
 
-.backHomeLink {
-  display: inline-flex;
-  justify-content: center;
-  width: 100%;
-  margin-top: 14px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--brand-text);
-  text-decoration: none;
-  transition: opacity 0.2s ease;
-}
+@media (max-width: 1023px) {
+  .logoBlock {
+    justify-content: center;
+  }
 
-.backHomeLink:hover {
-  opacity: 0.85;
-}
+  .eyebrow {
+    align-self: center;
+  }
 
-.backHomeLink:focus-visible {
-  outline: none;
-  border-radius: 6px;
-  box-shadow: 0 0 0 2px var(--brand-dim);
+  .heading,
+  .subtitle {
+    text-align: center;
+    margin-inline: auto;
+  }
+
+  .backHomeLink {
+    align-self: center;
+  }
+
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .spanFull {
+    grid-column: auto;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .submitBtn:hover:not(:disabled),
   .submitBtn:active:not(:disabled) {
     transform: none;
   }
