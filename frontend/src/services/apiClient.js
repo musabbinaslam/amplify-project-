@@ -19,7 +19,7 @@ async function getBearerToken(getIdToken) {
  * @param {RequestInit} options
  * @param {(() => Promise<string|null>)|string|null} getIdToken
  */
-export async function apiFetch(path, options = {}, getIdToken) {
+export async function apiFetch(path, options = {}, getIdToken, _isRetry = false) {
   const token = await getBearerToken(getIdToken);
   if (!token) {
     throw new Error('Not signed in');
@@ -54,6 +54,19 @@ export async function apiFetch(path, options = {}, getIdToken) {
   let data = isJson ? await res.json().catch(() => ({})) : null;
 
   if (!res.ok) {
+    if (res.status === 401 && !_isRetry) {
+      const u = auth?.currentUser;
+      if (u) {
+        try {
+          console.warn('[apiClient] Received 401, forcing Firebase token refresh and retrying...');
+          await u.getIdToken(true); // force refresh
+          return await apiFetch(path, options, getIdToken, true);
+        } catch (refreshErr) {
+          console.warn('[apiClient] Force-refresh failed:', refreshErr);
+        }
+      }
+    }
+
     const msg =
       typeof data?.error === 'string' && data.error.trim()
         ? data.error
