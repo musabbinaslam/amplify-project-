@@ -31,6 +31,7 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ReferralProgramPage = lazy(() => import('./pages/ReferralProgramPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const AdminAITrainingPage = lazy(() => import('./pages/AdminAITrainingPage'));
+const AdminNotificationSettingsPage = lazy(() => import('./pages/AdminNotificationSettingsPage'));
 
 const QaDashboardPage = lazy(() => import('./pages/QaDashboardPage'));
 const QaAITrainingPage = lazy(() => import('./pages/QaAITrainingPage'));
@@ -152,6 +153,13 @@ const AnimatedRoutes = () => {
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
                 <AdminAITrainingPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/notifications" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminNotificationSettingsPage />
               </AdminOnly>
             </Suspense>
           } />

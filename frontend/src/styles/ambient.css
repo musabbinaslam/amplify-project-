@@ -1,0 +1,123 @@
+/* App-wide ambient gradient — brand-aware, glass-friendly (see docs/DESIGN.md §6) */
+.appAmbient {
+  position: relative;
+  background-color: var(--surface);
+}
+
+/* Full-viewport wash — vivid cores, multi-stop falloff to --surface (no blur clip) */
+.appAmbient::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-color: var(--surface);
+  background-image:
+    radial-gradient(
+      145% 105% at 14% -6%,
+      color-mix(in srgb, var(--brand) 38%, var(--surface)) 0%,
+      color-mix(in srgb, var(--brand) 16%, var(--surface)) 30%,
+      color-mix(in srgb, var(--brand) 5%, var(--surface)) 54%,
+      var(--surface) 78%
+    ),
+    radial-gradient(
+      115% 92% at 98% 6%,
+      color-mix(in srgb, var(--brand) 26%, var(--surface)) 0%,
+      color-mix(in srgb, var(--brand) 10%, var(--surface)) 34%,
+      color-mix(in srgb, var(--brand) 3%, var(--surface)) 56%,
+      var(--surface) 76%
+    ),
+    radial-gradient(
+      135% 98% at 50% 108%,
+      color-mix(in srgb, var(--brand) 22%, var(--surface)) 0%,
+      color-mix(in srgb, var(--brand) 8%, var(--surface)) 36%,
+      color-mix(in srgb, var(--brand) 3%, var(--surface)) 58%,
+      var(--surface) 78%
+    ),
+    radial-gradient(
+      90% 75% at 52% 46%,
+      color-mix(in srgb, var(--brand) 12%, var(--surface)) 0%,
+      color-mix(in srgb, var(--brand) 4%, var(--surface)) 42%,
+      var(--surface) 82%
+    ),
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--brand) 7%, var(--surface)) 0%,
+      var(--surface) 42%,
+      color-mix(in srgb, var(--brand) 5%, var(--surface)) 100%
+    );
+  background-size: 122% 122%, 122% 122%, 122% 122%, 118% 118%, 100% 100%;
+  background-repeat: no-repeat;
+  animation: ambientDrift 85s ease-in-out infinite alternate;
+}
+
+/* Light grain — breaks banding without flattening color */
+.appAmbient::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.024;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+[data-theme="light"] .appAmbient::before {
+  background-image:
+    radial-gradient(
+      145% 105% at 14% -6%,
+      color-mix(in srgb, var(--brand) 46%, var(--surface)) 0%,
+      color-mix(in srgb, var(--brand) 20%, var(--surface)) 30%,
+      color-mix(in srgb, var(--brand) 7%, var(--surface)) 54%,
+      var(--surface) 78%
+    ),
+    radial-gradient(
+      115% 92% at 98% 6%,
+      color-mix(in srgb, var(--brand) 32%, var(--surface)) 0%,
+      color-mix(in srgb, var(--brand) 13%, var(--surface)) 34%,
+      color-mix(in srgb, var(--brand) 4%, var(--surface)) 56%,
+      var(--surface) 76%
+    ),
+    radial-gradient(
+      135% 98% at 50% 108%,
+      color-mix(in srgb, var(--brand) 28%, var(--surface)) 0%,
+      color-mix(in srgb, var(--brand) 10%, var(--surface)) 36%,
+      color-mix(in srgb, var(--brand) 4%, var(--surface)) 58%,
+      var(--surface) 78%
+    ),
+    radial-gradient(
+      90% 75% at 52% 46%,
+      color-mix(in srgb, var(--brand) 16%, var(--surface)) 0%,
+      color-mix(in srgb, var(--brand) 6%, var(--surface)) 42%,
+      var(--surface) 82%
+    ),
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--brand) 10%, var(--surface)) 0%,
+      var(--surface) 42%,
+      color-mix(in srgb, var(--brand) 8%, var(--surface)) 100%
+    );
+}
+
+[data-theme="light"] .appAmbient::after {
+  opacity: 0.018;
+  mix-blend-mode: soft-light;
+}
+
+@keyframes ambientDrift {
+  0% {
+    background-position: 0% 0%, 100% 0%, 50% 100%, 48% 44%, 0% 0%;
+  }
+  100% {
+    background-position: 14% 10%, 86% 5%, 48% 90%, 54% 50%, 0% 0%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appAmbient::before {
+    animation: none;
+    background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  }
+}

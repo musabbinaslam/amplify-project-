@@ -1,16 +1,35 @@
-.welcomePage {
+.page {
+  position: relative;
   display: flex;
   flex-direction: column;
-  max-width: 1000px;
-  margin: 0 auto;
+  gap: 24px;
+  padding-bottom: 32px;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
+.contentColumn {
+  width: min(100%, 1440px);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .title {
-  font-size: 32px;
+  margin: 0;
+  font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  margin-bottom: 8px;
   color: var(--text-primary);
+  line-height: 1.2;
 }
 
 .wave {
@@ -19,25 +38,17 @@
   animation: wave 1.8s ease-in-out infinite;
 }
 
+.waveReduced {
+  animation: none;
+}
+
 @keyframes wave {
-  0%, 100% {
-    transform: rotate(0deg);
-  }
-  10% {
-    transform: rotate(14deg);
-  }
-  20% {
-    transform: rotate(-8deg);
-  }
-  30% {
-    transform: rotate(14deg);
-  }
-  40% {
-    transform: rotate(-4deg);
-  }
-  50%, 100% {
-    transform: rotate(0deg);
-  }
+  0%, 100% { transform: rotate(0deg); }
+  10% { transform: rotate(14deg); }
+  20% { transform: rotate(-8deg); }
+  30% { transform: rotate(14deg); }
+  40% { transform: rotate(-4deg); }
+  50%, 100% { transform: rotate(0deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -47,85 +58,131 @@
 }
 
 .subtitle {
+  margin: 0;
   color: var(--text-secondary);
-  font-size: 16px;
-  margin-bottom: 40px;
+  font-size: 14px;
   font-weight: 500;
+  line-height: 1.45;
 }
 
-.videoContainer {
-  background: var(--surface-container-low);
-  border: none;
-  border-radius: var(--radius-xl);
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0,0,0, 0.4);
+/* ─── Video card ─── */
+.videoCard {
+  padding: 22px 24px;
 }
 
-.videoHeader {
+.videoCard > * {
+  position: relative;
+  z-index: 1;
+}
+
+.cardHeader {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
-  padding: 32px;
+  gap: 14px;
+  margin-bottom: 0;
 }
 
-.playIcon {
+.iconBox {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   color: var(--brand-text);
-  margin-top: 4px;
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
 }
 
-.videoHeader h2 {
+.cardHeaderText h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--text-primary);
-  font-size: 24px;
-  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 
-.videoHeader p {
+.cardHeaderText p {
+  margin: 0;
+  font-size: 14px;
   color: var(--text-secondary);
-  font-size: 15px;
+  line-height: 1.45;
+}
+
+.cardDivider {
+  height: 1px;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+  margin: 18px 0 20px;
+}
+
+.videoShell {
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }
 
 .videoPlayer {
   position: relative;
   width: 100%;
+  max-width: 100%;
   aspect-ratio: 16 / 9;
-  background: var(--surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-container-high);
 }
 
-.thumbnail {
+.videoFrame {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  opacity: 0.6;
+  border: none;
 }
 
-.playLayer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 48px;
-  z-index: 10;
+/* ─── Responsive ─── */
+@media (max-height: 760px) {
+  .videoPlayer {
+    width: min(100%, calc(min(52vh, 540px) * 16 / 9));
+    margin-inline: auto;
+  }
 }
 
-.playBubble {
-  width: 80px;
-  height: 50px;
-  background: var(--brand-solid);
-  color: var(--brand-on);
-  border-radius: var(--radius-lg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 0 20px var(--brand-glow);
+@media (max-width: 1024px) {
+  .videoCard {
+    padding: 20px 22px;
+  }
 }
 
-.playBubble:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 30px var(--brand-glow);
+@media (max-width: 768px) {
+  .contentColumn {
+    gap: 20px;
+  }
+
+  .videoCard {
+    padding: 18px 20px;
+  }
+
+  .cardHeader {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .title {
+    font-size: 22px;
+  }
+
+  .videoCard {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) and (max-height: 760px) {
+  .videoPlayer {
+    width: min(100%, calc(min(44vh, 360px) * 16 / 9));
+  }
 }

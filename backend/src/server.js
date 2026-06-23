@@ -24,6 +24,9 @@ require('./queues/qaQueue');
 
 const app = express();
 const server = http.createServer(app);
+// Keep-alive slightly above typical reverse-proxy idle timeouts to avoid ERR_CONNECTION_CLOSED.
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
 
 // Trust reverse proxy headers (required for Hostinger / any proxy-hosted environment)
 // Without this, express-rate-limit throws a ValidationError on X-Forwarded-For

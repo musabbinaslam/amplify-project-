@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   MessageSquare,
   Send,
@@ -145,6 +145,7 @@ const SupportPage = () => {
         {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
+          isError: true,
           text:
             err?.message?.trim() || 'Sorry, something went wrong. Please try again.',
         },
@@ -170,15 +171,21 @@ const SupportPage = () => {
 
   const userInitial = user?.name?.charAt(0)?.toUpperCase() || 'U';
 
+  const bubbleClass = (msg) => {
+    if (msg.role === 'user') return classes.userBubble;
+    if (msg.isError) return classes.errorBubble;
+    return classes.botBubble;
+  };
+
   return (
     <motion.div
-      className={classes.supportPage}
+      className={classes.page}
       variants={presets.root}
       initial="hidden"
       animate="visible"
     >
-      <motion.div className={classes.header} variants={presets.child}>
-        <div className={classes.iconBox}><MessageSquare size={24} /></div>
+      <motion.div className={classes.pageHeader} variants={presets.child}>
+        <div className={classes.iconBox}><MessageSquare size={22} /></div>
         <div>
           <h2>Support</h2>
           <p>Get help from Agent Calls Bot and our support team</p>
@@ -186,7 +193,15 @@ const SupportPage = () => {
       </motion.div>
 
       <motion.div className={classes.twoCol} variants={presets.child}>
-        <div className={classes.chatContainer}>
+        <div className={`glass ${classes.chatPane}`}>
+          <div className={classes.chatHeader}>
+            <div className={classes.chatHeaderTitle}>
+              <Bot size={16} />
+              Support Bot
+            </div>
+            <span className={classes.chatStatus}>Online</span>
+          </div>
+
           <div className={classes.messageList}>
             {messages.map((msg) => (
               <div
@@ -198,9 +213,7 @@ const SupportPage = () => {
                     <Bot size={18} />
                   </div>
                 )}
-                <div
-                  className={`${classes.bubble} ${msg.role === 'user' ? classes.userBubble : classes.botBubble}`}
-                >
+                <div className={`${classes.bubble} ${bubbleClass(msg)}`}>
                   {msg.text}
                 </div>
                 {msg.role === 'user' && (
@@ -227,7 +240,7 @@ const SupportPage = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          <div className={classes.inputArea}>
+          <div className={classes.inputChrome}>
             <textarea
               ref={textareaRef}
               className={classes.chatInput}
@@ -242,59 +255,65 @@ const SupportPage = () => {
               className={classes.sendBtn}
               onClick={handleSend}
               disabled={!input.trim() || typing}
+              aria-label="Send message"
             >
               <Send size={18} />
             </button>
           </div>
         </div>
 
-        <div className={classes.emailCard}>
-          <h3><Mail size={18} /> Email Support</h3>
-          <p className={classes.emailNote}>
+        <div className={`glass ${classes.emailPane}`}>
+          <div className={classes.cardHead}>
+            <h3><Mail size={18} /> Email Support</h3>
+          </div>
+          <p className={classes.cardSubtitle}>
             Describe your issue and our team will respond within 24 hours.
           </p>
 
-          <div className={classes.emailForm}>
-            <div className={classes.emailGroup}>
-              <label>Subject</label>
+          <div className={classes.emailFields}>
+            <div className={classes.formGroup}>
+              <div className={classes.formLabel}>Subject</div>
               <input
                 type="text"
-                className={classes.emailInput}
+                className={classes.formInput}
                 value={emailSubject}
                 onChange={(e) => setEmailSubject(e.target.value)}
                 placeholder="Brief summary of your issue"
               />
             </div>
 
-            <div className={classes.emailGroup}>
-              <label>Category</label>
-              <CustomSelect
-                options={CATEGORIES.map((c) => ({ value: c, label: c }))}
-                value={emailCategory}
-                onChange={setEmailCategory}
-                placeholder="Select a category"
-              />
+            <div className={classes.formGroup}>
+              <div className={classes.formLabel}>Category</div>
+              <div className={classes.selectField}>
+                <CustomSelect
+                  options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+                  value={emailCategory}
+                  onChange={setEmailCategory}
+                  placeholder="Select a category"
+                  className={classes.supportSelect}
+                />
+              </div>
             </div>
 
-            <div className={classes.emailGroup}>
-              <label>Description</label>
+            <div className={classes.formGroup}>
+              <div className={classes.formLabel}>Description</div>
               <textarea
-                className={classes.emailTextarea}
+                className={classes.formTextarea}
                 value={emailBody}
                 onChange={(e) => setEmailBody(e.target.value)}
                 placeholder="Describe your issue in detail..."
-                rows={5}
+                rows={3}
               />
             </div>
 
-            <div className={classes.emailGroup}>
-              <label>
+            <div className={classes.formGroup}>
+              <div className={classes.formLabel}>
                 Attachments
                 <span className={classes.attachmentHint}>
                   (optional · up to {SUPPORT_ATTACHMENT_LIMITS.maxFiles} files,{' '}
                   {SUPPORT_ATTACHMENT_LIMITS.maxFileBytes / (1024 * 1024)} MB each)
                 </span>
-              </label>
+              </div>
 
               <input
                 ref={fileInputRef}
@@ -347,10 +366,12 @@ const SupportPage = () => {
                 </ul>
               )}
             </div>
+          </div>
 
+          <div className={classes.formActions}>
             <button
               type="button"
-              className={classes.emailSubmitBtn}
+              className={classes.submitBtn}
               onClick={handleSendEmail}
               disabled={!canSendEmail}
             >

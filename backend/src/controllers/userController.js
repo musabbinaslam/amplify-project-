@@ -813,27 +813,55 @@ async function patchMe(req, res) {
         body.brandColor = v;
       }
     }
+    const ALLOWED_STATE_CODES = new Set([
+      'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',
+      'HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
+      'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
+      'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
+      'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
+    ]);
+    const cleanStateCodes = (raw) => {
+      const cleaned = [];
+      if (!Array.isArray(raw)) return cleaned;
+      for (const v of raw) {
+        const code = String(v || '').trim().toUpperCase();
+        if (!code) continue;
+        if (!ALLOWED_STATE_CODES.has(code)) continue;
+        if (cleaned.includes(code)) continue;
+        cleaned.push(code);
+        if (cleaned.length >= 60) break;
+      }
+      return cleaned;
+    };
     if ('licensedStates' in body) {
       const raw = body.licensedStates;
       if (!Array.isArray(raw)) {
         return res.status(400).json({ error: 'licensedStates must be an array of state codes' });
       }
-      const allowed = new Set([
-        'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',
-        'HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
-        'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
-        'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
-        'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
-      ]);
-      const cleaned = [];
-      for (const v of raw) {
-        const code = String(v || '').trim().toUpperCase();
-        if (!code) continue;
-        if (!allowed.has(code)) continue;
-        cleaned.push(code);
-        if (cleaned.length >= 60) break;
+      body.licensedStates = cleanStateCodes(raw);
+    }
+    if ('statePresets' in body) {
+      const raw = body.statePresets;
+      if (!Array.isArray(raw)) {
+        return res.status(400).json({ error: 'statePresets must be an array' });
       }
-      body.licensedStates = cleaned;
+      const cleaned = [];
+      const seenIds = new Set();
+      for (const item of raw) {
+        if (!item || typeof item !== 'object') continue;
+        const name = String(item.name || '').trim().slice(0, 40);
+        if (!name) continue;
+        const states = cleanStateCodes(item.states);
+        if (states.length === 0) continue;
+        let id = String(item.id || '').trim().slice(0, 64);
+        if (!id || seenIds.has(id)) {
+          id = `preset_${Date.now()}_${cleaned.length}`;
+        }
+        seenIds.add(id);
+        cleaned.push({ id, name, states });
+        if (cleaned.length >= 20) break;
+      }
+      body.statePresets = cleaned;
     }
     await mergeUserDoc(req.user.uid, body);
     const data = await getUserDoc(req.user.uid);

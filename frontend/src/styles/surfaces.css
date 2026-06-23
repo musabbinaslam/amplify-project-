@@ -1,0 +1,53 @@
+/* Frosted glass card/panel surface (see docs/DESIGN.md) */
+.glass {
+  position: relative;
+  isolation: isolate;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-highlight), var(--glass-edge);
+  transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+/* Light-mode top sheen — subtle; must not flatten cards into solid white */
+[data-theme="light"] .glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.28) 0%,
+    rgba(255, 255, 255, 0.04) 38%,
+    transparent 100%
+  );
+}
+
+[data-theme="light"] .glass:hover {
+  border-color: color-mix(in srgb, var(--brand-text) 18%, var(--glass-border));
+}
+
+.glass:hover {
+  background: var(--glass-bg-hover);
+  border-color: color-mix(in srgb, var(--brand-text) 18%, var(--glass-border));
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: var(--surface-container-low);
+  }
+
+  [data-theme="light"] .glass {
+    background: #ffffff;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass {
+    transition: none;
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import {
   Save,
   Loader,
@@ -24,6 +24,8 @@ import { motion } from 'framer-motion';
 import { getApiBaseUrl } from '../config/apiBase';
 import useAuthStore from '../store/authStore';
 import PageLoader from '../components/ui/PageLoader';
+import DeleteNoteModal from '../components/modals/DeleteNoteModal';
+import LinkNoteModal from '../components/modals/LinkNoteModal';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import classes from './NotesPage.module.css';
 
@@ -75,13 +77,15 @@ function htmlToPlainText(html = '') {
 const NotesPage = () => {
   const presets = useSubtlePageMotion();
   const token = useAuthStore((s) => s.token);
-  
+
   const [notes, setNotes] = useState([]);
   const [activeNoteId, setActiveNoteId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showLinkModal, setShowLinkModal] = useState(false);
   const [toolbarState, setToolbarState] = useState({
     bold: false,
     italic: false,
@@ -94,15 +98,14 @@ const NotesPage = () => {
     quote: false,
     link: false,
   });
-  
+
   const saveTimeoutRef = useRef(null);
   const editorRef = useRef(null);
-  const deleteContainerRef = useRef(null);
 
   const fetchNotes = async () => {
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/users/me/notes`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to load notes');
       const data = await res.json();
@@ -112,8 +115,7 @@ const NotesPage = () => {
         return { ...note, text, textHtml };
       });
       setNotes(hydrated);
-      
-      // Select first note if available and none selected
+
       if (hydrated.length > 0 && !activeNoteId) {
         setActiveNoteId(hydrated[0].id);
       }
@@ -131,30 +133,29 @@ const NotesPage = () => {
     }
   }, [token]);
 
-  const activeNote = useMemo(() => {
-    return notes.find(n => n.id === activeNoteId) || null;
-  }, [notes, activeNoteId]);
+  const activeNote = useMemo(() => notes.find((n) => n.id === activeNoteId) || null, [notes, activeNoteId]);
 
-  const sortedNotes = useMemo(() => {
-    return [...notes].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  }, [notes]);
+  const sortedNotes = useMemo(
+    () => [...notes].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+    [notes],
+  );
 
   const createNote = async () => {
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/users/me/notes`, {
         method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({})
+        body: JSON.stringify({}),
       });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`Failed to create note: ${res.status} ${text}`);
       }
       const newNote = await res.json();
-      setNotes(prev => [{ ...newNote, textHtml: newNote.textHtml || EMPTY_EDITOR_HTML }, ...prev]);
+      setNotes((prev) => [{ ...newNote, textHtml: newNote.textHtml || EMPTY_EDITOR_HTML }, ...prev]);
       setActiveNoteId(newNote.id);
     } catch (err) {
       console.error('CREATE NOTE ERROR:', err);
@@ -163,22 +164,25 @@ const NotesPage = () => {
   };
 
   const deleteNote = async (id) => {
+    setIsDeleting(true);
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/users/me/notes/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to delete note');
-      
-      setNotes(prev => prev.filter(n => n.id !== id));
+
+      setNotes((prev) => prev.filter((n) => n.id !== id));
       if (activeNoteId === id) {
         setActiveNoteId(null);
       }
-      setShowDeleteConfirm(false);
+      setShowDeleteModal(false);
       toast.success('Note deleted');
     } catch (err) {
       console.error(err);
       toast.error('Failed to delete note');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -189,16 +193,17 @@ const NotesPage = () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ title, text, textHtml })
+        body: JSON.stringify({ title, text, textHtml }),
       });
       if (!res.ok) throw new Error('Failed to save note');
-      
-      // Update local state's updatedAt timestamp
-      setNotes(prev => prev.map(n => 
-        n.id === id ? { ...n, updatedAt: new Date().toISOString(), title, text, textHtml } : n
-      ));
+
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.id === id ? { ...n, updatedAt: new Date().toISOString(), title, text, textHtml } : n,
+        ),
+      );
     } catch (err) {
       console.error(err);
       toast.error('Failed to save note');
@@ -218,17 +223,19 @@ const NotesPage = () => {
   const handleNoteChange = (field, value) => {
     if (!activeNoteId) return;
 
-    // Update local state immediately for snappy UI
-    const updatedNote = notes.find(n => n.id === activeNoteId);
+    const updatedNote = notes.find((n) => n.id === activeNoteId);
     if (!updatedNote) return;
 
     const titleToSave = field === 'title' ? value : updatedNote.title;
     const textToSave = field === 'text' ? value : updatedNote.text;
-    const htmlToSave = field === 'textHtml' ? value : (updatedNote.textHtml || plainTextToHtml(updatedNote.text || ''));
+    const htmlToSave =
+      field === 'textHtml' ? value : updatedNote.textHtml || plainTextToHtml(updatedNote.text || '');
 
-    setNotes(prev => prev.map(n => (
-      n.id === activeNoteId ? { ...n, title: titleToSave, text: textToSave, textHtml: htmlToSave } : n
-    )));
+    setNotes((prev) =>
+      prev.map((n) =>
+        n.id === activeNoteId ? { ...n, title: titleToSave, text: textToSave, textHtml: htmlToSave } : n,
+      ),
+    );
 
     queueSave(titleToSave, textToSave, htmlToSave);
   };
@@ -280,9 +287,7 @@ const NotesPage = () => {
   const setHeading = () => runCommand('formatBlock', 'h1');
   const setQuote = () => runCommand('formatBlock', 'blockquote');
 
-  const createLink = () => {
-    const url = window.prompt('Enter URL');
-    if (!url) return;
+  const handleInsertLink = (url) => {
     runCommand('createLink', url);
   };
 
@@ -323,184 +328,260 @@ const NotesPage = () => {
     return () => document.removeEventListener('selectionchange', onSelectionChange);
   }, []);
 
-  useEffect(() => {
-    const handleOutsideClick = (event) => {
-      if (!showDeleteConfirm) return;
-      if (!deleteContainerRef.current) return;
-      if (deleteContainerRef.current.contains(event.target)) return;
-      setShowDeleteConfirm(false);
-    };
-
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [showDeleteConfirm]);
-
   if (isLoading) {
     return <PageLoader message="Loading your notes..." />;
   }
 
   return (
     <motion.div
-      className={classes.pageContainer}
+      className={classes.page}
       variants={presets.root}
       initial="hidden"
       animate="visible"
     >
-      <motion.div className={`${classes.sidebar} ${!isSidebarOpen ? classes.collapsed : ''}`} variants={presets.child}>
-        <div className={classes.sidebarHeader}>
-          <div className={classes.sidebarMeta}>
-            <p className={classes.sidebarCount}>{sortedNotes.length} notes</p>
-          </div>
-          <button className={classes.newNoteBtn} onClick={createNote} title="New Note">
-            <Plus size={16} />
-            <span>New</span>
-          </button>
-        </div>
-        
-        <div className={classes.notesList}>
-          {notes.length === 0 ? (
-            <div className={classes.emptyState}>
-              <p>No notes yet.</p>
-              <button className={classes.emptyActionBtn} onClick={createNote}>Create note</button>
+      <motion.div
+        className={`glass ${classes.notesWorkspace}`}
+        variants={presets.child}
+      >
+        <motion.aside
+          className={`${classes.sidebar} ${!isSidebarOpen ? classes.collapsed : ''}`}
+          variants={presets.child}
+        >
+          <div className={classes.sidebarHeader}>
+            <div className={classes.sidebarMeta}>
+              <p className={classes.sidebarCount}>{sortedNotes.length} notes</p>
             </div>
-          ) : (
-            sortedNotes.map(note => (
-              <button 
-                key={note.id} 
-                className={`${classes.noteItem} ${activeNoteId === note.id ? classes.active : ''}`}
-                onClick={() => setActiveNoteId(note.id)}
-              >
-                <h3 className={classes.noteItemTitle}>{note.title || 'Untitled Note'}</h3>
-                <p className={classes.noteItemPreview}>
-                  {(note.text || 'No content yet').trim().replace(/\s+/g, ' ').slice(0, 100)}
-                </p>
-                <p className={classes.noteItemDate}>
-                  {new Date(note.updatedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                </p>
-              </button>
-            ))
-          )}
-        </div>
-      </motion.div>
+            <button type="button" className={classes.newNoteBtn} onClick={createNote} title="New Note">
+              <Plus size={16} />
+              <span>New</span>
+            </button>
+          </div>
 
-      <motion.div className={classes.mainContent} variants={presets.child}>
-        {activeNote ? (
-          <>
-            <div className={classes.editorHeader}>
-              <div className={classes.editorHeaderLeft}>
-                <button 
-                  className={classes.toggleSidebarBtn} 
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  title="Toggle Sidebar"
-                >
-                  <SidebarIcon size={18} />
+          <motion.div className={classes.notesList} variants={presets.grid}>
+            {notes.length === 0 ? (
+              <div className={classes.emptyState}>
+                <p>No notes yet.</p>
+                <button type="button" className={classes.emptyActionBtn} onClick={createNote}>
+                  Create note
                 </button>
-                <input
-                  type="text"
-                  className={classes.noteTitleInput}
-                  value={activeNote.title}
-                  onChange={(e) => handleNoteChange('title', e.target.value)}
-                  placeholder="Note Title..."
+              </div>
+            ) : (
+              sortedNotes.map((note) => (
+                <motion.button
+                  key={note.id}
+                  type="button"
+                  className={`${classes.noteItem} ${activeNoteId === note.id ? classes.active : ''}`}
+                  onClick={() => setActiveNoteId(note.id)}
+                  variants={presets.child}
+                >
+                  <h3 className={classes.noteItemTitle}>{note.title || 'Untitled Note'}</h3>
+                  <p className={classes.noteItemPreview}>
+                    {(note.text || 'No content yet').trim().replace(/\s+/g, ' ').slice(0, 100)}
+                  </p>
+                  <p className={classes.noteItemDate}>
+                    {new Date(note.updatedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                  </p>
+                </motion.button>
+              ))
+            )}
+          </motion.div>
+        </motion.aside>
+
+        <motion.section className={classes.editorPane} variants={presets.child}>
+          {activeNote ? (
+            <>
+              <header className={classes.editorHeader}>
+                <div className={classes.editorTopRow}>
+                  <button
+                    type="button"
+                    className={classes.toggleSidebarBtn}
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    title="Toggle Sidebar"
+                  >
+                    <SidebarIcon size={18} />
+                  </button>
+                  <input
+                    type="text"
+                    className={classes.noteTitleInput}
+                    value={activeNote.title}
+                    onChange={(e) => handleNoteChange('title', e.target.value)}
+                    placeholder="Note Title..."
+                  />
+                  <div className={classes.actions}>
+                    <button
+                      type="button"
+                      className={classes.saveBtn}
+                      onClick={handleManualSave}
+                      disabled={isSaving}
+                      aria-busy={isSaving}
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader size={14} className={classes.spinnerSmall} aria-hidden />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save size={14} aria-hidden />
+                          <span>Save Note</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className={classes.deleteBtn}
+                      onClick={() => setShowDeleteModal(true)}
+                      title="Delete Note"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className={`glass ${classes.formatTray}`}>
+                  <button
+                    type="button"
+                    className={`${classes.toolBtn} ${toolbarState.bold ? classes.activeToolBtn : ''}`}
+                    onClick={() => runCommand('bold')}
+                    title="Bold"
+                  >
+                    <Bold size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`${classes.toolBtn} ${toolbarState.italic ? classes.activeToolBtn : ''}`}
+                    onClick={() => runCommand('italic')}
+                    title="Italic"
+                  >
+                    <Italic size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`${classes.toolBtn} ${toolbarState.underline ? classes.activeToolBtn : ''}`}
+                    onClick={() => runCommand('underline')}
+                    title="Underline"
+                  >
+                    <Underline size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`${classes.toolBtn} ${toolbarState.strikeThrough ? classes.activeToolBtn : ''}`}
+                    onClick={() => runCommand('strikeThrough')}
+                    title="Strikethrough"
+                  >
+                    <Strikethrough size={14} />
+                  </button>
+                  <span className={classes.toolDivider} aria-hidden="true" />
+                  <button
+                    type="button"
+                    className={`${classes.toolBtn} ${toolbarState.heading ? classes.activeToolBtn : ''}`}
+                    onClick={setHeading}
+                    title="Heading"
+                  >
+                    <Heading1 size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`${classes.toolBtn} ${toolbarState.paragraph ? classes.activeToolBtn : ''}`}
+                    onClick={setParagraph}
+                    title="Paragraph"
+                  >
+                    <Pilcrow size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`${classes.toolBtn} ${toolbarState.quote ? classes.activeToolBtn : ''}`}
+                    onClick={setQuote}
+                    title="Quote"
+                  >
+                    <Quote size={14} />
+                  </button>
+                  <span className={classes.toolDivider} aria-hidden="true" />
+                  <button
+                    type="button"
+                    className={`${classes.toolBtn} ${toolbarState.insertUnorderedList ? classes.activeToolBtn : ''}`}
+                    onClick={() => runCommand('insertUnorderedList')}
+                    title="Bulleted list"
+                  >
+                    <List size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`${classes.toolBtn} ${toolbarState.insertOrderedList ? classes.activeToolBtn : ''}`}
+                    onClick={() => runCommand('insertOrderedList')}
+                    title="Numbered list"
+                  >
+                    <ListOrdered size={14} />
+                  </button>
+                  <span className={classes.toolDivider} aria-hidden="true" />
+                  <button
+                    type="button"
+                    className={`${classes.toolBtn} ${toolbarState.link ? classes.activeToolBtn : ''}`}
+                    onClick={() => setShowLinkModal(true)}
+                    title="Add link"
+                  >
+                    <Link size={14} />
+                  </button>
+                  <button type="button" className={classes.toolBtn} onClick={() => runCommand('unlink')} title="Remove link">
+                    <Unlink size={14} />
+                  </button>
+                  <button type="button" className={classes.toolBtn} onClick={() => runCommand('removeFormat')} title="Clear formatting">
+                    <Eraser size={14} />
+                  </button>
+                </div>
+              </header>
+
+              <div className={classes.editorContainer}>
+                <div
+                  ref={editorRef}
+                  className={classes.richEditor}
+                  contentEditable
+                  onInput={handleEditorInput}
+                  onKeyUp={syncToolbarState}
+                  onMouseUp={syncToolbarState}
+                  suppressContentEditableWarning
+                  spellCheck
+                  role="textbox"
+                  aria-label="Rich text note editor"
                 />
               </div>
-              <div className={classes.toolbar}>
-                <button className={`${classes.toolBtn} ${toolbarState.bold ? classes.activeToolBtn : ''}`} onClick={() => runCommand('bold')} title="Bold"><Bold size={14} /></button>
-                <button className={`${classes.toolBtn} ${toolbarState.italic ? classes.activeToolBtn : ''}`} onClick={() => runCommand('italic')} title="Italic"><Italic size={14} /></button>
-                <button className={`${classes.toolBtn} ${toolbarState.underline ? classes.activeToolBtn : ''}`} onClick={() => runCommand('underline')} title="Underline"><Underline size={14} /></button>
-                <button className={`${classes.toolBtn} ${toolbarState.strikeThrough ? classes.activeToolBtn : ''}`} onClick={() => runCommand('strikeThrough')} title="Strikethrough"><Strikethrough size={14} /></button>
-                <span className={classes.toolDivider} />
-                <button className={`${classes.toolBtn} ${toolbarState.heading ? classes.activeToolBtn : ''}`} onClick={setHeading} title="Heading"><Heading1 size={14} /></button>
-                <button className={`${classes.toolBtn} ${toolbarState.paragraph ? classes.activeToolBtn : ''}`} onClick={setParagraph} title="Paragraph"><Pilcrow size={14} /></button>
-                <button className={`${classes.toolBtn} ${toolbarState.quote ? classes.activeToolBtn : ''}`} onClick={setQuote} title="Quote"><Quote size={14} /></button>
-                <span className={classes.toolDivider} />
-                <button className={`${classes.toolBtn} ${toolbarState.insertUnorderedList ? classes.activeToolBtn : ''}`} onClick={() => runCommand('insertUnorderedList')} title="Bulleted list"><List size={14} /></button>
-                <button className={`${classes.toolBtn} ${toolbarState.insertOrderedList ? classes.activeToolBtn : ''}`} onClick={() => runCommand('insertOrderedList')} title="Numbered list"><ListOrdered size={14} /></button>
-                <span className={classes.toolDivider} />
-                <button className={`${classes.toolBtn} ${toolbarState.link ? classes.activeToolBtn : ''}`} onClick={createLink} title="Add link"><Link size={14} /></button>
-                <button className={classes.toolBtn} onClick={() => runCommand('unlink')} title="Remove link"><Unlink size={14} /></button>
-                <button className={classes.toolBtn} onClick={() => runCommand('removeFormat')} title="Clear formatting"><Eraser size={14} /></button>
-              </div>
-              <div className={classes.actions}>
-                <button
-                  type="button"
-                  className={classes.saveBtn}
-                  onClick={handleManualSave}
-                  disabled={isSaving}
-                  aria-busy={isSaving}
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader size={14} className={classes.spinnerSmall} aria-hidden />
-                      <span>Saving...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save size={14} aria-hidden />
-                      <span>Save Note</span>
-                    </>
-                  )}
+            </>
+          ) : (
+            <div className={classes.noNoteSelected}>
+              <button
+                type="button"
+                className={`${classes.toggleSidebarBtn} ${classes.noNoteToggle}`}
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                title="Toggle Sidebar"
+              >
+                <SidebarIcon size={18} />
+              </button>
+              <div className={`glass ${classes.noNotePanel}`}>
+                <FileEdit size={48} className={classes.noNoteIcon} />
+                <h2>No Note Selected</h2>
+                <p>Select a note from the sidebar or create a new one.</p>
+                <button type="button" className={classes.emptyActionBtn} onClick={createNote}>
+                  Create note
                 </button>
-                <div className={classes.deleteContainer} ref={deleteContainerRef}>
-                  <button 
-                    className={`${classes.deleteBtn} ${showDeleteConfirm ? classes.active : ''}`} 
-                    onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
-                    title="Delete Note"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                  
-                  {showDeleteConfirm && (
-                    <div className={classes.deleteConfirmPopover}>
-                      <span className={classes.deleteConfirmText}>Delete note?</span>
-                      <button 
-                        className={classes.deleteConfirmYes}
-                        onClick={() => deleteNote(activeNote.id)}
-                      >
-                        Yes
-                      </button>
-                      <button 
-                        className={classes.deleteConfirmNo}
-                        onClick={() => setShowDeleteConfirm(false)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
-
-            <div className={classes.editorContainer}>
-              <div
-                ref={editorRef}
-                className={classes.richEditor}
-                contentEditable
-                onInput={handleEditorInput}
-                onKeyUp={syncToolbarState}
-                onMouseUp={syncToolbarState}
-                suppressContentEditableWarning
-                spellCheck
-                role="textbox"
-                aria-label="Rich text note editor"
-              />
-            </div>
-          </>
-        ) : (
-          <div className={classes.noNoteSelected}>
-            <button 
-              className={classes.toggleSidebarBtn} 
-              style={{ position: 'absolute', top: 16, left: 16 }}
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            >
-              <SidebarIcon size={18} />
-            </button>
-            <FileEdit size={48} className={classes.noNoteIcon} />
-            <h2>No Note Selected</h2>
-            <p>Select a note from the sidebar or create a new one.</p>
-            <button className={classes.emptyActionBtn} onClick={createNote}>Create note</button>
-          </div>
-        )}
+          )}
+        </motion.section>
       </motion.div>
+
+      <DeleteNoteModal
+        isOpen={showDeleteModal}
+        noteTitle={activeNote?.title || 'Untitled Note'}
+        deleting={isDeleting}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={() => activeNote && deleteNote(activeNote.id)}
+      />
+
+      <LinkNoteModal
+        isOpen={showLinkModal}
+        onClose={() => setShowLinkModal(false)}
+        onConfirm={handleInsertLink}
+      />
     </motion.div>
   );
 };
