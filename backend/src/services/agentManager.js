@@ -173,7 +173,7 @@ class AgentManager {
       // agent never starts a new session already showing as IN_CALL.
       await redisClient.hDel('activecalls:data', agentId);
 
-      const campaign       = payload.campaign || payload.campaignId || 'fe_transfers';
+      const campaign       = payload.campaign || payload.campaignId || 'fe_inbounds_short';
       const licensedStates = payload.licensedStates || [];
       const sessionId = String(payload.sessionId || `legacy-${Date.now()}`).trim();
       const now = Date.now().toString();

@@ -300,7 +300,7 @@ const StepOne = ({ onNext }) => {
 const StepTwo = ({ onNext, onBack, selected = '' }) => {
   const [selectedCampaign, setSelectedCampaign] = useState(selected);
   const campaigns = [
-    { id: 'fe_transfers', title: 'FE Transfers', subtitle: 'Live transfer Final Expense calls', price: '$35', buffer: '120s buffer', icon: Umbrella },
+    { id: 'fe_inbounds_short', title: 'FE Inbounds Short', subtitle: 'Final Expense Inbounds Short Duration', price: '$25', buffer: '50s buffer', icon: Umbrella },
     { id: 'fe_inbounds', title: 'FE Inbounds', subtitle: 'Direct inbound Final Expense calls', price: '$45', buffer: '90s buffer', icon: PhoneIncoming },
     { id: 'fe_tv_calls', title: 'FE TV Calls', subtitle: 'High-intent Final Expense TV calls', price: '$70', buffer: '30s buffer', icon: Tv },
     { id: 'medicare_transfers', title: 'Medicare Transfers', subtitle: 'Live transfer Medicare calls', price: '$25', buffer: '120s buffer', icon: HeartPulse },
@@ -632,7 +632,7 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
 // ─── Step 4: Review Rules & Go Live ─────────────────────────────────────────
 const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, walletBalance }) => {
   const campaignPriceMap = {
-    fe_transfers: 35,
+    fe_inbounds_short: 25,
     fe_inbounds: 45,
     fe_tv_calls: 70,
     medicare_transfers: 25,
@@ -643,7 +643,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
   const requiredBalance = campaignPriceMap[campaign] || 0;
   const hasBalance = walletBalance >= requiredBalance;
   const campaignLabels = {
-    fe_transfers: 'FE Transfers ($35 / 120s)',
+    fe_inbounds_short: 'FE Inbounds Short ($25 / 50s)',
     fe_inbounds: 'FE Inbounds ($45 / 90s)',
     fe_tv_calls: 'FE TV Calls ($70 / 30s)',
     medicare_transfers: 'Medicare Transfers ($25 / 120s)',
@@ -976,7 +976,7 @@ const TakeCallsPage = () => {
 
   const handleGoLive = async () => {
     const campaignPriceMap = {
-      fe_transfers: 35,
+      fe_inbounds_short: 25,
       fe_inbounds: 45,
       fe_tv_calls: 70,
       medicare_transfers: 25,
@@ -1086,7 +1086,7 @@ const TakeCallsPage = () => {
             </motion.div>
           )}
 
-          {activeCampaign === 'fe_transfers' && (
+          {activeCampaign === 'fe_inbounds_short' && (
             <motion.div className={`glass ${classes.warningBanner}`} variants={presets.child}>
               <div className={classes.warningBannerIcon}>
                 <Clock size={20} />
