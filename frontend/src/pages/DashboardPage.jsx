@@ -18,7 +18,7 @@ import classes from './DashboardPage.module.css';
 const PERIOD_OPTIONS = ['This Week', 'This Month', 'Last 30 Days'];
 
 const CAMPAIGN_DESCRIPTIONS = {
-  fe_transfers: 'Live transfer Final Expense calls',
+  fe_inbounds_short: 'Final Expense Inbounds Short Duration',
   fe_inbounds: 'Direct inbound Final Expense calls',
   fe_tv_calls: 'High-intent Final Expense TV calls',
   medicare_transfers: 'Live transfer Medicare calls',
