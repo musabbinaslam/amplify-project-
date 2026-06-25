@@ -300,7 +300,7 @@ const StepOne = ({ onNext }) => {
 const StepTwo = ({ onNext, onBack, selected = '' }) => {
   const [selectedCampaign, setSelectedCampaign] = useState(selected);
   const campaigns = [
-    { id: 'fe_inbounds_short', title: 'FE Inbounds Short', subtitle: 'Final Expense Inbounds Short Duration', price: '$25', buffer: '50s buffer', icon: Umbrella },
+    { id: 'fe_inbounds_short', title: 'FE Inbounds Short', subtitle: 'Final Expense Inbounds Short Duration', price: '$25', buffer: '30s buffer', icon: Umbrella },
     { id: 'fe_inbounds', title: 'FE Inbounds', subtitle: 'Direct inbound Final Expense calls', price: '$45', buffer: '90s buffer', icon: PhoneIncoming },
     { id: 'fe_tv_calls', title: 'FE TV Calls', subtitle: 'High-intent Final Expense TV calls', price: '$70', buffer: '30s buffer', icon: Tv },
     { id: 'medicare_transfers', title: 'Medicare Transfers', subtitle: 'Live transfer Medicare calls', price: '$25', buffer: '120s buffer', icon: HeartPulse },
