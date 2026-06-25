@@ -174,8 +174,13 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
     socket.on('agent:forced_offline', (data) => {
       console.warn('[Twilio] Forced offline by server:', data?.reason);
       leavePoolAndOffline(data?.reason || 'forced_offline');
-      // Show a visible alert so the agent knows what happened
-      alert(data?.message || 'You have been taken offline. Please go live again when ready.');
+      // Show a persistent, non-blocking toast so the agent knows what happened
+      import('react-hot-toast').then(({ default: toast }) => {
+        toast.error(
+          data?.message || 'You have been taken offline. Please go live again when ready.',
+          { duration: Infinity, id: 'forced-offline-toast' }
+        );
+      }).catch(() => {});
     });
 
 
