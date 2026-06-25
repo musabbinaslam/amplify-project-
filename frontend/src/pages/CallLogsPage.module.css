@@ -316,9 +316,9 @@
 }
 
 .colCampaign {
-  min-width: 130px;
-  max-width: 200px;
-  white-space: normal;
+  min-width: 108px;
+  max-width: 148px;
+  width: 148px;
 }
 
 .colCaller {
@@ -368,7 +368,13 @@
 
 .table th.colCampaign,
 .table td.colCampaign {
-  white-space: normal;
+  white-space: nowrap;
+  overflow: visible;
+  position: relative;
+}
+
+.table tbody tr:hover td.colCampaign {
+  z-index: 3;
 }
 
 /* ─── Type badge ─── */
@@ -466,18 +472,47 @@
 }
 
 /* ─── Campaign tag ─── */
+.campaignTagWrap {
+  position: relative;
+  display: block;
+  max-width: 100%;
+}
+
 .campaignTag {
-  display: inline-block;
-  padding: 0.2rem 0.65rem;
+  display: block;
+  max-width: 100%;
+  padding: 0.2rem 0.55rem;
   border-radius: var(--radius-full);
   font-size: 0.72rem;
   font-weight: 700;
-  text-transform: uppercase;
   background: color-mix(in srgb, var(--brand-text) 14%, transparent);
   color: var(--brand-text);
   border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.campaignTagHoverable {
+  cursor: default;
+}
+
+.campaignTooltipFixed {
+  position: fixed;
+  z-index: 10000;
+  max-width: 280px;
+  padding: 0.45rem 0.7rem;
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: normal;
+  color: var(--text-primary);
+  background: var(--surface-container-high, #1e2430);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
 }
 
 /* ─── Cost value ─── */
