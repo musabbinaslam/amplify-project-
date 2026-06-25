@@ -66,6 +66,11 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
   const liveSessionId = createLiveSessionId(passedIdentity || 'agent');
 
   try {
+    // Clear any lingering forced offline notifications when going live
+    import('react-hot-toast').then(({ default: toast }) => {
+      toast.dismiss('forced-offline-toast');
+    }).catch(() => {});
+
     if (passedIdentity) {
       try {
         await useAudioSettingsStore.getState().hydrate(passedIdentity);
