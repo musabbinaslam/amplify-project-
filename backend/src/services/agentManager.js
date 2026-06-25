@@ -1,9 +1,9 @@
 const { redisClient } = require('../config/redis');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const PRESENCE_FRESHNESS_MS = 120 * 1000;
-const WRAPUP_MAX_AGE_MS    = 10 * 60 * 1000;  // 10 min — WRAP_UP must not last longer
-const INCALL_MAX_AGE_MS    = 90 * 60 * 1000;  // 90 min — force-evict any zombie IN_CALL
-const RINGING_MAX_AGE_MS   = 25 * 1000;       // dial timeout (20s) + buffer — stale RINGING cleanup
+const WRAPUP_MAX_AGE_MS = 10 * 60 * 1000;  // 10 min — WRAP_UP must not last longer
+const INCALL_MAX_AGE_MS = 90 * 60 * 1000;  // 90 min — force-evict any zombie IN_CALL
+const RINGING_MAX_AGE_MS = 25 * 1000;       // dial timeout (20s) + buffer — stale RINGING cleanup
 const PENDING_CALL_TTL_SEC = 35;
 const VOICE_READY_KEY_PREFIX = 'agent:voice_ready:';
 
@@ -173,28 +173,28 @@ class AgentManager {
       // agent never starts a new session already showing as IN_CALL.
       await redisClient.hDel('activecalls:data', agentId);
 
-      const campaign       = payload.campaign || payload.campaignId || 'fe_inbounds_short';
+      const campaign = payload.campaign || payload.campaignId || 'fe_transfers';
       const licensedStates = payload.licensedStates || [];
       const sessionId = String(payload.sessionId || `legacy-${Date.now()}`).trim();
       const now = Date.now().toString();
 
       const newAgentData = {
          agentId,
-         campaignId:     campaign,
+         campaignId: campaign,
          licensedStates: JSON.stringify(licensedStates),
-         status:         'AVAILABLE',
+         status: 'AVAILABLE',
          sessionId,
-         joinedAt:       now,
-         lastSeenAt:     now,
+         joinedAt: now,
+         lastSeenAt: now,
          lastHeartbeatAt: now,
-         lastCallAt:     '0',   // 0 = never had a call = highest LRU priority
+         lastCallAt: '0',   // 0 = never had a call = highest LRU priority
       };
 
       await redisClient.hSet('agents:data', agentId, JSON.stringify(newAgentData));
 
       // Score 0 = highest priority (longest wait). Score is updated to Date.now() on each release.
       await redisClient.zAdd(this.poolKey(campaign), { score: 0, value: agentId });
-      
+
       // Add to global heartbeats tracker for efficient O(1) sweeper lookups
       await redisClient.zAdd('agents:heartbeats', { score: Date.now(), value: agentId });
 
@@ -338,7 +338,7 @@ class AgentManager {
       }
 
       console.log(
-        `[Router] ❌ No lock for "${campaignId}" state=${callerState || 'ANY'} — ${agentDataList.length} in pool, ${eligible.length} eligible after filters`,
+         `[Router] ❌ No lock for "${campaignId}" state=${callerState || 'ANY'} — ${agentDataList.length} in pool, ${eligible.length} eligible after filters`,
       );
       return null;
    }
@@ -360,7 +360,7 @@ class AgentManager {
          });
          if (!presence.ok) return false;
          const data = presence.data;
-         
+
          if (!callerState) return true;
          try {
             const states = JSON.parse(data.licensedStates || '[]');
@@ -443,7 +443,7 @@ class AgentManager {
       const callSid = String(pending.callSid || clientSid || '').trim();
       if (callSid && clientSid && pending?.callSid && String(pending.callSid) !== clientSid) {
          console.warn(
-           `[Router] call_incoming sid note for ${agentId}: parent=${pending.callSid} client=${clientSid} (using parent for routing state)`,
+            `[Router] call_incoming sid note for ${agentId}: parent=${pending.callSid} client=${clientSid} (using parent for routing state)`,
          );
       }
       await this.upsertActiveCall(agentId, {
@@ -456,12 +456,12 @@ class AgentManager {
          state: 'in_call',
       });
       await this.clearPendingCall(agentId, callSid);
-      
+
       // Store a long-lived mapping of both the agent's leg and the parent leg
       // This survives the active call being cleared when the agent hangs up
       await redisClient.setEx(`call:owner:${callSid}`, 86400, agentId);
       if (payload.parentCallSid) {
-          await redisClient.setEx(`call:owner:${payload.parentCallSid}`, 86400, agentId);
+         await redisClient.setEx(`call:owner:${payload.parentCallSid}`, 86400, agentId);
       }
 
       console.log(`[Router] 📲 Call delivered to agent ${agentId} (${callSid || 'no-sid'})`);
@@ -518,7 +518,7 @@ class AgentManager {
       if (!agentId) return;
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sAdd('agents:busy', agentId);
-      
+
       const rawAgentStr = await redisClient.hGet('agents:data', agentId);
       if (rawAgentStr) {
          const agentObj = JSON.parse(rawAgentStr);
@@ -531,19 +531,19 @@ class AgentManager {
       let existingData = {};
       const activeDataStr = await redisClient.hGet('activecalls:data', agentId);
       if (activeDataStr) {
-          existingData = JSON.parse(activeDataStr);
+         existingData = JSON.parse(activeDataStr);
       }
 
       const activeCallData = {
          agentId,
-         callSid:    String(payload.callSid || existingData.callSid || ''),
+         callSid: String(payload.callSid || existingData.callSid || ''),
          parentCallSid: payload.parentCallSid ? String(payload.parentCallSid) : (existingData.parentCallSid || null),
-         from:       String(payload.from || existingData.from || ''),
-         to:         String(payload.to || existingData.to || ''),
+         from: String(payload.from || existingData.from || ''),
+         to: String(payload.to || existingData.to || ''),
          campaignId: String(payload.campaignId || existingData.campaignId || ''),
-         startedAt:  String(payload.startedAt || existingData.startedAt || new Date().toISOString()),
-         state:      String(payload.state || existingData.state || 'in_call'),
-         updatedAt:  new Date().toISOString(),
+         startedAt: String(payload.startedAt || existingData.startedAt || new Date().toISOString()),
+         state: String(payload.state || existingData.state || 'in_call'),
+         updatedAt: new Date().toISOString(),
       };
       await redisClient.hSet('activecalls:data', agentId, JSON.stringify(activeCallData));
    }
@@ -558,7 +558,7 @@ class AgentManager {
       if (!agentId) return;
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sRem('agents:busy', agentId);
-      
+
       const rawStr = await redisClient.hGet('agents:data', agentId);
       if (rawStr) {
          const data = JSON.parse(rawStr);
@@ -630,7 +630,7 @@ class AgentManager {
 
       const routed = await redisClient.get(`call:route:${target}`);
       if (routed && routed === id) return true;
-      
+
       const owner = await redisClient.get(`call:owner:${target}`);
       if (owner && owner === id) return true;
 
@@ -665,7 +665,7 @@ class AgentManager {
       const query = String(queryAgentId || '').trim();
       if (fromRoute && query && fromRoute !== query) {
          console.warn(
-           `[Router] call owner mismatch: query agentId=${query} call:route/owner=${fromRoute} sid=${target} — using route`,
+            `[Router] call owner mismatch: query agentId=${query} call:route/owner=${fromRoute} sid=${target} — using route`,
          );
       }
       return fromRoute || query || null;
@@ -794,15 +794,15 @@ class AgentManager {
 
          const startedAtMs = row.startedAt ? new Date(row.startedAt).getTime() : NaN;
          return {
-            agentId:     id,
-            callSid:     row.callSid   || null,
-            from:        row.from      || null,
-            to:          row.to        || null,
-            campaignId:  row.campaignId || agent.campaignId || null,
-            startedAt:   row.startedAt || null,
+            agentId: id,
+            callSid: row.callSid || null,
+            from: row.from || null,
+            to: row.to || null,
+            campaignId: row.campaignId || agent.campaignId || null,
+            startedAt: row.startedAt || null,
             durationSec: Number.isNaN(startedAtMs) ? 0 : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000)),
-            status:      displayStatus,
-            state:       row.state     || 'in_call',
+            status: displayStatus,
+            state: row.state || 'in_call',
          };
       });
 
@@ -875,14 +875,14 @@ class AgentManager {
          // WRAP_UP agents are not in any pool set — detect via agents:data.status
          const isWrapUp = raw.status === 'WRAP_UP';
          const poolSlot = pool.available.includes(id)
-               ? 'available'
-               : pool.busy.includes(id)
-                  ? 'busy'
-                  : pool.ringing.includes(id)
-                     ? 'ringing'
-                     : isWrapUp
-                        ? 'wrap_up'
-                        : 'unknown';
+            ? 'available'
+            : pool.busy.includes(id)
+               ? 'busy'
+               : pool.ringing.includes(id)
+                  ? 'ringing'
+                  : isWrapUp
+                     ? 'wrap_up'
+                     : 'unknown';
 
          // Derive authoritative status from pool membership — agents:data.status
          // can be stale (e.g., still AVAILABLE after a mid-flight state change).
@@ -899,11 +899,11 @@ class AgentManager {
 
          const row = {
             id,
-            agentId:       raw.agentId || id,
+            agentId: raw.agentId || id,
             campaignId,
-            status:        derivedStatus,
+            status: derivedStatus,
             licensedStates,
-            pool:          poolSlot,
+            pool: poolSlot,
          };
          agents.push(row);
          byCampaign[campaignId] = (byCampaign[campaignId] || 0) + 1;

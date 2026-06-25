@@ -34,6 +34,23 @@ const DialerOverlay = () => {
       audio.loop = true;
       audio.play().catch(e => console.log('Audio autoplay prevented'));
       setRinger(audio);
+      // Request Notification permission if we don't have it
+      if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+        Notification.requestPermission();
+      }
+
+      // Show Desktop Notification
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        const notif = new Notification('Incoming Call', {
+          body: `Call from Campaign: ${activeCampaign || 'Standard'}`,
+          icon: '/favicon.ico' // Or any relevant icon
+        });
+        notif.onclick = () => {
+          window.focus();
+          notif.close();
+        };
+      }
+
     } else {
       if (ringer) {
         ringer.pause();
@@ -47,7 +64,7 @@ const DialerOverlay = () => {
         ringer.pause();
       }
     };
-  }, [callState]);
+  }, [callState, activeCampaign]);
 
   if (callState === 'offline' || callState === 'error') {
     return null; // Don't show if not live
