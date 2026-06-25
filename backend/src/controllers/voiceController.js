@@ -11,6 +11,7 @@ const { normalizeCallerState } = require('../utils/phoneUtils');
 const { dispatchQaInsightJob } = require('../queues/qaQueue');
 const twilioClientObj = require('../config/twilio').twilioClient;
 const { redisClient } = require('../config/redis');
+const socketRegistry = require('../sockets/socketRegistry');
 
 /** Absolute URL for Twilio webhooks (relative URLs break statusCallback on some hosts). */
 function voiceWebhookUrl(req, pathWithQuery) {
@@ -332,7 +333,13 @@ exports.handleCallCompleted = async (req, res) => {
                     // Kick them entirely out of the pool so they stop receiving ghost routes
                     await agentManager.removeAgent(agentId, agentState?.sessionId || null);
                     console.log(`[Router] 🥾 Kicked agent ${agentId} offline due to missed/failed call.`);
-                    
+
+                    // Notify the agent's browser immediately so the UI shows "Offline"
+                    // instead of staying stuck on "Listening for Calls".
+                    socketRegistry.emitToAgent(agentId, 'agent:forced_offline', {
+                        reason: 'missed_call',
+                        message: 'You missed a call and have been taken offline. Please go live again when ready.'
+                    });
                     // Log the missed call so it shows up in their history,
                     // since we are about to return early and skip the main logging block.
                     try {

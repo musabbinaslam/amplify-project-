@@ -34,21 +34,28 @@ const DialerOverlay = () => {
       audio.loop = true;
       audio.play().catch(e => console.log('Audio autoplay prevented'));
       setRinger(audio);
-      // Request Notification permission if we don't have it
-      if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
-        Notification.requestPermission();
-      }
-
-      // Show Desktop Notification
-      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        const notif = new Notification('Incoming Call', {
-          body: `Call from Campaign: ${activeCampaign || 'Standard'}`,
-          icon: '/favicon.ico' // Or any relevant icon
-        });
-        notif.onclick = () => {
-          window.focus();
-          notif.close();
-        };
+      // Request permission and then fire notification — must be awaited
+      // because Brave (and some Chrome builds) don't update Notification.permission
+      // synchronously after requestPermission() is called.
+      const fireNotification = async () => {
+        let permission = Notification.permission;
+        if (permission === 'default') {
+          permission = await Notification.requestPermission();
+        }
+        if (permission === 'granted') {
+          const notif = new Notification('📞 Incoming Call', {
+            body: `Campaign: ${activeCampaign || 'Standard'} — Click to answer`,
+            icon: '/favicon.ico',
+            requireInteraction: true, // keeps notification visible until clicked (doesn't auto-dismiss)
+          });
+          notif.onclick = () => {
+            window.focus();
+            notif.close();
+          };
+        }
+      };
+      if (typeof Notification !== 'undefined') {
+        fireNotification().catch(e => console.warn('[Notify] Desktop notification failed:', e));
       }
 
     } else {

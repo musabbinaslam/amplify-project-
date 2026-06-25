@@ -169,6 +169,16 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       }
     });
 
+    // Backend kicked this agent offline (e.g. they missed a call).
+    // Immediately sync the UI so the agent doesn't think they're still live.
+    socket.on('agent:forced_offline', (data) => {
+      console.warn('[Twilio] Forced offline by server:', data?.reason);
+      leavePoolAndOffline(data?.reason || 'forced_offline');
+      // Show a visible alert so the agent knows what happened
+      alert(data?.message || 'You have been taken offline. Please go live again when ready.');
+    });
+
+
     device.on('unregistered', () => {
       const cs = useDialerStore.getState().callState;
       if (cs === 'active' || cs === 'ringing') return;
