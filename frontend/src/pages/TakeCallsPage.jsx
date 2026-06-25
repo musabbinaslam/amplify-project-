@@ -643,7 +643,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
   const requiredBalance = campaignPriceMap[campaign] || 0;
   const hasBalance = walletBalance >= requiredBalance;
   const campaignLabels = {
-    fe_inbounds_short: 'FE Inbounds Short ($25 / 50s)',
+    fe_inbounds_short: 'FE Inbounds Short ($25 / 30s)',
     fe_inbounds: 'FE Inbounds ($45 / 90s)',
     fe_tv_calls: 'FE TV Calls ($70 / 30s)',
     medicare_transfers: 'Medicare Transfers ($25 / 120s)',
