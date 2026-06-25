@@ -1,10 +1,12 @@
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
+const { CAMPAIGN_CONFIG } = require('../config/pricing');
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
 const BATCH_SIZE = 350;
 const MAINTENANCE_DOC_PATH = ['system', 'maintenance'];
+const CAMPAIGN_CONTROLS_DOC_PATH = ['system', 'campaignControls'];
 const BROADCAST_REGISTRY_TYPES = new Set(['admin_broadcast', 'maintenance']);
 const ALLOWED_TYPES = new Set([
   'personal',
@@ -16,6 +18,9 @@ const ALLOWED_TYPES = new Set([
 ]);
 const ADMIN_NOTIFICATION_TYPES = new Set(['admin_alert']);
 const ALLOWED_PRIORITIES = new Set(['low', 'normal', 'high']);
+const CAMPAIGN_IDS = new Set(Object.keys(CAMPAIGN_CONFIG || {}));
+const CAMPAIGN_CONTROLS_CACHE_TTL_MS = 5000;
+let campaignControlsCache = { expiresAt: 0, data: null };
 
 function ensureFirestore() {
   if (!admin) throw new Error('Database service unavailable');
@@ -77,6 +82,84 @@ function parseDateOrNull(value, field) {
   const dt = new Date(value);
   if (Number.isNaN(dt.getTime())) throw new Error(`${field} must be a valid date`);
   return dt.toISOString();
+}
+
+function campaignControlsDocRef() {
+  const db = ensureFirestore();
+  return db.collection(CAMPAIGN_CONTROLS_DOC_PATH[0]).doc(CAMPAIGN_CONTROLS_DOC_PATH[1]);
+}
+
+function normalizeCampaignId(campaignId) {
+  const id = String(campaignId || '').trim();
+  if (!id) throw new Error('campaignId is required');
+  if (!CAMPAIGN_IDS.has(id)) throw new Error('Invalid campaignId');
+  return id;
+}
+
+function normalizeCampaignControlRow(id, row = {}) {
+  const paused = Boolean(row?.paused);
+  const reason = String(row?.reason || '').trim().slice(0, 280);
+  return {
+    paused,
+    reason,
+    updatedBy: row?.updatedBy || null,
+    updatedAt: toIso(row?.updatedAt) || row?.updatedAtIso || null,
+    updatedAtIso: row?.updatedAtIso || null,
+  };
+}
+
+function hydrateCampaignControls(raw = {}) {
+  const fromDoc = raw?.campaigns && typeof raw.campaigns === 'object' ? raw.campaigns : {};
+  const campaigns = {};
+  Object.keys(CAMPAIGN_CONFIG || {}).forEach((id) => {
+    campaigns[id] = normalizeCampaignControlRow(id, fromDoc[id] || {});
+  });
+  return campaigns;
+}
+
+async function getCampaignControls(forceRefresh = false) {
+  if (!forceRefresh && campaignControlsCache.data && campaignControlsCache.expiresAt > Date.now()) {
+    return campaignControlsCache.data;
+  }
+  const snap = await campaignControlsDocRef().get();
+  const raw = snap.exists ? (snap.data() || {}) : {};
+  const campaigns = hydrateCampaignControls(raw);
+  const out = { campaigns };
+  campaignControlsCache = {
+    data: out,
+    expiresAt: Date.now() + CAMPAIGN_CONTROLS_CACHE_TTL_MS,
+  };
+  return out;
+}
+
+async function setCampaignPaused(campaignId, input = {}, updatedBy = null) {
+  const id = normalizeCampaignId(campaignId);
+  const paused = Boolean(input.paused);
+  const reason = String(input.reason || '').trim().slice(0, 280);
+  const updatedAtIso = nowIso();
+  const payload = {
+    campaigns: {
+      [id]: {
+        paused,
+        reason,
+        updatedBy: updatedBy || null,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAtIso,
+      },
+    },
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAtIso,
+    updatedBy: updatedBy || null,
+  };
+  await campaignControlsDocRef().set(payload, { merge: true });
+  return getCampaignControls(true);
+}
+
+async function isCampaignPaused(campaignId) {
+  const id = String(campaignId || '').trim();
+  if (!id || !CAMPAIGN_IDS.has(id)) return false;
+  const controls = await getCampaignControls();
+  return Boolean(controls?.campaigns?.[id]?.paused);
 }
 
 function buildNotificationPayload(input, source = 'system') {
@@ -624,5 +707,9 @@ module.exports = {
   getMaintenanceState,
   setMaintenanceState,
   maintenanceDocRef,
+  campaignControlsDocRef,
+  getCampaignControls,
+  setCampaignPaused,
+  isCampaignPaused,
   toIso,
 };

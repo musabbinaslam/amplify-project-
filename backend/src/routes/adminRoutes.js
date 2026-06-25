@@ -33,6 +33,8 @@ router.patch('/notifications/broadcasts/:id', adminController.patchBroadcastNoti
 router.delete('/notifications/broadcasts/:id', adminController.deleteBroadcastNotification);
 router.get('/maintenance', adminController.getMaintenance);
 router.patch('/maintenance', adminController.patchMaintenance);
+router.get('/campaign-controls', adminController.getCampaignControls);
+router.patch('/campaign-controls/:campaignId', adminController.patchCampaignControls);
 
 // Pool debug — dumps full Redis routing state for diagnosis
 router.get('/pool-debug', adminController.getPoolDebug);
