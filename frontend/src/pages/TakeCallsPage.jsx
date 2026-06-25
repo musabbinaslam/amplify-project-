@@ -300,7 +300,7 @@ const StepOne = ({ onNext }) => {
 const StepTwo = ({ onNext, onBack, selected = '' }) => {
   const [selectedCampaign, setSelectedCampaign] = useState(selected);
   const campaigns = [
-    { id: 'fe_inbounds_short', title: 'FE Inbounds Short', subtitle: 'Final Expense Inbounds Short Duration', price: '$25', buffer: '30s buffer', icon: Umbrella },
+    { id: 'fe_inbounds_short', title: 'FE Inbounds Short', subtitle: 'FE Inbounds Short Duration', price: '$25', buffer: '30s buffer', icon: Umbrella },
     { id: 'fe_inbounds', title: 'FE Inbounds', subtitle: 'Direct inbound Final Expense calls', price: '$45', buffer: '90s buffer', icon: PhoneIncoming },
     { id: 'fe_tv_calls', title: 'FE TV Calls', subtitle: 'High-intent Final Expense TV calls', price: '$70', buffer: '30s buffer', icon: Tv },
     { id: 'medicare_transfers', title: 'Medicare Transfers', subtitle: 'Live transfer Medicare calls', price: '$25', buffer: '120s buffer', icon: HeartPulse },
@@ -643,7 +643,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
   const requiredBalance = campaignPriceMap[campaign] || 0;
   const hasBalance = walletBalance >= requiredBalance;
   const campaignLabels = {
-    fe_inbounds_short: 'FE Inbounds Short ($25 / 50s)',
+    fe_inbounds_short: 'FE Inbounds Short ($25 / 30s)',
     fe_inbounds: 'FE Inbounds ($45 / 90s)',
     fe_tv_calls: 'FE TV Calls ($70 / 30s)',
     medicare_transfers: 'Medicare Transfers ($25 / 120s)',
