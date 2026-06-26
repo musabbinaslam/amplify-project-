@@ -7,7 +7,7 @@ import { io } from 'socket.io-client';
 import { apiFetch } from './apiClient';
 
 const API_URL = () => getApiBaseUrl();
-const HEARTBEAT_INTERVAL_MS = 45000;
+const HEARTBEAT_INTERVAL_MS = 10000;
 
 function createLiveSessionId(identity) {
   try {

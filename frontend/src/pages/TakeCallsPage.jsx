@@ -1086,15 +1086,15 @@ const TakeCallsPage = () => {
             </motion.div>
           )}
 
-          {activeCampaign === 'fe_inbounds_short' && (
+          {activeCampaign && activeCampaign !== 'fe_tv_calls' && (
             <motion.div className={`glass ${classes.warningBanner}`} variants={presets.child}>
               <div className={classes.warningBannerIcon}>
-                <Clock size={20} />
+                <AlertCircle size={20} />
               </div>
               <div className={classes.warningBannerBody}>
-                <strong className={classes.warningBannerTitle}>Break Hours Schedule</strong>
+                <strong className={classes.warningBannerTitle}>Maintain Your Active Status</strong>
                 <p>
-                  Please note that <strong>1:00 PM to 2:00 PM (EST)</strong> are scheduled break hours for FE Transfers. You will not receive any calls during this time.
+                  Warning: A billable rate below 30% will trigger an inactivity flag. This means out of every 10 calls you take, you should successfully convert at least 3 into over-buffer calls. To avoid a reduction in routed calls or removal from the active pool, please ensure you are actively handling calls.
                 </p>
               </div>
             </motion.div>
