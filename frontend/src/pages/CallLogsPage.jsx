@@ -1125,9 +1125,7 @@ const CallLogsPage = () => {
                       </td>
                       <td className={classes.colDisposition}>
                         <div className={classes.statusCell}>
-                          {log.isBillable ? (
-                            <span className={`${classes.dispBadge} ${classes.dispSold}`}>Sold</span>
-                          ) : log.disposition === 'callback' ? (
+                          {log.disposition === 'callback' ? (
                             <span className={`${classes.dispBadge} ${classes.dispAnswered}`}>Call back</span>
                           ) : log.disposition === 'not_interested' ? (
                             <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Not Interested</span>
@@ -1137,6 +1135,8 @@ const CallLogsPage = () => {
                             <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Dead Air</span>
                           ) : log.disposition === 'policy_closed' ? (
                             <span className={`${classes.dispBadge} ${classes.dispPolicyClosed}`}>Policy Closed</span>
+                          ) : log.disposition === 'sold' || log.isBillable ? (
+                            <span className={`${classes.dispBadge} ${classes.dispSold}`}>Sold</span>
                           ) : (
                             <span className={classes.scoreDash}>—</span>
                           )}
