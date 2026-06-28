@@ -1114,6 +1114,18 @@ const AdminDashboardPage = () => {
           <h2>Admin</h2>
           <p>Owner analytics, live operations, and routing control center</p>
         </div>
+        {/* TEMPORARY: Sentry verification button — remove after confirming the test error lands in Sentry. */}
+        <button
+          type="button"
+          style={{ marginLeft: 'auto', padding: '6px 12px', borderRadius: 8, border: '1px solid #ef4444', background: 'transparent', color: '#ef4444', cursor: 'pointer', fontSize: 12 }}
+          onClick={() => {
+            setTimeout(() => {
+              throw new Error('Sentry frontend test error (admin button)');
+            }, 0);
+          }}
+        >
+          Throw test error
+        </button>
       </motion.div>
 
       <motion.section className={`glass ${classes.sectionCard} ${classes.summarySection}`} variants={presets.child}>
