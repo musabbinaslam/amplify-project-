@@ -13,6 +13,11 @@ router.get('/analytics-bundle', adminController.getAnalyticsBundle);
 router.get('/analytics-drilldown', adminController.getAnalyticsDrilldown);
 router.get('/live-calls', adminController.getLiveCalls);
 router.post('/agents/:agentId/force-remove', adminController.forceRemoveAgent);
+
+// Manager role administration — list all users + set role/managedAgents allowlist
+router.get('/users', adminController.getAllUsers);
+router.patch('/users/:uid/manager-settings', adminController.patchManagerSettings);
+
 router.get('/ai-training/coaching-overview', adminController.getAiCoachingOverview);
 router.get('/ai-training/agent-plans', adminController.getAiCoachingAgentPlans);
 router.get('/dids', adminController.listDids);

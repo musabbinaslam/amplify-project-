@@ -799,6 +799,110 @@ async function forceRemoveAgent(req, res) {
   }
 }
 
+async function getAllUsers(req, res) {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database unavailable' });
+    const snap = await db.collection('users').get();
+    const users = [];
+    const missing = [];
+    snap.docs.forEach((doc) => {
+      const data = doc.data() || {};
+      const firstLast = [data.firstName, data.lastName].filter(Boolean).join(' ').trim();
+      const name =
+        data.fullName ||
+        data.displayName ||
+        data.name ||
+        data.agentName ||
+        firstLast ||
+        data.email ||
+        null;
+      users.push({
+        uid: doc.id,
+        name,
+        email: data.email || null,
+        role: data.role || 'agent',
+        managedAgents: Array.isArray(data.managedAgents) ? data.managedAgents : [],
+      });
+      if (!name) missing.push(doc.id);
+    });
+
+    // Backfill display names from Firebase Auth for users with no Firestore name.
+    if (missing.length && admin) {
+      const byId = new Map(users.map((u) => [u.uid, u]));
+      for (let i = 0; i < missing.length; i += 100) {
+        const chunk = missing.slice(i, i + 100);
+        // eslint-disable-next-line no-await-in-loop
+        const out = await admin.auth().getUsers(chunk.map((uid) => ({ uid })));
+        out.users.forEach((u) => {
+          const entry = byId.get(u.uid);
+          if (entry) entry.name = entry.name || u.displayName || u.email || u.uid;
+        });
+      }
+    }
+    users.forEach((u) => { if (!u.name) u.name = u.uid; });
+    users.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+
+    res.json({ users });
+  } catch (err) {
+    console.error('[Admin] getAllUsers:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to list users' });
+  }
+}
+
+async function patchManagerSettings(req, res) {
+  try {
+    const uid = String(req.params.uid || '').trim();
+    if (!uid) return res.status(400).json({ error: 'uid is required' });
+
+    const { role, managedAgents } = req.body || {};
+    if (!['agent', 'manager'].includes(role)) {
+      return res.status(400).json({ error: "role must be 'agent' or 'manager'" });
+    }
+    if (managedAgents != null && !Array.isArray(managedAgents)) {
+      return res.status(400).json({ error: 'managedAgents must be an array of user UIDs' });
+    }
+
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database unavailable' });
+
+    const targetRef = db.collection('users').doc(uid);
+    const targetSnap = await targetRef.get();
+    if (!targetSnap.exists) return res.status(404).json({ error: 'User not found' });
+
+    // Sanitize the allowlist: unique, truthy, and exclude self-management.
+    const cleanedAgents = role === 'manager'
+      ? [...new Set((managedAgents || []).filter((id) => typeof id === 'string' && id.trim() && id !== uid))]
+      : [];
+
+    // Validate the allowlist refers to real user docs (prevents typos / stale UIDs).
+    if (cleanedAgents.length) {
+      const refs = cleanedAgents.map((id) => db.collection('users').doc(id));
+      const snaps = await db.getAll(...refs);
+      const invalid = snaps.filter((s) => !s.exists).map((s) => s.id);
+      if (invalid.length) {
+        return res.status(400).json({ error: `Unknown agent UID(s): ${invalid.join(', ')}` });
+      }
+    }
+
+    const { FieldValue } = admin.firestore;
+    await targetRef.set(
+      {
+        role,
+        managedAgents: cleanedAgents,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    console.log(`[Admin] Set role=${role} managedAgents=${cleanedAgents.length} on ${uid} by ${req.user?.uid || 'unknown'}`);
+    res.json({ success: true, uid, role, managedAgents: cleanedAgents });
+  } catch (err) {
+    console.error('[Admin] patchManagerSettings:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to update manager settings' });
+  }
+}
+
 async function getAnalyticsDrilldown(req, res) {
   try {
     const { from, end } = parseRange(req.query || {});
@@ -1384,6 +1488,8 @@ module.exports = {
   getAnalyticsBundle,
   getLiveCalls,
   forceRemoveAgent,
+  getAllUsers,
+  patchManagerSettings,
   getAnalyticsDrilldown,
   getAiCoachingOverview,
   getAiCoachingAgentPlans,

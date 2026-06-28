@@ -7,7 +7,7 @@ import {
   Play, Phone, LayoutDashboard, List, FileText,
   DollarSign, Box, User, HeadphonesIcon,
   MessageSquare, Gift, Settings, LogOut,
-  ChevronLeft, ChevronRight, Shield, FileEdit, ShieldCheck, Bell,
+  ChevronLeft, ChevronRight, Shield, FileEdit, ShieldCheck, Bell, Users,
 } from 'lucide-react';
 import classes from './Sidebar.module.css';
 
@@ -15,6 +15,7 @@ const NAV_GROUP_LABELS = {
   work: 'Work',
   business: 'Business',
   you: 'You',
+  manager: 'Team',
   admin: 'Admin',
   qa: 'QA',
 };
@@ -59,11 +60,16 @@ const Sidebar = () => {
         { path: '/app/qa/ai-training', label: 'QA AI Training', icon: ShieldCheck, group: 'qa' },
       );
     }
+    if (role === 'manager' || role === 'admin') {
+      base.push(
+        { path: '/app/team-dashboard', label: 'Team Dashboard', icon: Users, end: true, group: 'manager' },
+      );
+    }
     return base;
   }, [role]);
 
   const navGroups = React.useMemo(() => {
-    const order = ['work', 'business', 'you', 'admin', 'qa'];
+    const order = ['work', 'business', 'you', 'manager', 'admin', 'qa'];
     return order
       .map((groupId) => ({
         id: groupId,

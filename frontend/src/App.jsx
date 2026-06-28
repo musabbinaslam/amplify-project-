@@ -36,6 +36,8 @@ const AdminNotificationSettingsPage = lazy(() => import('./pages/AdminNotificati
 const QaDashboardPage = lazy(() => import('./pages/QaDashboardPage'));
 const QaAITrainingPage = lazy(() => import('./pages/QaAITrainingPage'));
 
+const TeamDashboardPage = lazy(() => import('./pages/TeamDashboardPage'));
+
 
 import DialerOverlay from './components/ui/DialerOverlay';
 
@@ -67,6 +69,12 @@ const QaOnly = ({ children }) => {
 const AdminOnly = ({ children }) => {
   const role = useAuthStore((s) => s.user?.role);
   if (role !== 'admin') return <Navigate to="/app" replace />;
+  return children;
+};
+
+const ManagerOnly = ({ children }) => {
+  const role = useAuthStore((s) => s.user?.role);
+  if (role !== 'admin' && role !== 'manager') return <Navigate to="/app" replace />;
   return children;
 };
 
@@ -176,6 +184,14 @@ const AnimatedRoutes = () => {
               <QaOnly>
                 <QaAITrainingPage />
               </QaOnly>
+            </Suspense>
+          } />
+
+          <Route path="team-dashboard" element={
+            <Suspense fallback={<PageLoader />}>
+              <ManagerOnly>
+                <TeamDashboardPage />
+              </ManagerOnly>
             </Suspense>
           } />
 

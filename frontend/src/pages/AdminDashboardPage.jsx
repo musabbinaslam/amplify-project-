@@ -26,6 +26,8 @@ import {
   patchAdminDid,
   deleteAdminDid,
   forceRemoveAgent,
+  listAdminUsers,
+  patchManagerSettings,
   listAdminCallContests,
   approveAdminCallContest,
   denyAdminCallContest,
@@ -1062,6 +1064,106 @@ const AdminDashboardPage = () => {
     });
   }, [agentStats, agentSearch, getAgentId, getAgentName]);
 
+  // ── Manager settings panel ─────────────────────────────────────────────────
+  const [allUsers, setAllUsers] = useState([]);
+  const [managerTargetUid, setManagerTargetUid] = useState('');
+  const [managerRole, setManagerRole] = useState('agent');
+  const [managerManaged, setManagerManaged] = useState([]); // array of agent UIDs
+  const [managerSaving, setManagerSaving] = useState(false);
+  const [managerAgentSearch, setManagerAgentSearch] = useState('');
+  const [userSearch, setUserSearch] = useState('');
+  const [userPickerOpen, setUserPickerOpen] = useState(false);
+
+  const loadAllUsers = useCallback(async () => {
+    try {
+      const data = await listAdminUsers();
+      setAllUsers(Array.isArray(data?.users) ? data.users : []);
+    } catch {
+      // Non-fatal: panel falls back to live pool / analytics directory below.
+    }
+  }, []);
+
+  useEffect(() => { loadAllUsers(); }, [loadAllUsers]);
+
+  // Directory of selectable users. Prefer the full user list; fall back to the
+  // live pool + analytics agents if the list endpoint hasn't loaded yet.
+  const agentDirectory = useMemo(() => {
+    const map = new Map();
+    allUsers.forEach((u) => {
+      if (u.uid && !map.has(u.uid)) map.set(u.uid, { id: u.uid, name: u.name || u.email || u.uid });
+    });
+    if (map.size === 0) {
+      (overview?.agents || []).forEach((a) => {
+        const id = a.id;
+        if (id && !map.has(id)) map.set(id, { id, name: getAgentName(a) });
+      });
+      (agentStats || []).forEach((a) => {
+        const id = a.agentId;
+        if (id && !map.has(id)) map.set(id, { id, name: getAgentName(a) });
+      });
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [allUsers, overview, agentStats, getAgentName]);
+
+  const selectedUserName = useMemo(
+    () => agentDirectory.find((a) => a.id === managerTargetUid)?.name || '',
+    [agentDirectory, managerTargetUid],
+  );
+
+  const userPickerResults = useMemo(() => {
+    const q = userSearch.trim().toLowerCase();
+    const list = q
+      ? agentDirectory.filter((a) => a.name.toLowerCase().includes(q) || a.id.toLowerCase().includes(q))
+      : agentDirectory;
+    return list.slice(0, 50);
+  }, [agentDirectory, userSearch]);
+
+  // Prefill role + managed agents from the selected user's existing settings.
+  useEffect(() => {
+    if (!managerTargetUid) {
+      setManagerRole('agent');
+      setManagerManaged([]);
+      return;
+    }
+    const u = allUsers.find((x) => x.uid === managerTargetUid);
+    setManagerRole(u?.role === 'manager' ? 'manager' : 'agent');
+    setManagerManaged(Array.isArray(u?.managedAgents) ? u.managedAgents : []);
+  }, [managerTargetUid, allUsers]);
+
+  const managedDirectory = useMemo(() => {
+    const q = managerAgentSearch.trim().toLowerCase();
+    return agentDirectory.filter((a) => (
+      a.id !== managerTargetUid && (!q || a.name.toLowerCase().includes(q) || a.id.toLowerCase().includes(q))
+    ));
+  }, [agentDirectory, managerAgentSearch, managerTargetUid]);
+
+  const toggleManagedAgent = useCallback((uid) => {
+    setManagerManaged((prev) => (
+      prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]
+    ));
+  }, []);
+
+  const handleSaveManagerSettings = async () => {
+    if (!managerTargetUid) {
+      toast.error('Select a user first');
+      return;
+    }
+    setManagerSaving(true);
+    try {
+      const payload = {
+        role: managerRole,
+        managedAgents: managerRole === 'manager' ? managerManaged : [],
+      };
+      const out = await patchManagerSettings(managerTargetUid, payload);
+      toast.success(`Saved: ${out.role}${out.role === 'manager' ? ` (${out.managedAgents.length} agents)` : ''}`);
+      await loadAllUsers();
+    } catch (err) {
+      toast.error(err.message || 'Failed to save manager settings');
+    } finally {
+      setManagerSaving(false);
+    }
+  };
+
   const filteredSortedDrilldownLogs = useMemo(() => {
     const all = Array.isArray(drilldown?.recentLogs) ? [...drilldown.recentLogs] : [];
     const dayFiltered = drilldownDay
@@ -1875,6 +1977,117 @@ const AdminDashboardPage = () => {
             </tbody>
           </table>
           </div>
+        </div>
+      </motion.section>
+
+      <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
+        <h2 className={classes.cardTitle}>Manager settings</h2>
+        <p className={classes.hint}>
+          Promote any user to a read-only Manager. Managers see a Team Dashboard scoped strictly to the agents you select below — no wallet, phone, or admin access.
+        </p>
+
+        <div className={classes.didForm} style={{ gridTemplateColumns: '1.4fr 1fr', position: 'relative', zIndex: 20 }}>
+          <div className={classes.formField}>
+            <label>User</label>
+            <div className={classes.combo}>
+              <input
+                className={classes.select}
+                placeholder="Search by name, email, or ID…"
+                value={userPickerOpen ? userSearch : (selectedUserName || userSearch)}
+                onFocus={() => { setUserPickerOpen(true); setUserSearch(''); }}
+                onChange={(e) => { setUserSearch(e.target.value); setUserPickerOpen(true); }}
+                onBlur={() => setTimeout(() => setUserPickerOpen(false), 150)}
+                aria-label="Search for a user to manage"
+              />
+              {userPickerOpen ? (
+                <div className={classes.comboMenu}>
+                  {userPickerResults.length === 0 ? (
+                    <div className={classes.comboEmpty}>No users match “{userSearch}”.</div>
+                  ) : (
+                    userPickerResults.map((a) => (
+                      <div
+                        key={a.id}
+                        className={classes.comboItem}
+                        onMouseDown={() => {
+                          setManagerTargetUid(a.id);
+                          setUserPickerOpen(false);
+                          setUserSearch('');
+                        }}
+                      >
+                        <span className={classes.comboItemName}>{a.name}</span>
+                        <span className={classes.comboItemSub}>{a.id}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : null}
+            </div>
+            {managerTargetUid ? (
+              <span className={classes.muted} style={{ fontSize: '12px', marginTop: '4px' }}>
+                Selected: <strong>{selectedUserName}</strong>
+              </span>
+            ) : null}
+          </div>
+          <div className={classes.formField}>
+            <label>Role</label>
+            <select
+              className={classes.select}
+              value={managerRole}
+              onChange={(e) => setManagerRole(e.target.value)}
+            >
+              <option value="agent">Agent</option>
+              <option value="manager">Manager</option>
+            </select>
+          </div>
+        </div>
+
+        {managerRole === 'manager' ? (
+          <div style={{ marginTop: '8px' }}>
+            <div className={classes.cardTopRow}>
+              <h3 className={classes.cardTitle} style={{ fontSize: '15px' }}>
+                Managed agents {managerManaged.length ? `(${managerManaged.length})` : ''}
+              </h3>
+              <input
+                className={classes.searchInput}
+                placeholder="Search agents"
+                value={managerAgentSearch}
+                onChange={(e) => setManagerAgentSearch(e.target.value)}
+              />
+            </div>
+            {!managerTargetUid ? (
+              <p className={classes.muted}>Select a user above to assign agents.</p>
+            ) : managedDirectory.length === 0 ? (
+              <p className={classes.muted}>No agents match this search.</p>
+            ) : (
+              <div
+                className={classes.tableWrap}
+                style={{ maxHeight: '260px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '12px' }}
+              >
+                {managedDirectory.map((a) => (
+                  <label key={a.id} className={classes.check} style={{ padding: '6px 0' }}>
+                    <input
+                      type="checkbox"
+                      checked={managerManaged.includes(a.id)}
+                      onChange={() => toggleManagedAgent(a.id)}
+                    />
+                    {a.name}
+                    <span className={classes.agentSubId} style={{ marginLeft: '6px' }}>{a.id}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        <div style={{ marginTop: '16px' }}>
+          <button
+            type="button"
+            className={classes.primaryBtn}
+            onClick={handleSaveManagerSettings}
+            disabled={managerSaving || !managerTargetUid}
+          >
+            {managerSaving ? 'Saving…' : 'Save manager settings'}
+          </button>
         </div>
       </motion.section>
     </motion.div>
