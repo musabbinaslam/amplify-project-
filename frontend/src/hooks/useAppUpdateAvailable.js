@@ -5,15 +5,18 @@ import {
   isUpdateReady,
 } from '../services/releaseService';
 
-const CHECK_INTERVAL_MS = 10 * 1000;
+const CHECK_INTERVAL_MS = 60 * 1000;
 
 export function useAppUpdateAvailable() {
   const runningBuildId = getRunningBuildId();
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const initialDeployRef = useRef(null);
+  const lastCheckRef = useRef(0);
 
   const checkForUpdate = useCallback(async () => {
     if (!runningBuildId) return;
+    if (Date.now() - lastCheckRef.current < CHECK_INTERVAL_MS) return;
+    lastCheckRef.current = Date.now();
 
     const liveFrontend = await fetchFrontendRelease();
 
