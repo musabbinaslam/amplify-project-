@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const Sentry = require('@sentry/node');
 const { nodeProfilingIntegration } = require('@sentry/profiling-node');
+const { resolveReleaseId } = require('../scripts/ensure-release');
 
 if (process.env.SENTRY_DSN) {
   const enableProfiling = process.env.SENTRY_ENABLE_PROFILING === 'true';
@@ -22,6 +23,7 @@ if (process.env.SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development',
+    release: resolveReleaseId() || undefined,
     sendDefaultPii: false,
     tracesSampleRate: Number.isFinite(tracesSampleRate) ? tracesSampleRate : 0.2,
     enableLogs,
