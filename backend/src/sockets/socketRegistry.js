@@ -28,6 +28,7 @@ module.exports = {
         if (!agentId || !socket) return;
         const sockets = getConnectedSet(agentId, true);
         sockets.add(socket);
+        console.log(`[socketRegistry] Registered socket ${socket.id} for ${agentId}. Total: ${sockets.size}`);
     },
 
     /**
@@ -36,12 +37,14 @@ module.exports = {
     unregister(agentId, socket) {
         if (!agentId) return;
         if (!socket) {
+            console.log(`[socketRegistry] Deleting entire set for ${agentId}`);
             registry.delete(agentId);
             return;
         }
         const sockets = getConnectedSet(agentId);
         if (!sockets) return;
         sockets.delete(socket);
+        console.log(`[socketRegistry] Unregistered socket ${socket.id} for ${agentId}. Remaining: ${sockets.size}`);
         if (!sockets.size) registry.delete(agentId);
     },
 
@@ -51,7 +54,10 @@ module.exports = {
      */
     emitToAgent(agentId, event, data) {
         const sockets = getConnectedSet(agentId);
-        if (!sockets || !sockets.size) return false;
+        if (!sockets || !sockets.size) {
+            console.log(`[socketRegistry] emitToAgent failed: No sockets for ${agentId} (event: ${event})`);
+            return false;
+        }
         let emitted = false;
         for (const socket of sockets) {
             if (socket && socket.connected) {
@@ -59,6 +65,7 @@ module.exports = {
                 emitted = true;
             }
         }
+        console.log(`[socketRegistry] emitToAgent: ${event} to ${agentId}. Success: ${emitted}`);
         return emitted;
     },
 

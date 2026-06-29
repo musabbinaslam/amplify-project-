@@ -90,6 +90,14 @@ export function forceRemoveAgent(agentId) {
   return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/force-remove`, { method: 'POST' });
 }
 
+export function flagAdminAgent(agentId, reason) {
+  return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/flag`, { method: 'POST', body: JSON.stringify({ reason }) });
+}
+
+export function resumeAdminAgent(agentId) {
+  return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/resume`, { method: 'POST' });
+}
+
 export function listAdminCallContests(status = 'pending', limit = 50) {
   const qs = new URLSearchParams();
   if (status) qs.set('status', status);

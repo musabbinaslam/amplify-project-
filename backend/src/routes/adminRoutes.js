@@ -13,6 +13,8 @@ router.get('/analytics-bundle', adminController.getAnalyticsBundle);
 router.get('/analytics-drilldown', adminController.getAnalyticsDrilldown);
 router.get('/live-calls', adminController.getLiveCalls);
 router.post('/agents/:agentId/force-remove', adminController.forceRemoveAgent);
+router.post('/agents/:agentId/flag', adminController.flagAgent);
+router.post('/agents/:agentId/resume', adminController.resumeAgent);
 router.get('/ai-training/coaching-overview', adminController.getAiCoachingOverview);
 router.get('/ai-training/agent-plans', adminController.getAiCoachingAgentPlans);
 router.get('/dids', adminController.listDids);

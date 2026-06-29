@@ -34,9 +34,13 @@ async function loadUserRole(uid) {
       try { useThemeStore.getState().hydrateFromProfile(profile.brandColor); } catch {}
     }
     const r = profile?.role;
-    return r === 'admin' ? 'admin' : r === 'qa' ? 'qa' : 'agent';
+    return {
+      role: r === 'admin' ? 'admin' : r === 'qa' ? 'qa' : r === 'manager' ? 'manager' : 'agent',
+      flagged: profile?.flagged === true,
+      flagReason: profile?.flagReason || null,
+    };
   } catch {
-    return 'agent';
+    return { role: 'agent', flagged: false, flagReason: null };
   }
 }
 
@@ -60,7 +64,7 @@ const useAuthStore = create((set, get) => ({
           }
           const token = await firebaseUser.getIdToken();
           const existingMeta = get().user?.meta;
-          const role = await loadUserRole(firebaseUser.uid);
+          const { role, flagged, flagReason } = await loadUserRole(firebaseUser.uid);
 
           // Proactively refresh the Firebase token every 15 minutes
           // to guarantee agents never hit the 1-hour expiration while online.
@@ -78,7 +82,7 @@ const useAuthStore = create((set, get) => ({
           }, 15 * 60 * 1000); // 15 minutes
 
           set({
-            user: { ...mapFirebaseUser(firebaseUser), meta: existingMeta || null, role },
+            user: { ...mapFirebaseUser(firebaseUser), meta: existingMeta || null, role, flagged, flagReason },
             token,
             loading: false,
             _tokenRefreshInterval: intervalId,
@@ -132,8 +136,8 @@ const useAuthStore = create((set, get) => ({
   login: async (email, password) => {
     const credential = await signInWithEmailAndPassword(auth, email, password);
     const token = await credential.user.getIdToken();
-    const role = await loadUserRole(credential.user.uid);
-    set({ user: { ...mapFirebaseUser(credential.user), role }, token });
+    const { role, flagged, flagReason } = await loadUserRole(credential.user.uid);
+    set({ user: { ...mapFirebaseUser(credential.user), role, flagged, flagReason }, token });
   },
 
   googleLogin: async () => {
@@ -243,11 +247,16 @@ const useAuthStore = create((set, get) => ({
   refreshUserRole: async () => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
-    const role = await loadUserRole(currentUser.uid);
+    const { role, flagged, flagReason } = await loadUserRole(currentUser.uid);
     set((state) => ({
-      user: state.user ? { ...state.user, role } : null,
+      user: state.user ? { ...state.user, role, flagged, flagReason } : null,
     }));
   },
+
+  /** Update a single field on the user object (used by real-time socket events). */
+  setUserField: (field, value) => set((state) => ({
+    user: state.user ? { ...state.user, [field]: value } : state.user,
+  })),
 
   updateAvatar: (url) => {
     set((state) => ({

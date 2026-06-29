@@ -3,6 +3,7 @@ const { redisClient } = require('../config/redis');
 const { getBalance } = require('../services/walletService');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const socketRegistry = require('./socketRegistry');
+const { getUserDoc } = require('../services/userDataService');
 
 const HEARTBEAT_TTL_SECONDS = 35;
 
@@ -41,6 +42,21 @@ exports.setupCallSockets = (io) => {
             const { agentId, campaign, sessionId } = payload;
             const identity = agentId || socket.id;
             const safeSessionId = String(sessionId || `${identity}-${Date.now()}`).trim();
+
+            // ── Flag Gate ────────────────────────────────────────────────────
+            try {
+                const userDoc = await getUserDoc(identity);
+                if (userDoc?.flagged === true) {
+                    console.log(`[Socket] 🚩 Blocked flagged agent ${identity} from going live`);
+                    socket.emit('agent:go_live_error', {
+                        code: 'ACCOUNT_FLAGGED',
+                        message: 'Your account has been flagged due to inactivity or a low billable rate. Please contact admin@callsflow.io to resume your activity.',
+                    });
+                    return;
+                }
+            } catch (err) {
+                console.error(`[Socket] Flag check failed for ${identity} — allowing through:`, err.message);
+            }
 
             // ── Balance Gate ─────────────────────────────────────────────────
             try {
@@ -189,7 +205,6 @@ exports.setupCallSockets = (io) => {
         // Removes them from the pool immediately rather than waiting for disconnect/heartbeat expiry
         socket.on('agent:go_offline', async (payload = {}) => {
             if (socket.agentId) {
-                socketRegistry.unregister(socket.agentId, socket);
                 const expectedSession = String(payload?.sessionId || socket.agentSessionId || '').trim() || null;
                 await agentManager.removeAgent(socket.agentId, expectedSession);
                 socket.agentId = null;

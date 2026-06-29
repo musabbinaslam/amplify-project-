@@ -30,6 +30,8 @@ import {
   approveAdminCallContest,
   denyAdminCallContest,
   refundAdminCall,
+  flagAdminAgent,
+  resumeAdminAgent,
 } from '../services/adminService';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { EASE_SMOOTH } from '../motion/appMotion';
@@ -700,6 +702,8 @@ const AdminDashboardPage = () => {
   const [actionModal, setActionModal] = useState(null);
   const [actionNote, setActionNote] = useState('');
   const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [flagModal, setFlagModal] = useState(null);
+  const [flagReason, setFlagReason] = useState('Low billable rate — below 30% threshold');
 
   const getRange = useCallback(() => {
     const now = new Date();
@@ -1016,6 +1020,46 @@ const AdminDashboardPage = () => {
       await refreshDids();
     } catch (err) {
       toast.error(err.message || 'Failed to delete');
+    }
+  };
+
+  const handleFlagSubmit = async (e) => {
+    e.preventDefault();
+    if (!flagModal?.agentId) return;
+    setActionSubmitting(true);
+    try {
+      const out = await flagAdminAgent(flagModal.agentId, flagReason);
+      if (out.success) {
+        toast.success(`Agent ${flagModal.agentName} has been flagged.`);
+        setFlagModal(null);
+        await loadShell();
+        // Also refresh analytics to update the table immediately
+        if (getRange().from) await loadAnalytics();
+      } else {
+        toast.error('Failed to flag agent');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to flag agent');
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
+
+  const handleResumeAgent = async (agentId, agentName) => {
+    if (!window.confirm(`Are you sure you want to resume ${agentName}? They will be able to take calls immediately.`)) {
+      return;
+    }
+    try {
+      const out = await resumeAdminAgent(agentId);
+      if (out.success) {
+        toast.success(`Agent ${agentName} has been resumed.`);
+        await loadShell();
+        if (getRange().from) await loadAnalytics();
+      } else {
+        toast.error('Failed to resume agent');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to resume agent');
     }
   };
 
@@ -1416,14 +1460,44 @@ const AdminDashboardPage = () => {
                             <span className={classes.agentSubId}>{getAgentId(row)}</span>
                           ) : null}
                         </summary>
-                        <div style={{ marginTop: '6px' }}>
+                        <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
                           {row.phone ? (
-                            <a href={`tel:${row.phone}`} className={classes.agentPhone} onClick={(e) => e.stopPropagation()}>
+                            <a href={`tel:${row.phone}`} className={classes.agentPhone}>
                               {row.phone}
                             </a>
                           ) : (
-                            <span className={classes.agentPhone} style={{ opacity: 0.5 }} onClick={(e) => e.stopPropagation()}>No phone</span>
+                            <span className={classes.agentPhone} style={{ opacity: 0.5 }}>No phone</span>
                           )}
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
+                            {row.flagged ? (
+                              <>
+                                <span style={{ color: 'hsl(0 80% 55%)', fontWeight: 'bold', fontSize: '11px' }}>
+                                  🚩 FLAGGED
+                                </span>
+                                <button
+                                  className={classes.primaryBtn}
+                                  style={{ padding: '4px 8px', fontSize: '11px', minHeight: 'auto' }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleResumeAgent(row.agentId, getAgentName(row));
+                                  }}
+                                >
+                                  ✅ Resume Agent
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                className={classes.dangerBtn}
+                                style={{ padding: '4px 8px', fontSize: '11px', minHeight: 'auto' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setFlagModal({ agentId: row.agentId, agentName: getAgentName(row) });
+                                }}
+                              >
+                                🚩 Flag Agent
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </details>
                     </td>
@@ -1889,6 +1963,46 @@ const AdminDashboardPage = () => {
       onClose={closeActionModal}
       onSubmit={submitActionModal}
     />
+
+    {/* ── Flag Agent Modal ────────────────────────────────────────── */}
+    {flagModal && (
+      <div className={classes.modalOverlay} onClick={() => setFlagModal(null)}>
+        <motion.div 
+          className={`glass ${classes.modalBox}`}
+          onClick={(e) => e.stopPropagation()}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <div className={classes.modalHeader}>
+            <h3>Flag Agent</h3>
+            <button className={classes.modalCloseBtn} onClick={() => setFlagModal(null)}>
+              <X size={18} />
+            </button>
+          </div>
+          <p className={classes.modalSub}>
+            You are about to flag <strong>{flagModal.agentName}</strong>. This will instantly kick them offline and prevent them from taking calls until you manually resume them.
+          </p>
+          <form onSubmit={handleFlagSubmit}>
+            <label className={classes.modalLabel}>
+              Reason shown to agent
+              <input
+                className={classes.input}
+                value={flagReason}
+                onChange={(e) => setFlagReason(e.target.value)}
+              />
+            </label>
+            <div className={classes.modalActions}>
+              <button type="button" className={classes.modalCancelBtn} onClick={() => setFlagModal(null)} disabled={actionSubmitting}>
+                Cancel
+              </button>
+              <button type="submit" className={classes.dangerBtn} disabled={actionSubmitting}>
+                {actionSubmitting ? 'Flagging...' : 'Confirm Flag'}
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </div>
+    )}
     </>
   );
 };

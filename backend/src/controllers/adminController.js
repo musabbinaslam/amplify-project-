@@ -11,10 +11,11 @@ const {
   getBroadcast,
   updateBroadcast,
   revokeBroadcast,
-  maintenanceDocRef,
+  notifyAgent,
 } = require('../services/notificationService');
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
+const { mergeUserDoc, getUserDoc } = require('../services/userDataService');
 const ANALYTICS_CACHE_TTL_MS = 30000;
 const READ_CONCURRENCY = 10;
 const analyticsCache = new Map();
@@ -299,8 +300,11 @@ async function buildUserMetaMap(agentIds = []) {
     // Wallet balance is stored in CENTS at users/{uid}.wallet.balance.
     // null = no wallet doc found; 0 = real zero balance.
     const balanceCents = typeof data.wallet?.balance === 'number' ? data.wallet.balance : null;
-    if (candidate || phone || balanceCents !== null) {
-      map.set(snap.id, { name: candidate, phone, balanceCents });
+    const flagged = data.flagged === true;
+    const flagReason = data.flagReason || null;
+    
+    if (candidate || phone || balanceCents !== null || flagged) {
+      map.set(snap.id, { name: candidate, phone, balanceCents, flagged, flagReason });
     }
   });
   const missing = ids.filter((id) => {
@@ -318,6 +322,7 @@ async function buildUserMetaMap(agentIds = []) {
       out.users.forEach((u) => {
         const existing = map.get(u.uid) || {};
         map.set(u.uid, {
+          ...existing,
           name: existing.name || u.displayName || u.email || null,
           phone: existing.phone || u.phoneNumber || null,
           balanceCents: existing.balanceCents ?? null,
@@ -642,6 +647,8 @@ async function getAnalyticsBundle(req, res) {
         agentName: metaMap.get(a.agentId)?.name || a.agentId,
         phone: metaMap.get(a.agentId)?.phone || null,
         walletBalanceCents: metaMap.get(a.agentId)?.balanceCents ?? null,
+        flagged: metaMap.get(a.agentId)?.flagged || false,
+        flagReason: metaMap.get(a.agentId)?.flagReason || null,
       })),
     };
 
@@ -682,6 +689,8 @@ async function getOverviewLite(req, res) {
         ...a,
         displayName: metaMap.get(a.id)?.name || a.id,
         phone: metaMap.get(a.id)?.phone || null,
+        flagged: metaMap.get(a.id)?.flagged || false,
+        flagReason: metaMap.get(a.id)?.flagReason || null,
       })),
       pool: overview.pool || { available: [], ringing: [], busy: [] },
       byCampaign: overview.byCampaign || {},
@@ -796,6 +805,85 @@ async function forceRemoveAgent(req, res) {
   } catch (err) {
     console.error('[Admin] forceRemoveAgent:', err.message);
     res.status(500).json({ error: err.message || 'Failed to remove agent' });
+  }
+}
+
+async function flagAgent(req, res) {
+  try {
+    const { agentId } = req.params;
+    if (!agentId || !agentId.trim()) {
+      return res.status(400).json({ error: 'agentId is required' });
+    }
+    const id = agentId.trim();
+    const reason = String(req.body?.reason || 'Low billable rate — below 30% threshold').trim();
+
+    // 1. Write flagged:true to Firestore
+    await mergeUserDoc(id, {
+      flagged: true,
+      flaggedAt: new Date().toISOString(),
+      flaggedBy: req.user?.uid || 'admin',
+      flagReason: reason,
+    });
+
+    // 2. Kick them from Redis pool immediately
+    await agentManager.removeAgent(id);
+
+    // 3. Notify their browser via socket if they are online
+    socketRegistry.emitToAgent(id, 'agent:flagged', {
+      reason,
+      message: 'Your account has been flagged due to inactivity or a low billable rate. Please contact admin@callsflow.io to resume your activity.',
+    });
+
+    // 4. Send persistent notification to the agent's bell tray
+    await notifyAgent(id, {
+      type: 'personal',
+      title: 'Account Flagged',
+      body: `Your account was flagged by an admin: ${reason}`,
+      priority: 'high',
+    });
+
+    // 5. Invalidate analytics cache so the admin dashboard updates immediately
+    analyticsCache.clear();
+    coachingCache.clear();
+
+    console.log(`[Admin] 🚩 Flagged agent ${id} by admin ${req.user?.uid}`);
+    res.json({ success: true, agentId: id, action: 'flagged' });
+  } catch (err) {
+    console.error('[Admin] flagAgent:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to flag agent' });
+  }
+}
+
+async function resumeAgent(req, res) {
+  try {
+    const { agentId } = req.params;
+    if (!agentId || !agentId.trim()) {
+      return res.status(400).json({ error: 'agentId is required' });
+    }
+    const id = agentId.trim();
+
+    // 1. Clear the flag in Firestore
+    await mergeUserDoc(id, {
+      flagged: false,
+      flaggedAt: null,
+      flaggedBy: null,
+      flagReason: null,
+    });
+
+    // 2. Notify their browser via socket if they are online
+    socketRegistry.emitToAgent(id, 'agent:flag_lifted', {
+      message: 'Your account has been resumed. You can now go live!',
+    });
+
+    // 4. Invalidate analytics cache
+    analyticsCache.clear();
+    coachingCache.clear();
+
+    console.log(`[Admin] ✅ Resumed agent ${id} by admin ${req.user?.uid}`);
+    res.json({ success: true, agentId: id, action: 'resumed' });
+  } catch (err) {
+    console.error('[Admin] resumeAgent:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to resume agent' });
   }
 }
 
@@ -1384,6 +1472,8 @@ module.exports = {
   getAnalyticsBundle,
   getLiveCalls,
   forceRemoveAgent,
+  flagAgent,
+  resumeAgent,
   getAnalyticsDrilldown,
   getAiCoachingOverview,
   getAiCoachingAgentPlans,

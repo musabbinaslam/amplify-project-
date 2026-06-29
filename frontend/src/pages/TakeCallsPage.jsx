@@ -1138,7 +1138,31 @@ const TakeCallsPage = () => {
         </div>
       </motion.div>
 
+      {/* ── Flagged Account Banner ───────────────────────────────────── */}
+      {user?.flagged && (
+        <motion.div className={classes.flaggedBanner} variants={presets.child}>
+          <div className={classes.flaggedBannerIcon}>
+            <AlertCircle size={24} />
+          </div>
+          <div className={classes.flaggedBannerBody}>
+            <strong className={classes.flaggedBannerTitle}>Account Flagged</strong>
+            <p>
+              {user?.flagReason
+                ? `Your account has been flagged: ${user.flagReason}.`
+                : 'Your account has been flagged due to inactivity or a low billable rate.'}{' '}
+              Please contact{' '}
+              <a href="mailto:admin@callsflow.io" className={classes.flaggedBannerLink}>
+                admin@callsflow.io
+              </a>{' '}
+              to resume your activity.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {!user?.flagged && (
       <motion.div className={`glass ${classes.wizardShell}`} variants={presets.child}>
+
         <div className={classes.wizardGrid}>
           <aside className={classes.wizardRail}>
             <div className={classes.railHeader}>
@@ -1210,6 +1234,7 @@ const TakeCallsPage = () => {
           </div>
         </div>
       </motion.div>
+      )} {/* end !user?.flagged wizard guard */}
       {pendingDispositionCall && (
         <DispositionModal 
           callSid={pendingDispositionCall} 
