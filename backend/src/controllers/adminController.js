@@ -14,6 +14,7 @@ const {
   maintenanceDocRef,
   getCampaignControls: getCampaignControlsState,
   setCampaignPaused,
+  notifyAgent,
 } = require('../services/notificationService');
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
