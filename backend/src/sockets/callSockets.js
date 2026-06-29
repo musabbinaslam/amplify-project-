@@ -3,6 +3,7 @@ const { redisClient } = require('../config/redis');
 const { getBalance } = require('../services/walletService');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const socketRegistry = require('./socketRegistry');
+const { isCampaignPaused } = require('../services/notificationService');
 
 const HEARTBEAT_TTL_SECONDS = 35;
 
@@ -41,6 +42,18 @@ exports.setupCallSockets = (io) => {
             const { agentId, campaign, sessionId } = payload;
             const identity = agentId || socket.id;
             const safeSessionId = String(sessionId || `${identity}-${Date.now()}`).trim();
+
+            try {
+                if (await isCampaignPaused(campaign)) {
+                    socket.emit('agent:go_live_error', {
+                        code: 'CAMPAIGN_PAUSED',
+                        message: 'This campaign is temporarily paused by admin. Please select another campaign.',
+                    });
+                    return;
+                }
+            } catch (err) {
+                console.warn(`[CampaignControls] Failed pause check for ${campaign}:`, err.message);
+            }
 
             // ── Balance Gate ─────────────────────────────────────────────────
             try {
@@ -84,6 +97,18 @@ exports.setupCallSockets = (io) => {
             if (!payload || !socket.agentId) {
                 // Ignore spurious events (e.g. double-fire)
                 return;
+            }
+            try {
+                if (await isCampaignPaused(payload.campaign)) {
+                    socket.pendingGoLivePayload = null;
+                    socket.emit('agent:go_live_error', {
+                        code: 'CAMPAIGN_PAUSED',
+                        message: 'This campaign was paused by admin. Please select another campaign.',
+                    });
+                    return;
+                }
+            } catch (err) {
+                console.warn(`[CampaignControls] Failed pool_ready pause check for ${payload.campaign}:`, err.message);
             }
             socket.pendingGoLivePayload = null; // consume
 

@@ -16,6 +16,7 @@ import { useAudioSettingsStore } from '../store/audioSettingsStore';
 import { apiFetch } from '../services/apiClient';
 import { stripeService } from '../services/stripeService';
 import { getProfile, saveProfile } from '../services/profileService';
+import { fetchCampaignPricing } from '../services/dashboardService';
 
 // All 50 US States
 const US_STATES = [
@@ -297,7 +298,7 @@ const StepOne = ({ onNext }) => {
 };
 
 // ─── Step 2: Campaign Selection ──────────────────────────────────────────────
-const StepTwo = ({ onNext, onBack, selected = '' }) => {
+const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {} }) => {
   const [selectedCampaign, setSelectedCampaign] = useState(selected);
   const campaigns = [
     { id: 'fe_inbounds_short', title: 'FE Inbounds Short', subtitle: 'FE Inbounds Short Duration', price: '$25', buffer: '10s buffer', icon: Umbrella },
@@ -317,32 +318,41 @@ const StepTwo = ({ onNext, onBack, selected = '' }) => {
       <p className={classes.subtitle}>Select the campaign you'd like to receive calls from</p>
       <div className={`glass ${classes.sectionCard}`}>
         <div className={classes.campaignsList}>
-          {campaigns.map(c => (
-            <div key={c.id}
-              className={`glass ${classes.campaignSelectCard} ${selectedCampaign === c.id ? classes.campaignSelectActive : ''}`}
-              onClick={() => setSelectedCampaign(c.id)}>
-              <div className={classes.campaignIconCol}><div className={classes.campIconWrapper}><c.icon size={24} /></div></div>
-              <div className={classes.campaignInfoCol}>
-                <h3>{c.title}</h3>
-                <p className={classes.campaignDesc}>{c.subtitle}</p>
-                <div className={classes.campaignMetrics}>
-                  <span className={classes.campaignPrice}>{c.price}</span>
-                  <span className={classes.campaignBuffer}>{c.buffer}</span>
+          {campaigns.map((c) => {
+            const isPaused = Boolean(pausedCampaigns[c.id]);
+            return (
+              <div key={c.id}
+                className={`glass ${classes.campaignSelectCard} ${selectedCampaign === c.id ? classes.campaignSelectActive : ''}`}
+                style={isPaused ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+                onClick={() => { if (!isPaused) setSelectedCampaign(c.id); }}>
+                <div className={classes.campaignIconCol}><div className={classes.campIconWrapper}><c.icon size={24} /></div></div>
+                <div className={classes.campaignInfoCol}>
+                  <h3>{c.title}</h3>
+                  <p className={classes.campaignDesc}>{c.subtitle}</p>
+                  <div className={classes.campaignMetrics}>
+                    <span className={classes.campaignPrice}>{c.price}</span>
+                    <span className={classes.campaignBuffer}>{c.buffer}</span>
+                  </div>
+                  {isPaused && (
+                    <p className={classes.warningText} style={{ marginTop: 6 }}>
+                      Paused by admin
+                    </p>
+                  )}
+                </div>
+                <div className={classes.campaignRadio}>
+                  <div className={`${classes.radioCircle} ${selectedCampaign === c.id ? classes.radioActive : ''}`}>
+                    {selectedCampaign === c.id && <div className={classes.radioInner} />}
+                  </div>
                 </div>
               </div>
-              <div className={classes.campaignRadio}>
-                <div className={`${classes.radioCircle} ${selectedCampaign === c.id ? classes.radioActive : ''}`}>
-                  {selectedCampaign === c.id && <div className={classes.radioInner} />}
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       <div className={`glass ${classes.stickyActionBar}`}>
         <button className={classes.ghostBtn} onClick={onBack}>Back</button>
-        <button className={classes.primaryBtn} onClick={() => onNext(selectedCampaign)} disabled={!selectedCampaign}>
+        <button className={classes.primaryBtn} onClick={() => onNext(selectedCampaign)} disabled={!selectedCampaign || Boolean(pausedCampaigns[selectedCampaign])}>
           Continue
         </button>
       </div>
@@ -907,6 +917,7 @@ const TakeCallsPage = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [history, setHistory] = useState([]);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [pausedCampaigns, setPausedCampaigns] = useState({});
   const [statePresets, setStatePresets] = useState([]);
   const reduceMotion = useReducedMotion();
 
@@ -935,6 +946,17 @@ const TakeCallsPage = () => {
       const profile = await getProfile(user?.uid);
       if (profile && Array.isArray(profile.statePresets)) {
         setStatePresets(profile.statePresets);
+      }
+
+      try {
+        const campaigns = await fetchCampaignPricing();
+        const pausedMap = {};
+        campaigns.forEach((row) => {
+          if (row?.id) pausedMap[row.id] = Boolean(row.paused);
+        });
+        setPausedCampaigns(pausedMap);
+      } catch {
+        // Non-blocking: keep wizard usable even if pricing fetch fails.
       }
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -975,6 +997,10 @@ const TakeCallsPage = () => {
   }, []);
 
   const handleGoLive = async () => {
+    if (pausedCampaigns[campaign]) {
+      toast.error('This campaign is currently paused by admin. Please choose another campaign.');
+      return;
+    }
     const campaignPriceMap = {
       fe_inbounds_short: 25,
       fe_inbounds: 45,
@@ -1201,7 +1227,7 @@ const TakeCallsPage = () => {
                   exit="exit"
                 >
                   {step === 1 && <StepOne onNext={() => goStep(2)} />}
-                  {step === 2 && <StepTwo selected={campaign} onNext={(sel) => { setCampaign(sel); goStep(3); }} onBack={() => goStep(1)} />}
+                  {step === 2 && <StepTwo selected={campaign} pausedCampaigns={pausedCampaigns} onNext={(sel) => { setCampaign(sel); goStep(3); }} onBack={() => goStep(1)} />}
                   {step === 3 && <StepThree onNext={(states, presetId) => { setWizardStates(states); setWizardPresetId(presetId ?? null); goStep(4); }} onBack={() => goStep(2)} statePresets={statePresets} onSavePresets={persistPresets} selectedPresetId={wizardPresetId} />}
                   {step === 4 && <StepFour onBack={() => goStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} />}
                 </motion.div>
