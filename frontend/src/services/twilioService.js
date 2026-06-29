@@ -188,6 +188,35 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
       }).catch(() => {});
     });
 
+    // Admin flagged this agent — kick them offline and block go-live.
+    socket.on('agent:flagged', (data) => {
+      console.warn('[Twilio] Account flagged by admin:', data?.reason);
+      leavePoolAndOffline('account_flagged');
+      // Update the in-memory user so the flagged banner appears instantly
+      import('../store/authStore').then(({ default: useAuthStore }) => {
+        useAuthStore.getState().setUserField('flagged', true);
+        useAuthStore.getState().setUserField('flagReason', data?.reason || null);
+      }).catch(() => {});
+      import('react-hot-toast').then(({ default: toast }) => {
+        toast.error(
+          data?.message || 'Your account has been flagged. Contact admin@callsflow.io.',
+          { duration: Infinity, id: 'account-flagged-toast' }
+        );
+      }).catch(() => {});
+    });
+
+    // Admin lifted the flag — banner disappears, agent can go live again.
+    socket.on('agent:flag_lifted', (data) => {
+      console.log('[Twilio] Account flag lifted by admin');
+      import('../store/authStore').then(({ default: useAuthStore }) => {
+        useAuthStore.getState().setUserField('flagged', false);
+        useAuthStore.getState().setUserField('flagReason', null);
+      }).catch(() => {});
+      import('react-hot-toast').then(({ default: toast }) => {
+        toast.dismiss('account-flagged-toast');
+        toast.success(data?.message || 'Your account has been resumed. You can now go live!', { duration: 6000 });
+      }).catch(() => {});
+    });
 
     device.on('unregistered', () => {
       const cs = useDialerStore.getState().callState;

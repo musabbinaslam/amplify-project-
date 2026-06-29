@@ -214,7 +214,6 @@ exports.setupCallSockets = (io) => {
         // Removes them from the pool immediately rather than waiting for disconnect/heartbeat expiry
         socket.on('agent:go_offline', async (payload = {}) => {
             if (socket.agentId) {
-                socketRegistry.unregister(socket.agentId, socket);
                 const expectedSession = String(payload?.sessionId || socket.agentSessionId || '').trim() || null;
                 await agentManager.removeAgent(socket.agentId, expectedSession);
                 socket.agentId = null;
