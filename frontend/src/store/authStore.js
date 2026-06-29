@@ -147,8 +147,8 @@ const useAuthStore = create((set, get) => ({
     const existing = await getProfile(result.user.uid);
     const needsOnboarding = !existing?.onboarding?.completedAt;
 
-    const role = await loadUserRole(result.user.uid);
-    set({ user: { ...mapFirebaseUser(result.user), role }, token });
+    const { role, flagged, flagReason } = await loadUserRole(result.user.uid);
+    set({ user: { ...mapFirebaseUser(result.user), role, flagged, flagReason }, token });
     return { needsOnboarding, user: result.user };
   },
 
@@ -191,10 +191,10 @@ const useAuthStore = create((set, get) => ({
         // Login page should reject onboarding-incomplete Google users.
         await rejectGoogleLogin();
       }
-      const role = await loadUserRole(result.user.uid);
+      const { role, flagged, flagReason } = await loadUserRole(result.user.uid);
 
       set({
-        user: { ...mapFirebaseUser(result.user), role },
+        user: { ...mapFirebaseUser(result.user), role, flagged, flagReason },
         token,
         googleLoginValidationInProgress: false,
       });
