@@ -1692,7 +1692,7 @@ const AdminDashboardPage = () => {
                         <td className={classes.compactCell}>{log.duration}s</td>
                         <td className={classes.pillCell}>
                           {log.isBillable ? (
-                            <span className={`${classes.drillPill} ${classes.dispSold}`}>Sold</span>
+                            <span className={`${classes.drillPill} ${classes.dispSold}`}>Billable</span>
                           ) : log.status === 'completed' ? (
                             <span className={`${classes.drillPill} ${classes.dispAnswered}`}>Answered</span>
                           ) : (

@@ -807,7 +807,7 @@ const CallHistory = ({ logs }) => {
             <div className={classes.colDuration}><Clock size={14} />{Math.floor(log.duration / 60)}:{(log.duration % 60).toString().padStart(2, '0')}</div>
             <div className={classes.colStatus}>
               {log.isBillable ? (
-                <span className={classes.badgeSale}><DollarSign size={12} /> SALE (${log.cost})</span>
+                <span className={classes.badgeSale}><DollarSign size={12} /> Billable (${log.cost})</span>
               ) : log.status === 'completed' ? (
                 <span className={classes.badgeAnswered}>Answered</span>
               ) : (
