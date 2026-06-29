@@ -30,8 +30,8 @@ import {
   approveAdminCallContest,
   denyAdminCallContest,
   refundAdminCall,
-  flagAdminAgent,
-  resumeAdminAgent,
+  getAdminCampaignControls,
+  patchAdminCampaignControl,
 } from '../services/adminService';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { EASE_SMOOTH } from '../motion/appMotion';
@@ -677,6 +677,8 @@ const AdminDashboardPage = () => {
   const [agentStats, setAgentStats] = useState([]);
   const [liveCalls, setLiveCalls] = useState([]);
   const [dids, setDids] = useState([]);
+  const [campaignControls, setCampaignControls] = useState({});
+  const [pauseReasonDraft, setPauseReasonDraft] = useState({});
   const [analyticsMeta, setAnalyticsMeta] = useState(null);
   const [selectedCampaign, setSelectedCampaign] = useState('');
   const [selectedAgent, setSelectedAgent] = useState('');
@@ -795,6 +797,11 @@ const AdminDashboardPage = () => {
     setDids(didList.dids || []);
   }, []);
 
+  const refreshCampaignControls = useCallback(async () => {
+    const out = await getAdminCampaignControls();
+    setCampaignControls(out?.campaigns || {});
+  }, []);
+
   const loadCallContests = useCallback(async (status = contestFilter) => {
     setContestsLoading(true);
     try {
@@ -812,9 +819,10 @@ const AdminDashboardPage = () => {
     Promise.all([
       loadShell(),
       refreshDids(),
+      refreshCampaignControls(),
       loadCallContests('pending'),
     ]);
-  }, [loadShell, refreshDids, loadCallContests]);
+  }, [loadShell, refreshDids, refreshCampaignControls, loadCallContests]);
 
   useEffect(() => {
     // Re-fetch analytics whenever the selected range changes. loadAnalytics'
@@ -892,6 +900,18 @@ const AdminDashboardPage = () => {
       await refreshDids();
     } catch (err) {
       toast.error(err.message || 'Failed to update');
+    }
+  };
+
+  const toggleCampaignPause = async (campaignId, nextPaused) => {
+    try {
+      const reason = String(pauseReasonDraft[campaignId] || '').trim();
+      const out = await patchAdminCampaignControl(campaignId, { paused: nextPaused, reason });
+      setCampaignControls(out?.campaigns || {});
+      toast.success(nextPaused ? 'Campaign paused' : 'Campaign resumed');
+      await loadShell();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update campaign state');
     }
   };
 
@@ -1851,6 +1871,67 @@ const AdminDashboardPage = () => {
           <Bell size={16} />
           Open notification settings
         </Link>
+      </motion.section>
+
+      <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
+        <h2 className={classes.cardTitle}>Campaign pause controls</h2>
+        <p className={classes.hint}>
+          Pause a campaign to block new go-live joins and inbound routing immediately. Existing online agents stay online until they go offline or switch campaigns.
+        </p>
+        <div className={classes.tableWrap}>
+          <div className={classes.tableScroll}>
+            <table className={classes.table}>
+              <thead>
+                <tr>
+                  <th>Campaign</th>
+                  <th>Status</th>
+                  <th>Reason (optional)</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {campaigns.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className={classes.muted}>No campaigns available</td>
+                  </tr>
+                ) : (
+                  campaigns.map((c) => {
+                    const control = campaignControls[c.id] || {};
+                    const paused = Boolean(control.paused || c.paused);
+                    const reasonValue = pauseReasonDraft[c.id] ?? (control.reason || c.pauseReason || '');
+                    return (
+                      <tr key={c.id}>
+                        <td>{c.label} <span className={classes.muted}>({c.id})</span></td>
+                        <td>
+                          <span className={`${classes.statusPill} ${paused ? classes.dispMissed : classes.dispAnswered}`}>
+                            {paused ? 'Paused' : 'Active'}
+                          </span>
+                        </td>
+                        <td>
+                          <input
+                            className={classes.input}
+                            placeholder="Reason shown to admins/operators"
+                            value={reasonValue}
+                            onChange={(e) => setPauseReasonDraft((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                          />
+                        </td>
+                        <td className={classes.actions}>
+                          <button
+                            type="button"
+                            className={paused ? classes.primaryBtn : classes.dangerBtn}
+                            onClick={() => toggleCampaignPause(c.id, !paused)}
+                          >
+                            {paused ? 'Resume' : 'Pause'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </motion.section>
 
       <motion.section className={`glass ${classes.sectionCard} ${classes.didSection}`} variants={presets.child}>

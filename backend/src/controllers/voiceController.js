@@ -11,6 +11,7 @@ const { normalizeCallerState } = require('../utils/phoneUtils');
 const { dispatchQaInsightJob } = require('../queues/qaQueue');
 const twilioClientObj = require('../config/twilio').twilioClient;
 const { redisClient } = require('../config/redis');
+const { isCampaignPaused } = require('../services/notificationService');
 const socketRegistry = require('../sockets/socketRegistry');
 
 /** Absolute URL for Twilio webhooks (relative URLs break statusCallback on some hosts). */
@@ -84,6 +85,14 @@ exports.handleIncomingCall = async (req, res) => {
     console.log(`[Twilio Webhook] 🎯 Resolved Campaign: ${campaign}`);
 
     try {
+        if (await isCampaignPaused(campaign)) {
+            console.warn(`[Router] Campaign "${campaign}" is paused — rejecting inbound route`);
+            twiml.say('This campaign is temporarily paused. Please try again shortly.');
+            twiml.hangup();
+            res.set('Content-Type', 'text/xml');
+            res.send(twiml.toString());
+            return;
+        }
         const parentCallSid = req.body?.CallSid || req.body?.CallSidInbound || '';
         const available = await agentManager.findAndLockAvailableAgent(campaign, callerState, parentCallSid);
 

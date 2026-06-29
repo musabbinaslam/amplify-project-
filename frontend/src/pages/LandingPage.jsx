@@ -46,7 +46,7 @@ const HOW_IT_WORKS = [
 ];
 
 const VERTICAL_PRICING = [
-  { name: 'FE Inbounds Short',     price: '$25', buffer: '30s',  detail: 'FE Inbounds Short Duration — direct inbound callers billed at 30 seconds.' },
+  { name: 'FE Inbounds Short',     price: '$25', buffer: '10s',  detail: 'FE Inbounds Short Duration — direct inbound callers billed at 10 seconds.' },
   { name: 'FE Inbounds',          price: '$45', buffer: '90s',  detail: 'Direct inbound Final Expense calls from high-intent consumers.' },
   { name: 'FE TV Calls',          price: '$70', buffer: '30s',  detail: 'High-intent Final Expense TV callers.' },
   { name: 'Medicare Transfers',   price: '$25', buffer: '120s', detail: 'Live-transferred Medicare callers seeking plan guidance.' },

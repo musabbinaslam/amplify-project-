@@ -86,6 +86,14 @@ export function patchAdminMaintenanceState(body) {
   return apiFetch('/api/admin/maintenance', { method: 'PATCH', body });
 }
 
+export function getAdminCampaignControls() {
+  return apiFetch('/api/admin/campaign-controls', { method: 'GET' });
+}
+
+export function patchAdminCampaignControl(campaignId, body) {
+  return apiFetch(`/api/admin/campaign-controls/${encodeURIComponent(campaignId)}`, { method: 'PATCH', body });
+}
+
 export function forceRemoveAgent(agentId) {
   return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/force-remove`, { method: 'POST' });
 }

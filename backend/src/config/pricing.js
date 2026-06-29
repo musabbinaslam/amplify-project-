@@ -10,7 +10,7 @@ const CAMPAIGN_CONFIG = {
   // FE (Final Expense)
   fe_inbounds_short: {
     label: 'FE Inbounds Short Duration',
-    buffer: 30, // seconds
+    buffer: 10, // seconds
     price: 25.00
   },
   fe_inbounds: {

@@ -11,7 +11,9 @@ const {
   getBroadcast,
   updateBroadcast,
   revokeBroadcast,
-  notifyAgent,
+  maintenanceDocRef,
+  getCampaignControls: getCampaignControlsState,
+  setCampaignPaused,
 } = require('../services/notificationService');
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
@@ -21,12 +23,15 @@ const READ_CONCURRENCY = 10;
 const analyticsCache = new Map();
 const coachingCache = new Map();
 
-function getCampaigns() {
+function getCampaigns(campaignControls = null) {
+  const pausedMap = campaignControls?.campaigns || {};
   return Object.entries(CAMPAIGN_CONFIG).map(([id, cfg]) => ({
     id,
     label: cfg.label,
     buffer: cfg.buffer,
     price: cfg.price,
+    paused: Boolean(pausedMap[id]?.paused),
+    pauseReason: pausedMap[id]?.reason || '',
   }));
 }
 
@@ -674,6 +679,7 @@ async function getAnalyticsBundle(req, res) {
 
 async function getOverviewLite(req, res) {
   try {
+    const campaignControls = await getCampaignControlsState();
     const overview = await agentManager.getOverview();
     const activeCalls = await agentManager.listActiveCalls();
     const routingDiagnostics = agentManager.getRoutingDiagnostics
@@ -694,7 +700,7 @@ async function getOverviewLite(req, res) {
       })),
       pool: overview.pool || { available: [], ringing: [], busy: [] },
       byCampaign: overview.byCampaign || {},
-      campaigns: getCampaigns(),
+      campaigns: getCampaigns(campaignControls),
       live: {
         activeCalls: activeCalls.length,
         generatedAt: new Date().toISOString(),
@@ -1302,6 +1308,28 @@ async function getMaintenance(req, res) {
   }
 }
 
+async function getCampaignControls(req, res) {
+  try {
+    const controls = await getCampaignControlsState();
+    res.json(controls);
+  } catch (err) {
+    console.error('[Admin] getCampaignControls:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to read campaign controls' });
+  }
+}
+
+async function patchCampaignControls(req, res) {
+  try {
+    const { campaignId } = req.params;
+    const controls = await setCampaignPaused(campaignId, req.body || {}, req.user?.uid || null);
+    res.json(controls);
+  } catch (err) {
+    console.error('[Admin] patchCampaignControls:', err.message);
+    const status = /required|Invalid campaignId/i.test(err.message) ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to update campaign controls' });
+  }
+}
+
 async function getPoolDebug(req, res) {
   try {
     const { redisClient } = require('../config/redis');
@@ -1493,6 +1521,8 @@ module.exports = {
   deleteBroadcastNotification,
   patchMaintenance,
   getMaintenance,
+  getCampaignControls,
+  patchCampaignControls,
   getPoolDebug,
   listCallContests,
   getCallContest,
