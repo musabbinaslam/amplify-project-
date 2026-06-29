@@ -1065,6 +1065,40 @@ class AgentManager {
       console.log(`[Admin] ❌ Force-removed ghost agent ${agentId} (no agent data found)`);
       return { action: 'removed', agentId };
    }
+
+   /**
+    * Agent IDs on a campaign who are idle/listening (AVAILABLE only).
+    * Skips agents ringing, on a call, in WRAP_UP, or with an active call record.
+    */
+   async getListeningAgentIdsForCampaign(campaignId) {
+      const id = String(campaignId || '').trim();
+      if (!id) return [];
+
+      const [allAgentsRaw, ringing, busy, activeCallsRaw] = await Promise.all([
+         redisClient.hGetAll('agents:data'),
+         redisClient.sMembers('agents:ringing'),
+         redisClient.sMembers('agents:busy'),
+         redisClient.hGetAll('activecalls:data'),
+      ]);
+      const ringingSet = new Set(ringing || []);
+      const busySet = new Set(busy || []);
+      const ids = [];
+
+      for (const [agentId, raw] of Object.entries(allAgentsRaw || {})) {
+         try {
+            const data = JSON.parse(raw);
+            if (data.campaignId !== id) continue;
+            if (data.status !== 'AVAILABLE') continue;
+            if (ringingSet.has(agentId)) continue;
+            if (busySet.has(agentId)) continue;
+            if (activeCallsRaw?.[agentId]) continue;
+            ids.push(agentId);
+         } catch {
+            /* ignore malformed agent data */
+         }
+      }
+      return ids;
+   }
 }
 
 module.exports = new AgentManager();

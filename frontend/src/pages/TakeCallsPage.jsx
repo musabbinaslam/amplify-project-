@@ -1073,11 +1073,19 @@ const TakeCallsPage = () => {
           <motion.div className={`glass ${classes.liveStatusCard}`} variants={presets.child}>
             <div className={classes.liveBadge}><div className={classes.liveDot} />Dialer Active</div>
 
-            <h2>{callState === 'active' ? 'Currently On Call' : 'Listening for Calls'}</h2>
+            <h2>
+              {callState === 'active'
+                ? 'Currently On Call'
+                : pendingDispositionCall
+                  ? 'Complete Disposition'
+                  : 'Listening for Calls'}
+            </h2>
             <p>
               {callState === 'active'
                 ? 'Stay focused on the prospect. Follow your script.'
-                : 'You are connected to the CallsFlow engine. Stand by for inbound calls.'}
+                : pendingDispositionCall
+                  ? 'Submit a disposition for your last call before you can receive new calls.'
+                  : 'You are connected to the CallsFlow engine. Stand by for inbound calls.'}
             </p>
 
             <div className={classes.actionButtons}>

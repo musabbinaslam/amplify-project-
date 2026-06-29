@@ -17,6 +17,7 @@ const DialerOverlay = () => {
     isMuted, 
     callDuration,
     activeCampaign,
+    pendingDispositionCall,
     acceptCall,
     rejectCall,
     hangUp,
@@ -89,7 +90,13 @@ const DialerOverlay = () => {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div className={classes.statusDot} style={{ margin: isCollapsed ? '0' : '' }} />
-            {!isCollapsed && <span className={classes.idleText}>Listening for {activeCampaign || 'Campaign'} Calls...</span>}
+            {!isCollapsed && (
+              <span className={classes.idleText}>
+                {pendingDispositionCall
+                  ? 'Disposition pending — submit to receive new calls'
+                  : `Listening for ${activeCampaign || 'Campaign'} Calls...`}
+              </span>
+            )}
             {!isCollapsed && (
                <button 
                   className={classes.hangupBtnSmall} 

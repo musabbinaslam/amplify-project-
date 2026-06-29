@@ -798,17 +798,46 @@ async function getLiveCalls(req, res) {
   }
 }
 
+async function kickAgentOfflineForCampaignPause(agentId) {
+  await agentManager.removeAgent(agentId);
+  socketRegistry.emitToAgent(agentId, 'agent:forced_offline', {
+    reason: 'campaign_paused',
+    message: 'This campaign was paused by an admin. You have been taken offline. Go live on another campaign when ready.',
+  });
+  await notifyAgent(agentId, {
+    type: 'personal',
+    title: 'Campaign paused',
+    body: 'Your campaign was paused by an admin. You are now offline.',
+    priority: 'high',
+  });
+}
+
 async function forceRemoveAgent(req, res) {
   try {
     const { agentId } = req.params;
     if (!agentId || !agentId.trim()) {
       return res.status(400).json({ error: 'agentId is required' });
     }
+    const id = agentId.trim();
     // Forcefully remove the agent from the pool and clear all their state
-    await agentManager.removeAgent(agentId.trim());
+    await agentManager.removeAgent(id);
+
+    // Notify the agent's browser immediately so Take Calls UI goes offline
+    socketRegistry.emitToAgent(id, 'agent:forced_offline', {
+      reason: 'admin_removed',
+      message: 'An admin removed you from the call pool. Go live again when you are ready to take calls.',
+    });
+
+    await notifyAgent(id, {
+      type: 'personal',
+      title: 'Removed from call pool',
+      body: 'An admin removed you from the active pool. You are now offline.',
+      priority: 'high',
+    });
+
     const adminUid = req.user?.uid || 'unknown';
-    console.log(`[Admin] 🚨 Force-removed agent ${agentId} by admin ${adminUid}`);
-    res.json({ success: true, agentId: agentId.trim(), action: 'removed' });
+    console.log(`[Admin] 🚨 Force-removed agent ${id} by admin ${adminUid}`);
+    res.json({ success: true, agentId: id, action: 'removed' });
   } catch (err) {
     console.error('[Admin] forceRemoveAgent:', err.message);
     res.status(500).json({ error: err.message || 'Failed to remove agent' });
@@ -1322,7 +1351,17 @@ async function getCampaignControls(req, res) {
 async function patchCampaignControls(req, res) {
   try {
     const { campaignId } = req.params;
-    const controls = await setCampaignPaused(campaignId, req.body || {}, req.user?.uid || null);
+    const body = req.body || {};
+    const controls = await setCampaignPaused(campaignId, body, req.user?.uid || null);
+
+    if (Boolean(body.paused)) {
+      const listeningIds = await agentManager.getListeningAgentIdsForCampaign(campaignId);
+      await Promise.all(listeningIds.map((id) => kickAgentOfflineForCampaignPause(id)));
+      if (listeningIds.length) {
+        console.log(`[Admin] Paused campaign ${campaignId} — kicked ${listeningIds.length} listening agent(s)`);
+      }
+    }
+
     res.json(controls);
   } catch (err) {
     console.error('[Admin] patchCampaignControls:', err.message);

@@ -1878,7 +1878,7 @@ const AdminDashboardPage = () => {
       <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
         <h2 className={classes.cardTitle}>Campaign pause controls</h2>
         <p className={classes.hint}>
-          Pause a campaign to block new go-live joins and inbound routing immediately. Existing online agents stay online until they go offline or switch campaigns.
+          Pause a campaign to block new go-live joins and inbound routing immediately. Agents who are listening (not on a call) are taken offline automatically.
         </p>
         <div className={classes.tableWrap}>
           <div className={classes.tableScroll}>
