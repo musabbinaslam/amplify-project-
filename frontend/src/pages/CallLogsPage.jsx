@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Download, Upload, X, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -11,6 +12,103 @@ import PageLoader from '../components/ui/PageLoader';
 import classes from './CallLogsPage.module.css';
 
 const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
+
+/** Short table labels — matches Take Calls campaign titles (not pricing subtitles). */
+const CAMPAIGN_SHORT_LABELS = {
+  fe_inbounds_short: 'FE Inbounds Short',
+  fe_inbounds: 'FE Inbounds',
+  fe_tv_calls: 'FE TV Calls',
+  medicare_transfers: 'Medicare Transfers',
+  medicare_inbound_1: 'Medicare Inbounds (1)',
+  medicare_inbound_2: 'Medicare Inbounds (2)',
+  aca_transfers: 'ACA Transfers',
+};
+
+/** Longer descriptive labels shown on hover. */
+const CAMPAIGN_FULL_LABELS = {
+  fe_inbounds_short: 'FE Inbounds Short Duration',
+  fe_inbounds: 'Direct inbound Final Expense calls',
+  fe_tv_calls: 'High-intent Final Expense TV calls',
+  medicare_transfers: 'Live transfer Medicare calls',
+  medicare_inbound_1: 'High-intent Medicare inbound calls',
+  medicare_inbound_2: 'Standard Medicare inbound calls',
+  aca_transfers: 'Live transfer ACA health calls',
+};
+
+function getCampaignDisplayLabel(log) {
+  const id = log?.campaign;
+  if (id && CAMPAIGN_SHORT_LABELS[id]) return CAMPAIGN_SHORT_LABELS[id];
+  return log?.campaignLabel || log?.campaign || '—';
+}
+
+function getCampaignFullLabel(log) {
+  const stored = String(log?.campaignLabel || '').trim();
+  const id = log?.campaign;
+  const mapped = id ? CAMPAIGN_FULL_LABELS[id] : null;
+  if (stored && stored !== CAMPAIGN_SHORT_LABELS[id]) return stored;
+  if (mapped) return mapped;
+  return stored || log?.campaign || '—';
+}
+
+function CampaignTagCell({ log }) {
+  const display = getCampaignDisplayLabel(log);
+  const full = getCampaignFullLabel(log);
+  const showTooltip = full !== display && full !== '—';
+  const anchorRef = useRef(null);
+  const [tooltip, setTooltip] = useState(null);
+
+  const openTooltip = useCallback(() => {
+    if (!showTooltip || !anchorRef.current) return;
+    const rect = anchorRef.current.getBoundingClientRect();
+    const maxWidth = 280;
+    const margin = 8;
+    let left = rect.left;
+    if (left + maxWidth > window.innerWidth - margin) {
+      left = Math.max(margin, window.innerWidth - maxWidth - margin);
+    }
+    setTooltip({
+      text: full,
+      left,
+      top: rect.bottom + 6,
+    });
+  }, [full, showTooltip]);
+
+  const closeTooltip = useCallback(() => setTooltip(null), []);
+
+  useEffect(() => {
+    if (!tooltip) return undefined;
+    const onScroll = () => setTooltip(null);
+    window.addEventListener('scroll', onScroll, true);
+    return () => window.removeEventListener('scroll', onScroll, true);
+  }, [tooltip]);
+
+  return (
+    <>
+      <span className={classes.campaignTagWrap}>
+        <span
+          ref={anchorRef}
+          className={`${classes.campaignTag}${showTooltip ? ` ${classes.campaignTagHoverable}` : ''}`}
+          onMouseEnter={openTooltip}
+          onMouseLeave={closeTooltip}
+          onFocus={openTooltip}
+          onBlur={closeTooltip}
+        >
+          {display}
+        </span>
+      </span>
+      {tooltip && createPortal(
+        <div
+          className={classes.campaignTooltipFixed}
+          style={{ left: tooltip.left, top: tooltip.top }}
+          role="tooltip"
+        >
+          {tooltip.text}
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
 
 /* eslint-disable react/prop-types -- local stat card helper */
 const StatCard = ({ label, value, icon: Icon, variants }) => {
@@ -550,7 +648,10 @@ export const RecordingModal = ({ log, onClose }) => {
   const callerDisplay = log?.isBillable
     ? (log?.from || 'Unknown caller')
     : (log?.from ? 'Hidden caller' : 'Unknown caller');
-  const campaignDisplay = log?.campaignLabel || log?.campaign || 'Call Recording';
+  const campaignDisplay = (() => {
+    const label = getCampaignDisplayLabel(log);
+    return label !== '—' ? label : 'Call Recording';
+  })();
   const dateDisplay = formatRecordingDate(log?.timestamp || log?.createdAt);
 
   const effectiveTotal = total > 0 ? total : logDuration;
@@ -992,7 +1093,7 @@ const CallLogsPage = () => {
                   return (
                     <tr key={log.id} className={log.status === 'missed' ? classes.rowMissed : ''}>
                       <td className={classes.colCampaign}>
-                        <span className={classes.campaignTag}>{log.campaignLabel || log.campaign || '—'}</span>
+                        <CampaignTagCell log={log} />
                       </td>
                       <td className={`${classes.phoneCell} ${classes.colCaller}`}>
                         {log.isBillable ? log.from : <span className={classes.hiddenPhone}>Hidden</span>}
@@ -1024,9 +1125,7 @@ const CallLogsPage = () => {
                       </td>
                       <td className={classes.colDisposition}>
                         <div className={classes.statusCell}>
-                          {log.isBillable ? (
-                            <span className={`${classes.dispBadge} ${classes.dispSold}`}>Sold</span>
-                          ) : log.disposition === 'callback' ? (
+                          {log.disposition === 'callback' ? (
                             <span className={`${classes.dispBadge} ${classes.dispAnswered}`}>Call back</span>
                           ) : log.disposition === 'not_interested' ? (
                             <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Not Interested</span>
@@ -1036,6 +1135,8 @@ const CallLogsPage = () => {
                             <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Dead Air</span>
                           ) : log.disposition === 'policy_closed' ? (
                             <span className={`${classes.dispBadge} ${classes.dispPolicyClosed}`}>Policy Closed</span>
+                          ) : log.disposition === 'sold' || log.isBillable ? (
+                            <span className={`${classes.dispBadge} ${classes.dispSold}`}>Sold</span>
                           ) : (
                             <span className={classes.scoreDash}>—</span>
                           )}

@@ -12,6 +12,7 @@ const { dispatchQaInsightJob } = require('../queues/qaQueue');
 const twilioClientObj = require('../config/twilio').twilioClient;
 const { redisClient } = require('../config/redis');
 const { isCampaignPaused } = require('../services/notificationService');
+const socketRegistry = require('../sockets/socketRegistry');
 
 /** Absolute URL for Twilio webhooks (relative URLs break statusCallback on some hosts). */
 function voiceWebhookUrl(req, pathWithQuery) {
@@ -171,14 +172,10 @@ exports.handleIncomingCall = async (req, res) => {
                 }, available.id);
             }
         } else {
-            if (retryCount === 0) {
-                // First attempt: no agents available at all
-                twiml.say('All agents are currently assisting other callers. Please try again shortly.');
-            } else {
-                // Retry attempt: all re-routes also failed
-                twiml.say('We were unable to connect your call. Please try again.');
-            }
-            twiml.hangup();
+            // Reject the call without answering it (returns SIP 486 Busy).
+            // This prevents the publisher from being billed for a dropped call
+            // and fixes the false 100% answer rate.
+            twiml.reject({ reason: 'busy' });
         }
     } catch (error) {
         console.error('Routing Error:', error);
@@ -332,19 +329,49 @@ exports.handleCallCompleted = async (req, res) => {
     const MAX_RETRIES = 2; // maximum re-routing hops per call
 
     if (isRerouteable && !callerHungUp && retryCount < MAX_RETRIES) {
-        // Release the agent that just failed/missed so they go back to AVAILABLE
+        // Kick the agent offline if they missed the call, rejected it, or their browser failed.
+        // We do NOT want to put them back into the AVAILABLE pool if they are asleep.
         if (agentId) {
             try {
                 const active = await agentManager.getActiveCall(agentId);
                 const agentState = await agentManager.getAgentState(agentId);
                 if (!active && agentState?.status === 'WRAP_UP') {
-                    console.log(`[Twilio] Call complete re-route ignored release for WRAP_UP agent ${agentId}`);
+                    console.log(`[Twilio] Call complete re-route ignored kick for WRAP_UP agent ${agentId}`);
                 } else {
                     await agentManager.clearActiveCall(agentId);
-                    await agentManager.releaseAgent(agentId, agentState?.sessionId || null);
+                    // Kick them entirely out of the pool so they stop receiving ghost routes
+                    await agentManager.removeAgent(agentId, agentState?.sessionId || null);
+                    console.log(`[Router] 🥾 Kicked agent ${agentId} offline due to missed/failed call.`);
+
+                    // Notify the agent's browser immediately so the UI shows "Offline"
+                    // instead of staying stuck on "Listening for Calls".
+                    socketRegistry.emitToAgent(agentId, 'agent:forced_offline', {
+                        reason: 'missed_call',
+                        message: 'You missed a call and have been taken offline. Please go live again when ready.'
+                    });
+                    // Log the missed call so it shows up in their history,
+                    // since we are about to return early and skip the main logging block.
+                    try {
+                        await callLogService.logCall({
+                            callSid: CallSid,
+                            dialCallSid: DialCallSid || null,
+                            agentId: agentId,
+                            campaignId: campaign || '',
+                            from: From || '',
+                            to: To || '',
+                            duration: 0,
+                            status: 'missed',
+                            recordingUrl: null,
+                            disposition: '',
+                            qaInsight: null,
+                            isBillable: false
+                        });
+                    } catch (logErr) {
+                        console.error('[Router] Failed to log missed call during reroute:', logErr.message);
+                    }
                 }
             } catch (e) {
-                console.warn('[Router] Re-route release failed:', e.message);
+                console.warn('[Router] Re-route kick/log failed:', e.message);
             }
         }
         const nextRetry = retryCount + 1;
@@ -489,10 +516,17 @@ exports.handleCallCompleted = async (req, res) => {
                         }
                         await agentManager.setAgentWrapUp(resolvedAgentId);
                     } else {
-                        // Call missed/failed/cancelled. Release immediately.
+                        // Call missed/failed/cancelled.
                         await agentManager.clearActiveCall(resolvedAgentId);
                         const agentState = await agentManager.getAgentState(resolvedAgentId);
-                        await agentManager.releaseAgent(resolvedAgentId, agentState?.sessionId || null);
+                        if (!agentState) {
+                            // Agent was already removed (kicked offline for missing a call).
+                            // Do NOT call releaseAgent — that would resurrect a ghost agent back
+                            // into the routing pool, which is the root cause of false-positive pings.
+                            console.log(`[Router] Agent ${resolvedAgentId} no longer in Redis — skipping release to prevent ghost resurrection.`);
+                        } else {
+                            await agentManager.releaseAgent(resolvedAgentId, agentState?.sessionId || null);
+                        }
                     }
                 }
             } catch (e) {

@@ -7,7 +7,7 @@ import { io } from 'socket.io-client';
 import { apiFetch } from './apiClient';
 
 const API_URL = () => getApiBaseUrl();
-const HEARTBEAT_INTERVAL_MS = 45000;
+const HEARTBEAT_INTERVAL_MS = 10000;
 
 function createLiveSessionId(identity) {
   try {
@@ -66,6 +66,11 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
   const liveSessionId = createLiveSessionId(passedIdentity || 'agent');
 
   try {
+    // Clear any lingering forced offline notifications when going live
+    import('react-hot-toast').then(({ default: toast }) => {
+      toast.dismiss('forced-offline-toast');
+    }).catch(() => {});
+
     if (passedIdentity) {
       try {
         await useAudioSettingsStore.getState().hydrate(passedIdentity);
@@ -168,6 +173,21 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
         socket.emit('agent:pool_ready');
       }
     });
+
+    // Backend kicked this agent offline (e.g. they missed a call).
+    // Immediately sync the UI so the agent doesn't think they're still live.
+    socket.on('agent:forced_offline', (data) => {
+      console.warn('[Twilio] Forced offline by server:', data?.reason);
+      leavePoolAndOffline(data?.reason || 'forced_offline');
+      // Show a persistent, non-blocking toast so the agent knows what happened
+      import('react-hot-toast').then(({ default: toast }) => {
+        toast.error(
+          data?.message || 'You have been taken offline. Please go live again when ready.',
+          { duration: Infinity, id: 'forced-offline-toast' }
+        );
+      }).catch(() => {});
+    });
+
 
     device.on('unregistered', () => {
       const cs = useDialerStore.getState().callState;

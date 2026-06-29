@@ -301,7 +301,7 @@ const StepOne = ({ onNext }) => {
 const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {} }) => {
   const [selectedCampaign, setSelectedCampaign] = useState(selected);
   const campaigns = [
-    { id: 'fe_inbounds_short', title: 'FE Inbounds Short', subtitle: 'FE Inbounds Short Duration', price: '$25', buffer: '30s buffer', icon: Umbrella },
+    { id: 'fe_inbounds_short', title: 'FE Inbounds Short', subtitle: 'FE Inbounds Short Duration', price: '$25', buffer: '10s buffer', icon: Umbrella },
     { id: 'fe_inbounds', title: 'FE Inbounds', subtitle: 'Direct inbound Final Expense calls', price: '$45', buffer: '90s buffer', icon: PhoneIncoming },
     { id: 'fe_tv_calls', title: 'FE TV Calls', subtitle: 'High-intent Final Expense TV calls', price: '$70', buffer: '30s buffer', icon: Tv },
     { id: 'medicare_transfers', title: 'Medicare Transfers', subtitle: 'Live transfer Medicare calls', price: '$25', buffer: '120s buffer', icon: HeartPulse },
@@ -653,7 +653,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
   const requiredBalance = campaignPriceMap[campaign] || 0;
   const hasBalance = walletBalance >= requiredBalance;
   const campaignLabels = {
-    fe_inbounds_short: 'FE Inbounds Short ($25 / 30s)',
+    fe_inbounds_short: 'FE Inbounds Short ($25 / 10s)',
     fe_inbounds: 'FE Inbounds ($45 / 90s)',
     fe_tv_calls: 'FE TV Calls ($70 / 30s)',
     medicare_transfers: 'Medicare Transfers ($25 / 120s)',
@@ -1112,15 +1112,15 @@ const TakeCallsPage = () => {
             </motion.div>
           )}
 
-          {activeCampaign === 'fe_inbounds_short' && (
+          {activeCampaign && activeCampaign !== 'fe_tv_calls' && (
             <motion.div className={`glass ${classes.warningBanner}`} variants={presets.child}>
               <div className={classes.warningBannerIcon}>
-                <Clock size={20} />
+                <AlertCircle size={20} />
               </div>
               <div className={classes.warningBannerBody}>
-                <strong className={classes.warningBannerTitle}>Break Hours Schedule</strong>
+                <strong className={classes.warningBannerTitle}>Maintain Your Active Status</strong>
                 <p>
-                  Please note that <strong>1:00 PM to 2:00 PM (EST)</strong> are scheduled break hours for FE Transfers. You will not receive any calls during this time.
+                  Warning: A billable rate below 30% will trigger an inactivity flag. This means out of every 10 calls you take, you should successfully convert at least 3 into over-buffer calls. To avoid a reduction in routed calls or removal from the active pool, please ensure you are actively handling calls.
                 </p>
               </div>
             </motion.div>

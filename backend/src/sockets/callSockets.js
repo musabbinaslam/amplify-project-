@@ -5,7 +5,7 @@ const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const socketRegistry = require('./socketRegistry');
 const { isCampaignPaused } = require('../services/notificationService');
 
-const HEARTBEAT_TTL_SECONDS = 120;
+const HEARTBEAT_TTL_SECONDS = 35;
 
 async function broadcastAgentCount(io) {
     if (typeof io.__lastAgentCount === 'undefined') io.__lastAgentCount = null;
