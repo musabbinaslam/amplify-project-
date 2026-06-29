@@ -1114,7 +1114,7 @@ const CallLogsPage = () => {
                         <div className={classes.statusCell}>
                           {log.isBillable ? (
                             <span className={`${classes.dispBadge} ${classes.dispSold}`}>
-                              <DollarSign size={12} /> SOLD {log.saleAmount ? `($${Number(log.saleAmount).toFixed(0)})` : ''}
+                              <DollarSign size={12} /> Billable {log.saleAmount ? `($${Number(log.saleAmount).toFixed(0)})` : ''}
                             </span>
                           ) : log.status === 'missed' ? (
                             <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Missed</span>
