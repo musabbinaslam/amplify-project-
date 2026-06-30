@@ -12,20 +12,27 @@ const {
   updateBroadcast,
   revokeBroadcast,
   maintenanceDocRef,
+  getCampaignControls: getCampaignControlsState,
+  setCampaignPaused,
+  notifyAgent,
 } = require('../services/notificationService');
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
+const { mergeUserDoc, getUserDoc } = require('../services/userDataService');
 const ANALYTICS_CACHE_TTL_MS = 30000;
 const READ_CONCURRENCY = 10;
 const analyticsCache = new Map();
 const coachingCache = new Map();
 
-function getCampaigns() {
+function getCampaigns(campaignControls = null) {
+  const pausedMap = campaignControls?.campaigns || {};
   return Object.entries(CAMPAIGN_CONFIG).map(([id, cfg]) => ({
     id,
     label: cfg.label,
     buffer: cfg.buffer,
     price: cfg.price,
+    paused: Boolean(pausedMap[id]?.paused),
+    pauseReason: pausedMap[id]?.reason || '',
   }));
 }
 
@@ -299,8 +306,11 @@ async function buildUserMetaMap(agentIds = []) {
     // Wallet balance is stored in CENTS at users/{uid}.wallet.balance.
     // null = no wallet doc found; 0 = real zero balance.
     const balanceCents = typeof data.wallet?.balance === 'number' ? data.wallet.balance : null;
-    if (candidate || phone || balanceCents !== null) {
-      map.set(snap.id, { name: candidate, phone, balanceCents });
+    const flagged = data.flagged === true;
+    const flagReason = data.flagReason || null;
+    
+    if (candidate || phone || balanceCents !== null || flagged) {
+      map.set(snap.id, { name: candidate, phone, balanceCents, flagged, flagReason });
     }
   });
   const missing = ids.filter((id) => {
@@ -318,6 +328,7 @@ async function buildUserMetaMap(agentIds = []) {
       out.users.forEach((u) => {
         const existing = map.get(u.uid) || {};
         map.set(u.uid, {
+          ...existing,
           name: existing.name || u.displayName || u.email || null,
           phone: existing.phone || u.phoneNumber || null,
           balanceCents: existing.balanceCents ?? null,
@@ -642,6 +653,8 @@ async function getAnalyticsBundle(req, res) {
         agentName: metaMap.get(a.agentId)?.name || a.agentId,
         phone: metaMap.get(a.agentId)?.phone || null,
         walletBalanceCents: metaMap.get(a.agentId)?.balanceCents ?? null,
+        flagged: metaMap.get(a.agentId)?.flagged || false,
+        flagReason: metaMap.get(a.agentId)?.flagReason || null,
       })),
     };
 
@@ -667,6 +680,7 @@ async function getAnalyticsBundle(req, res) {
 
 async function getOverviewLite(req, res) {
   try {
+    const campaignControls = await getCampaignControlsState();
     const overview = await agentManager.getOverview();
     const activeCalls = await agentManager.listActiveCalls();
     const routingDiagnostics = agentManager.getRoutingDiagnostics
@@ -682,10 +696,12 @@ async function getOverviewLite(req, res) {
         ...a,
         displayName: metaMap.get(a.id)?.name || a.id,
         phone: metaMap.get(a.id)?.phone || null,
+        flagged: metaMap.get(a.id)?.flagged || false,
+        flagReason: metaMap.get(a.id)?.flagReason || null,
       })),
       pool: overview.pool || { available: [], ringing: [], busy: [] },
       byCampaign: overview.byCampaign || {},
-      campaigns: getCampaigns(),
+      campaigns: getCampaigns(campaignControls),
       live: {
         activeCalls: activeCalls.length,
         generatedAt: new Date().toISOString(),
@@ -782,20 +798,128 @@ async function getLiveCalls(req, res) {
   }
 }
 
+async function kickAgentOfflineForCampaignPause(agentId) {
+  await agentManager.removeAgent(agentId);
+  socketRegistry.emitToAgent(agentId, 'agent:forced_offline', {
+    reason: 'campaign_paused',
+    message: 'This campaign was paused by an admin. You have been taken offline. Go live on another campaign when ready.',
+  });
+  await notifyAgent(agentId, {
+    type: 'personal',
+    title: 'Campaign paused',
+    body: 'Your campaign was paused by an admin. You are now offline.',
+    priority: 'high',
+  });
+}
+
 async function forceRemoveAgent(req, res) {
   try {
     const { agentId } = req.params;
     if (!agentId || !agentId.trim()) {
       return res.status(400).json({ error: 'agentId is required' });
     }
+    const id = agentId.trim();
     // Forcefully remove the agent from the pool and clear all their state
-    await agentManager.removeAgent(agentId.trim());
+    await agentManager.removeAgent(id);
+
+    // Notify the agent's browser immediately so Take Calls UI goes offline
+    socketRegistry.emitToAgent(id, 'agent:forced_offline', {
+      reason: 'admin_removed',
+      message: 'An admin removed you from the call pool. Go live again when you are ready to take calls.',
+    });
+
+    await notifyAgent(id, {
+      type: 'personal',
+      title: 'Removed from call pool',
+      body: 'An admin removed you from the active pool. You are now offline.',
+      priority: 'high',
+    });
+
     const adminUid = req.user?.uid || 'unknown';
-    console.log(`[Admin] 🚨 Force-removed agent ${agentId} by admin ${adminUid}`);
-    res.json({ success: true, agentId: agentId.trim(), action: 'removed' });
+    console.log(`[Admin] 🚨 Force-removed agent ${id} by admin ${adminUid}`);
+    res.json({ success: true, agentId: id, action: 'removed' });
   } catch (err) {
     console.error('[Admin] forceRemoveAgent:', err.message);
     res.status(500).json({ error: err.message || 'Failed to remove agent' });
+  }
+}
+
+async function flagAgent(req, res) {
+  try {
+    const { agentId } = req.params;
+    if (!agentId || !agentId.trim()) {
+      return res.status(400).json({ error: 'agentId is required' });
+    }
+    const id = agentId.trim();
+    const reason = String(req.body?.reason || 'Low billable rate — below 30% threshold').trim();
+
+    // 1. Write flagged:true to Firestore
+    await mergeUserDoc(id, {
+      flagged: true,
+      flaggedAt: new Date().toISOString(),
+      flaggedBy: req.user?.uid || 'admin',
+      flagReason: reason,
+    });
+
+    // 2. Kick them from Redis pool immediately
+    await agentManager.removeAgent(id);
+
+    // 3. Notify their browser via socket if they are online
+    socketRegistry.emitToAgent(id, 'agent:flagged', {
+      reason,
+      message: 'Your account has been flagged due to inactivity or a low billable rate. Please contact admin@callsflow.io to resume your activity.',
+    });
+
+    // 4. Send persistent notification to the agent's bell tray
+    await notifyAgent(id, {
+      type: 'personal',
+      title: 'Account Flagged',
+      body: `Your account was flagged by an admin: ${reason}`,
+      priority: 'high',
+    });
+
+    // 5. Invalidate analytics cache so the admin dashboard updates immediately
+    analyticsCache.clear();
+    coachingCache.clear();
+
+    console.log(`[Admin] 🚩 Flagged agent ${id} by admin ${req.user?.uid}`);
+    res.json({ success: true, agentId: id, action: 'flagged' });
+  } catch (err) {
+    console.error('[Admin] flagAgent:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to flag agent' });
+  }
+}
+
+async function resumeAgent(req, res) {
+  try {
+    const { agentId } = req.params;
+    if (!agentId || !agentId.trim()) {
+      return res.status(400).json({ error: 'agentId is required' });
+    }
+    const id = agentId.trim();
+
+    // 1. Clear the flag in Firestore
+    await mergeUserDoc(id, {
+      flagged: false,
+      flaggedAt: null,
+      flaggedBy: null,
+      flagReason: null,
+    });
+
+    // 2. Notify their browser via socket if they are online
+    socketRegistry.emitToAgent(id, 'agent:flag_lifted', {
+      message: 'Your account has been resumed. You can now go live!',
+    });
+
+    // 4. Invalidate analytics cache
+    analyticsCache.clear();
+    coachingCache.clear();
+
+    console.log(`[Admin] ✅ Resumed agent ${id} by admin ${req.user?.uid}`);
+    res.json({ success: true, agentId: id, action: 'resumed' });
+  } catch (err) {
+    console.error('[Admin] resumeAgent:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to resume agent' });
   }
 }
 
@@ -1214,6 +1338,38 @@ async function getMaintenance(req, res) {
   }
 }
 
+async function getCampaignControls(req, res) {
+  try {
+    const controls = await getCampaignControlsState();
+    res.json(controls);
+  } catch (err) {
+    console.error('[Admin] getCampaignControls:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to read campaign controls' });
+  }
+}
+
+async function patchCampaignControls(req, res) {
+  try {
+    const { campaignId } = req.params;
+    const body = req.body || {};
+    const controls = await setCampaignPaused(campaignId, body, req.user?.uid || null);
+
+    if (Boolean(body.paused)) {
+      const listeningIds = await agentManager.getListeningAgentIdsForCampaign(campaignId);
+      await Promise.all(listeningIds.map((id) => kickAgentOfflineForCampaignPause(id)));
+      if (listeningIds.length) {
+        console.log(`[Admin] Paused campaign ${campaignId} — kicked ${listeningIds.length} listening agent(s)`);
+      }
+    }
+
+    res.json(controls);
+  } catch (err) {
+    console.error('[Admin] patchCampaignControls:', err.message);
+    const status = /required|Invalid campaignId/i.test(err.message) ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to update campaign controls' });
+  }
+}
+
 async function getPoolDebug(req, res) {
   try {
     const { redisClient } = require('../config/redis');
@@ -1384,6 +1540,8 @@ module.exports = {
   getAnalyticsBundle,
   getLiveCalls,
   forceRemoveAgent,
+  flagAgent,
+  resumeAgent,
   getAnalyticsDrilldown,
   getAiCoachingOverview,
   getAiCoachingAgentPlans,
@@ -1403,6 +1561,8 @@ module.exports = {
   deleteBroadcastNotification,
   patchMaintenance,
   getMaintenance,
+  getCampaignControls,
+  patchCampaignControls,
   getPoolDebug,
   listCallContests,
   getCallContest,

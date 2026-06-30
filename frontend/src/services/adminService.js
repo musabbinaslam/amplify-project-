@@ -86,8 +86,24 @@ export function patchAdminMaintenanceState(body) {
   return apiFetch('/api/admin/maintenance', { method: 'PATCH', body });
 }
 
+export function getAdminCampaignControls() {
+  return apiFetch('/api/admin/campaign-controls', { method: 'GET' });
+}
+
+export function patchAdminCampaignControl(campaignId, body) {
+  return apiFetch(`/api/admin/campaign-controls/${encodeURIComponent(campaignId)}`, { method: 'PATCH', body });
+}
+
 export function forceRemoveAgent(agentId) {
   return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/force-remove`, { method: 'POST' });
+}
+
+export function flagAdminAgent(agentId, reason) {
+  return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/flag`, { method: 'POST', body: JSON.stringify({ reason }) });
+}
+
+export function resumeAdminAgent(agentId) {
+  return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/resume`, { method: 'POST' });
 }
 
 export function listAdminCallContests(status = 'pending', limit = 50) {

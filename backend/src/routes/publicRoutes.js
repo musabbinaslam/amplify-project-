@@ -100,19 +100,24 @@ router.get('/firebase-config', (req, res) => {
 const agentManager = require('../services/agentManager');
 const phoneUtils = require('../utils/phoneUtils');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
+const { isCampaignPaused, getCampaignControls } = require('../services/notificationService');
 
 /**
  * Public campaign pricing catalog.
  * Returns the canonical list of campaigns with pricing and buffers so the
  * frontend dashboard can render them without hardcoding values.
  */
-router.get('/campaigns', (req, res) => {
+router.get('/campaigns', async (req, res) => {
   try {
+    const controls = await getCampaignControls();
+    const pausedMap = controls?.campaigns || {};
     const campaigns = Object.entries(CAMPAIGN_CONFIG).map(([id, cfg]) => ({
       id,
       label: cfg.label,
       price: cfg.price,
       buffer: cfg.buffer,
+      paused: Boolean(pausedMap[id]?.paused),
+      pauseReason: pausedMap[id]?.reason || '',
     }));
     res.json({ campaigns });
   } catch (err) {
@@ -148,6 +153,16 @@ async function handlePing(req, res) {
         }
 
         // Execute the fast snapshot (Soft Ping)
+        if (await isCampaignPaused(campaignId)) {
+            console.log(`[Public API] 📡 Ping for '${campaignId}' blocked — campaign is paused`);
+            return res.json({
+                status: 0,
+                campaign: campaignId,
+                state: state || 'any',
+                paused: true,
+                ...(phone && { derived_state: state })
+            });
+        }
         const isAvailable = await agentManager.checkAvailableAgent(campaignId, state);
 
         console.log(`[Public API] 📡 Ping for '${campaignId}' | Phone: ${phone || 'N/A'} | State: ${state || 'ANY'} -> ${isAvailable ? 'AVAILABLE (1)' : 'BUSY (0)'}`);

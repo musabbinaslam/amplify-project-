@@ -13,6 +13,8 @@ router.get('/analytics-bundle', adminController.getAnalyticsBundle);
 router.get('/analytics-drilldown', adminController.getAnalyticsDrilldown);
 router.get('/live-calls', adminController.getLiveCalls);
 router.post('/agents/:agentId/force-remove', adminController.forceRemoveAgent);
+router.post('/agents/:agentId/flag', adminController.flagAgent);
+router.post('/agents/:agentId/resume', adminController.resumeAgent);
 router.get('/ai-training/coaching-overview', adminController.getAiCoachingOverview);
 router.get('/ai-training/agent-plans', adminController.getAiCoachingAgentPlans);
 router.get('/dids', adminController.listDids);
@@ -33,6 +35,8 @@ router.patch('/notifications/broadcasts/:id', adminController.patchBroadcastNoti
 router.delete('/notifications/broadcasts/:id', adminController.deleteBroadcastNotification);
 router.get('/maintenance', adminController.getMaintenance);
 router.patch('/maintenance', adminController.patchMaintenance);
+router.get('/campaign-controls', adminController.getCampaignControls);
+router.patch('/campaign-controls/:campaignId', adminController.patchCampaignControls);
 
 // Pool debug — dumps full Redis routing state for diagnosis
 router.get('/pool-debug', adminController.getPoolDebug);

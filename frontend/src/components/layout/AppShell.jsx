@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import useAuthStore from '../../store/authStore';
+import useDialerStore from '../../store/useDialerStore';
 import { useUIStore } from '../../store/uiStore';
 import { getApiBaseUrl } from '../../config/apiBase';
 import {
@@ -109,9 +110,11 @@ const AppShell = () => {
   useEffect(() => {
     if (!user?.uid) return undefined;
     const socket = io(getApiBaseUrl());
-    socket.on('connect', () => {
+    const registerSocket = () => {
       socket.emit('notification:register', { uid: user.uid });
-    });
+    };
+    if (socket.connected) registerSocket();
+    socket.on('connect', registerSocket);
     socket.on('notification:new', (payload) => {
       if (!payload) return;
       if (payload.type === 'admin_alert') {
@@ -159,6 +162,35 @@ const AppShell = () => {
       setNotifications((rows) => rows.filter((row) => row.broadcastId !== payload.broadcastId));
       setNotificationTick((n) => n + 1);
     });
+    
+    // Global listens for flag state changes (since Twilio socket is disconnected when flagged)
+    socket.on('agent:flag_lifted', (data) => {
+      useAuthStore.getState().setUserField('flagged', false);
+      useAuthStore.getState().setUserField('flagReason', null);
+      toast.success(data?.message || 'Your account has been resumed. You can now go live!', { duration: 6000 });
+      toast.dismiss('account-flagged-toast');
+    });
+    
+    socket.on('agent:flagged', (data) => {
+      useAuthStore.getState().setUserField('flagged', true);
+      useAuthStore.getState().setUserField('flagReason', data?.reason || null);
+      toast.error(data?.message || 'Your account has been flagged. Contact admin@callsflow.io.', { duration: 5000, id: 'account-flagged-toast' });
+    });
+
+    // Fallback when dialer socket is disconnected but UI still shows live
+    socket.on('agent:forced_offline', (data) => {
+      const dialerStore = useDialerStore.getState();
+      if (dialerStore.socket?.connected) return;
+      if (dialerStore.callState === 'offline' || dialerStore.callState === 'error') return;
+      if (typeof dialerStore.goOffline === 'function') {
+        dialerStore.goOffline();
+      }
+      toast.error(
+        data?.message || 'You have been taken offline. Please go live again when ready.',
+        { duration: Infinity, id: 'forced-offline-toast' }
+      );
+    });
+
     socket.on('wallet:updated', (payload) => {
       const balance = Number(payload?.balance);
       if (Number.isFinite(balance)) {
