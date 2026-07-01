@@ -13,15 +13,11 @@ const CAMPAIGN_CONFIG = {
     buffer: 10, // seconds
     price: 25.00
   },
-  fe_inbounds: {
-    label: 'FE Inbounds',
-    buffer: 90, // seconds
-    price: 45.00
-  },
+
   fe_tv_calls: {
     label: 'FE TV Calls',
     buffer: 30, // seconds
-    price: 70.00
+    price: 65.00
   },
 
   // Medicare
