@@ -37,6 +37,8 @@ router.get('/maintenance', adminController.getMaintenance);
 router.patch('/maintenance', adminController.patchMaintenance);
 router.get('/campaign-controls', adminController.getCampaignControls);
 router.patch('/campaign-controls/:campaignId', adminController.patchCampaignControls);
+router.post('/campaigns', adminController.upsertCampaign);
+
 
 // Pool debug — dumps full Redis routing state for diagnosis
 router.get('/pool-debug', adminController.getPoolDebug);

@@ -44,6 +44,7 @@ import { RecordingModal } from './CallLogsPage';
 import { auth } from '../config/firebase';
 import { getApiBaseUrl } from '../config/apiBase';
 import classes from './AdminDashboardPage.module.css';
+import CampaignEditorModal from '../components/modals/CampaignEditorModal';
 
 const CHART_TOOLTIP_STYLE = {
   background: 'color-mix(in srgb, var(--surface-container-highest) 92%, transparent)',
@@ -681,6 +682,8 @@ const AdminDashboardPage = () => {
   const [dids, setDids] = useState([]);
   const [campaignControls, setCampaignControls] = useState({});
   const [pauseReasonDraft, setPauseReasonDraft] = useState({});
+  const [campaignEditorModal, setCampaignEditorModal] = useState(null); // null=closed, {}=add, {campaign}=edit
+
   const [analyticsMeta, setAnalyticsMeta] = useState(null);
   const [selectedCampaign, setSelectedCampaign] = useState('');
   const [selectedAgent, setSelectedAgent] = useState('');
@@ -1876,25 +1879,39 @@ const AdminDashboardPage = () => {
       </motion.section>
 
       <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
-        <h2 className={classes.cardTitle}>Campaign pause controls</h2>
-        <p className={classes.hint}>
-          Pause a campaign to block new go-live joins and inbound routing immediately. Agents who are listening (not on a call) are taken offline automatically.
-        </p>
+        <div className={classes.cardTopRow} style={{ marginBottom: 8 }}>
+          <div>
+            <h2 className={classes.cardTitle}>Campaign Management</h2>
+            <p className={classes.hint}>
+              Edit pricing &amp; buffers, pause/resume campaigns, or add new ones. Changes take effect immediately across all pages.
+            </p>
+          </div>
+          <button
+            type="button"
+            className={classes.primaryBtn}
+            onClick={() => setCampaignEditorModal({})}
+          >
+            <Plus size={15} style={{ marginRight: 6 }} />
+            Add Campaign
+          </button>
+        </div>
         <div className={classes.tableWrap}>
           <div className={classes.tableScroll}>
             <table className={classes.table}>
               <thead>
                 <tr>
                   <th>Campaign</th>
+                  <th>Buffer (s)</th>
+                  <th>Price</th>
                   <th>Status</th>
-                  <th>Reason (optional)</th>
+                  <th>Pause Reason</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
                 {campaigns.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className={classes.muted}>No campaigns available</td>
+                    <td colSpan={6} className={classes.muted}>No campaigns available</td>
                   </tr>
                 ) : (
                   campaigns.map((c) => {
@@ -1903,7 +1920,12 @@ const AdminDashboardPage = () => {
                     const reasonValue = pauseReasonDraft[c.id] ?? (control.reason || c.pauseReason || '');
                     return (
                       <tr key={c.id}>
-                        <td>{c.label} <span className={classes.muted}>({c.id})</span></td>
+                        <td>
+                          <strong>{c.label}</strong>
+                          <span className={classes.muted} style={{ display: 'block', fontSize: 11 }}>{c.id}</span>
+                        </td>
+                        <td>{c.buffer}s</td>
+                        <td>${Number(c.price).toFixed(2)}</td>
                         <td>
                           <span className={`${classes.statusPill} ${paused ? classes.dispMissed : classes.dispAnswered}`}>
                             {paused ? 'Paused' : 'Active'}
@@ -1918,6 +1940,13 @@ const AdminDashboardPage = () => {
                           />
                         </td>
                         <td className={classes.actions}>
+                          <button
+                            type="button"
+                            className={classes.linkBtn}
+                            onClick={() => setCampaignEditorModal(c)}
+                          >
+                            Edit
+                          </button>
                           <button
                             type="button"
                             className={paused ? classes.primaryBtn : classes.dangerBtn}
@@ -1935,6 +1964,7 @@ const AdminDashboardPage = () => {
           </div>
         </div>
       </motion.section>
+
 
       <motion.section className={`glass ${classes.sectionCard} ${classes.didSection}`} variants={presets.child}>
         <h2 className={classes.cardTitle}>Phone numbers → campaign</h2>
@@ -2038,6 +2068,14 @@ const AdminDashboardPage = () => {
     {activeRecording && (
       <RecordingModal log={activeRecording} onClose={() => setActiveRecording(null)} />
     )}
+    {campaignEditorModal !== null && (
+      <CampaignEditorModal
+        campaign={campaignEditorModal?.id ? campaignEditorModal : null}
+        onClose={() => setCampaignEditorModal(null)}
+        onSaved={() => { loadShell(); }}
+      />
+    )}
+
     <AdminActionModal
       modal={actionModal}
       note={actionNote}

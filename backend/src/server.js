@@ -58,7 +58,13 @@ const io = new Server(server, {
 
 const startEngine = async () => {
     console.log('Starting CallsFlow System...');
+
+    // ── Sync pricing config from Firestore before serving any traffic ─────────
+    const { syncPricingConfig } = require('./config/pricing');
+    await syncPricingConfig();
+
     await connectRedis();
+
 
     verifyMailer().catch((err) => {
         console.warn('[mailer] verify crashed:', err?.message || err);

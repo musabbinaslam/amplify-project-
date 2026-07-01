@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
@@ -16,6 +16,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
+import { fetchCampaignPricing } from '../services/dashboardService';
 import classes from './LandingPage.module.css';
 
 const QUICK_PROOF = [
@@ -45,15 +46,8 @@ const HOW_IT_WORKS = [
   },
 ];
 
-const VERTICAL_PRICING = [
-  { name: 'FE Inbounds Short',     price: '$25', buffer: '10s',  detail: 'FE Inbounds Short Duration — direct inbound callers billed at 10 seconds.' },
-  { name: 'FE Inbounds',          price: '$45', buffer: '90s',  detail: 'Direct inbound Final Expense calls from high-intent consumers.' },
-  { name: 'FE TV Calls',          price: '$70', buffer: '30s',  detail: 'High-intent Final Expense TV callers.' },
-  { name: 'Medicare Transfers',   price: '$25', buffer: '120s', detail: 'Live-transferred Medicare callers seeking plan guidance.' },
-  { name: 'Medicare Inbounds (1)',price: '$35', buffer: '90s',  detail: 'Inbound seniors actively requesting Medicare plan information.' },
-  { name: 'Medicare Inbounds (2)',price: '$15', buffer: '15s',  detail: 'Short-buffer Medicare inbounds — high volume, low friction.' },
-  { name: 'ACA Transfers',        price: '$30', buffer: '120s', detail: 'Live-transferred ACA shoppers comparing health plan options.' },
-];
+// VERTICAL_PRICING is now loaded dynamically from the API in the component.
+// See fetchCampaignPricing() call inside LandingPage.
 
 const COMPARE_ROWS = [
   ['Call exclusivity', '100% exclusive', 'Usually shared', 'Self-generated only'],
@@ -103,9 +97,27 @@ const FAQItem = ({ item, isOpen, onToggle }) => (
 
 const LandingPage = () => {
   const [openFaq, setOpenFaq] = useState(null);
+  const [verticalPricing, setVerticalPricing] = useState([]);
   const { theme, toggleTheme } = useUIStore();
   const bookingUrl = import.meta.env.VITE_CALENDLY_URL || '#';
   const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    fetchCampaignPricing()
+      .then((campaigns) => {
+        setVerticalPricing(
+          campaigns.map((c) => ({
+            name: c.label,
+            price: `$${Number(c.price).toFixed(0)}`,
+            buffer: `${c.buffer}s`,
+            detail: c.label,
+          }))
+        );
+      })
+      .catch(() => {
+        // Non-blocking — page is still fully usable without pricing
+      });
+  }, []);
 
   const fadeUp = {
     hidden: { opacity: 0, y: reduceMotion ? 0 : 24 },
@@ -276,7 +288,8 @@ const LandingPage = () => {
           </motion.div>
 
           <div className={classes.pricingGrid}>
-            {VERTICAL_PRICING.map((item) => (
+            {verticalPricing.map((item) => (
+
               <motion.article key={item.name} className={classes.pricingCard} variants={fadeUp}>
                 <h3>{item.name}</h3>
                 <div className={classes.priceRow}>

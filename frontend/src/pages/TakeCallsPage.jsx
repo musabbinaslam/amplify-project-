@@ -297,18 +297,30 @@ const StepOne = ({ onNext }) => {
   );
 };
 
+// Icon map — keeps icons stable even when campaigns are added dynamically
+const CAMPAIGN_ICON_MAP = {
+  fe_inbounds_short: Umbrella,
+  fe_inbounds: PhoneIncoming,
+  fe_tv_calls: Tv,
+  medicare_transfers: HeartPulse,
+  medicare_inbound_1: Shield,
+  medicare_inbound_2: ShieldCheck,
+  aca_transfers: Users,
+};
+
 // ─── Step 2: Campaign Selection ──────────────────────────────────────────────
-const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {} }) => {
+const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {}, liveCampaigns = [] }) => {
   const [selectedCampaign, setSelectedCampaign] = useState(selected);
-  const campaigns = [
-    { id: 'fe_inbounds_short', title: 'FE Inbounds Short', subtitle: 'FE Inbounds Short Duration', price: '$25', buffer: '10s buffer', icon: Umbrella },
-    { id: 'fe_inbounds', title: 'FE Inbounds', subtitle: 'Direct inbound Final Expense calls', price: '$45', buffer: '90s buffer', icon: PhoneIncoming },
-    { id: 'fe_tv_calls', title: 'FE TV Calls', subtitle: 'High-intent Final Expense TV calls', price: '$70', buffer: '30s buffer', icon: Tv },
-    { id: 'medicare_transfers', title: 'Medicare Transfers', subtitle: 'Live transfer Medicare calls', price: '$25', buffer: '120s buffer', icon: HeartPulse },
-    { id: 'medicare_inbound_1', title: 'Medicare Inbounds (1)', subtitle: 'High-intent Medicare inbound calls', price: '$35', buffer: '90s buffer', icon: Shield },
-    { id: 'medicare_inbound_2', title: 'Medicare Inbounds (2)', subtitle: 'Standard Medicare inbound calls', price: '$15', buffer: '15s buffer', icon: ShieldCheck },
-    { id: 'aca_transfers', title: 'ACA Transfers', subtitle: 'Live transfer ACA health calls', price: '$30', buffer: '120s buffer', icon: Users },
-  ];
+
+  // Build display list from live API data; fall back to icon by campaign ID
+  const campaigns = liveCampaigns.map((c) => ({
+    id: c.id,
+    title: c.label,
+    subtitle: c.label,
+    price: `$${Number(c.price).toFixed(0)}`,
+    buffer: `${c.buffer}s buffer`,
+    icon: CAMPAIGN_ICON_MAP[c.id] || Phone,
+  }));
 
   return (
     <div className={`${classes.stepCard} ${classes.stepCardWide}`}>
@@ -918,6 +930,7 @@ const TakeCallsPage = () => {
   const [history, setHistory] = useState([]);
   const [walletBalance, setWalletBalance] = useState(0);
   const [pausedCampaigns, setPausedCampaigns] = useState({});
+  const [liveCampaigns, setLiveCampaigns] = useState([]);
   const [statePresets, setStatePresets] = useState([]);
   const reduceMotion = useReducedMotion();
 
@@ -955,6 +968,7 @@ const TakeCallsPage = () => {
           if (row?.id) pausedMap[row.id] = Boolean(row.paused);
         });
         setPausedCampaigns(pausedMap);
+        setLiveCampaigns(campaigns);
       } catch {
         // Non-blocking: keep wizard usable even if pricing fetch fails.
       }
@@ -1259,7 +1273,8 @@ const TakeCallsPage = () => {
                   exit="exit"
                 >
                   {step === 1 && <StepOne onNext={() => goStep(2)} />}
-                  {step === 2 && <StepTwo selected={campaign} pausedCampaigns={pausedCampaigns} onNext={(sel) => { setCampaign(sel); goStep(3); }} onBack={() => goStep(1)} />}
+                  {step === 2 && <StepTwo selected={campaign} pausedCampaigns={pausedCampaigns} liveCampaigns={liveCampaigns} onNext={(sel) => { setCampaign(sel); goStep(3); }} onBack={() => goStep(1)} />}
+
                   {step === 3 && <StepThree onNext={(states, presetId) => { setWizardStates(states); setWizardPresetId(presetId ?? null); goStep(4); }} onBack={() => goStep(2)} statePresets={statePresets} onSavePresets={persistPresets} selectedPresetId={wizardPresetId} />}
                   {step === 4 && <StepFour onBack={() => goStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} />}
                 </motion.div>

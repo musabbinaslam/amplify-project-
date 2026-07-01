@@ -36,6 +36,63 @@ function getCampaigns(campaignControls = null) {
   }));
 }
 
+/**
+ * POST /admin/campaigns
+ * Upsert (create or update) a campaign in the live system/pricing Firestore doc.
+ * The onSnapshot listener in pricing.js immediately applies the change in-memory.
+ */
+const upsertCampaign = async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database unavailable' });
+
+    const { id, label, buffer, price } = req.body || {};
+
+    // ── Validation ────────────────────────────────────────────────────────────
+    if (!id || typeof id !== 'string' || !/^[a-z0-9_]+$/.test(id.trim())) {
+      return res.status(400).json({ error: 'Invalid campaign ID. Use lowercase letters, numbers, and underscores only.' });
+    }
+    if (!label || typeof label !== 'string' || !label.trim()) {
+      return res.status(400).json({ error: 'Label is required.' });
+    }
+    const bufferNum = Number(buffer);
+    if (!Number.isFinite(bufferNum) || bufferNum < 0) {
+      return res.status(400).json({ error: 'Buffer must be a non-negative number (seconds).' });
+    }
+    const priceNum = Number(price);
+    if (!Number.isFinite(priceNum) || priceNum < 0) {
+      return res.status(400).json({ error: 'Price must be a non-negative number.' });
+    }
+
+    const campaignId = id.trim().toLowerCase();
+    const isNew = !Object.prototype.hasOwnProperty.call(CAMPAIGN_CONFIG, campaignId);
+
+    const ref = db.collection('system').doc('pricing');
+    await ref.set(
+      {
+        campaigns: {
+          [campaignId]: {
+            label: label.trim(),
+            buffer: bufferNum,
+            price: priceNum,
+          },
+        },
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: req.user?.uid || null,
+      },
+      { merge: true }
+    );
+
+    console.log(`[Admin] Campaign "${campaignId}" ${isNew ? 'created' : 'updated'} by ${req.user?.uid}`);
+    res.json({ success: true, isNew, campaign: { id: campaignId, label: label.trim(), buffer: bufferNum, price: priceNum } });
+  } catch (err) {
+    console.error('[Admin] upsertCampaign error:', err.message);
+    res.status(500).json({ error: 'Failed to save campaign' });
+  }
+};
+
+
+
 function parseRange(query) {
   const now = new Date();
   const end = query.to ? new Date(`${query.to}T23:59:59.999Z`) : now;
@@ -1563,6 +1620,7 @@ module.exports = {
   getMaintenance,
   getCampaignControls,
   patchCampaignControls,
+  upsertCampaign,
   getPoolDebug,
   listCallContests,
   getCallContest,
