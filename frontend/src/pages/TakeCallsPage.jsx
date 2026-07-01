@@ -302,8 +302,7 @@ const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {} }) => {
   const [selectedCampaign, setSelectedCampaign] = useState(selected);
   const campaigns = [
     { id: 'fe_inbounds_short', title: 'FE Inbounds Short', subtitle: 'FE Inbounds Short Duration', price: '$25', buffer: '10s buffer', icon: Umbrella },
-    { id: 'fe_inbounds', title: 'FE Inbounds', subtitle: 'Direct inbound Final Expense calls', price: '$45', buffer: '90s buffer', icon: PhoneIncoming },
-    { id: 'fe_tv_calls', title: 'FE TV Calls', subtitle: 'High-intent Final Expense TV calls', price: '$70', buffer: '30s buffer', icon: Tv },
+    { id: 'fe_tv_calls', title: 'FE TV Calls', subtitle: 'High-intent Final Expense TV calls', price: '$65', buffer: '30s buffer', icon: Tv },
     { id: 'medicare_transfers', title: 'Medicare Transfers', subtitle: 'Live transfer Medicare calls', price: '$25', buffer: '120s buffer', icon: HeartPulse },
     { id: 'medicare_inbound_1', title: 'Medicare Inbounds (1)', subtitle: 'High-intent Medicare inbound calls', price: '$35', buffer: '90s buffer', icon: Shield },
     { id: 'medicare_inbound_2', title: 'Medicare Inbounds (2)', subtitle: 'Standard Medicare inbound calls', price: '$15', buffer: '15s buffer', icon: ShieldCheck },
@@ -643,8 +642,7 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
 const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, walletBalance }) => {
   const campaignPriceMap = {
     fe_inbounds_short: 25,
-    fe_inbounds: 45,
-    fe_tv_calls: 70,
+    fe_tv_calls: 65,
     medicare_transfers: 25,
     medicare_inbound_1: 35,
     medicare_inbound_2: 15,
@@ -654,8 +652,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
   const hasBalance = walletBalance >= requiredBalance;
   const campaignLabels = {
     fe_inbounds_short: 'FE Inbounds Short ($25 / 10s)',
-    fe_inbounds: 'FE Inbounds ($45 / 90s)',
-    fe_tv_calls: 'FE TV Calls ($70 / 30s)',
+    fe_tv_calls: 'FE TV Calls ($65 / 30s)',
     medicare_transfers: 'Medicare Transfers ($25 / 120s)',
     medicare_inbound_1: 'Medicare Inbounds 1 ($35 / 90s)',
     medicare_inbound_2: 'Medicare Inbounds 2 ($15 / 15s)',
@@ -1003,8 +1000,7 @@ const TakeCallsPage = () => {
     }
     const campaignPriceMap = {
       fe_inbounds_short: 25,
-      fe_inbounds: 45,
-      fe_tv_calls: 70,
+      fe_tv_calls: 65,
       medicare_transfers: 25,
       medicare_inbound_1: 35,
       medicare_inbound_2: 15,
