@@ -91,6 +91,52 @@ const upsertCampaign = async (req, res) => {
   }
 };
 
+/**
+ * DELETE /admin/campaigns/:campaignId
+ * Permanently removes a campaign from Firestore (system/pricing) and
+ * campaign controls (system/campaignControls), then deletes it from the
+ * in-memory CAMPAIGN_CONFIG so the change takes effect immediately.
+ */
+const deleteCampaign = async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database unavailable' });
+
+    const { campaignId } = req.params;
+    const id = String(campaignId || '').trim().toLowerCase();
+    if (!id) return res.status(400).json({ error: 'campaignId is required' });
+
+    if (!Object.prototype.hasOwnProperty.call(CAMPAIGN_CONFIG, id)) {
+      return res.status(404).json({ error: `Campaign "${id}" not found` });
+    }
+
+    // 1. Remove from Firestore system/pricing
+    const pricingRef = db.collection('system').doc('pricing');
+    await pricingRef.update({
+      [`campaigns.${id}`]: admin.firestore.FieldValue.delete(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedBy: req.user?.uid || null,
+    });
+
+    // 2. Remove from Firestore system/campaignControls (best-effort)
+    try {
+      const controlsRef = db.collection('system').doc('campaignControls');
+      await controlsRef.update({
+        [`campaigns.${id}`]: admin.firestore.FieldValue.delete(),
+      });
+    } catch (_) { /* doc may not exist — safe to ignore */ }
+
+    // 3. Remove from in-memory CAMPAIGN_CONFIG immediately
+    delete CAMPAIGN_CONFIG[id];
+
+    console.log(`[Admin] Campaign "${id}" deleted by ${req.user?.uid}`);
+    res.json({ success: true, deleted: id });
+  } catch (err) {
+    console.error('[Admin] deleteCampaign error:', err.message);
+    res.status(500).json({ error: 'Failed to delete campaign' });
+  }
+};
+
 
 
 function parseRange(query) {
@@ -1621,6 +1667,7 @@ module.exports = {
   getCampaignControls,
   patchCampaignControls,
   upsertCampaign,
+  deleteCampaign,
   getPoolDebug,
   listCallContests,
   getCallContest,

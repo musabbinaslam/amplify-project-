@@ -38,6 +38,8 @@ router.patch('/maintenance', adminController.patchMaintenance);
 router.get('/campaign-controls', adminController.getCampaignControls);
 router.patch('/campaign-controls/:campaignId', adminController.patchCampaignControls);
 router.post('/campaigns', adminController.upsertCampaign);
+router.delete('/campaigns/:campaignId', adminController.deleteCampaign);
+
 
 
 // Pool debug — dumps full Redis routing state for diagnosis

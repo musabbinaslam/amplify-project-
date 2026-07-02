@@ -144,3 +144,10 @@ export function upsertAdminCampaign({ id, label, buffer, price }) {
     body: { id, label, buffer, price },
   });
 }
+
+export function deleteAdminCampaign(campaignId) {
+  return apiFetch(`/api/admin/campaigns/${encodeURIComponent(campaignId)}`, {
+    method: 'DELETE',
+  });
+}
+

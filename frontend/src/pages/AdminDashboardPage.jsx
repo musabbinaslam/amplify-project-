@@ -34,6 +34,7 @@ import {
   patchAdminCampaignControl,
   flagAdminAgent,
   resumeAdminAgent,
+  deleteAdminCampaign,
 } from '../services/adminService';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { EASE_SMOOTH } from '../motion/appMotion';
@@ -917,6 +918,25 @@ const AdminDashboardPage = () => {
       await loadShell();
     } catch (err) {
       toast.error(err.message || 'Failed to update campaign state');
+    }
+  };
+
+  const handleDeleteCampaign = async (campaignId, label) => {
+    if (!window.confirm(`Are you sure you want to permanently delete the campaign "${label}" (${campaignId})? This cannot be undone.`)) return;
+    try {
+      await deleteAdminCampaign(campaignId);
+      toast.success(`Campaign "${label}" deleted`);
+      // Refresh overview to reflect the removed campaign
+      const [bundle, controls] = await Promise.all([
+        getAdminOverviewLite(),
+        getAdminCampaignControls(),
+      ]);
+      setOverview(bundle);
+      const out = {};
+      Object.entries(controls?.campaigns || {}).forEach(([id, row]) => { out[id] = row; });
+      setCampaignControls(out);
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete campaign');
     }
   };
 
@@ -1953,6 +1973,15 @@ const AdminDashboardPage = () => {
                             onClick={() => toggleCampaignPause(c.id, !paused)}
                           >
                             {paused ? 'Resume' : 'Pause'}
+                          </button>
+                          <button
+                            type="button"
+                            className={classes.dangerBtn}
+                            style={{ opacity: 0.75 }}
+                            title={`Delete campaign ${c.id}`}
+                            onClick={() => handleDeleteCampaign(c.id, c.label)}
+                          >
+                            Delete
                           </button>
                         </td>
                       </tr>

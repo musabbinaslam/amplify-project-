@@ -97,7 +97,7 @@ function campaignControlsDocRef() {
 function normalizeCampaignId(campaignId) {
   const id = String(campaignId || '').trim();
   if (!id) throw new Error('campaignId is required');
-  if (!CAMPAIGN_IDS.has(id)) throw new Error('Invalid campaignId');
+  if (!isKnownCampaign(id)) throw new Error('Invalid campaignId');
   return id;
 }
 
