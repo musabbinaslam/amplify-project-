@@ -16,7 +16,6 @@ const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
 /** Short table labels — matches Take Calls campaign titles (not pricing subtitles). */
 const CAMPAIGN_SHORT_LABELS = {
   fe_inbounds_short: 'FE Inbounds Short',
-  fe_inbounds: 'FE Inbounds',
   fe_tv_calls: 'FE TV Calls',
   medicare_transfers: 'Medicare Transfers',
   medicare_inbound_1: 'Medicare Inbounds (1)',
@@ -27,7 +26,6 @@ const CAMPAIGN_SHORT_LABELS = {
 /** Longer descriptive labels shown on hover. */
 const CAMPAIGN_FULL_LABELS = {
   fe_inbounds_short: 'FE Inbounds Short Duration',
-  fe_inbounds: 'Direct inbound Final Expense calls',
   fe_tv_calls: 'High-intent Final Expense TV calls',
   medicare_transfers: 'Live transfer Medicare calls',
   medicare_inbound_1: 'High-intent Medicare inbound calls',
@@ -1114,7 +1112,7 @@ const CallLogsPage = () => {
                         <div className={classes.statusCell}>
                           {log.isBillable ? (
                             <span className={`${classes.dispBadge} ${classes.dispSold}`}>
-                              <DollarSign size={12} /> SOLD {log.saleAmount ? `($${Number(log.saleAmount).toFixed(0)})` : ''}
+                              <DollarSign size={12} /> Billable {log.saleAmount ? `($${Number(log.saleAmount).toFixed(0)})` : ''}
                             </span>
                           ) : log.status === 'missed' ? (
                             <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Missed</span>

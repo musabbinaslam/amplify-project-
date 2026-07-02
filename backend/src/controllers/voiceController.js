@@ -11,6 +11,7 @@ const { normalizeCallerState } = require('../utils/phoneUtils');
 const { dispatchQaInsightJob } = require('../queues/qaQueue');
 const twilioClientObj = require('../config/twilio').twilioClient;
 const { redisClient } = require('../config/redis');
+const { isCampaignPaused, notifyAgent } = require('../services/notificationService');
 const socketRegistry = require('../sockets/socketRegistry');
 
 /** Absolute URL for Twilio webhooks (relative URLs break statusCallback on some hosts). */
@@ -84,6 +85,14 @@ exports.handleIncomingCall = async (req, res) => {
     console.log(`[Twilio Webhook] 🎯 Resolved Campaign: ${campaign}`);
 
     try {
+        if (await isCampaignPaused(campaign)) {
+            console.warn(`[Router] Campaign "${campaign}" is paused — rejecting inbound route`);
+            twiml.say('This campaign is temporarily paused. Please try again shortly.');
+            twiml.hangup();
+            res.set('Content-Type', 'text/xml');
+            res.send(twiml.toString());
+            return;
+        }
         const parentCallSid = req.body?.CallSid || req.body?.CallSidInbound || '';
         const available = await agentManager.findAndLockAvailableAgent(campaign, callerState, parentCallSid);
 
@@ -769,14 +778,33 @@ exports.updateCallLog = async (req, res) => {
         }
 
         // 2. Release agent back into the pool (end of WRAP_UP phase)
-        // First clear the WRAP_UP status so releaseAgent's guard allows the release.
         const agentState = await agentManager.getAgentState(uid);
-        if (agentState) {
+        const campaignId = agentState?.campaignId;
+        const campaignPaused = campaignId && await isCampaignPaused(campaignId);
+
+        await agentManager.clearActiveCall(uid);
+
+        if (campaignPaused) {
+          // Campaign paused while agent was on call / in WRAP_UP — do not re-enter pool
+          await agentManager.removeAgent(uid);
+          socketRegistry.emitToAgent(uid, 'agent:forced_offline', {
+            reason: 'campaign_paused',
+            message: 'This campaign was paused by an admin. You have been taken offline. Go live on another campaign when ready.',
+          });
+          await notifyAgent(uid, {
+            type: 'personal',
+            title: 'Campaign paused',
+            body: 'Your campaign was paused by an admin. You are now offline.',
+            priority: 'high',
+          });
+        } else {
+          // Clear WRAP_UP guard so releaseAgent can put them back in the routing pool
+          if (agentState) {
             agentState.status = 'RELEASING';
             await redisClient.hSet('agents:data', uid, JSON.stringify(agentState));
+          }
+          await agentManager.releaseAgent(uid);
         }
-        await agentManager.clearActiveCall(uid);
-        await agentManager.releaseAgent(uid);
 
         res.json({ success: true, message: 'Disposition saved' });
     } catch (err) {

@@ -16,6 +16,7 @@ import { useAudioSettingsStore } from '../store/audioSettingsStore';
 import { apiFetch } from '../services/apiClient';
 import { stripeService } from '../services/stripeService';
 import { getProfile, saveProfile } from '../services/profileService';
+import { fetchCampaignPricing } from '../services/dashboardService';
 
 // All 50 US States
 const US_STATES = [
@@ -297,12 +298,11 @@ const StepOne = ({ onNext }) => {
 };
 
 // ─── Step 2: Campaign Selection ──────────────────────────────────────────────
-const StepTwo = ({ onNext, onBack, selected = '' }) => {
+const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {} }) => {
   const [selectedCampaign, setSelectedCampaign] = useState(selected);
   const campaigns = [
-    { id: 'fe_inbounds_short', title: 'FE Inbounds Short', subtitle: 'FE Inbounds Short Duration', price: '$25', buffer: '30s buffer', icon: Umbrella },
-    { id: 'fe_inbounds', title: 'FE Inbounds', subtitle: 'Direct inbound Final Expense calls', price: '$45', buffer: '90s buffer', icon: PhoneIncoming },
-    { id: 'fe_tv_calls', title: 'FE TV Calls', subtitle: 'High-intent Final Expense TV calls', price: '$70', buffer: '30s buffer', icon: Tv },
+    { id: 'fe_inbounds_short', title: 'FE Inbounds Short', subtitle: 'FE Inbounds Short Duration', price: '$25', buffer: '10s buffer', icon: Umbrella },
+    { id: 'fe_tv_calls', title: 'FE TV Calls', subtitle: 'High-intent Final Expense TV calls', price: '$65', buffer: '30s buffer', icon: Tv },
     { id: 'medicare_transfers', title: 'Medicare Transfers', subtitle: 'Live transfer Medicare calls', price: '$25', buffer: '120s buffer', icon: HeartPulse },
     { id: 'medicare_inbound_1', title: 'Medicare Inbounds (1)', subtitle: 'High-intent Medicare inbound calls', price: '$35', buffer: '90s buffer', icon: Shield },
     { id: 'medicare_inbound_2', title: 'Medicare Inbounds (2)', subtitle: 'Standard Medicare inbound calls', price: '$15', buffer: '15s buffer', icon: ShieldCheck },
@@ -317,32 +317,41 @@ const StepTwo = ({ onNext, onBack, selected = '' }) => {
       <p className={classes.subtitle}>Select the campaign you'd like to receive calls from</p>
       <div className={`glass ${classes.sectionCard}`}>
         <div className={classes.campaignsList}>
-          {campaigns.map(c => (
-            <div key={c.id}
-              className={`glass ${classes.campaignSelectCard} ${selectedCampaign === c.id ? classes.campaignSelectActive : ''}`}
-              onClick={() => setSelectedCampaign(c.id)}>
-              <div className={classes.campaignIconCol}><div className={classes.campIconWrapper}><c.icon size={24} /></div></div>
-              <div className={classes.campaignInfoCol}>
-                <h3>{c.title}</h3>
-                <p className={classes.campaignDesc}>{c.subtitle}</p>
-                <div className={classes.campaignMetrics}>
-                  <span className={classes.campaignPrice}>{c.price}</span>
-                  <span className={classes.campaignBuffer}>{c.buffer}</span>
+          {campaigns.map((c) => {
+            const isPaused = Boolean(pausedCampaigns[c.id]);
+            return (
+              <div key={c.id}
+                className={`glass ${classes.campaignSelectCard} ${selectedCampaign === c.id ? classes.campaignSelectActive : ''}`}
+                style={isPaused ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+                onClick={() => { if (!isPaused) setSelectedCampaign(c.id); }}>
+                <div className={classes.campaignIconCol}><div className={classes.campIconWrapper}><c.icon size={24} /></div></div>
+                <div className={classes.campaignInfoCol}>
+                  <h3>{c.title}</h3>
+                  <p className={classes.campaignDesc}>{c.subtitle}</p>
+                  <div className={classes.campaignMetrics}>
+                    <span className={classes.campaignPrice}>{c.price}</span>
+                    <span className={classes.campaignBuffer}>{c.buffer}</span>
+                  </div>
+                  {isPaused && (
+                    <p className={classes.warningText} style={{ marginTop: 6 }}>
+                      Paused by admin
+                    </p>
+                  )}
+                </div>
+                <div className={classes.campaignRadio}>
+                  <div className={`${classes.radioCircle} ${selectedCampaign === c.id ? classes.radioActive : ''}`}>
+                    {selectedCampaign === c.id && <div className={classes.radioInner} />}
+                  </div>
                 </div>
               </div>
-              <div className={classes.campaignRadio}>
-                <div className={`${classes.radioCircle} ${selectedCampaign === c.id ? classes.radioActive : ''}`}>
-                  {selectedCampaign === c.id && <div className={classes.radioInner} />}
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       <div className={`glass ${classes.stickyActionBar}`}>
         <button className={classes.ghostBtn} onClick={onBack}>Back</button>
-        <button className={classes.primaryBtn} onClick={() => onNext(selectedCampaign)} disabled={!selectedCampaign}>
+        <button className={classes.primaryBtn} onClick={() => onNext(selectedCampaign)} disabled={!selectedCampaign || Boolean(pausedCampaigns[selectedCampaign])}>
           Continue
         </button>
       </div>
@@ -633,8 +642,7 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
 const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, walletBalance }) => {
   const campaignPriceMap = {
     fe_inbounds_short: 25,
-    fe_inbounds: 45,
-    fe_tv_calls: 70,
+    fe_tv_calls: 65,
     medicare_transfers: 25,
     medicare_inbound_1: 35,
     medicare_inbound_2: 15,
@@ -643,9 +651,8 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
   const requiredBalance = campaignPriceMap[campaign] || 0;
   const hasBalance = walletBalance >= requiredBalance;
   const campaignLabels = {
-    fe_inbounds_short: 'FE Inbounds Short ($25 / 30s)',
-    fe_inbounds: 'FE Inbounds ($45 / 90s)',
-    fe_tv_calls: 'FE TV Calls ($70 / 30s)',
+    fe_inbounds_short: 'FE Inbounds Short ($25 / 10s)',
+    fe_tv_calls: 'FE TV Calls ($65 / 30s)',
     medicare_transfers: 'Medicare Transfers ($25 / 120s)',
     medicare_inbound_1: 'Medicare Inbounds 1 ($35 / 90s)',
     medicare_inbound_2: 'Medicare Inbounds 2 ($15 / 15s)',
@@ -797,7 +804,7 @@ const CallHistory = ({ logs }) => {
             <div className={classes.colDuration}><Clock size={14} />{Math.floor(log.duration / 60)}:{(log.duration % 60).toString().padStart(2, '0')}</div>
             <div className={classes.colStatus}>
               {log.isBillable ? (
-                <span className={classes.badgeSale}><DollarSign size={12} /> SALE (${log.cost})</span>
+                <span className={classes.badgeSale}><DollarSign size={12} /> Billable (${log.cost})</span>
               ) : log.status === 'completed' ? (
                 <span className={classes.badgeAnswered}>Answered</span>
               ) : (
@@ -907,6 +914,7 @@ const TakeCallsPage = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [history, setHistory] = useState([]);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [pausedCampaigns, setPausedCampaigns] = useState({});
   const [statePresets, setStatePresets] = useState([]);
   const reduceMotion = useReducedMotion();
 
@@ -935,6 +943,17 @@ const TakeCallsPage = () => {
       const profile = await getProfile(user?.uid);
       if (profile && Array.isArray(profile.statePresets)) {
         setStatePresets(profile.statePresets);
+      }
+
+      try {
+        const campaigns = await fetchCampaignPricing();
+        const pausedMap = {};
+        campaigns.forEach((row) => {
+          if (row?.id) pausedMap[row.id] = Boolean(row.paused);
+        });
+        setPausedCampaigns(pausedMap);
+      } catch {
+        // Non-blocking: keep wizard usable even if pricing fetch fails.
       }
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -975,10 +994,13 @@ const TakeCallsPage = () => {
   }, []);
 
   const handleGoLive = async () => {
+    if (pausedCampaigns[campaign]) {
+      toast.error('This campaign is currently paused by admin. Please choose another campaign.');
+      return;
+    }
     const campaignPriceMap = {
       fe_inbounds_short: 25,
-      fe_inbounds: 45,
-      fe_tv_calls: 70,
+      fe_tv_calls: 65,
       medicare_transfers: 25,
       medicare_inbound_1: 35,
       medicare_inbound_2: 15,
@@ -1047,11 +1069,19 @@ const TakeCallsPage = () => {
           <motion.div className={`glass ${classes.liveStatusCard}`} variants={presets.child}>
             <div className={classes.liveBadge}><div className={classes.liveDot} />Dialer Active</div>
 
-            <h2>{callState === 'active' ? 'Currently On Call' : 'Listening for Calls'}</h2>
+            <h2>
+              {callState === 'active'
+                ? 'Currently On Call'
+                : pendingDispositionCall
+                  ? 'Complete Disposition'
+                  : 'Listening for Calls'}
+            </h2>
             <p>
               {callState === 'active'
                 ? 'Stay focused on the prospect. Follow your script.'
-                : 'You are connected to the CallsFlow engine. Stand by for inbound calls.'}
+                : pendingDispositionCall
+                  ? 'Submit a disposition for your last call before you can receive new calls.'
+                  : 'You are connected to the CallsFlow engine. Stand by for inbound calls.'}
             </p>
 
             <div className={classes.actionButtons}>
@@ -1138,7 +1168,31 @@ const TakeCallsPage = () => {
         </div>
       </motion.div>
 
+      {/* ── Flagged Account Banner ───────────────────────────────────── */}
+      {user?.flagged && (
+        <motion.div className={classes.flaggedBanner} variants={presets.child}>
+          <div className={classes.flaggedBannerIcon}>
+            <AlertCircle size={24} />
+          </div>
+          <div className={classes.flaggedBannerBody}>
+            <strong className={classes.flaggedBannerTitle}>Account Flagged</strong>
+            <p>
+              {user?.flagReason
+                ? `Your account has been flagged: ${user.flagReason}.`
+                : 'Your account has been flagged due to inactivity or a low billable rate.'}{' '}
+              Please contact{' '}
+              <a href="mailto:admin@callsflow.io" className={classes.flaggedBannerLink}>
+                admin@callsflow.io
+              </a>{' '}
+              to resume your activity.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {!user?.flagged && (
       <motion.div className={`glass ${classes.wizardShell}`} variants={presets.child}>
+
         <div className={classes.wizardGrid}>
           <aside className={classes.wizardRail}>
             <div className={classes.railHeader}>
@@ -1201,7 +1255,7 @@ const TakeCallsPage = () => {
                   exit="exit"
                 >
                   {step === 1 && <StepOne onNext={() => goStep(2)} />}
-                  {step === 2 && <StepTwo selected={campaign} onNext={(sel) => { setCampaign(sel); goStep(3); }} onBack={() => goStep(1)} />}
+                  {step === 2 && <StepTwo selected={campaign} pausedCampaigns={pausedCampaigns} onNext={(sel) => { setCampaign(sel); goStep(3); }} onBack={() => goStep(1)} />}
                   {step === 3 && <StepThree onNext={(states, presetId) => { setWizardStates(states); setWizardPresetId(presetId ?? null); goStep(4); }} onBack={() => goStep(2)} statePresets={statePresets} onSavePresets={persistPresets} selectedPresetId={wizardPresetId} />}
                   {step === 4 && <StepFour onBack={() => goStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} />}
                 </motion.div>
@@ -1210,6 +1264,7 @@ const TakeCallsPage = () => {
           </div>
         </div>
       </motion.div>
+      )} {/* end !user?.flagged wizard guard */}
       {pendingDispositionCall && (
         <DispositionModal 
           callSid={pendingDispositionCall} 
