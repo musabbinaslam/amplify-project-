@@ -311,7 +311,6 @@ const CAMPAIGN_ICON_MAP = {
 // ─── Step 2: Campaign Selection ──────────────────────────────────────────────
 const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {}, liveCampaigns = [] }) => {
   const [selectedCampaign, setSelectedCampaign] = useState(selected);
-
   // Build display list from live API data; fall back to icon by campaign ID
   const campaigns = liveCampaigns.map((c) => ({
     id: c.id,
@@ -655,8 +654,7 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
 const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, walletBalance }) => {
   const campaignPriceMap = {
     fe_inbounds_short: 25,
-    fe_inbounds: 45,
-    fe_tv_calls: 70,
+    fe_tv_calls: 65,
     medicare_transfers: 25,
     medicare_inbound_1: 35,
     medicare_inbound_2: 15,
@@ -666,8 +664,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
   const hasBalance = walletBalance >= requiredBalance;
   const campaignLabels = {
     fe_inbounds_short: 'FE Inbounds Short ($25 / 10s)',
-    fe_inbounds: 'FE Inbounds ($45 / 90s)',
-    fe_tv_calls: 'FE TV Calls ($70 / 30s)',
+    fe_tv_calls: 'FE TV Calls ($65 / 30s)',
     medicare_transfers: 'Medicare Transfers ($25 / 120s)',
     medicare_inbound_1: 'Medicare Inbounds 1 ($35 / 90s)',
     medicare_inbound_2: 'Medicare Inbounds 2 ($15 / 15s)',
@@ -1017,8 +1014,7 @@ const TakeCallsPage = () => {
     }
     const campaignPriceMap = {
       fe_inbounds_short: 25,
-      fe_inbounds: 45,
-      fe_tv_calls: 70,
+      fe_tv_calls: 65,
       medicare_transfers: 25,
       medicare_inbound_1: 35,
       medicare_inbound_2: 15,
