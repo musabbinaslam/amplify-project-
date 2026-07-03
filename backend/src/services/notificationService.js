@@ -494,6 +494,51 @@ async function broadcastNotificationToAllUsers(payload, source = 'admin', create
   };
 }
 
+async function sendTargetedNotification(userIds, payload, source = 'admin', createdBy = null) {
+  if (!Array.isArray(userIds) || userIds.length === 0) {
+    throw new Error('No users selected for targeted notification');
+  }
+  const type = payload.type || 'admin_broadcast';
+  const base = buildNotificationPayload({ ...payload, type }, source);
+  const registry = await createBroadcastRegistry(
+    {
+      type,
+      title: base.title,
+      body: base.body,
+      priority: base.priority,
+      expiresAt: base.expiresAt,
+    },
+    createdBy,
+    userIds.length,
+  );
+  const broadcastId = registry.id;
+  const userPayload = { ...base, broadcastId };
+  const db = ensureFirestore();
+  const created = [];
+  for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
+    const batch = db.batch();
+    const chunk = userIds.slice(i, i + BATCH_SIZE);
+    chunk.forEach((uid) => {
+      const ref = notificationsCollection(uid).doc();
+      batch.set(ref, userPayload, { merge: false });
+      created.push({ uid, id: ref.id });
+    });
+    await batch.commit();
+  }
+  return {
+    broadcastId,
+    recipientCount: userIds.length,
+    createdCount: created.length,
+    created,
+    title: base.title,
+    body: base.body,
+    type: base.type,
+    priority: base.priority,
+    createdAt: base.createdAtIso,
+    ...(base.expiresAt ? { expiresAt: base.expiresAt } : {}),
+  };
+}
+
 async function listBroadcasts(options = {}) {
   const limit = parseLimit(options.limit);
   let query = broadcastsCollection().orderBy('createdAt', 'desc').limit(limit + 1);
@@ -703,6 +748,7 @@ module.exports = {
   notifyAdminsInBackground,
   toRealtimeNotification,
   broadcastNotificationToAllUsers,
+  sendTargetedNotification,
   listBroadcasts,
   getBroadcast,
   updateBroadcast,
