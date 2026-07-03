@@ -1210,6 +1210,54 @@ async function postBroadcastNotification(req, res) {
   }
 }
 
+async function postTargetedNotification(req, res) {
+  try {
+    const { userIds, title, body, priority, expiresAt } = req.body || {};
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: 'No users selected for targeted notification' });
+    }
+    const { sendTargetedNotification } = require('../services/notificationService');
+    const payload = await sendTargetedNotification(
+      userIds,
+      {
+        type: 'admin_broadcast',
+        title,
+        body,
+        priority,
+        expiresAt,
+      },
+      req.user?.uid || 'admin',
+      req.user?.uid || null,
+    );
+    payload.created.forEach(({ uid, id }) => {
+      const socketRegistry = require('../sockets/socketRegistry');
+      socketRegistry.emitToAgent(uid, 'notification:new', {
+        id,
+        broadcastId: payload.broadcastId,
+        type: payload.type,
+        title: payload.title,
+        body: payload.body,
+        priority: payload.priority,
+        source: 'admin',
+        read: false,
+        createdAt: payload.createdAt,
+        expiresAt: payload.expiresAt || null,
+      });
+    });
+    res.status(201).json({
+      success: true,
+      broadcastId: payload.broadcastId,
+      recipientCount: payload.recipientCount,
+      createdCount: payload.createdCount,
+      message: 'Targeted notification sent',
+    });
+  } catch (err) {
+    console.error('[Admin] postTargetedNotification:', err.message);
+    const status = /required|exceeds|must|Invalid|priority|No users/i.test(err.message) ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to send targeted notification' });
+  }
+}
+
 async function patchMaintenance(req, res) {
   try {
     const maintenance = await setMaintenanceState(req.body || {}, req.user?.uid || null);
@@ -1258,6 +1306,27 @@ async function patchMaintenance(req, res) {
     console.error('[Admin] patchMaintenance:', err.message);
     const status = /required|exceeds|must|valid date/i.test(err.message) ? 400 : 500;
     res.status(status).json({ error: err.message || 'Failed to update maintenance state' });
+  }
+}
+
+async function listAllUsersLite(req, res) {
+  try {
+    const db = getDb();
+    const snap = await db.collection('users').select().limit(5000).get();
+    const ids = snap.docs.map((d) => d.id);
+    const metaMap = await buildUserMetaMap(ids);
+    
+    const users = ids.map((id) => {
+      const entry = metaMap.get(id) || {};
+      const name = entry.name || id;
+      return { id, name, email: entry.email || null, phone: entry.phone || null };
+    });
+    
+    users.sort((a, b) => a.name.localeCompare(b.name));
+    res.json({ users });
+  } catch (err) {
+    console.error('[Admin] listAllUsersLite:', err.message);
+    res.status(500).json({ error: 'Failed to list users' });
   }
 }
 
@@ -1555,12 +1624,14 @@ module.exports = {
   grantDiscount: grantDiscountHandler,
   revokeDiscount: revokeDiscountHandler,
   postBroadcastNotification,
+  postTargetedNotification,
   getBroadcastNotifications,
   getBroadcastNotification,
   patchBroadcastNotification,
   deleteBroadcastNotification,
   patchMaintenance,
   getMaintenance,
+  listAllUsersLite,
   getCampaignControls,
   patchCampaignControls,
   getPoolDebug,

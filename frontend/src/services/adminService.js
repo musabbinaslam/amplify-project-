@@ -4,6 +4,10 @@ export function getAdminOverviewLite() {
   return apiFetch('/api/admin/overview-lite', { method: 'GET' });
 }
 
+export function listAdminUsersLite() {
+  return apiFetch('/api/admin/users/all-lite', { method: 'GET' });
+}
+
 export function getAdminAnalyticsBundle({ from, to } = {}) {
   const qs = new URLSearchParams();
   if (from) qs.set('from', from);
@@ -57,6 +61,10 @@ export function deleteAdminDid(id) {
 
 export function postAdminBroadcastNotification(body) {
   return apiFetch('/api/admin/notifications/broadcast', { method: 'POST', body });
+}
+
+export function postAdminTargetedNotification(body) {
+  return apiFetch('/api/admin/notifications/targeted', { method: 'POST', body });
 }
 
 export function listAdminBroadcasts({ limit = 50, cursor } = {}) {
