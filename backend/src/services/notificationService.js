@@ -18,7 +18,12 @@ const ALLOWED_TYPES = new Set([
 ]);
 const ADMIN_NOTIFICATION_TYPES = new Set(['admin_alert']);
 const ALLOWED_PRIORITIES = new Set(['low', 'normal', 'high']);
-const CAMPAIGN_IDS = new Set(Object.keys(CAMPAIGN_CONFIG || {}));
+// CAMPAIGN_IDS is intentionally NOT a frozen Set — we check the live
+// CAMPAIGN_CONFIG reference directly so newly added campaigns are valid
+// without requiring a server restart.
+function isKnownCampaign(id) {
+  return Object.prototype.hasOwnProperty.call(CAMPAIGN_CONFIG, id);
+}
 const CAMPAIGN_CONTROLS_CACHE_TTL_MS = 5000;
 let campaignControlsCache = { expiresAt: 0, data: null };
 
@@ -92,7 +97,7 @@ function campaignControlsDocRef() {
 function normalizeCampaignId(campaignId) {
   const id = String(campaignId || '').trim();
   if (!id) throw new Error('campaignId is required');
-  if (!CAMPAIGN_IDS.has(id)) throw new Error('Invalid campaignId');
+  if (!isKnownCampaign(id)) throw new Error('Invalid campaignId');
   return id;
 }
 
@@ -157,7 +162,7 @@ async function setCampaignPaused(campaignId, input = {}, updatedBy = null) {
 
 async function isCampaignPaused(campaignId) {
   const id = String(campaignId || '').trim();
-  if (!id || !CAMPAIGN_IDS.has(id)) return false;
+  if (!id || !isKnownCampaign(id)) return false;
   const controls = await getCampaignControls();
   return Boolean(controls?.campaigns?.[id]?.paused);
 }

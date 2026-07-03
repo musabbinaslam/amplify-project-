@@ -36,6 +36,109 @@ function getCampaigns(campaignControls = null) {
   }));
 }
 
+/**
+ * POST /admin/campaigns
+ * Upsert (create or update) a campaign in the live system/pricing Firestore doc.
+ * The onSnapshot listener in pricing.js immediately applies the change in-memory.
+ */
+const upsertCampaign = async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database unavailable' });
+
+    const { id, label, buffer, price } = req.body || {};
+
+    // ── Validation ────────────────────────────────────────────────────────────
+    if (!id || typeof id !== 'string' || !/^[a-z0-9_]+$/.test(id.trim())) {
+      return res.status(400).json({ error: 'Invalid campaign ID. Use lowercase letters, numbers, and underscores only.' });
+    }
+    if (!label || typeof label !== 'string' || !label.trim()) {
+      return res.status(400).json({ error: 'Label is required.' });
+    }
+    const bufferNum = Number(buffer);
+    if (!Number.isFinite(bufferNum) || bufferNum < 0) {
+      return res.status(400).json({ error: 'Buffer must be a non-negative number (seconds).' });
+    }
+    const priceNum = Number(price);
+    if (!Number.isFinite(priceNum) || priceNum < 0) {
+      return res.status(400).json({ error: 'Price must be a non-negative number.' });
+    }
+
+    const campaignId = id.trim().toLowerCase();
+    const isNew = !Object.prototype.hasOwnProperty.call(CAMPAIGN_CONFIG, campaignId);
+
+    const ref = db.collection('system').doc('pricing');
+    await ref.set(
+      {
+        campaigns: {
+          [campaignId]: {
+            label: label.trim(),
+            buffer: bufferNum,
+            price: priceNum,
+          },
+        },
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: req.user?.uid || null,
+      },
+      { merge: true }
+    );
+
+    console.log(`[Admin] Campaign "${campaignId}" ${isNew ? 'created' : 'updated'} by ${req.user?.uid}`);
+    res.json({ success: true, isNew, campaign: { id: campaignId, label: label.trim(), buffer: bufferNum, price: priceNum } });
+  } catch (err) {
+    console.error('[Admin] upsertCampaign error:', err.message);
+    res.status(500).json({ error: 'Failed to save campaign' });
+  }
+};
+
+/**
+ * DELETE /admin/campaigns/:campaignId
+ * Permanently removes a campaign from Firestore (system/pricing) and
+ * campaign controls (system/campaignControls), then deletes it from the
+ * in-memory CAMPAIGN_CONFIG so the change takes effect immediately.
+ */
+const deleteCampaign = async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database unavailable' });
+
+    const { campaignId } = req.params;
+    const id = String(campaignId || '').trim().toLowerCase();
+    if (!id) return res.status(400).json({ error: 'campaignId is required' });
+
+    if (!Object.prototype.hasOwnProperty.call(CAMPAIGN_CONFIG, id)) {
+      return res.status(404).json({ error: `Campaign "${id}" not found` });
+    }
+
+    // 1. Remove from Firestore system/pricing
+    const pricingRef = db.collection('system').doc('pricing');
+    await pricingRef.update({
+      [`campaigns.${id}`]: admin.firestore.FieldValue.delete(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedBy: req.user?.uid || null,
+    });
+
+    // 2. Remove from Firestore system/campaignControls (best-effort)
+    try {
+      const controlsRef = db.collection('system').doc('campaignControls');
+      await controlsRef.update({
+        [`campaigns.${id}`]: admin.firestore.FieldValue.delete(),
+      });
+    } catch (_) { /* doc may not exist — safe to ignore */ }
+
+    // 3. Remove from in-memory CAMPAIGN_CONFIG immediately
+    delete CAMPAIGN_CONFIG[id];
+
+    console.log(`[Admin] Campaign "${id}" deleted by ${req.user?.uid}`);
+    res.json({ success: true, deleted: id });
+  } catch (err) {
+    console.error('[Admin] deleteCampaign error:', err.message);
+    res.status(500).json({ error: 'Failed to delete campaign' });
+  }
+};
+
+
+
 function parseRange(query) {
   const now = new Date();
   const end = query.to ? new Date(`${query.to}T23:59:59.999Z`) : now;
@@ -1563,6 +1666,8 @@ module.exports = {
   getMaintenance,
   getCampaignControls,
   patchCampaignControls,
+  upsertCampaign,
+  deleteCampaign,
   getPoolDebug,
   listCallContests,
   getCallContest,

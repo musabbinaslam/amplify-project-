@@ -15,6 +15,7 @@ import {
   sendEmailVerification,
   getAdditionalUserInfo,
 } from 'firebase/auth';
+import * as Sentry from '@sentry/react';
 import { auth, googleProvider } from '../config/firebase';
 import { getProfile, saveProfile, sendWelcomeEmail } from '../services/profileService';
 import { useThemeStore } from './themeStore';
@@ -81,6 +82,8 @@ const useAuthStore = create((set, get) => ({
             }
           }, 15 * 60 * 1000); // 15 minutes
 
+          Sentry.setUser({ id: firebaseUser.uid, email: firebaseUser.email });
+
           set({
             user: { ...mapFirebaseUser(firebaseUser), meta: existingMeta || null, role, flagged, flagReason },
             token,
@@ -89,6 +92,7 @@ const useAuthStore = create((set, get) => ({
           });
         } else {
           if (get()._tokenRefreshInterval) clearInterval(get()._tokenRefreshInterval);
+          Sentry.setUser(null);
           set({ user: null, token: null, loading: false, _tokenRefreshInterval: null });
         }
         resolve();

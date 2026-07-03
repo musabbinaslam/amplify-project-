@@ -137,3 +137,17 @@ export function refundAdminCall({ agentId, callLogId, reason }) {
     body: { agentId, callLogId, reason },
   });
 }
+
+export function upsertAdminCampaign({ id, label, buffer, price }) {
+  return apiFetch('/api/admin/campaigns', {
+    method: 'POST',
+    body: { id, label, buffer, price },
+  });
+}
+
+export function deleteAdminCampaign(campaignId) {
+  return apiFetch(`/api/admin/campaigns/${encodeURIComponent(campaignId)}`, {
+    method: 'DELETE',
+  });
+}
+
