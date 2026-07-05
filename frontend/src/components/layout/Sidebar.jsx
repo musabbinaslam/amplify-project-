@@ -7,7 +7,7 @@ import {
   Play, Phone, LayoutDashboard, List, FileText,
   DollarSign, Box, User, HeadphonesIcon,
   MessageSquare, Gift, Settings, LogOut,
-  ChevronLeft, ChevronRight, Shield, FileEdit, ShieldCheck, Bell,
+  ChevronLeft, ChevronRight, Shield, FileEdit, ShieldCheck,
 } from 'lucide-react';
 import classes from './Sidebar.module.css';
 
@@ -48,9 +48,7 @@ const Sidebar = () => {
     const base = [...navItems];
     if (role === 'admin') {
       base.push(
-        { path: '/app/admin', label: 'Admin', icon: Shield, end: true, group: 'admin' },
-        { path: '/app/admin/notifications', label: 'Notification Settings', icon: Bell, group: 'admin' },
-        { path: '/app/admin/ai-training', label: 'Admin AI Training', icon: Shield, group: 'admin' },
+        { path: '/app/admin', label: 'Admin', icon: Shield, end: false, group: 'admin' },
       );
     }
     if (role === 'qa') {

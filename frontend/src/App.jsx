@@ -29,7 +29,13 @@ const NotesPage = lazy(() => import('./pages/NotesPage'));
 const LeadsPage = lazy(() => import('./pages/LeadsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ReferralProgramPage = lazy(() => import('./pages/ReferralProgramPage'));
-const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
+const AdminHubPage = lazy(() => import('./pages/admin/AdminHubPage'));
+const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
+const AdminLiveOpsPage = lazy(() => import('./pages/admin/AdminLiveOpsPage'));
+const AdminCallContestsPage = lazy(() => import('./pages/admin/AdminCallContestsPage'));
+const AdminAgentsPage = lazy(() => import('./pages/admin/AdminAgentsPage'));
+const AdminCampaignsPage = lazy(() => import('./pages/admin/AdminCampaignsPage'));
+const AdminPhoneRoutingPage = lazy(() => import('./pages/admin/AdminPhoneRoutingPage'));
 const AdminAITrainingPage = lazy(() => import('./pages/AdminAITrainingPage'));
 const AdminNotificationSettingsPage = lazy(() => import('./pages/AdminNotificationSettingsPage'));
 
@@ -145,7 +151,49 @@ const AnimatedRoutes = () => {
           <Route path="admin" element={
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
-                <AdminDashboardPage />
+                <AdminHubPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/analytics" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminAnalyticsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/live-ops" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminLiveOpsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/call-contests" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminCallContestsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/agents" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminAgentsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/campaigns" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminCampaignsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/phone-routing" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminPhoneRoutingPage />
               </AdminOnly>
             </Suspense>
           } />

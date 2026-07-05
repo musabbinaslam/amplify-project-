@@ -753,6 +753,7 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 20px;
+  width: 100%;
 }
 
 .input,
@@ -826,8 +827,12 @@
 .formFieldInline {
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.formFieldInline .primaryBtn {
+  flex-shrink: 0;
 }
 
 .formRow {
@@ -866,6 +871,7 @@
 .primaryBtn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 10px 18px;
   border-radius: var(--radius-full);
@@ -875,11 +881,17 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: var(--glass-highlight);
   transition: filter 0.15s ease;
 }
 
 .primaryBtn:hover:not(:disabled) {
   filter: brightness(1.08);
+}
+
+.primaryBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .notificationForm .primaryBtn,
@@ -940,6 +952,166 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+/* Campaign management table — full-width columns, right-aligned actions */
+.campaignTable {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.campaignTable th:nth-child(1),
+.campaignTable td:nth-child(1) {
+  width: 22%;
+}
+
+.campaignTable th:nth-child(2),
+.campaignTable td:nth-child(2) {
+  width: 8%;
+}
+
+.campaignTable th:nth-child(3),
+.campaignTable td:nth-child(3) {
+  width: 9%;
+}
+
+.campaignTable th:nth-child(4),
+.campaignTable td:nth-child(4) {
+  width: 10%;
+}
+
+.campaignTable th:nth-child(5),
+.campaignTable td:nth-child(5) {
+  width: auto;
+}
+
+.campaignTable th:nth-child(6),
+.campaignTable td:nth-child(6) {
+  width: 240px;
+}
+
+.campaignTable .input {
+  width: 100%;
+}
+
+.actionsHead,
+.actionsCell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.actionGroup {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.rowBtn,
+.rowBtnPrimary,
+.rowBtnWarn,
+.rowBtnDanger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.rowBtn {
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
+  color: var(--text-primary);
+}
+
+.rowBtn:hover {
+  border-color: color-mix(in srgb, var(--brand-text) 28%, var(--glass-border));
+  color: var(--brand-text);
+}
+
+.rowBtnPrimary {
+  border: 1px solid color-mix(in srgb, var(--brand-text) 35%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  color: var(--brand-text);
+}
+
+.rowBtnPrimary:hover {
+  background: color-mix(in srgb, var(--brand-text) 18%, transparent);
+}
+
+.rowBtnWarn {
+  border: 1px solid color-mix(in srgb, var(--accent-yellow) 40%, var(--glass-border));
+  background: color-mix(in srgb, var(--accent-yellow) 10%, transparent);
+  color: var(--accent-yellow);
+}
+
+.rowBtnWarn:hover {
+  background: color-mix(in srgb, var(--accent-yellow) 16%, transparent);
+}
+
+.rowBtnDanger {
+  border: 1px solid color-mix(in srgb, var(--accent-red) 35%, var(--glass-border));
+  background: color-mix(in srgb, var(--accent-red) 10%, transparent);
+  color: var(--accent-red);
+}
+
+.rowBtnDanger:hover {
+  background: color-mix(in srgb, var(--accent-red) 16%, transparent);
+}
+
+/* Phone routing table — full-width columns, right-aligned actions */
+.routingTable {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.routingTable th:nth-child(1),
+.routingTable td:nth-child(1) {
+  width: 22%;
+}
+
+.routingTable th:nth-child(2),
+.routingTable td:nth-child(2) {
+  width: 22%;
+}
+
+.routingTable th:nth-child(3),
+.routingTable td:nth-child(3) {
+  width: auto;
+}
+
+.routingTable th:nth-child(4),
+.routingTable td:nth-child(4) {
+  width: 12%;
+}
+
+.routingTable th:nth-child(5),
+.routingTable td:nth-child(5) {
+  width: 220px;
+}
+
+@media (max-width: 900px) {
+  .campaignTable,
+  .routingTable {
+    table-layout: auto;
+  }
+
+  .campaignTable th:nth-child(6),
+  .campaignTable td:nth-child(6),
+  .routingTable th:nth-child(5),
+  .routingTable td:nth-child(5) {
+    width: auto;
+  }
+
+  .actionGroup {
+    flex-wrap: wrap;
+  }
 }
 
 /* ─── Status pills & dispositions ─── */
@@ -1101,7 +1273,7 @@
   100% { background-position: -200% 0; }
 }
 
-/* ─── Modal ─── */
+/* ─── Modal (DESIGN.md glass + form tokens) ─── */
 .modalOverlay {
   position: fixed;
   inset: 0;
@@ -1116,81 +1288,156 @@
 }
 
 .modalBox {
-  background: var(--glass-bg);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
-  padding: 28px;
   max-width: 480px;
   width: 100%;
-  box-shadow: var(--glass-highlight), var(--glass-edge);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 28px;
+  border-radius: var(--radius-xl);
 }
 
 .modalHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin-bottom: 8px;
 }
 
 .modalHeader h3 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .modalCloseBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
   padding: 4px;
+  border-radius: var(--radius-md);
+  transition: color 0.15s ease, background 0.15s ease;
 }
 
 .modalCloseBtn:hover {
   color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface-container-high) 60%, transparent);
 }
 
 .modalSub {
   color: var(--text-secondary);
-  font-size: 0.85rem;
-  line-height: 1.45;
-  margin: 0 0 1rem;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+.modalField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.modalField:last-of-type {
+  margin-bottom: 0;
 }
 
 .modalLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.modalLabelStack {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.8rem;
+  gap: 6px;
+  font-size: 12px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--text-secondary);
+}
+
+.modalHint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.modalFormGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.modalFormGrid .modalField {
+  margin-bottom: 16px;
+}
+
+.inputDisabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .modalActions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 1.25rem;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
 }
 
 .modalCancelBtn {
   background: transparent;
   border: 1px solid var(--glass-border);
   color: var(--text-secondary);
-  padding: 0.5rem 1rem;
+  padding: 10px 16px;
   border-radius: var(--radius-full);
-  font-size: 0.85rem;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
 .modalCancelBtn:hover:not(:disabled) {
   color: var(--text-primary);
   border-color: color-mix(in srgb, var(--brand-text) 20%, var(--glass-border));
+  background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
+}
+
+.modalCancelBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.modalActions .dangerBtn {
+  padding: 10px 16px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .modalFormGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ─── Call charge contests ─── */

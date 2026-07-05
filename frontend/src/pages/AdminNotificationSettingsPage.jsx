@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bell, Pencil, RefreshCw, Trash2, Wrench, X } from 'lucide-react';
+import {
+  Bell, Pencil, RefreshCw, Trash2, Wrench, X, Save, Type, MessageSquareText, Flag, CalendarClock,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import PageLoader from '../components/ui/PageLoader';
@@ -11,8 +13,13 @@ import {
   patchAdminBroadcast,
   patchAdminMaintenanceState,
   postAdminBroadcastNotification,
+  postAdminTargetedNotification,
+  listAdminUsersLite,
 } from '../services/adminService';
+import { ADMIN_CATEGORIES } from '../config/adminModules';
+import AdminPageShell from '../components/admin/AdminPageShell';
 import classes from './AdminNotificationSettingsPage.module.css';
+import shared from '../components/admin/adminShared.module.css';
 
 const toLocalDateTimeInput = (value) => {
   if (!value) return '';
@@ -50,11 +57,22 @@ function statusClass(status) {
   return classes.statusActive;
 }
 
-const AdminNotificationSettingsPage = () => {
+export default function AdminNotificationSettingsPage() {
   const presets = useSubtlePageMotion();
   const [loading, setLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [broadcasts, setBroadcasts] = useState([]);
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [targetedForm, setTargetedForm] = useState({
+    userIds: [],
+    title: '',
+    body: '',
+    priority: 'normal',
+    expiresAt: '',
+  });
   const [broadcastForm, setBroadcastForm] = useState({
     title: '',
     body: '',
@@ -70,7 +88,6 @@ const AdminNotificationSettingsPage = () => {
   });
   const [editModal, setEditModal] = useState(null);
   const [deleteModal, setDeleteModal] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -85,29 +102,59 @@ const AdminNotificationSettingsPage = () => {
   }, []);
 
   const refreshMaintenance = useCallback(async () => {
-    const out = await getAdminMaintenanceState();
-    const m = out?.maintenance || {};
-    setMaintenanceForm({
-      active: Boolean(m.active),
-      title: m.title || '',
-      message: m.message || '',
-      startsAt: toLocalDateTimeInput(m.startsAt),
-      endsAt: toLocalDateTimeInput(m.endsAt),
-    });
+    try {
+      const out = await getAdminMaintenanceState();
+      const m = out?.maintenance || {};
+      setMaintenanceForm({
+        active: Boolean(m.active),
+        title: m.title || '',
+        message: m.message || '',
+        startsAt: toLocalDateTimeInput(m.startsAt),
+        endsAt: toLocalDateTimeInput(m.endsAt),
+      });
+    } catch (err) {
+      console.error('Failed to load maintenance state', err);
+    }
+  }, []);
+
+  const loadUsers = useCallback(async () => {
+    try {
+      const out = await listAdminUsersLite();
+      setAvailableUsers(out?.users || []);
+    } catch (err) {
+      console.error('Failed to load users for targeted push', err);
+    }
   }, []);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
-        await Promise.all([loadHistory(), refreshMaintenance()]);
+        await Promise.all([loadHistory(), refreshMaintenance(), loadUsers()]);
       } catch (err) {
         toast.error(err.message || 'Failed to load notification settings');
       } finally {
         setLoading(false);
       }
     })();
-  }, [loadHistory, refreshMaintenance]);
+  }, [loadHistory, refreshMaintenance, loadUsers]);
+
+  const filteredUsers = useMemo(() => {
+    return availableUsers.filter(u => 
+      (u.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (u.email || '').toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [availableUsers, searchQuery]);
+
+  const toggleUser = (id) => {
+    setTargetedForm(prev => {
+      const isSelected = prev.userIds.includes(id);
+      return {
+        ...prev,
+        userIds: isSelected ? prev.userIds.filter(u => u !== id) : [...prev.userIds, id]
+      };
+    });
+  };
 
   const handleSendBroadcast = async (e) => {
     e.preventDefault();
@@ -137,6 +184,44 @@ const AdminNotificationSettingsPage = () => {
       await loadHistory();
     } catch (err) {
       toast.error(err.message || 'Failed to send broadcast');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSendTargeted = async (e) => {
+    e.preventDefault();
+    if (targetedForm.userIds.length === 0) {
+      toast.error('Please select at least one user');
+      return;
+    }
+    if (!targetedForm.title.trim() || !targetedForm.body.trim()) {
+      toast.error('Notification title and message are required');
+      return;
+    }
+    try {
+      const now = Date.now();
+      if (targetedForm.expiresAt) {
+        const expiresMs = new Date(targetedForm.expiresAt).getTime();
+        if (!Number.isFinite(expiresMs) || expiresMs < now) {
+          toast.error('Expiry must be in the future');
+          return;
+        }
+      }
+      setSubmitting(true);
+      const payload = {
+        userIds: targetedForm.userIds,
+        title: targetedForm.title.trim(),
+        body: targetedForm.body.trim(),
+        priority: targetedForm.priority,
+        ...(targetedForm.expiresAt ? { expiresAt: new Date(targetedForm.expiresAt).toISOString() } : {}),
+      };
+      const out = await postAdminTargetedNotification(payload);
+      toast.success(`Targeted push sent to ${out.recipientCount || 0} users`);
+      setTargetedForm({ userIds: [], title: '', body: '', priority: 'normal', expiresAt: '' });
+      await loadHistory();
+    } catch (err) {
+      toast.error(err.message || 'Failed to send targeted push');
     } finally {
       setSubmitting(false);
     }
@@ -236,22 +321,12 @@ const AdminNotificationSettingsPage = () => {
 
   return (
     <>
-      <motion.div
-        className={classes.page}
-        variants={presets.root}
-        initial="hidden"
-        animate="visible"
+      <AdminPageShell
+        title="Notification Settings"
+        description="Send broadcasts, manage maintenance alerts, and edit or revoke past pushes."
+        icon={Bell}
+        category={ADMIN_CATEGORIES.communications}
       >
-        <motion.div className={classes.pageHeader} variants={presets.child}>
-          <div className={classes.iconBox} aria-hidden="true">
-            <Bell size={22} />
-          </div>
-          <div>
-            <h2>Notification Settings</h2>
-            <p>Send broadcasts, manage maintenance alerts, and edit or revoke past pushes</p>
-          </div>
-        </motion.div>
-
         <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
           <h2 className={classes.cardTitle}>Send notifications</h2>
           <p className={classes.hint}>
@@ -292,6 +367,88 @@ const AdminNotificationSettingsPage = () => {
               </div>
               <button type="submit" className={classes.primaryBtn} disabled={submitting}>
                 Send broadcast
+              </button>
+            </form>
+
+            <form className={classes.notificationForm} onSubmit={handleSendTargeted}>
+              <h3 className={classes.subTitle}>Targeted push</h3>
+              
+              <div style={{ position: 'relative' }}>
+                <div 
+                  className={classes.input} 
+                  style={{ cursor: 'pointer', display: 'flex', flexWrap: 'wrap', gap: '6px', minHeight: '42px', alignItems: 'center' }}
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                >
+                  {targetedForm.userIds.length === 0 ? <span style={{color: 'var(--text-secondary)'}}>Select users...</span> : (
+                    targetedForm.userIds.map(id => {
+                      const u = availableUsers.find(x => x.id === id);
+                      return (
+                        <span key={id} style={{ background: 'var(--brand-solid)', color: 'var(--brand-on)', padding: '2px 8px', borderRadius: 'var(--radius-full)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          {u?.name || id}
+                          <X size={12} style={{cursor:'pointer'}} onClick={(e) => { e.stopPropagation(); toggleUser(id); }} />
+                        </span>
+                      );
+                    })
+                  )}
+                </div>
+                {dropdownOpen && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, background: 'color-mix(in srgb, var(--surface-container-highest) 96%, transparent)', backdropFilter: 'blur(12px)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-lg)', marginTop: '4px', maxHeight: '240px', display: 'flex', flexDirection: 'column', boxShadow: '0 12px 24px rgba(0,0,0,0.4)' }}>
+                    <input 
+                      className={classes.input} 
+                      style={{ border: 'none', borderBottom: '1px solid var(--glass-border)', borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0', background: 'transparent' }} 
+                      placeholder="Search users..." 
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      autoFocus
+                    />
+                    <div style={{ overflowY: 'auto', padding: '6px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      {filteredUsers.length === 0 && <div style={{ padding: '12px', color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'center' }}>No users found</div>}
+                      {filteredUsers.map(u => (
+                        <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', cursor: 'pointer', borderRadius: 'var(--radius-md)', background: targetedForm.userIds.includes(u.id) ? 'color-mix(in srgb, var(--brand-text) 12%, transparent)' : 'transparent', transition: 'background 0.15s ease' }}>
+                          <input type="checkbox" style={{ accentColor: 'var(--brand-text)' }} checked={targetedForm.userIds.includes(u.id)} onChange={() => toggleUser(u.id)} />
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '14px', color: 'var(--text-primary)', fontWeight: targetedForm.userIds.includes(u.id) ? '600' : '500' }}>{u.name}</span>
+                            {u.email && <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{u.email}</span>}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <input
+                className={classes.input}
+                placeholder="Notification title"
+                value={targetedForm.title}
+                onChange={(e) => setTargetedForm((prev) => ({ ...prev, title: e.target.value }))}
+              />
+              <textarea
+                className={classes.textarea}
+                placeholder="Message"
+                value={targetedForm.body}
+                onChange={(e) => setTargetedForm((prev) => ({ ...prev, body: e.target.value }))}
+              />
+              <div className={classes.formRow}>
+                <select
+                  className={classes.select}
+                  value={targetedForm.priority}
+                  onChange={(e) => setTargetedForm((prev) => ({ ...prev, priority: e.target.value }))}
+                >
+                  <option value="low">Low priority</option>
+                  <option value="normal">Normal priority</option>
+                  <option value="high">High priority</option>
+                </select>
+                <input
+                  type="datetime-local"
+                  className={classes.input}
+                  value={targetedForm.expiresAt}
+                  onChange={(e) => setTargetedForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
+                  min={nowLocalInput()}
+                />
+              </div>
+              <button type="submit" className={classes.primaryBtn} disabled={submitting}>
+                Send targeted push
               </button>
             </form>
 
@@ -361,7 +518,7 @@ const AdminNotificationSettingsPage = () => {
           </div>
 
           <div className={classes.tableWrap}>
-            <table className={classes.table}>
+            <table className={`${classes.table} ${classes.historyTable}`}>
               <thead>
                 <tr>
                   <th>Type</th>
@@ -371,7 +528,7 @@ const AdminNotificationSettingsPage = () => {
                   <th>Sent</th>
                   <th>Recipients</th>
                   <th>Status</th>
-                  <th>Actions</th>
+                  <th className={classes.actionsHead}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -395,11 +552,11 @@ const AdminNotificationSettingsPage = () => {
                           {statusLabel(status)}
                         </span>
                       </td>
-                      <td>
-                        <div className={classes.actionsCell}>
+                      <td className={classes.actionsCell}>
+                        <div className={classes.actionGroup}>
                           <button
                             type="button"
-                            className={classes.iconBtn}
+                            className={classes.rowBtn}
                             disabled={isRevoked || submitting}
                             onClick={() => setEditModal({
                               id: row.id,
@@ -414,7 +571,7 @@ const AdminNotificationSettingsPage = () => {
                           </button>
                           <button
                             type="button"
-                            className={classes.dangerBtn}
+                            className={classes.rowBtnDanger}
                             disabled={isRevoked || submitting}
                             onClick={() => setDeleteModal({ id: row.id, title: row.title || 'Notification' })}
                           >
@@ -436,49 +593,69 @@ const AdminNotificationSettingsPage = () => {
             </table>
           </div>
         </motion.section>
-      </motion.div>
+      </AdminPageShell>
 
       {editModal ? (
-        <div className={classes.modalOverlay} role="presentation" onClick={() => !submitting && setEditModal(null)}>
-          <div
-            className={`glass ${classes.modalBox}`}
+        <motion.div
+          className={shared.modalOverlay}
+          role="presentation"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          onClick={() => !submitting && setEditModal(null)}
+        >
+          <motion.div
+            className={`glass ${shared.modalBox}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="edit-notification-title"
+            initial={{ opacity: 0, y: 16, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className={classes.modalHeader}>
+            <div className={shared.modalHeader}>
               <h3 id="edit-notification-title">Edit notification</h3>
-              <button type="button" className={classes.modalCloseBtn} onClick={() => setEditModal(null)} aria-label="Close">
+              <button type="button" className={shared.modalCloseBtn} onClick={() => setEditModal(null)} aria-label="Close">
                 <X size={18} />
               </button>
             </div>
-            <p className={classes.modalSub}>Changes apply to every user inbox immediately.</p>
+            <p className={shared.modalSub}>Changes apply to every user inbox immediately.</p>
             <form onSubmit={handleSaveEdit}>
-              <div className={classes.modalField}>
-                <label className={classes.modalLabel} htmlFor="edit-title">Title</label>
+              <div className={shared.modalField}>
+                <label className={shared.modalLabel} htmlFor="edit-title">
+                  <Type size={14} />
+                  Title
+                </label>
                 <input
                   id="edit-title"
-                  className={classes.input}
+                  className={shared.input}
                   value={editModal.title}
                   onChange={(e) => setEditModal((prev) => ({ ...prev, title: e.target.value }))}
+                  required
                 />
               </div>
-              <div className={classes.modalField}>
-                <label className={classes.modalLabel} htmlFor="edit-body">Message</label>
+              <div className={shared.modalField}>
+                <label className={shared.modalLabel} htmlFor="edit-body">
+                  <MessageSquareText size={14} />
+                  Message
+                </label>
                 <textarea
                   id="edit-body"
-                  className={classes.textarea}
+                  className={shared.modalTextarea}
+                  rows={4}
                   value={editModal.body}
                   onChange={(e) => setEditModal((prev) => ({ ...prev, body: e.target.value }))}
+                  required
                 />
               </div>
-              <div className={classes.formRow}>
-                <div className={classes.modalField}>
-                  <label className={classes.modalLabel} htmlFor="edit-priority">Priority</label>
+              <div className={shared.modalFormGrid}>
+                <div className={shared.modalField}>
+                  <label className={shared.modalLabel} htmlFor="edit-priority">
+                    <Flag size={14} />
+                    Priority
+                  </label>
                   <select
                     id="edit-priority"
-                    className={classes.select}
+                    className={shared.select}
                     value={editModal.priority}
                     onChange={(e) => setEditModal((prev) => ({ ...prev, priority: e.target.value }))}
                   >
@@ -487,61 +664,74 @@ const AdminNotificationSettingsPage = () => {
                     <option value="high">High</option>
                   </select>
                 </div>
-                <div className={classes.modalField}>
-                  <label className={classes.modalLabel} htmlFor="edit-expires">Expires</label>
+                <div className={shared.modalField}>
+                  <label className={shared.modalLabel} htmlFor="edit-expires">
+                    <CalendarClock size={14} />
+                    Expires
+                  </label>
                   <input
                     id="edit-expires"
                     type="datetime-local"
-                    className={classes.input}
+                    className={shared.input}
                     value={editModal.expiresAt}
                     onChange={(e) => setEditModal((prev) => ({ ...prev, expiresAt: e.target.value }))}
                   />
                 </div>
               </div>
-              <div className={classes.modalActions}>
-                <button type="button" className={classes.secondaryBtn} onClick={() => setEditModal(null)} disabled={submitting}>
+              <div className={shared.modalActions}>
+                <button type="button" className={shared.modalCancelBtn} onClick={() => setEditModal(null)} disabled={submitting}>
                   Cancel
                 </button>
-                <button type="submit" className={classes.primaryBtn} disabled={submitting}>
-                  Save changes
+                <button type="submit" className={shared.primaryBtn} disabled={submitting}>
+                  <Save size={15} />
+                  {submitting ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       ) : null}
 
       {deleteModal ? (
-        <div className={classes.modalOverlay} role="presentation" onClick={() => !submitting && setDeleteModal(null)}>
-          <div
-            className={`glass ${classes.modalBox}`}
+        <motion.div
+          className={shared.modalOverlay}
+          role="presentation"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          onClick={() => !submitting && setDeleteModal(null)}
+        >
+          <motion.div
+            className={`glass ${shared.modalBox}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-notification-title"
+            initial={{ opacity: 0, y: 16, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className={classes.modalHeader}>
+            <div className={shared.modalHeader}>
               <h3 id="delete-notification-title">Delete notification</h3>
-              <button type="button" className={classes.modalCloseBtn} onClick={() => setDeleteModal(null)} aria-label="Close">
+              <button type="button" className={shared.modalCloseBtn} onClick={() => setDeleteModal(null)} aria-label="Close">
                 <X size={18} />
               </button>
             </div>
-            <p className={classes.modalSub}>
+            <p className={shared.modalSub}>
               This removes &ldquo;{deleteModal.title}&rdquo; from all user inboxes. This cannot be undone.
             </p>
-            <div className={classes.modalActions}>
-              <button type="button" className={classes.secondaryBtn} onClick={() => setDeleteModal(null)} disabled={submitting}>
+            <div className={shared.modalActions}>
+              <button type="button" className={shared.modalCancelBtn} onClick={() => setDeleteModal(null)} disabled={submitting}>
                 Cancel
               </button>
-              <button type="button" className={classes.dangerBtn} onClick={handleConfirmDelete} disabled={submitting}>
-                Delete for all users
+              <button type="button" className={shared.dangerBtn} onClick={handleConfirmDelete} disabled={submitting}>
+                <Trash2 size={15} />
+                {submitting ? 'Deleting…' : 'Delete for all users'}
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       ) : null}
     </>
   );
 };
 
-export default AdminNotificationSettingsPage;
+
