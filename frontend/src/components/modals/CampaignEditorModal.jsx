@@ -4,7 +4,7 @@ import { X, Save, Tag, Clock, DollarSign, Hash } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { upsertAdminCampaign } from '../../services/adminService';
 import PropTypes from 'prop-types';
-import classes from '../../pages/AdminDashboardPage.module.css';
+import classes from '../admin/adminShared.module.css';
 
 const OVERLAY_VARIANTS = {
   hidden: { opacity: 0 },
@@ -79,17 +79,19 @@ export default function CampaignEditorModal({ campaign, onClose, onSaved }) {
         onClick={onClose}
       >
         <motion.div
-          className={classes.modalBox}
+          className={`glass ${classes.modalBox}`}
           variants={BOX_VARIANTS}
           initial="hidden"
           animate="visible"
           exit="exit"
           onClick={(e) => e.stopPropagation()}
-          style={{ maxWidth: 480, width: '100%' }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="campaign-editor-title"
         >
           <div className={classes.modalHeader}>
-            <h3>{isEdit ? 'Edit Campaign' : 'Add Campaign'}</h3>
-            <button type="button" className={classes.modalCloseBtn} onClick={onClose}>
+            <h3 id="campaign-editor-title">{isEdit ? 'Edit Campaign' : 'Add Campaign'}</h3>
+            <button type="button" className={classes.modalCloseBtn} onClick={onClose} aria-label="Close">
               <X size={18} />
             </button>
           </div>
@@ -101,13 +103,14 @@ export default function CampaignEditorModal({ campaign, onClose, onSaved }) {
           </p>
 
           <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: 16 }}>
-              <label className={classes.modalLabel}>
-                <Hash size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+            <div className={classes.modalField}>
+              <label className={classes.modalLabel} htmlFor="campaign-id">
+                <Hash size={14} />
                 Internal ID
               </label>
               <input
-                className={classes.input}
+                id="campaign-id"
+                className={`${classes.input} ${isEdit ? classes.inputDisabled : ''}`}
                 type="text"
                 placeholder="e.g. fe_inbounds_3"
                 value={form.id}
@@ -116,21 +119,21 @@ export default function CampaignEditorModal({ campaign, onClose, onSaved }) {
                 required
                 pattern="^[a-z0-9_]+$"
                 title="Lowercase letters, numbers, and underscores only"
-                style={isEdit ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
               />
-              {!isEdit && (
-                <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>
+              {!isEdit ? (
+                <p className={classes.modalHint}>
                   Lowercase letters, numbers, underscores only. Cannot be changed after creation.
                 </p>
-              )}
+              ) : null}
             </div>
 
-            <div style={{ marginBottom: 16 }}>
-              <label className={classes.modalLabel}>
-                <Tag size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+            <div className={classes.modalField}>
+              <label className={classes.modalLabel} htmlFor="campaign-label">
+                <Tag size={14} />
                 Display Label
               </label>
               <input
+                id="campaign-label"
                 className={classes.input}
                 type="text"
                 placeholder="e.g. FE Inbounds (New)"
@@ -141,13 +144,14 @@ export default function CampaignEditorModal({ campaign, onClose, onSaved }) {
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
-              <div>
-                <label className={classes.modalLabel}>
-                  <Clock size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+            <div className={classes.modalFormGrid}>
+              <div className={classes.modalField}>
+                <label className={classes.modalLabel} htmlFor="campaign-buffer">
+                  <Clock size={14} />
                   Buffer (seconds)
                 </label>
                 <input
+                  id="campaign-buffer"
                   className={classes.input}
                   type="number"
                   min="0"
@@ -158,12 +162,13 @@ export default function CampaignEditorModal({ campaign, onClose, onSaved }) {
                   required
                 />
               </div>
-              <div>
-                <label className={classes.modalLabel}>
-                  <DollarSign size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+              <div className={classes.modalField}>
+                <label className={classes.modalLabel} htmlFor="campaign-price">
+                  <DollarSign size={14} />
                   Price ($)
                 </label>
                 <input
+                  id="campaign-price"
                   className={classes.input}
                   type="number"
                   min="0"
@@ -190,7 +195,7 @@ export default function CampaignEditorModal({ campaign, onClose, onSaved }) {
                 className={classes.primaryBtn}
                 disabled={saving}
               >
-                <Save size={15} style={{ marginRight: 6 }} />
+                <Save size={15} />
                 {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Campaign'}
               </button>
             </div>

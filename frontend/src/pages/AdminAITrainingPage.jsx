@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ShieldCheck, RefreshCw, Users, AlertTriangle, ClipboardCheck,
-  TrendingUp, Inbox, Search,
+  RefreshCw, Users, AlertTriangle, ClipboardCheck,
+  TrendingUp, Inbox, Search, HeadphonesIcon,
 } from 'lucide-react';
 import {
   ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip,
@@ -14,6 +14,8 @@ import {
 } from '../services/adminService';
 import PageLoader from '../components/ui/PageLoader';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
+import { ADMIN_CATEGORIES } from '../config/adminModules';
+import AdminPageShell from '../components/admin/AdminPageShell';
 import classes from './AdminAITrainingPage.module.css';
 
 const CHART_TOOLTIP_STYLE = {
@@ -206,21 +208,12 @@ const AdminAITrainingPage = () => {
   if (loading && !overview) return <PageLoader />;
 
   return (
-    <motion.div
-      className={classes.page}
-      variants={presets.root}
-      initial="hidden"
-      animate="visible"
+    <AdminPageShell
+      title="AI Training"
+      description="Track coaching adherence, risk, and outcome movement across agents."
+      icon={HeadphonesIcon}
+      category={ADMIN_CATEGORIES.quality}
     >
-      <motion.div className={classes.pageHeader} variants={presets.child}>
-        <div className={classes.iconBox} aria-hidden="true">
-          <ShieldCheck size={22} />
-        </div>
-        <div>
-          <h2>Admin AI Coaching Visibility</h2>
-          <p>Track coaching adherence, risk, and outcome movement across agents.</p>
-        </div>
-      </motion.div>
 
       <motion.div className={`glass ${classes.toolbar}`} variants={presets.child}>
         <div className={classes.filterRow}>
@@ -464,7 +457,7 @@ const AdminAITrainingPage = () => {
           </div>
         )}
       </motion.section>
-    </motion.div>
+    </AdminPageShell>
   );
 };
 

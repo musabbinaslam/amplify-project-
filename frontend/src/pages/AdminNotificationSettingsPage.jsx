@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bell, Pencil, RefreshCw, Trash2, Wrench, X } from 'lucide-react';
+import {
+  Bell, Pencil, RefreshCw, Trash2, Wrench, X, Save, Type, MessageSquareText, Flag, CalendarClock,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import PageLoader from '../components/ui/PageLoader';
@@ -14,7 +16,10 @@ import {
   postAdminTargetedNotification,
   listAdminUsersLite,
 } from '../services/adminService';
+import { ADMIN_CATEGORIES } from '../config/adminModules';
+import AdminPageShell from '../components/admin/AdminPageShell';
 import classes from './AdminNotificationSettingsPage.module.css';
+import shared from '../components/admin/adminShared.module.css';
 
 const toLocalDateTimeInput = (value) => {
   if (!value) return '';
@@ -316,22 +321,12 @@ export default function AdminNotificationSettingsPage() {
 
   return (
     <>
-      <motion.div
-        className={classes.page}
-        variants={presets.root}
-        initial="hidden"
-        animate="visible"
+      <AdminPageShell
+        title="Notification Settings"
+        description="Send broadcasts, manage maintenance alerts, and edit or revoke past pushes."
+        icon={Bell}
+        category={ADMIN_CATEGORIES.communications}
       >
-        <motion.div className={classes.pageHeader} variants={presets.child}>
-          <div className={classes.iconBox} aria-hidden="true">
-            <Bell size={22} />
-          </div>
-          <div>
-            <h2>Notification Settings</h2>
-            <p>Send broadcasts, manage maintenance alerts, and edit or revoke past pushes</p>
-          </div>
-        </motion.div>
-
         <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
           <h2 className={classes.cardTitle}>Send notifications</h2>
           <p className={classes.hint}>
@@ -523,7 +518,7 @@ export default function AdminNotificationSettingsPage() {
           </div>
 
           <div className={classes.tableWrap}>
-            <table className={classes.table}>
+            <table className={`${classes.table} ${classes.historyTable}`}>
               <thead>
                 <tr>
                   <th>Type</th>
@@ -533,7 +528,7 @@ export default function AdminNotificationSettingsPage() {
                   <th>Sent</th>
                   <th>Recipients</th>
                   <th>Status</th>
-                  <th>Actions</th>
+                  <th className={classes.actionsHead}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -557,11 +552,11 @@ export default function AdminNotificationSettingsPage() {
                           {statusLabel(status)}
                         </span>
                       </td>
-                      <td>
-                        <div className={classes.actionsCell}>
+                      <td className={classes.actionsCell}>
+                        <div className={classes.actionGroup}>
                           <button
                             type="button"
-                            className={classes.iconBtn}
+                            className={classes.rowBtn}
                             disabled={isRevoked || submitting}
                             onClick={() => setEditModal({
                               id: row.id,
@@ -576,7 +571,7 @@ export default function AdminNotificationSettingsPage() {
                           </button>
                           <button
                             type="button"
-                            className={classes.dangerBtn}
+                            className={classes.rowBtnDanger}
                             disabled={isRevoked || submitting}
                             onClick={() => setDeleteModal({ id: row.id, title: row.title || 'Notification' })}
                           >
@@ -598,49 +593,69 @@ export default function AdminNotificationSettingsPage() {
             </table>
           </div>
         </motion.section>
-      </motion.div>
+      </AdminPageShell>
 
       {editModal ? (
-        <div className={classes.modalOverlay} role="presentation" onClick={() => !submitting && setEditModal(null)}>
-          <div
-            className={`glass ${classes.modalBox}`}
+        <motion.div
+          className={shared.modalOverlay}
+          role="presentation"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          onClick={() => !submitting && setEditModal(null)}
+        >
+          <motion.div
+            className={`glass ${shared.modalBox}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="edit-notification-title"
+            initial={{ opacity: 0, y: 16, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className={classes.modalHeader}>
+            <div className={shared.modalHeader}>
               <h3 id="edit-notification-title">Edit notification</h3>
-              <button type="button" className={classes.modalCloseBtn} onClick={() => setEditModal(null)} aria-label="Close">
+              <button type="button" className={shared.modalCloseBtn} onClick={() => setEditModal(null)} aria-label="Close">
                 <X size={18} />
               </button>
             </div>
-            <p className={classes.modalSub}>Changes apply to every user inbox immediately.</p>
+            <p className={shared.modalSub}>Changes apply to every user inbox immediately.</p>
             <form onSubmit={handleSaveEdit}>
-              <div className={classes.modalField}>
-                <label className={classes.modalLabel} htmlFor="edit-title">Title</label>
+              <div className={shared.modalField}>
+                <label className={shared.modalLabel} htmlFor="edit-title">
+                  <Type size={14} />
+                  Title
+                </label>
                 <input
                   id="edit-title"
-                  className={classes.input}
+                  className={shared.input}
                   value={editModal.title}
                   onChange={(e) => setEditModal((prev) => ({ ...prev, title: e.target.value }))}
+                  required
                 />
               </div>
-              <div className={classes.modalField}>
-                <label className={classes.modalLabel} htmlFor="edit-body">Message</label>
+              <div className={shared.modalField}>
+                <label className={shared.modalLabel} htmlFor="edit-body">
+                  <MessageSquareText size={14} />
+                  Message
+                </label>
                 <textarea
                   id="edit-body"
-                  className={classes.textarea}
+                  className={shared.modalTextarea}
+                  rows={4}
                   value={editModal.body}
                   onChange={(e) => setEditModal((prev) => ({ ...prev, body: e.target.value }))}
+                  required
                 />
               </div>
-              <div className={classes.formRow}>
-                <div className={classes.modalField}>
-                  <label className={classes.modalLabel} htmlFor="edit-priority">Priority</label>
+              <div className={shared.modalFormGrid}>
+                <div className={shared.modalField}>
+                  <label className={shared.modalLabel} htmlFor="edit-priority">
+                    <Flag size={14} />
+                    Priority
+                  </label>
                   <select
                     id="edit-priority"
-                    className={classes.select}
+                    className={shared.select}
                     value={editModal.priority}
                     onChange={(e) => setEditModal((prev) => ({ ...prev, priority: e.target.value }))}
                   >
@@ -649,58 +664,71 @@ export default function AdminNotificationSettingsPage() {
                     <option value="high">High</option>
                   </select>
                 </div>
-                <div className={classes.modalField}>
-                  <label className={classes.modalLabel} htmlFor="edit-expires">Expires</label>
+                <div className={shared.modalField}>
+                  <label className={shared.modalLabel} htmlFor="edit-expires">
+                    <CalendarClock size={14} />
+                    Expires
+                  </label>
                   <input
                     id="edit-expires"
                     type="datetime-local"
-                    className={classes.input}
+                    className={shared.input}
                     value={editModal.expiresAt}
                     onChange={(e) => setEditModal((prev) => ({ ...prev, expiresAt: e.target.value }))}
                   />
                 </div>
               </div>
-              <div className={classes.modalActions}>
-                <button type="button" className={classes.secondaryBtn} onClick={() => setEditModal(null)} disabled={submitting}>
+              <div className={shared.modalActions}>
+                <button type="button" className={shared.modalCancelBtn} onClick={() => setEditModal(null)} disabled={submitting}>
                   Cancel
                 </button>
-                <button type="submit" className={classes.primaryBtn} disabled={submitting}>
-                  Save changes
+                <button type="submit" className={shared.primaryBtn} disabled={submitting}>
+                  <Save size={15} />
+                  {submitting ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       ) : null}
 
       {deleteModal ? (
-        <div className={classes.modalOverlay} role="presentation" onClick={() => !submitting && setDeleteModal(null)}>
-          <div
-            className={`glass ${classes.modalBox}`}
+        <motion.div
+          className={shared.modalOverlay}
+          role="presentation"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          onClick={() => !submitting && setDeleteModal(null)}
+        >
+          <motion.div
+            className={`glass ${shared.modalBox}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-notification-title"
+            initial={{ opacity: 0, y: 16, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className={classes.modalHeader}>
+            <div className={shared.modalHeader}>
               <h3 id="delete-notification-title">Delete notification</h3>
-              <button type="button" className={classes.modalCloseBtn} onClick={() => setDeleteModal(null)} aria-label="Close">
+              <button type="button" className={shared.modalCloseBtn} onClick={() => setDeleteModal(null)} aria-label="Close">
                 <X size={18} />
               </button>
             </div>
-            <p className={classes.modalSub}>
+            <p className={shared.modalSub}>
               This removes &ldquo;{deleteModal.title}&rdquo; from all user inboxes. This cannot be undone.
             </p>
-            <div className={classes.modalActions}>
-              <button type="button" className={classes.secondaryBtn} onClick={() => setDeleteModal(null)} disabled={submitting}>
+            <div className={shared.modalActions}>
+              <button type="button" className={shared.modalCancelBtn} onClick={() => setDeleteModal(null)} disabled={submitting}>
                 Cancel
               </button>
-              <button type="button" className={classes.dangerBtn} onClick={handleConfirmDelete} disabled={submitting}>
-                Delete for all users
+              <button type="button" className={shared.dangerBtn} onClick={handleConfirmDelete} disabled={submitting}>
+                <Trash2 size={15} />
+                {submitting ? 'Deleting…' : 'Delete for all users'}
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       ) : null}
     </>
   );
