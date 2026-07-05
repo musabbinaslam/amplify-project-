@@ -9,6 +9,7 @@ router.use(verifyFirebaseToken);
 router.use(requireAdmin);
 
 router.get('/overview-lite', adminController.getOverviewLite);
+router.get('/users/all-lite', adminController.listAllUsersLite);
 router.get('/analytics-bundle', adminController.getAnalyticsBundle);
 router.get('/analytics-drilldown', adminController.getAnalyticsDrilldown);
 router.get('/live-calls', adminController.getLiveCalls);
@@ -34,6 +35,7 @@ router.patch('/referrals/:referralId/status', adminController.updateReferralStat
 router.post('/referrals/grant-discount', adminController.grantDiscount);
 router.post('/referrals/revoke-discount', adminController.revokeDiscount);
 router.post('/notifications/broadcast', adminController.postBroadcastNotification);
+router.post('/notifications/targeted', adminController.postTargetedNotification);
 router.get('/notifications/broadcasts', adminController.getBroadcastNotifications);
 router.get('/notifications/broadcasts/:id', adminController.getBroadcastNotification);
 router.patch('/notifications/broadcasts/:id', adminController.patchBroadcastNotification);
@@ -42,6 +44,10 @@ router.get('/maintenance', adminController.getMaintenance);
 router.patch('/maintenance', adminController.patchMaintenance);
 router.get('/campaign-controls', adminController.getCampaignControls);
 router.patch('/campaign-controls/:campaignId', adminController.patchCampaignControls);
+router.post('/campaigns', adminController.upsertCampaign);
+router.delete('/campaigns/:campaignId', adminController.deleteCampaign);
+
+
 
 // Pool debug — dumps full Redis routing state for diagnosis
 router.get('/pool-debug', adminController.getPoolDebug);

@@ -66,7 +66,7 @@ function syncReleaseFile() {
   }
 }
 
-module.exports = { syncReleaseFile };
+module.exports = { syncReleaseFile, resolveReleaseId };
 
 if (require.main === module) {
   syncReleaseFile();

@@ -1,0 +1,184 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  min-width: 0;
+  min-height: calc(100dvh - var(--topbar-height) - 120px);
+  box-sizing: border-box;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.iconBox {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+}
+
+.pageHeader h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+
+.pageHeader p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Compact metrics bar — distinct from module navigation cards */
+.metricsBar {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  width: 100%;
+  flex-shrink: 0;
+  padding: 4px 0;
+  overflow: hidden;
+}
+
+.metricItem {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  min-width: 0;
+  border-right: 1px solid var(--glass-border);
+}
+
+.metricItem:last-child {
+  border-right: none;
+}
+
+.metricLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metricValue {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.metricSkeleton {
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--surface-container) 82%, transparent),
+    color-mix(in srgb, var(--surface-container-highest) 72%, transparent),
+    color-mix(in srgb, var(--surface-container) 82%, transparent)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.moduleGrid {
+  flex: 1 1 auto;
+  display: grid;
+  width: 100%;
+  min-height: 0;
+  gap: 18px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(200px, 1fr));
+}
+
+@media (max-width: 1200px) {
+  .metricsBar {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .metricItem:nth-child(4n) {
+    border-right: none;
+  }
+
+  .metricItem:nth-child(n + 5) {
+    border-top: 1px solid var(--glass-border);
+  }
+
+  .moduleGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .metricsBar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metricItem {
+    border-right: 1px solid var(--glass-border);
+  }
+
+  .metricItem:nth-child(2n) {
+    border-right: none;
+  }
+
+  .metricItem:nth-child(n + 3) {
+    border-top: 1px solid var(--glass-border);
+  }
+
+  .moduleGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(4, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .page {
+    gap: 16px;
+    min-height: auto;
+  }
+
+  .metricsBar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metricValue {
+    font-size: 20px;
+  }
+
+  .moduleGrid {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-auto-rows: minmax(140px, auto);
+    gap: 12px;
+    flex: none;
+  }
+}
