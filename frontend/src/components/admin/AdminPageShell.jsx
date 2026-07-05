@@ -10,6 +10,8 @@ export default function AdminPageShell({
   description,
   icon: Icon,
   category,
+  backTo = '/app/admin',
+  backLabel = 'Back to Admin',
   children,
 }) {
   const presets = useSubtlePageMotion();
@@ -22,9 +24,9 @@ export default function AdminPageShell({
       animate="visible"
     >
       <motion.div className={classes.topBar} variants={presets.child}>
-        <Link to="/app/admin" className={classes.backLink}>
+        <Link to={backTo} className={classes.backLink}>
           <ArrowLeft size={16} />
-          Back to Admin
+          {backLabel}
         </Link>
         {category ? <span className={classes.category}>{category}</span> : null}
       </motion.div>

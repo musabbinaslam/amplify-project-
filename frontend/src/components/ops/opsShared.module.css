@@ -8,9 +8,14 @@
 
 .header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
   flex-wrap: wrap;
+}
+
+.header > div:nth-child(2) {
+  flex: 1 1 200px;
+  min-width: 0;
 }
 
 .iconBox {
@@ -42,6 +47,21 @@
 
 .headerActions {
   margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+  max-width: 100%;
+}
+
+.filterRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .refreshBtn {
@@ -56,6 +76,7 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .refreshBtn:hover { background: var(--surface-container-high); }
@@ -118,13 +139,6 @@
 
 .sectionHeader h3 svg { color: var(--brand-text); }
 
-.filterRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .filterBtn {
   border: 1px solid var(--border);
   background: var(--surface-container);
@@ -134,6 +148,7 @@
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .filterBtnActive {
@@ -226,31 +241,6 @@
   padding: 24px 0;
 }
 
-/* Live status list */
-.liveList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.liveRow {
-  display: grid;
-  grid-template-columns: 1.6fr auto auto;
-  gap: 12px;
-  align-items: center;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface-container-high) 40%, transparent);
-}
-
-.liveAgent {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--text-primary);
-}
-
 .statusDot {
   width: 9px;
   height: 9px;
@@ -263,7 +253,7 @@
 .statAvailable { color: var(--accent-green); }
 .statRinging { color: var(--accent-yellow); }
 .statInCall { color: var(--accent-cyan); }
-.statOffline { color: var(--text-muted); }
+.statOffline { color: var(--text-tertiary); }
 
 .statusPill {
   display: inline-flex;
@@ -406,5 +396,87 @@
 
 @media (max-width: 480px) {
   .kpiGrid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .liveRow { grid-template-columns: 1fr; }
+}
+
+.clickableRow {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.clickableRow:hover td,
+.clickableRow:hover {
+  background: color-mix(in srgb, var(--brand-text) 6%, transparent);
+}
+
+.rowActive td,
+.rowActive {
+  background: color-mix(in srgb, var(--brand-text) 10%, transparent);
+}
+
+.drilldownHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.drilldownFilters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.drilldownPill {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container) 80%, transparent);
+  color: var(--text-secondary);
+}
+
+.drilldownKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.drilldownChart {
+  margin-top: 8px;
+  min-height: 260px;
+}
+
+.agentSubId {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+@media (max-width: 768px) {
+  .headerActions {
+    margin-left: 0;
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .filterRow {
+    justify-content: flex-start;
+  }
+
+  .refreshBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .kpiGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .drilldownKpiGrid { grid-template-columns: repeat(2, 1fr); }
 }

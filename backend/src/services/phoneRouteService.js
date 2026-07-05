@@ -39,9 +39,10 @@ async function listPhoneRoutes() {
 }
 
 /**
- * For incoming Twilio: resolve campaign from called number (active routes only).
+ * For incoming Twilio: resolve campaign + agency from called number (active routes only).
+ * @returns {{ campaignId: string, agencyId: string|null }|null}
  */
-async function getCampaignByToNumber(toRaw) {
+async function getRouteByToNumber(toRaw) {
   const phoneE164 = normalizePhoneE164(toRaw);
   if (!phoneE164) return null;
 
@@ -53,10 +54,19 @@ async function getCampaignByToNumber(toRaw) {
   if (snap.empty) return null;
   const match = snap.docs.map((d) => d.data()).find((d) => d.active !== false);
   if (!match || typeof match.campaignId !== 'string') return null;
-  return match.campaignId;
+  return {
+    campaignId: match.campaignId,
+    agencyId: match.agencyId == null || match.agencyId === '' ? null : String(match.agencyId),
+  };
 }
 
-async function createPhoneRoute({ phoneE164, campaignId, label, active = true }) {
+/** @deprecated use getRouteByToNumber */
+async function getCampaignByToNumber(toRaw) {
+  const route = await getRouteByToNumber(toRaw);
+  return route?.campaignId ?? null;
+}
+
+async function createPhoneRoute({ phoneE164, campaignId, label, active = true, agencyId = null }) {
   const db = getDb();
   if (!db) throw new Error('Database unavailable');
 
@@ -70,11 +80,14 @@ async function createPhoneRoute({ phoneE164, campaignId, label, active = true })
   const dup = await db.collection(COLLECTION).where('phoneE164', '==', normalized).limit(1).get();
   if (!dup.empty) throw new Error('A route for this phone number already exists');
 
+  const normalizedAgencyId = agencyId == null || agencyId === '' ? null : String(agencyId).trim();
+
   const ref = await db.collection(COLLECTION).add({
     phoneE164: normalized,
     campaignId,
     label: label || '',
     active: Boolean(active),
+    agencyId: normalizedAgencyId,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   });
@@ -83,7 +96,7 @@ async function createPhoneRoute({ phoneE164, campaignId, label, active = true })
   return serializeDoc(created);
 }
 
-async function updatePhoneRoute(id, { phoneE164, campaignId, label, active }) {
+async function updatePhoneRoute(id, { phoneE164, campaignId, label, active, agencyId }) {
   const db = getDb();
   if (!db) throw new Error('Database unavailable');
   if (!id || typeof id !== 'string') throw new Error('Invalid id');
@@ -115,6 +128,9 @@ async function updatePhoneRoute(id, { phoneE164, campaignId, label, active }) {
   }
   if (label !== undefined) patch.label = String(label);
   if (active !== undefined) patch.active = Boolean(active);
+  if (agencyId !== undefined) {
+    patch.agencyId = agencyId == null || agencyId === '' ? null : String(agencyId).trim();
+  }
 
   await ref.set(patch, { merge: true });
   const updated = await ref.get();
@@ -137,6 +153,7 @@ module.exports = {
   updatePhoneRoute,
   deletePhoneRoute,
   getCampaignByToNumber,
+  getRouteByToNumber,
   normalizePhoneE164,
   COLLECTION,
 };

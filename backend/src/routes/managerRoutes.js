@@ -11,7 +11,10 @@ router.use(verifyFirebaseToken);
 router.use(requireManager);
 
 router.get('/my-agents', managerController.getMyAgents);
+router.get('/assignable-agents', managerController.getAssignableAgents);
+router.patch('/team', managerController.patchMyTeam);
 router.get('/analytics', managerController.getAnalytics);
+router.get('/analytics-drilldown', managerController.getAnalyticsDrilldown);
 router.get('/call-logs', managerController.getCallLogs);
 
 module.exports = router;

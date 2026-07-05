@@ -18,6 +18,7 @@ const REDIS_KEY_ARG_COMMANDS = new Set([
     'hGet', 'hGetAll', 'hSet', 'hDel', 'hKeys',
     'sAdd', 'sRem', 'sMembers', 'sCard', 'sIsMember',
     'zAdd', 'zRem', 'zRange', 'zCard', 'zScore', 'zRangeByScore', 'zRangeWithScores',
+    'lPush', 'rPop', 'lLen', 'expire',
 ]);
 
 function wrapRedisClient(client, prefix) {
@@ -147,6 +148,26 @@ const clientMock = {
                 yield key;
             }
         }
+    },
+    lPush: async (key, value) => {
+        if (!storage.has(key)) storage.set(key, []);
+        const list = storage.get(key);
+        if (!Array.isArray(list)) storage.set(key, []);
+        storage.get(key).unshift(value);
+        return storage.get(key).length;
+    },
+    rPop: async (key) => {
+        const list = storage.get(key);
+        if (!Array.isArray(list) || !list.length) return null;
+        return list.pop();
+    },
+    lLen: async (key) => {
+        const list = storage.get(key);
+        return Array.isArray(list) ? list.length : 0;
+    },
+    expire: async (key, seconds) => {
+        setTimeout(() => storage.delete(key), seconds * 1000);
+        return true;
     },
 };
 

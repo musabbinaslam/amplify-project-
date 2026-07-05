@@ -1,25 +1,53 @@
 const { getUserDoc } = require('../services/userDataService');
+const { normalizeAgencyId, isAgencyAdminRole, getAgencyMembershipRole } = require('../utils/tenancy');
 
 /**
- * After verifyFirebaseToken. Requires Firestore users/{uid}.role === 'manager' or 'admin'.
+ * After verifyFirebaseToken. Requires manager, agency_admin, or platform admin.
  *
- * Also attaches the manager's agent allowlist to the request so every downstream
- * handler can scope its results:
- *   - req.managedAgents === null  → admin (no scoping, may see everything)
- *   - req.managedAgents === [...] → manager (may ONLY see these agent UIDs)
+ * Attaches scoping for downstream handlers:
+ *   - req.managedAgents === null + req.agencyId set → agency admin (all agency members)
+ *   - req.managedAgents === null + no agencyId → platform admin (all users)
+ *   - req.managedAgents === [...] → legacy manager allowlist
  */
 async function requireManager(req, res, next) {
   try {
     const doc = await getUserDoc(req.user.uid);
     const role = doc?.role;
-    if (role !== 'admin' && role !== 'manager') {
+
+    if (role === 'admin') {
+      req.managerRole = role;
+      req.agencyId = null;
+      req.managedAgents = null;
+      return next();
+    }
+
+    // Platform team managers use managedAgents allowlist — not agency admin tenancy.
+    if (role === 'manager' && !getAgencyMembershipRole(doc)) {
+      req.managerRole = role;
+      req.agencyId = normalizeAgencyId(doc?.agencyId);
+      req.managedAgents = Array.isArray(doc?.managedAgents) ? doc.managedAgents.filter(Boolean) : [];
+      req.teamName = typeof doc?.teamName === 'string' ? doc.teamName.trim() || null : null;
+      return next();
+    }
+
+    if (isAgencyAdminRole(doc)) {
+      const agencyId = normalizeAgencyId(doc?.agencyId);
+      if (!agencyId) {
+        return res.status(403).json({ error: 'Agency admin is not assigned to an agency' });
+      }
+      req.managerRole = getAgencyMembershipRole(doc) || doc.role;
+      req.agencyId = agencyId;
+      req.managedAgents = null;
+      return next();
+    }
+
+    if (role !== 'manager') {
       return res.status(403).json({ error: 'Forbidden' });
     }
+
     req.managerRole = role;
-    // Admins are unrestricted; managers are limited to their explicit allowlist.
-    req.managedAgents = role === 'admin'
-      ? null
-      : (Array.isArray(doc?.managedAgents) ? doc.managedAgents.filter(Boolean) : []);
+    req.agencyId = normalizeAgencyId(doc?.agencyId);
+    req.managedAgents = Array.isArray(doc?.managedAgents) ? doc.managedAgents.filter(Boolean) : [];
     next();
   } catch (err) {
     console.error('[requireManager]', err.message);

@@ -1,0 +1,280 @@
+const admin = require('../config/firebaseAdmin');
+const { getDb } = require('../config/firestoreDb');
+const agencyService = require('../services/agencyService');
+
+const READ_CONCURRENCY = 10;
+
+function parseRange(query = {}) {
+  const now = new Date();
+  const end = query.to ? new Date(`${query.to}T23:59:59.999Z`) : now;
+  const from = query.from
+    ? new Date(`${query.from}T00:00:00.000Z`)
+    : new Date(end.getTime() - (6 * 24 * 60 * 60 * 1000));
+  if (Number.isNaN(from.getTime()) || Number.isNaN(end.getTime()) || from > end) {
+    throw new Error('Invalid date range');
+  }
+  return { from, end };
+}
+
+function dayKey(isoLike) {
+  const d = new Date(isoLike);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+function ratio(a, b) {
+  return b ? Number((a / b).toFixed(4)) : 0;
+}
+
+function getCallCreatedAt(data) {
+  if (typeof data.createdAt === 'string') return data.createdAt;
+  if (data.createdAt?.toDate) return data.createdAt.toDate().toISOString();
+  if (typeof data.timestamp === 'string') return data.timestamp;
+  return null;
+}
+
+function normalizeCall(doc, fallbackAgentId) {
+  const data = doc.data() || {};
+  return {
+    id: doc.id,
+    agentId: data.agentId || fallbackAgentId || null,
+    callSid: data.callSid || null,
+    campaign: data.campaign || 'unknown',
+    campaignLabel: data.campaignLabel || data.campaign || 'unknown',
+    status: data.status || 'unknown',
+    duration: Number(data.duration || 0),
+    isBillable: Boolean(data.isBillable),
+    cost: Number(data.cost || 0),
+    disposition: data.disposition || null,
+    recordingUrl: data.recordingUrl || null,
+    recordingSid: data.recordingSid || null,
+    refunded: Boolean(data.refunded),
+    refundReason: data.refundReason || null,
+    contestId: data.contestId || null,
+    contestStatus: data.contestStatus || null,
+    createdAt: getCallCreatedAt(data),
+  };
+}
+
+async function resolveAgentIds(allowed, agencyId = null) {
+  const db = getDb();
+  if (agencyId) {
+    return agencyService.listAgencyMemberIds(agencyId);
+  }
+  if (Array.isArray(allowed)) return [...new Set(allowed.filter(Boolean))];
+  const usersSnap = await db.collection('users').where('agencyId', '==', null).select().get();
+  return usersSnap.docs.map((d) => d.id);
+}
+
+async function readLogsForAgents(agentIds, from, end) {
+  if (!admin) throw new Error('Database service unavailable');
+  if (!agentIds.length) return [];
+  const db = getDb();
+  const fromMs = from.getTime();
+  const endMs = end.getTime();
+  const out = [];
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < agentIds.length) {
+      const idx = cursor;
+      cursor += 1;
+      const agentId = agentIds[idx];
+      // eslint-disable-next-line no-await-in-loop
+      const callsSnap = await db
+        .collection('users')
+        .doc(agentId)
+        .collection('callLogs')
+        .orderBy('createdAt', 'desc')
+        .limit(500)
+        .get();
+      callsSnap.docs.forEach((doc) => {
+        const row = normalizeCall(doc, agentId);
+        if (!row.createdAt) return;
+        const t = new Date(row.createdAt).getTime();
+        if (Number.isNaN(t)) return;
+        if (t >= fromMs && t <= endMs) out.push(row);
+      });
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(READ_CONCURRENCY, Math.max(1, agentIds.length)) },
+    () => worker(),
+  );
+  await Promise.all(workers);
+  return out;
+}
+
+function aggregateByAgent(rows) {
+  const byAgent = new Map();
+  rows.forEach((r) => {
+    const agentId = r.agentId || 'unknown';
+    if (!byAgent.has(agentId)) {
+      byAgent.set(agentId, {
+        agentId,
+        calls: 0,
+        answeredCalls: 0,
+        billableCalls: 0,
+        totalDuration: 0,
+        totalCost: 0,
+      });
+    }
+    const a = byAgent.get(agentId);
+    a.calls += 1;
+    if (r.status === 'completed') a.answeredCalls += 1;
+    if (r.isBillable) a.billableCalls += 1;
+    a.totalDuration += r.duration;
+    a.totalCost += r.cost;
+  });
+  return [...byAgent.values()]
+    .map((r) => ({
+      ...r,
+      answerRate: ratio(r.answeredCalls, r.calls),
+      billableRate: ratio(r.billableCalls, r.calls),
+      avgHandleTime: r.calls ? Math.round(r.totalDuration / r.calls) : 0,
+    }))
+    .sort((a, b) => b.calls - a.calls);
+}
+
+function summarize(rows) {
+  let totalCalls = 0;
+  let answeredCalls = 0;
+  let missedCalls = 0;
+  let billableCalls = 0;
+  let totalDuration = 0;
+  let totalCost = 0;
+  rows.forEach((r) => {
+    totalCalls += 1;
+    if (r.status === 'completed') answeredCalls += 1;
+    else missedCalls += 1;
+    if (r.isBillable) billableCalls += 1;
+    totalDuration += r.duration;
+    totalCost += r.cost;
+  });
+  return {
+    totalCalls,
+    answeredCalls,
+    missedCalls,
+    billableCalls,
+    totalDuration,
+    totalCost,
+    answerRate: ratio(answeredCalls, totalCalls),
+    billableRate: ratio(billableCalls, totalCalls),
+  };
+}
+
+function aggregateChartSeries(rows) {
+  const byDayMap = new Map();
+  const byCampaign = new Map();
+
+  rows.forEach((r) => {
+    const dKey = dayKey(r.createdAt);
+    if (dKey) {
+      if (!byDayMap.has(dKey)) {
+        byDayMap.set(dKey, { day: dKey, calls: 0, answered: 0, billable: 0, totalCost: 0 });
+      }
+      const d = byDayMap.get(dKey);
+      d.calls += 1;
+      if (r.status === 'completed') d.answered += 1;
+      if (r.isBillable) {
+        d.billable += 1;
+        d.totalCost += Number(r.cost || 0);
+      }
+    }
+
+    const campaignId = r.campaign || 'unknown';
+    if (!byCampaign.has(campaignId)) {
+      byCampaign.set(campaignId, {
+        campaignId,
+        label: r.campaignLabel || campaignId,
+        calls: 0,
+        billable: 0,
+        totalCost: 0,
+      });
+    }
+    const c = byCampaign.get(campaignId);
+    c.calls += 1;
+    if (r.isBillable) {
+      c.billable += 1;
+      c.totalCost += Number(r.cost || 0);
+    }
+  });
+
+  const byDay = [...byDayMap.values()]
+    .sort((a, b) => a.day.localeCompare(b.day))
+    .map((d) => ({
+      ...d,
+      answerRate: ratio(d.answered, d.calls),
+      billableRate: ratio(d.billable, d.calls),
+    }));
+
+  const campaigns = [...byCampaign.values()]
+    .sort((a, b) => b.calls - a.calls);
+
+  return { byDay, campaigns };
+}
+
+function displayNameFromUserData(data = {}) {
+  const firstLast = [data.firstName, data.lastName].filter(Boolean).join(' ').trim();
+  return (
+    data.fullName ||
+    data.displayName ||
+    data.name ||
+    data.agentName ||
+    firstLast ||
+    data.email ||
+    null
+  );
+}
+
+async function buildUserMetaMap(agentIds = []) {
+  const ids = [...new Set((agentIds || []).filter(Boolean))];
+  if (!ids.length) return new Map();
+  const db = getDb();
+  const refs = ids.map((id) => db.collection('users').doc(id));
+  const snaps = await db.getAll(...refs);
+  const map = new Map();
+  snaps.forEach((snap) => {
+    if (!snap.exists) return;
+    const data = snap.data() || {};
+    const name = displayNameFromUserData(data);
+    const phone = data.phoneNumber || data.phone || data.onboarding?.phone || null;
+    map.set(snap.id, { name, phone, email: data.email || null, role: data.role || 'agent' });
+  });
+
+  const missing = ids.filter((id) => {
+    const entry = map.get(id);
+    return !entry || !entry.name || !entry.phone;
+  });
+  if (missing.length && admin) {
+    for (let i = 0; i < missing.length; i += 100) {
+      const chunk = missing.slice(i, i + 100);
+      // eslint-disable-next-line no-await-in-loop
+      const out = await admin.auth().getUsers(chunk.map((uid) => ({ uid })));
+      out.users.forEach((u) => {
+        const existing = map.get(u.uid) || {};
+        map.set(u.uid, {
+          name: existing.name || u.displayName || u.email || null,
+          phone: existing.phone || u.phoneNumber || null,
+          email: existing.email || u.email || null,
+          role: existing.role || 'agent',
+        });
+      });
+    }
+  }
+  return map;
+}
+
+module.exports = {
+  parseRange,
+  dayKey,
+  ratio,
+  resolveAgentIds,
+  readLogsForAgents,
+  aggregateByAgent,
+  summarize,
+  aggregateChartSeries,
+  buildUserMetaMap,
+  displayNameFromUserData,
+};

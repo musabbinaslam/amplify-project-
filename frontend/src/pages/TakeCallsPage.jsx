@@ -328,6 +328,12 @@ const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {}, liveCamp
       </div>
       <p className={classes.subtitle}>Select the campaign you'd like to receive calls from</p>
       <div className={`glass ${classes.sectionCard}`}>
+        {campaigns.length === 0 ? (
+          <div className={classes.emptyState}>
+            <p>No campaigns are assigned to your agency yet.</p>
+            <p className={classes.continueSub}>Contact your agency admin to get access to campaigns.</p>
+          </div>
+        ) : (
         <div className={classes.campaignsList}>
           {campaigns.map((c) => {
             const isPaused = Boolean(pausedCampaigns[c.id]);
@@ -359,11 +365,12 @@ const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {}, liveCamp
             );
           })}
         </div>
+        )}
       </div>
 
       <div className={`glass ${classes.stickyActionBar}`}>
         <button className={classes.ghostBtn} onClick={onBack}>Back</button>
-        <button className={classes.primaryBtn} onClick={() => onNext(selectedCampaign)} disabled={!selectedCampaign || Boolean(pausedCampaigns[selectedCampaign])}>
+        <button className={classes.primaryBtn} onClick={() => onNext(selectedCampaign)} disabled={!selectedCampaign || Boolean(pausedCampaigns[selectedCampaign]) || campaigns.length === 0}>
           Continue
         </button>
       </div>
@@ -651,25 +658,13 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
 };
 
 // ─── Step 4: Review Rules & Go Live ─────────────────────────────────────────
-const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, walletBalance }) => {
-  const campaignPriceMap = {
-    fe_inbounds_short: 25,
-    fe_tv_calls: 65,
-    medicare_transfers: 25,
-    medicare_inbound_1: 35,
-    medicare_inbound_2: 15,
-    aca_transfers: 30,
-  };
-  const requiredBalance = campaignPriceMap[campaign] || 0;
+const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, walletBalance, liveCampaigns = [] }) => {
+  const selected = liveCampaigns.find((c) => c.id === campaign);
+  const requiredBalance = Number(selected?.price) || 0;
   const hasBalance = walletBalance >= requiredBalance;
-  const campaignLabels = {
-    fe_inbounds_short: 'FE Inbounds Short ($25 / 10s)',
-    fe_tv_calls: 'FE TV Calls ($65 / 30s)',
-    medicare_transfers: 'Medicare Transfers ($25 / 120s)',
-    medicare_inbound_1: 'Medicare Inbounds 1 ($35 / 90s)',
-    medicare_inbound_2: 'Medicare Inbounds 2 ($15 / 15s)',
-    aca_transfers: 'ACA Transfers ($30 / 120s)',
-  };
+  const campaignLabel = selected
+    ? `${selected.label} ($${Number(selected.price).toFixed(0)} / ${selected.buffer}s)`
+    : campaign;
 
   return (
     <div className={classes.stepCard}>
@@ -683,7 +678,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
         <div className={classes.summaryBox}>
           <div className={`glass ${classes.summaryRow}`}>
             <span className={classes.summaryLabel}>Campaign</span>
-            <span className={classes.summaryValue}>{campaignLabels[campaign] || campaign}</span>
+            <span className={classes.summaryValue}>{campaignLabel}</span>
           </div>
           <div className={`glass ${classes.summaryRow}`}>
             <span className={classes.summaryLabel}>Licensed States</span>
@@ -1012,15 +1007,8 @@ const TakeCallsPage = () => {
       toast.error('This campaign is currently paused by admin. Please choose another campaign.');
       return;
     }
-    const campaignPriceMap = {
-      fe_inbounds_short: 25,
-      fe_tv_calls: 65,
-      medicare_transfers: 25,
-      medicare_inbound_1: 35,
-      medicare_inbound_2: 15,
-      aca_transfers: 30,
-    };
-    const requiredBalance = campaignPriceMap[campaign] || 0;
+    const selected = liveCampaigns.find((c) => c.id === campaign);
+    const requiredBalance = Number(selected?.price) || 0;
 
     if (walletBalance < requiredBalance) {
       alert("Low balance for the selected campaign. Please top up your wallet.");
@@ -1272,7 +1260,7 @@ const TakeCallsPage = () => {
                   {step === 2 && <StepTwo selected={campaign} pausedCampaigns={pausedCampaigns} liveCampaigns={liveCampaigns} onNext={(sel) => { setCampaign(sel); goStep(3); }} onBack={() => goStep(1)} />}
 
                   {step === 3 && <StepThree onNext={(states, presetId) => { setWizardStates(states); setWizardPresetId(presetId ?? null); goStep(4); }} onBack={() => goStep(2)} statePresets={statePresets} onSavePresets={persistPresets} selectedPresetId={wizardPresetId} />}
-                  {step === 4 && <StepFour onBack={() => goStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} />}
+                  {step === 4 && <StepFour onBack={() => goStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} liveCampaigns={liveCampaigns} />}
                 </motion.div>
               </AnimatePresence>
             </div>

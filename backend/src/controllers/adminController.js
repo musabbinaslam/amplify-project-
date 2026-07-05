@@ -784,8 +784,8 @@ async function getAnalyticsBundle(req, res) {
 async function getOverviewLite(req, res) {
   try {
     const campaignControls = await getCampaignControlsState();
-    const overview = await agentManager.getOverview();
-    const activeCalls = await agentManager.listActiveCalls();
+    const overview = await agentManager.getOverview(null);
+    const activeCalls = await agentManager.listActiveCalls(null);
     const routingDiagnostics = agentManager.getRoutingDiagnostics
       ? agentManager.getRoutingDiagnostics()
       : null;
@@ -841,12 +841,13 @@ async function listDids(req, res) {
 
 async function createDid(req, res) {
   try {
-    const { phoneE164, campaignId, label, active } = req.body || {};
+    const { phoneE164, campaignId, label, active, agencyId } = req.body || {};
     const row = await phoneRouteService.createPhoneRoute({
       phoneE164,
       campaignId,
       label,
       active,
+      agencyId: agencyId || null,
     });
     res.status(201).json(row);
   } catch (err) {
@@ -881,7 +882,7 @@ async function deleteDid(req, res) {
 
 async function getLiveCalls(req, res) {
   try {
-    const rows = await agentManager.listActiveCalls();
+    const rows = await agentManager.listActiveCalls(null);
     const metaMap = await buildUserMetaMap(rows.map((r) => r.agentId));
     res.json({
       rows: rows.map((r) => ({
@@ -970,6 +971,7 @@ async function getAllUsers(req, res) {
         name,
         email: data.email || null,
         role: data.role || 'agent',
+        agencyId: data.agencyId ?? null,
         managedAgents: Array.isArray(data.managedAgents) ? data.managedAgents : [],
       });
       if (!name) missing.push(doc.id);
@@ -998,17 +1000,47 @@ async function getAllUsers(req, res) {
   }
 }
 
+const managerTeamService = require('../services/managerTeamService');
+
+async function listManagerTeams(req, res) {
+  try {
+    const managers = await managerTeamService.listManagerTeams(req.query || {});
+    res.json({ managers });
+  } catch (err) {
+    console.error('[Admin] listManagerTeams:', err.message);
+    const status = err.message === 'Invalid date range' ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to list manager teams' });
+  }
+}
+
+async function getManagerTeam(req, res) {
+  try {
+    const uid = String(req.params.uid || '').trim();
+    if (!uid) return res.status(400).json({ error: 'uid is required' });
+    const team = await managerTeamService.getManagerTeam(uid, req.query || {});
+    if (!team) return res.status(404).json({ error: 'Manager team not found' });
+    res.json(team);
+  } catch (err) {
+    console.error('[Admin] getManagerTeam:', err.message);
+    const status = err.message === 'Invalid date range' ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to load manager team' });
+  }
+}
+
 async function patchManagerSettings(req, res) {
   try {
     const uid = String(req.params.uid || '').trim();
     if (!uid) return res.status(400).json({ error: 'uid is required' });
 
-    const { role, managedAgents } = req.body || {};
+    const { role, managedAgents, teamName } = req.body || {};
     if (!['agent', 'manager'].includes(role)) {
       return res.status(400).json({ error: "role must be 'agent' or 'manager'" });
     }
     if (managedAgents != null && !Array.isArray(managedAgents)) {
       return res.status(400).json({ error: 'managedAgents must be an array of user UIDs' });
+    }
+    if (teamName != null && typeof teamName !== 'string') {
+      return res.status(400).json({ error: 'teamName must be a string' });
     }
 
     const db = getDb();
@@ -1034,17 +1066,36 @@ async function patchManagerSettings(req, res) {
     }
 
     const { FieldValue } = admin.firestore;
-    await targetRef.set(
-      {
-        role,
-        managedAgents: cleanedAgents,
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
+    const update = {
+      role,
+      managedAgents: cleanedAgents,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    if (role === 'agent') {
+      update.teamName = FieldValue.delete();
+    } else if (teamName !== undefined) {
+      const trimmed = String(teamName || '').trim();
+      update.teamName = trimmed ? trimmed.slice(0, 80) : FieldValue.delete();
+    }
+
+    await targetRef.set(update, { merge: true });
+
+    const savedTeamName = role === 'manager' && teamName !== undefined
+      ? (String(teamName || '').trim().slice(0, 80) || null)
+      : undefined;
+    const outTeamName = savedTeamName !== undefined
+      ? savedTeamName
+      : (role === 'manager' ? (targetSnap.data()?.teamName || null) : null);
 
     console.log(`[Admin] Set role=${role} managedAgents=${cleanedAgents.length} on ${uid} by ${req.user?.uid || 'unknown'}`);
-    res.json({ success: true, uid, role, managedAgents: cleanedAgents });
+    res.json({
+      success: true,
+      uid,
+      role,
+      managedAgents: cleanedAgents,
+      teamName: role === 'manager' ? outTeamName : null,
+    });
   } catch (err) {
     console.error('[Admin] patchManagerSettings:', err.message);
     res.status(500).json({ error: err.message || 'Failed to update manager settings' });
@@ -1817,6 +1868,8 @@ module.exports = {
   getLiveCalls,
   forceRemoveAgent,
   getAllUsers,
+  listManagerTeams,
+  getManagerTeam,
   patchManagerSettings,
   flagAgent,
   resumeAgent,

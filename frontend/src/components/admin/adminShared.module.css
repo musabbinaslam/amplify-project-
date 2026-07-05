@@ -985,6 +985,21 @@
   font-weight: 700;
 }
 
+.checkboxGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px 16px;
+  margin: 12px 0 16px;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
 .linkBtn {
   background: none;
   border: none;
