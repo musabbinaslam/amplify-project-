@@ -106,6 +106,35 @@ export function forceRemoveAgent(agentId) {
   return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/force-remove`, { method: 'POST' });
 }
 
+export function listAdminUsers() {
+  return apiFetch('/api/admin/users', { method: 'GET' });
+}
+
+export function patchManagerSettings(uid, { role, managedAgents, teamName }) {
+  const body = { role, managedAgents };
+  if (teamName !== undefined) body.teamName = teamName;
+  return apiFetch(`/api/admin/users/${encodeURIComponent(uid)}/manager-settings`, {
+    method: 'PATCH',
+    body,
+  });
+}
+
+export function listAdminManagers(params = {}) {
+  const qs = new URLSearchParams();
+  if (params.from) qs.set('from', params.from);
+  if (params.to) qs.set('to', params.to);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch(`/api/admin/managers${suffix}`, { method: 'GET' });
+}
+
+export function getAdminManager(uid, params = {}) {
+  const qs = new URLSearchParams();
+  if (params.from) qs.set('from', params.from);
+  if (params.to) qs.set('to', params.to);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch(`/api/admin/managers/${encodeURIComponent(uid)}${suffix}`, { method: 'GET' });
+}
+
 export function flagAdminAgent(agentId, reason) {
   return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/flag`, { method: 'POST', body: JSON.stringify({ reason }) });
 }

@@ -58,6 +58,7 @@ class CallLogService {
             dialCallSid,
             recordingUrl,
             recordingSid,
+            agencyId: explicitAgencyId,
         } = data;
 
         const config = CAMPAIGN_CONFIG[campaignId] || { buffer: 0, price: 0 };
@@ -111,7 +112,21 @@ class CallLogService {
             type: campaignId.includes('transfer') ? 'Transfer' : 'Inbound',
             recordingUrl: recordingUrl || null,
             recordingSid: recordingSid || null,
+            agencyId: explicitAgencyId ?? null,
         };
+
+        // Resolve agencyId from agent profile when not passed explicitly
+        if (newLog.agencyId == null && agentId && admin) {
+            try {
+                const userSnap = await getDb().collection('users').doc(agentId).get();
+                if (userSnap.exists) {
+                    const userAgencyId = userSnap.data()?.agencyId;
+                    newLog.agencyId = userAgencyId == null || userAgencyId === '' ? null : String(userAgencyId);
+                }
+            } catch {
+                /* non-fatal */
+            }
+        }
 
         console.log(`[Billing] 💸 Call ${callSid}: ${durationSec}s. Billable: ${isBillable} ($${cost})`);
 
@@ -214,6 +229,30 @@ class CallLogService {
         } catch (err) {
             console.error(`[Firestore] Failed to attach QA insight for ${uid}/${callLogId}:`, err.message);
             return false;
+        }
+    }
+
+    async findCallLogByRecordingSid(recordingSid) {
+        if (!admin || !recordingSid) return null;
+        try {
+            const db = getDb();
+            const snap = await db.collectionGroup('callLogs')
+                .where('recordingSid', '==', recordingSid)
+                .limit(1)
+                .get();
+            if (snap.empty) return null;
+            const doc = snap.docs[0];
+            const data = doc.data() || {};
+            const agentId = doc.ref.parent.parent.id;
+            return {
+                id: doc.id,
+                agentId,
+                agencyId: data.agencyId ?? null,
+                ...data,
+            };
+        } catch (err) {
+            console.error(`[Firestore] findCallLogByRecordingSid failed for ${recordingSid}:`, err.message);
+            return null;
         }
     }
 

@@ -1,0 +1,171 @@
+.chartsRow {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 18px;
+  align-items: stretch;
+}
+
+.chartsMain {
+  min-width: 0;
+}
+
+.chartsSide {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.perfBand {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 18px;
+}
+
+.statTile {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.statTileLabel {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.statTileValue {
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.statTileSub {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.rosterBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 35%, transparent);
+}
+
+.rosterCopy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.rosterModal {
+  max-width: 520px;
+}
+
+.rosterSearchRow {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.rosterSearchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.rosterSearchRow .rosterSearchInput {
+  width: 100%;
+  padding-left: 36px;
+}
+
+.rosterToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.rosterToolbarBtns {
+  display: flex;
+  gap: 8px;
+}
+
+.rosterList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 200px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-container-high) 35%, transparent);
+  margin-bottom: 14px;
+}
+
+.rosterItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.rosterItem:hover {
+  background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
+}
+
+.rosterItemActive {
+  border-color: color-mix(in srgb, var(--brand-text) 28%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 8%, transparent);
+}
+
+.rosterItem input {
+  margin-top: 3px;
+  accent-color: var(--brand-text);
+}
+
+.rosterItemBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.rosterItemName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rosterItemMeta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  word-break: break-all;
+}
+
+@media (max-width: 1024px) {
+  .chartsRow { grid-template-columns: 1fr; }
+  .perfBand { grid-template-columns: 1fr; }
+}

@@ -37,6 +37,7 @@ const {
   uploadCustomScript,
   updateCustomScript,
   deleteCustomScript,
+  getAvailableCampaigns,
 } = require('../controllers/userController');
 const multer = require('multer');
 const os = require('os');
@@ -47,6 +48,7 @@ const router = express.Router();
 
 router.use(verifyFirebaseToken);
 
+router.get('/me/campaigns', getAvailableCampaigns);
 router.get('/me', getMe);
 router.get('/me/bootstrap', getMeBootstrap);
 router.patch('/me', patchMe);

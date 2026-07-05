@@ -7,6 +7,8 @@ import {
   Settings2,
   TrendingUp,
   Users,
+  Building2,
+  UserCog,
 } from 'lucide-react';
 
 export const ADMIN_CATEGORIES = {
@@ -50,6 +52,22 @@ export const ADMIN_MODULES = [
     route: '/app/admin/agents',
     icon: Users,
     category: 'agents',
+  },
+  {
+    id: 'agencies',
+    title: 'Agencies',
+    description: 'Create agencies, assign agents, lock campaigns, and manage agency DIDs.',
+    route: '/app/admin/agencies',
+    icon: Building2,
+    category: 'configuration',
+  },
+  {
+    id: 'managers',
+    title: 'Manager Teams',
+    description: 'Promote managers, assign agent allowlists, and view team performance stats.',
+    route: '/app/admin/managers',
+    icon: UserCog,
+    category: 'configuration',
   },
   {
     id: 'campaigns',

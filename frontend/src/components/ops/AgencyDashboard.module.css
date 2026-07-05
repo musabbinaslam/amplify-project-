@@ -1,0 +1,100 @@
+.liveCommandRow {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 18px;
+  align-items: stretch;
+}
+
+.tenantBanner {
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.tenantMain {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.tenantIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+  color: var(--accent-cyan);
+  border: 1px solid color-mix(in srgb, var(--accent-cyan) 22%, transparent);
+  flex-shrink: 0;
+}
+
+.tenantTitle {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+  color: var(--text-primary);
+}
+
+.tenantSub {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chip {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--surface-container);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.chartsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.rateBar {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--border) 80%, transparent);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.rateBarFill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--brand-text);
+}
+
+.rankCell {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-tertiary);
+  width: 32px;
+}
+
+@media (max-width: 1024px) {
+  .liveCommandRow { grid-template-columns: 1fr; }
+  .chartsRow { grid-template-columns: 1fr; }
+}

@@ -111,7 +111,9 @@ router.get('/campaigns', async (req, res) => {
   try {
     const controls = await getCampaignControls();
     const pausedMap = controls?.campaigns || {};
-    const campaigns = Object.entries(CAMPAIGN_CONFIG).map(([id, cfg]) => ({
+    const campaigns = Object.entries(CAMPAIGN_CONFIG)
+      .filter(([, cfg]) => !cfg.locked || !cfg.agencyId)
+      .map(([id, cfg]) => ({
       id,
       label: cfg.label,
       price: cfg.price,
