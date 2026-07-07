@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Phone, Plus, Trash2 } from 'lucide-react';
+import { Phone, Plus, Trash2, AlertTriangle, Building2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -9,6 +9,7 @@ import {
   patchAdminDid,
   deleteAdminDid,
 } from '../../services/adminService';
+import { listAdminAgencies } from '../../services/agencyService';
 import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
 import AdminPageShell from '../../components/admin/AdminPageShell';
@@ -20,9 +21,12 @@ export default function AdminPhoneRoutingPage() {
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState(null);
   const [dids, setDids] = useState([]);
+  const [agencies, setAgencies] = useState([]);
+  const [patchingId, setPatchingId] = useState(null);
   const [didForm, setDidForm] = useState({
     phoneE164: '',
     campaignId: '',
+    agencyId: '',
     label: '',
     active: true,
   });
@@ -30,12 +34,14 @@ export default function AdminPhoneRoutingPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [ov, didList] = await Promise.all([
+      const [ov, didList, agencyList] = await Promise.all([
         getAdminOverviewLite(),
         listAdminDids(),
+        listAdminAgencies(),
       ]);
       setOverview(ov);
       setDids(didList.dids || []);
+      setAgencies(agencyList.agencies || []);
     } catch (e) {
       toast.error(e.message || 'Failed to load phone routing');
     } finally {
@@ -64,11 +70,12 @@ export default function AdminPhoneRoutingPage() {
       await createAdminDid({
         phoneE164: didForm.phoneE164.trim(),
         campaignId: didForm.campaignId,
+        agencyId: didForm.agencyId || null,
         label: didForm.label.trim(),
         active: didForm.active,
       });
       toast.success('Route created');
-      setDidForm({ phoneE164: '', campaignId: '', label: '', active: true });
+      setDidForm({ phoneE164: '', campaignId: '', agencyId: '', label: '', active: true });
       await refreshDids();
     } catch (err) {
       toast.error(err.message || 'Failed to create');
@@ -85,6 +92,19 @@ export default function AdminPhoneRoutingPage() {
     }
   };
 
+  const handlePatchAgency = async (row, newAgencyId) => {
+    setPatchingId(row.id);
+    try {
+      await patchAdminDid(row.id, { agencyId: newAgencyId || null });
+      toast.success('Agency updated — calls will now route correctly');
+      await refreshDids();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update agency');
+    } finally {
+      setPatchingId(null);
+    }
+  };
+
   const removeDid = async (row) => {
     if (!window.confirm(`Remove route for ${row.phoneE164}?`)) return;
     try {
@@ -96,21 +116,51 @@ export default function AdminPhoneRoutingPage() {
     }
   };
 
+  // Routes that are missing agencyId — these will fail to route calls to agency agents
+  const brokenRoutes = dids.filter((d) => !d.agencyId);
+
   if (loading && !overview) return <PageLoader />;
 
   return (
     <AdminPageShell
       title="Phone Routing"
-      description="Map incoming phone numbers to campaigns for Twilio call routing."
+      description="Map incoming phone numbers to campaigns and agencies for Twilio call routing."
       icon={Phone}
       category={ADMIN_CATEGORIES.configuration}
     >
+      {/* ── Warning banner for routes missing agencyId ────────────────────── */}
+      {brokenRoutes.length > 0 && (
+        <motion.div
+          variants={presets.child}
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 12,
+            background: 'rgba(245,158,11,0.12)',
+            border: '1px solid rgba(245,158,11,0.4)',
+            borderRadius: 10,
+            padding: '14px 18px',
+            marginBottom: 20,
+          }}
+        >
+          <AlertTriangle size={20} color="#f59e0b" style={{ flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <p style={{ margin: 0, fontWeight: 600, color: '#f59e0b', fontSize: 14 }}>
+              {brokenRoutes.length} route{brokenRoutes.length > 1 ? 's are' : ' is'} missing an Agency — agency agents will NOT receive calls on these DIDs
+            </p>
+            <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: 13 }}>
+              Use the Agency dropdown in the table below to assign the correct agency to each affected route.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
         <div className={classes.cardTopRow} style={{ marginBottom: 8 }}>
           <div>
             <h2 className={classes.cardTitle}>Phone numbers → campaign</h2>
             <p className={classes.hint}>
-              Incoming Twilio calls use the called number to resolve the campaign when no query/body campaign is set.
+              Incoming Twilio calls use the called number to resolve the campaign and agency. Setting an agency ensures calls are routed to agency agents, not the platform pool.
             </p>
           </div>
         </div>
@@ -136,6 +186,24 @@ export default function AdminPhoneRoutingPage() {
               {campaigns.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label} ({c.id})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className={classes.formField}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Building2 size={13} />
+              Agency (required for agency DIDs)
+            </label>
+            <select
+              className={classes.select}
+              value={didForm.agencyId}
+              onChange={(e) => setDidForm((f) => ({ ...f, agencyId: e.target.value }))}
+            >
+              <option value="">Platform (no agency)</option>
+              {agencies.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name} ({a.id})
                 </option>
               ))}
             </select>
@@ -172,6 +240,7 @@ export default function AdminPhoneRoutingPage() {
                 <tr>
                   <th>Phone</th>
                   <th>Campaign</th>
+                  <th>Agency</th>
                   <th>Label</th>
                   <th>Status</th>
                   <th className={classes.actionsHead}>Actions</th>
@@ -180,17 +249,53 @@ export default function AdminPhoneRoutingPage() {
               <tbody>
                 {dids.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className={classes.muted}>
+                    <td colSpan={6} className={classes.muted}>
                       No routes yet
                     </td>
                   </tr>
                 ) : (
                   dids.map((d) => {
                     const active = d.active !== false;
+                    const isMissingAgency = !d.agencyId;
+                    const isPatchingThis = patchingId === d.id;
+                    const agencyName = agencies.find((a) => a.id === d.agencyId)?.name;
                     return (
-                      <tr key={d.id}>
+                      <tr
+                        key={d.id}
+                        style={isMissingAgency ? { background: 'rgba(245,158,11,0.05)' } : {}}
+                      >
                         <td className={classes.mono}>{d.phoneE164}</td>
                         <td>{d.campaignId}</td>
+                        <td>
+                          {/* Inline agency fix dropdown */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {isMissingAgency && (
+                              <AlertTriangle size={13} color="#f59e0b" title="Missing agency — calls won't route to agency agents" />
+                            )}
+                            <select
+                              className={classes.select}
+                              style={{
+                                fontSize: 12,
+                                padding: '3px 6px',
+                                minWidth: 140,
+                                borderColor: isMissingAgency ? 'rgba(245,158,11,0.6)' : undefined,
+                              }}
+                              value={d.agencyId || ''}
+                              disabled={isPatchingThis}
+                              onChange={(e) => handlePatchAgency(d, e.target.value)}
+                            >
+                              <option value="">Platform</option>
+                              {agencies.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                  {a.name}
+                                </option>
+                              ))}
+                            </select>
+                            {isPatchingThis && (
+                              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Saving…</span>
+                            )}
+                          </div>
+                        </td>
                         <td>{d.label || '—'}</td>
                         <td>
                           <span className={`${classes.statusPill} ${active ? classes.dispAnswered : classes.dispMissed}`}>

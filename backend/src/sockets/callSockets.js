@@ -129,13 +129,18 @@ exports.setupCallSockets = (io) => {
             }
             socket.pendingGoLivePayload = null; // consume
 
-            let agencyId = null;
-            try {
-                const userDoc = await getUserDoc(socket.agentId);
-                agencyId = normalizeAgencyId(userDoc?.agencyId);
-            } catch {
-                agencyId = null;
+            // Use agencyId from the go_live payload (sent by frontend from authStore).
+            // Fall back to a Firestore lookup only if the frontend didn't send it.
+            let agencyId = normalizeAgencyId(payload.agencyId);
+            if (!agencyId) {
+                try {
+                    const userDoc = await getUserDoc(socket.agentId);
+                    agencyId = normalizeAgencyId(userDoc?.agencyId);
+                } catch {
+                    agencyId = null;
+                }
             }
+            console.log(`[Socket] Agent ${socket.agentId} pool_ready — agencyId=${agencyId || 'platform'}`);
 
             const registered = await agentManager.registerAgent(socket.agentId, {
                 ...payload,
