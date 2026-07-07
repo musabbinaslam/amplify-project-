@@ -76,11 +76,21 @@ async function createPhoneRoute({ phoneE164, campaignId, label, active = true, a
     throw new Error(`Invalid campaignId. Must be one of: ${Object.keys(CAMPAIGN_CONFIG).join(', ')}`);
   }
 
+  const normalizedAgencyId = agencyId == null || agencyId === '' ? null : String(agencyId).trim();
+
+  // If a campaign is agency-locked, every DID assigned to it MUST have an agencyId.
+  // Without it the router will look in the wrong Redis pool and agency agents will never
+  // receive calls (they are registered under pool:<agencyId>:<campaign>, not pool:platform:<campaign>).
+  const campaignCfg = CAMPAIGN_CONFIG[campaignId];
+  if (campaignCfg?.locked && campaignCfg?.agencyId && !normalizedAgencyId) {
+    throw new Error(
+      `Campaign "${campaignId}" is agency-locked. An agencyId is required when creating a phone route for this campaign.`,
+    );
+  }
+
   const { FieldValue } = admin.firestore;
   const dup = await db.collection(COLLECTION).where('phoneE164', '==', normalized).limit(1).get();
   if (!dup.empty) throw new Error('A route for this phone number already exists');
-
-  const normalizedAgencyId = agencyId == null || agencyId === '' ? null : String(agencyId).trim();
 
   const ref = await db.collection(COLLECTION).add({
     phoneE164: normalized,
