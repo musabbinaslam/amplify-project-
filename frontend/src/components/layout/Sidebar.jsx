@@ -7,14 +7,17 @@ import {
   Play, Phone, LayoutDashboard, List, FileText,
   DollarSign, Box, User, HeadphonesIcon,
   MessageSquare, Gift, Settings, LogOut,
-  ChevronLeft, ChevronRight, Shield, FileEdit, ShieldCheck,
+  ChevronLeft, ChevronRight, Shield, FileEdit, ShieldCheck, Users,
 } from 'lucide-react';
+import { isAgencyAdminUser } from '../../utils/authRoles';
 import classes from './Sidebar.module.css';
 
 const NAV_GROUP_LABELS = {
   work: 'Work',
   business: 'Business',
   you: 'You',
+  manager: 'Team',
+  agency: 'Agency',
   admin: 'Admin',
   qa: 'QA',
 };
@@ -38,7 +41,8 @@ const navItems = [
 const Sidebar = () => {
   const { isSidebarCollapsed, toggleSidebar } = useUIStore();
   const logout = useAuthStore((s) => s.logout);
-  const role = useAuthStore((s) => s.user?.role);
+  const user = useAuthStore((s) => s.user);
+  const role = user?.role;
   const navigate = useNavigate();
   const location = useLocation();
   const navRef = useRef(null);
@@ -57,11 +61,21 @@ const Sidebar = () => {
         { path: '/app/qa/ai-training', label: 'QA AI Training', icon: ShieldCheck, group: 'qa' },
       );
     }
+    if (isAgencyAdminUser(user)) {
+      base.push(
+        { path: '/app/agency', label: 'Agency Dashboard', icon: Users, end: true, group: 'agency' },
+      );
+    }
+    if (role === 'manager' || role === 'admin') {
+      base.push(
+        { path: '/app/team-dashboard', label: 'Team Dashboard', icon: Users, end: true, group: 'manager' },
+      );
+    }
     return base;
-  }, [role]);
+  }, [role, user]);
 
   const navGroups = React.useMemo(() => {
-    const order = ['work', 'business', 'you', 'admin', 'qa'];
+    const order = ['work', 'business', 'you', 'agency', 'manager', 'admin', 'qa'];
     return order
       .map((groupId) => ({
         id: groupId,

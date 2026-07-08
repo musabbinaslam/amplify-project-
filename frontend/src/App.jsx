@@ -8,6 +8,7 @@ import PageLoader from './components/ui/PageLoader';
 import ErrorFallback from './components/ui/ErrorFallback';
 import LandingPage from './pages/LandingPage';
 import useAuthStore from './store/authStore';
+import { isAgencyAdminUser } from './utils/authRoles';
 import { auth } from './config/firebase';
 import UpdateBanner from './components/ui/UpdateBanner';
 
@@ -36,11 +37,16 @@ const AdminCallContestsPage = lazy(() => import('./pages/admin/AdminCallContests
 const AdminAgentsPage = lazy(() => import('./pages/admin/AdminAgentsPage'));
 const AdminCampaignsPage = lazy(() => import('./pages/admin/AdminCampaignsPage'));
 const AdminPhoneRoutingPage = lazy(() => import('./pages/admin/AdminPhoneRoutingPage'));
+const AdminAgenciesPage = lazy(() => import('./pages/admin/AdminAgenciesPage'));
+const AdminManagersPage = lazy(() => import('./pages/admin/AdminManagersPage'));
 const AdminAITrainingPage = lazy(() => import('./pages/AdminAITrainingPage'));
 const AdminNotificationSettingsPage = lazy(() => import('./pages/AdminNotificationSettingsPage'));
 
 const QaDashboardPage = lazy(() => import('./pages/QaDashboardPage'));
 const QaAITrainingPage = lazy(() => import('./pages/QaAITrainingPage'));
+
+const TeamDashboardPage = lazy(() => import('./pages/TeamDashboardPage'));
+const AgencyDashboardPage = lazy(() => import('./pages/AgencyDashboardPage'));
 
 
 import DialerOverlay from './components/ui/DialerOverlay';
@@ -73,6 +79,22 @@ const QaOnly = ({ children }) => {
 const AdminOnly = ({ children }) => {
   const role = useAuthStore((s) => s.user?.role);
   if (role !== 'admin') return <Navigate to="/app" replace />;
+  return children;
+};
+
+const AgencyAdminOnly = ({ children }) => {
+  const user = useAuthStore((s) => s.user);
+  if (!isAgencyAdminUser(user) && user?.role !== 'manager') {
+    return <Navigate to="/app" replace />;
+  }
+  return children;
+};
+
+const ManagerOnly = ({ children }) => {
+  const role = useAuthStore((s) => s.user?.role);
+  if (role !== 'admin' && role !== 'manager') {
+    return <Navigate to="/app" replace />;
+  }
   return children;
 };
 
@@ -197,6 +219,20 @@ const AnimatedRoutes = () => {
               </AdminOnly>
             </Suspense>
           } />
+          <Route path="admin/agencies" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminAgenciesPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/managers" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminManagersPage />
+              </AdminOnly>
+            </Suspense>
+          } />
           <Route path="admin/ai-training" element={
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
@@ -224,6 +260,21 @@ const AnimatedRoutes = () => {
               <QaOnly>
                 <QaAITrainingPage />
               </QaOnly>
+            </Suspense>
+          } />
+
+          <Route path="agency" element={
+            <Suspense fallback={<PageLoader />}>
+              <AgencyAdminOnly>
+                <AgencyDashboardPage />
+              </AgencyAdminOnly>
+            </Suspense>
+          } />
+          <Route path="team-dashboard" element={
+            <Suspense fallback={<PageLoader />}>
+              <ManagerOnly>
+                <TeamDashboardPage />
+              </ManagerOnly>
             </Suspense>
           } />
 

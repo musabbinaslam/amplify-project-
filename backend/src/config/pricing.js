@@ -92,6 +92,8 @@ function syncPricingConfig() {
                 label: String(c.label || id),
                 buffer: Number(c.buffer) || 0,
                 price: Number(c.price) || 0,
+                agencyId: c.agencyId == null || c.agencyId === '' ? null : String(c.agencyId),
+                locked: Boolean(c.locked),
               };
             });
 

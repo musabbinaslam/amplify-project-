@@ -13,6 +13,7 @@ const twilioClientObj = require('../config/twilio').twilioClient;
 const { redisClient } = require('../config/redis');
 const { isCampaignPaused, notifyAgent } = require('../services/notificationService');
 const socketRegistry = require('../sockets/socketRegistry');
+const { normalizeAgencyId, isAgencyAdminRole } = require('../utils/tenancy');
 
 /** Absolute URL for Twilio webhooks (relative URLs break statusCallback on some hosts). */
 function voiceWebhookUrl(req, pathWithQuery) {
@@ -66,6 +67,7 @@ exports.handleIncomingCall = async (req, res) => {
     const bodyCampaign = req.body && req.body.campaign;
     let campaign = queryCampaign || bodyCampaign;
     const toNumber = req.body && req.body.To;
+    let routeAgencyId = normalizeAgencyId(req.query?.agencyId);
     // retryCount tracks how many re-routing attempts have been made for this call.
     // Passed as a query param from the Redirect TwiML in handleCallCompleted.
     const retryCount = Math.min(Number(req.query.retryCount || 0), 5);
@@ -73,8 +75,11 @@ exports.handleIncomingCall = async (req, res) => {
 
     if (!campaign && toNumber) {
         try {
-            const mapped = await phoneRouteService.getCampaignByToNumber(toNumber);
-            if (mapped) campaign = mapped;
+            const mapped = await phoneRouteService.getRouteByToNumber(toNumber);
+            if (mapped) {
+                campaign = mapped.campaignId;
+                routeAgencyId = mapped.agencyId;
+            }
         } catch (e) {
             console.warn('[Twilio Webhook] phone route lookup failed:', e.message);
         }
@@ -82,7 +87,7 @@ exports.handleIncomingCall = async (req, res) => {
     if (!campaign) campaign = 'fe_inbounds_short';
 
     console.log(`[Twilio Webhook] 🔔 Incoming call from: ${fromNumber} | Guaranteed Area Code State Lookup: ${callerState || 'Unknown'} | To: ${toNumber}`);
-    console.log(`[Twilio Webhook] 🎯 Resolved Campaign: ${campaign}`);
+    console.log(`[Twilio Webhook] 🎯 Resolved Campaign: ${campaign} | Agency: ${routeAgencyId || 'platform'}`);
 
     try {
         if (await isCampaignPaused(campaign)) {
@@ -94,7 +99,9 @@ exports.handleIncomingCall = async (req, res) => {
             return;
         }
         const parentCallSid = req.body?.CallSid || req.body?.CallSidInbound || '';
-        const available = await agentManager.findAndLockAvailableAgent(campaign, callerState, parentCallSid);
+        const available = await agentManager.findAndLockAvailableAgent(campaign, callerState, parentCallSid, {
+            agencyId: routeAgencyId,
+        });
 
         if (available) {
             // Stay RINGING until the browser receives the Twilio leg (agent:call_incoming).
@@ -172,10 +179,28 @@ exports.handleIncomingCall = async (req, res) => {
                 }, available.id);
             }
         } else {
-            // Reject the call without answering it (returns SIP 486 Busy).
-            // This prevents the publisher from being billed for a dropped call
-            // and fixes the false 100% answer rate.
-            twiml.reject({ reason: 'busy' });
+            const waitCount = Number(req.query.waitCount || 0);
+            const MAX_QUEUE_WAIT_ATTEMPTS = Number(process.env.CALL_QUEUE_MAX_ATTEMPTS || 12);
+
+            if (waitCount < MAX_QUEUE_WAIT_ATTEMPTS) {
+                const callQueueService = require('../services/callQueueService');
+                if (parentCallSid) {
+                    await callQueueService.enqueueCall(parentCallSid, {
+                        campaignId: campaign,
+                        agencyId: routeAgencyId,
+                        callerState: callerState,
+                    });
+                }
+                twiml.pause({ length: 5 });
+                const waitQs = new URLSearchParams({
+                    campaign: String(campaign),
+                    waitCount: String(waitCount + 1),
+                });
+                if (routeAgencyId) waitQs.set('agencyId', String(routeAgencyId));
+                twiml.redirect({ method: 'POST' }, voiceWebhookUrl(req, `/api/voice/incoming-call?${waitQs.toString()}`));
+            } else {
+                twiml.reject({ reason: 'busy' });
+            }
         }
     } catch (error) {
         console.error('Routing Error:', error);
@@ -613,6 +638,23 @@ exports.proxyRecording = async (req, res) => {
     }
 
     try {
+        const requesterUid = req.user?.uid;
+        const requesterDoc = requesterUid ? await getUserDoc(requesterUid) : null;
+        const requesterRole = requesterDoc?.role || 'agent';
+        const requesterAgencyId = normalizeAgencyId(requesterDoc?.agencyId);
+
+        const log = await callLogService.findCallLogByRecordingSid(recordingSid);
+        if (log) {
+            const ownsLog = log.agentId === requesterUid;
+            const isPlatformAdmin = requesterRole === 'admin';
+            const isAgencyAdminForLog = isAgencyAdminRole(requesterRole)
+                && requesterAgencyId
+                && normalizeAgencyId(log.agencyId) === requesterAgencyId;
+            if (!ownsLog && !isPlatformAdmin && !isAgencyAdminForLog) {
+                return res.status(403).json({ error: 'Forbidden' });
+            }
+        }
+
         console.log(`[Proxy] Streaming recording: ${recordingSid}`);
 
         const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Recordings/${recordingSid}.mp3`;

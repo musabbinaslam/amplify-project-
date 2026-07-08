@@ -16,9 +16,18 @@ export async function fetchDashboardLogs({ startDate, endDate, limit = 1000 } = 
 }
 
 /**
- * Fetch canonical campaign pricing. Public endpoint, no auth required.
+ * Fetch campaign pricing for the logged-in user (respects agency locked campaigns).
+ * Falls back to the public catalog only when the user is not authenticated.
  */
 export async function fetchCampaignPricing() {
+  try {
+    const data = await apiFetch('/api/users/me/campaigns', { method: 'GET' });
+    if (data && Array.isArray(data.campaigns)) {
+      return data.campaigns;
+    }
+  } catch {
+    /* fall through to public catalog for logged-out pages (e.g. landing) */
+  }
   const url = `${getApiBaseUrl()}/api/public/campaigns`;
   const res = await fetch(url);
   if (!res.ok) {

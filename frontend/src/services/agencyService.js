@@ -1,0 +1,83 @@
+import { apiFetch } from './apiClient';
+
+export function getAgencyAgents() {
+  return apiFetch('/api/agency/agents', { method: 'GET' });
+}
+
+export function getAgencyAnalytics({ from, to } = {}) {
+  const qs = new URLSearchParams();
+  if (from) qs.set('from', from);
+  if (to) qs.set('to', to);
+  return apiFetch(`/api/agency/analytics${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
+}
+
+export function getAgencyCallLogs({ from, to, agentId, limit } = {}) {
+  const qs = new URLSearchParams();
+  if (from) qs.set('from', from);
+  if (to) qs.set('to', to);
+  if (agentId) qs.set('agentId', agentId);
+  if (limit) qs.set('limit', String(limit));
+  return apiFetch(`/api/agency/call-logs${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
+}
+
+export function getAgencyAnalyticsDrilldown({ from, to, agentId } = {}) {
+  const qs = new URLSearchParams();
+  if (from) qs.set('from', from);
+  if (to) qs.set('to', to);
+  if (agentId) qs.set('agentId', agentId);
+  return apiFetch(`/api/agency/analytics-drilldown${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
+}
+
+export function getAgencyMe() {
+  return apiFetch('/api/agency/me', { method: 'GET' });
+}
+
+export function listAdminAgencies() {
+  return apiFetch('/api/admin/agencies', { method: 'GET' });
+}
+
+export function createAdminAgency(body) {
+  return apiFetch('/api/admin/agencies', { method: 'POST', body });
+}
+
+export function updateAdminAgency(id, body) {
+  return apiFetch(`/api/admin/agencies/${id}`, { method: 'PATCH', body });
+}
+
+export function deleteAdminAgency(id) {
+  return apiFetch(`/api/admin/agencies/${id}`, { method: 'DELETE' });
+}
+
+export function listAgencyMembers(agencyId) {
+  return apiFetch(`/api/admin/agencies/${agencyId}/members`, { method: 'GET' });
+}
+
+export function assignAgencyMember(agencyId, body) {
+  return apiFetch(`/api/admin/agencies/${agencyId}/members`, { method: 'POST', body });
+}
+
+export function updateAgencyMemberRole(agencyId, uid, body) {
+  return apiFetch(`/api/admin/agencies/${agencyId}/members/${uid}`, {
+    method: 'PATCH',
+    body,
+  });
+}
+
+export function removeAgencyMember(agencyId, uid) {
+  return apiFetch(`/api/admin/agencies/${agencyId}/members/${uid}`, { method: 'DELETE' });
+}
+
+export function lockAgencyCampaigns(agencyId, lockedCampaignIds) {
+  return apiFetch(`/api/admin/agencies/${agencyId}/lock-campaigns`, {
+    method: 'POST',
+    body: { lockedCampaignIds },
+  });
+}
+
+export function listAgencyDids(agencyId) {
+  return apiFetch(`/api/admin/agencies/${agencyId}/dids`, { method: 'GET' });
+}
+
+export function assignAgencyDid(agencyId, body) {
+  return apiFetch(`/api/admin/agencies/${agencyId}/dids`, { method: 'POST', body });
+}

@@ -14,6 +14,8 @@ const publicRoutes = require('./routes/publicRoutes');
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const qaRoutes = require('./routes/qaRoutes');
+const managerRoutes = require('./routes/managerRoutes');
+const agencyRoutes = require('./routes/agencyRoutes');
 const { setupCallSockets } = require('./sockets/callSockets');
 const { verifyFirebaseToken } = require('./middleware/auth');
 const { globalRateLimiter } = require('./middleware/security');
@@ -65,6 +67,26 @@ const startEngine = async () => {
 
     await connectRedis();
 
+    if (process.env.REDIS_URL) {
+        try {
+            const { createClient } = require('redis');
+            const { createAdapter } = require('@socket.io/redis-adapter');
+            const pubClient = createClient({
+                url: process.env.REDIS_URL,
+                socket: {
+                    tls: process.env.REDIS_URL.startsWith('rediss://'),
+                },
+            });
+            const subClient = pubClient.duplicate();
+            pubClient.on('error', (err) => console.error('[Socket.IO Redis pub]', err.message));
+            subClient.on('error', (err) => console.error('[Socket.IO Redis sub]', err.message));
+            await Promise.all([pubClient.connect(), subClient.connect()]);
+            io.adapter(createAdapter(pubClient, subClient));
+            console.log('✅ Socket.IO Redis adapter enabled');
+        } catch (err) {
+            console.warn('[Socket.IO] Redis adapter unavailable — single-instance sockets only:', err.message);
+        }
+    }
 
     verifyMailer().catch((err) => {
         console.warn('[mailer] verify crashed:', err?.message || err);
@@ -137,6 +159,10 @@ const startEngine = async () => {
 
     // QA dashboard (read-only analytics + agent emergency management, role: 'qa' or 'admin')
     app.use('/api/qa', qaRoutes);
+
+    // Manager dashboard (read-only team analytics scoped to managedAgents, role: 'manager' or 'admin')
+    app.use('/api/manager', managerRoutes);
+    app.use('/api/agency', agencyRoutes);
     
     // Mount all voice routes (/token, /incoming-call, /call-completed, /logs)
     app.use('/api/voice', voiceRoutes);

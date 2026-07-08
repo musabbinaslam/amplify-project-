@@ -18,6 +18,7 @@ import {
 import * as Sentry from '@sentry/react';
 import { auth, googleProvider } from '../config/firebase';
 import { getProfile, saveProfile, sendWelcomeEmail } from '../services/profileService';
+import { normalizeAgencyRole } from '../utils/authRoles';
 import { useThemeStore } from './themeStore';
 
 const mapFirebaseUser = (firebaseUser) => ({
@@ -36,12 +37,19 @@ async function loadUserRole(uid) {
     }
     const r = profile?.role;
     return {
-      role: r === 'admin' ? 'admin' : r === 'qa' ? 'qa' : r === 'manager' ? 'manager' : 'agent',
+      role: r === 'admin' ? 'admin'
+        : r === 'qa' ? 'qa'
+          : r === 'agency_admin' ? 'agency_admin'
+            : r === 'agency_agent' ? 'agency_agent'
+              : r === 'manager' ? 'manager'
+                : 'agent',
+      agencyRole: normalizeAgencyRole(profile),
+      agencyId: profile?.agencyId || null,
       flagged: profile?.flagged === true,
       flagReason: profile?.flagReason || null,
     };
   } catch {
-    return { role: 'agent', flagged: false, flagReason: null };
+    return { role: 'agent', agencyRole: null, agencyId: null, flagged: false, flagReason: null };
   }
 }
 
@@ -65,7 +73,7 @@ const useAuthStore = create((set, get) => ({
           }
           const token = await firebaseUser.getIdToken();
           const existingMeta = get().user?.meta;
-          const { role, flagged, flagReason } = await loadUserRole(firebaseUser.uid);
+          const { role, agencyRole, agencyId, flagged, flagReason } = await loadUserRole(firebaseUser.uid);
 
           // Proactively refresh the Firebase token every 15 minutes
           // to guarantee agents never hit the 1-hour expiration while online.
@@ -85,7 +93,7 @@ const useAuthStore = create((set, get) => ({
           Sentry.setUser({ id: firebaseUser.uid, email: firebaseUser.email });
 
           set({
-            user: { ...mapFirebaseUser(firebaseUser), meta: existingMeta || null, role, flagged, flagReason },
+            user: { ...mapFirebaseUser(firebaseUser), meta: existingMeta || null, role, agencyRole, agencyId, flagged, flagReason },
             token,
             loading: false,
             _tokenRefreshInterval: intervalId,
@@ -140,8 +148,8 @@ const useAuthStore = create((set, get) => ({
   login: async (email, password) => {
     const credential = await signInWithEmailAndPassword(auth, email, password);
     const token = await credential.user.getIdToken();
-    const { role, flagged, flagReason } = await loadUserRole(credential.user.uid);
-    set({ user: { ...mapFirebaseUser(credential.user), role, flagged, flagReason }, token });
+    const { role, agencyRole, agencyId, flagged, flagReason } = await loadUserRole(credential.user.uid);
+    set({ user: { ...mapFirebaseUser(credential.user), role, agencyRole, agencyId, flagged, flagReason }, token });
   },
 
   googleLogin: async () => {
@@ -151,8 +159,8 @@ const useAuthStore = create((set, get) => ({
     const existing = await getProfile(result.user.uid);
     const needsOnboarding = !existing?.onboarding?.completedAt;
 
-    const { role, flagged, flagReason } = await loadUserRole(result.user.uid);
-    set({ user: { ...mapFirebaseUser(result.user), role, flagged, flagReason }, token });
+    const { role, agencyRole, agencyId, flagged, flagReason } = await loadUserRole(result.user.uid);
+    set({ user: { ...mapFirebaseUser(result.user), role, agencyRole, agencyId, flagged, flagReason }, token });
     return { needsOnboarding, user: result.user };
   },
 
@@ -195,10 +203,10 @@ const useAuthStore = create((set, get) => ({
         // Login page should reject onboarding-incomplete Google users.
         await rejectGoogleLogin();
       }
-      const { role, flagged, flagReason } = await loadUserRole(result.user.uid);
+      const { role, agencyRole, agencyId, flagged, flagReason } = await loadUserRole(result.user.uid);
 
       set({
-        user: { ...mapFirebaseUser(result.user), role, flagged, flagReason },
+        user: { ...mapFirebaseUser(result.user), role, agencyRole, agencyId, flagged, flagReason },
         token,
         googleLoginValidationInProgress: false,
       });
@@ -251,9 +259,9 @@ const useAuthStore = create((set, get) => ({
   refreshUserRole: async () => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
-    const { role, flagged, flagReason } = await loadUserRole(currentUser.uid);
+    const { role, agencyRole, agencyId, flagged, flagReason } = await loadUserRole(currentUser.uid);
     set((state) => ({
-      user: state.user ? { ...state.user, role, flagged, flagReason } : null,
+      user: state.user ? { ...state.user, role, agencyRole, agencyId, flagged, flagReason } : null,
     }));
   },
 

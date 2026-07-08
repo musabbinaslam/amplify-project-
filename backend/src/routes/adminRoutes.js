@@ -14,6 +14,13 @@ router.get('/analytics-bundle', adminController.getAnalyticsBundle);
 router.get('/analytics-drilldown', adminController.getAnalyticsDrilldown);
 router.get('/live-calls', adminController.getLiveCalls);
 router.post('/agents/:agentId/force-remove', adminController.forceRemoveAgent);
+
+// Manager role administration — list all users + set role/managedAgents allowlist
+router.get('/users', adminController.getAllUsers);
+router.get('/managers', adminController.listManagerTeams);
+router.get('/managers/:uid', adminController.getManagerTeam);
+router.patch('/users/:uid/manager-settings', adminController.patchManagerSettings);
+
 router.post('/agents/:agentId/flag', adminController.flagAgent);
 router.post('/agents/:agentId/resume', adminController.resumeAgent);
 router.get('/ai-training/coaching-overview', adminController.getAiCoachingOverview);
@@ -51,5 +58,20 @@ router.get('/call-contests/:contestId', adminController.getCallContest);
 router.post('/call-contests/:contestId/approve', adminController.approveCallContest);
 router.post('/call-contests/:contestId/deny', adminController.denyCallContest);
 router.post('/call-logs/refund', adminController.refundCall);
+
+// Agency management
+const agencyController = require('../controllers/agencyController');
+router.get('/agencies', agencyController.listAgencies);
+router.post('/agencies', agencyController.createAgency);
+router.get('/agencies/:id', agencyController.getAgency);
+router.patch('/agencies/:id', agencyController.updateAgency);
+router.delete('/agencies/:id', agencyController.deleteAgency);
+router.get('/agencies/:id/members', agencyController.listAgencyMembers);
+router.post('/agencies/:id/members', agencyController.assignAgencyMember);
+router.patch('/agencies/:id/members/:uid', agencyController.updateAgencyMemberRole);
+router.delete('/agencies/:id/members/:uid', agencyController.removeAgencyMember);
+router.post('/agencies/:id/lock-campaigns', agencyController.lockCampaignsForAgency);
+router.get('/agencies/:id/dids', agencyController.listAgencyDids);
+router.post('/agencies/:id/dids', agencyController.assignAgencyDid);
 
 module.exports = router;

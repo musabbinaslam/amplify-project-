@@ -19,7 +19,7 @@ if (import.meta.env.VITE_SENTRY_DSN) {
       Sentry.browserTracingIntegration(),
       Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }),
     ],
-    tracesSampleRate: import.meta.env.PROD ? 0.2 : 1.0,
+    tracesSampleRate: import.meta.env.PROD ? 0.2 : 0.05,
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 1.0,
   });
