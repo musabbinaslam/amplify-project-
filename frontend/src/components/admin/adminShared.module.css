@@ -749,10 +749,26 @@
 
 /* ─── Forms & inputs ─── */
 .didForm {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   margin-bottom: 20px;
+  width: 100%;
+}
+
+.didFormFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.didFormActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
   width: 100%;
 }
 
@@ -770,6 +786,18 @@
   min-width: 0;
   width: 100%;
   transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23969696' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+  cursor: pointer;
 }
 
 .textarea,
@@ -822,16 +850,23 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  line-height: 1.35;
+  white-space: normal;
 }
 
 .formFieldInline {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: flex-end;
   gap: 14px;
+  flex-wrap: wrap;
 }
 
 .formFieldInline .primaryBtn {
+  flex-shrink: 0;
+}
+
+.didFormActions .primaryBtn {
   flex-shrink: 0;
 }
 
@@ -842,11 +877,23 @@
 }
 
 .check {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   font-size: 14px;
   color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.check input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--brand-solid);
+  cursor: pointer;
 }
 
 .notificationGrid {
@@ -1065,47 +1112,79 @@
   background: color-mix(in srgb, var(--accent-red) 16%, transparent);
 }
 
-/* Phone routing table — full-width columns, right-aligned actions */
+/* Phone routing table — scroll on narrow viewports, no column overlap */
 .routingTable {
   table-layout: fixed;
   width: 100%;
+  min-width: 860px;
+}
+
+.routingTable th,
+.routingTable td {
+  overflow: hidden;
+  vertical-align: middle;
 }
 
 .routingTable th:nth-child(1),
 .routingTable td:nth-child(1) {
-  width: 22%;
+  width: 14%;
+  min-width: 132px;
 }
 
 .routingTable th:nth-child(2),
 .routingTable td:nth-child(2) {
-  width: 22%;
+  width: 16%;
+  min-width: 128px;
 }
 
 .routingTable th:nth-child(3),
 .routingTable td:nth-child(3) {
-  width: auto;
+  width: 16%;
+  min-width: 120px;
 }
 
 .routingTable th:nth-child(4),
 .routingTable td:nth-child(4) {
-  width: 12%;
+  width: auto;
+  min-width: 140px;
 }
 
 .routingTable th:nth-child(5),
 .routingTable td:nth-child(5) {
+  width: 10%;
+  min-width: 96px;
+}
+
+.routingTable th:nth-child(6),
+.routingTable td:nth-child(6) {
   width: 220px;
+  min-width: 200px;
+}
+
+.tableCellTruncate {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.tableCellWrap {
+  display: block;
+  overflow: hidden;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
 }
 
 @media (max-width: 900px) {
-  .campaignTable,
-  .routingTable {
+  .campaignTable {
     table-layout: auto;
   }
 
   .campaignTable th:nth-child(6),
-  .campaignTable td:nth-child(6),
-  .routingTable th:nth-child(5),
-  .routingTable td:nth-child(5) {
+  .campaignTable td:nth-child(6) {
     width: auto;
   }
 
@@ -1767,7 +1846,7 @@
     grid-template-columns: 1fr;
   }
 
-  .didForm {
+  .didFormFields {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -1798,13 +1877,19 @@
     align-self: flex-end;
   }
 
-  .didForm {
+  .didFormFields {
     grid-template-columns: 1fr;
   }
 
+  .didFormActions,
   .formFieldInline {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .didFormActions .primaryBtn,
+  .formFieldInline .primaryBtn {
+    width: 100%;
   }
 
   .searchInput {

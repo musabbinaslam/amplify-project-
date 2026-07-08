@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Phone, Plus, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
   getAdminOverviewLite,
   listAdminDids,
+  listAdminAgencies,
   createAdminDid,
   patchAdminDid,
   deleteAdminDid,
@@ -15,14 +16,23 @@ import AdminPageShell from '../../components/admin/AdminPageShell';
 import PageLoader from '../../components/ui/PageLoader';
 import classes from '../../components/admin/adminShared.module.css';
 
+const PLATFORM_AGENCY_LABEL = 'Platform (no agency)';
+
+function resolveAgencyLabel(agencyId, agencyNameById) {
+  if (agencyId == null || agencyId === '') return 'Platform';
+  return agencyNameById.get(String(agencyId)) || String(agencyId);
+}
+
 export default function AdminPhoneRoutingPage() {
   const presets = useSubtlePageMotion();
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState(null);
+  const [agencies, setAgencies] = useState([]);
   const [dids, setDids] = useState([]);
   const [didForm, setDidForm] = useState({
     phoneE164: '',
     campaignId: '',
+    agencyId: '',
     label: '',
     active: true,
   });
@@ -30,12 +40,14 @@ export default function AdminPhoneRoutingPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [ov, didList] = await Promise.all([
+      const [ov, didList, agencyList] = await Promise.all([
         getAdminOverviewLite(),
         listAdminDids(),
+        listAdminAgencies().catch(() => ({ agencies: [] })),
       ]);
       setOverview(ov);
       setDids(didList.dids || []);
+      setAgencies(agencyList.agencies || []);
     } catch (e) {
       toast.error(e.message || 'Failed to load phone routing');
     } finally {
@@ -48,6 +60,14 @@ export default function AdminPhoneRoutingPage() {
   }, [loadData]);
 
   const campaigns = overview?.campaigns || [];
+
+  const agencyNameById = useMemo(() => {
+    const map = new Map();
+    agencies.forEach((agency) => {
+      if (agency?.id) map.set(String(agency.id), agency.name || agency.id);
+    });
+    return map;
+  }, [agencies]);
 
   const refreshDids = async () => {
     const didList = await listAdminDids();
@@ -64,11 +84,18 @@ export default function AdminPhoneRoutingPage() {
       await createAdminDid({
         phoneE164: didForm.phoneE164.trim(),
         campaignId: didForm.campaignId,
+        agencyId: didForm.agencyId || null,
         label: didForm.label.trim(),
         active: didForm.active,
       });
       toast.success('Route created');
-      setDidForm({ phoneE164: '', campaignId: '', label: '', active: true });
+      setDidForm({
+        phoneE164: '',
+        campaignId: '',
+        agencyId: '',
+        label: '',
+        active: true,
+      });
       await refreshDids();
     } catch (err) {
       toast.error(err.message || 'Failed to create');
@@ -116,40 +143,61 @@ export default function AdminPhoneRoutingPage() {
         </div>
 
         <form className={classes.didForm} onSubmit={handleCreateDid}>
-          <div className={classes.formField}>
-            <label>Phone (E.164)</label>
-            <input
-              className={classes.input}
-              placeholder="+15551234567"
-              value={didForm.phoneE164}
-              onChange={(e) => setDidForm((f) => ({ ...f, phoneE164: e.target.value }))}
-            />
+          <div className={classes.didFormFields}>
+            <div className={classes.formField}>
+              <label htmlFor="did-phone">Phone (E.164)</label>
+              <input
+                id="did-phone"
+                className={classes.input}
+                placeholder="+15551234567"
+                value={didForm.phoneE164}
+                onChange={(e) => setDidForm((f) => ({ ...f, phoneE164: e.target.value }))}
+              />
+            </div>
+            <div className={classes.formField}>
+              <label htmlFor="did-campaign">Campaign</label>
+              <select
+                id="did-campaign"
+                className={classes.select}
+                value={didForm.campaignId}
+                onChange={(e) => setDidForm((f) => ({ ...f, campaignId: e.target.value }))}
+              >
+                <option value="">Select campaign</option>
+                {campaigns.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label} ({c.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className={classes.formField}>
+              <label htmlFor="did-agency">Agency (required for agency DIDs)</label>
+              <select
+                id="did-agency"
+                className={classes.select}
+                value={didForm.agencyId}
+                onChange={(e) => setDidForm((f) => ({ ...f, agencyId: e.target.value }))}
+              >
+                <option value="">{PLATFORM_AGENCY_LABEL}</option>
+                {agencies.map((agency) => (
+                  <option key={agency.id} value={agency.id}>
+                    {agency.name || agency.id}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className={classes.formField}>
+              <label htmlFor="did-label">Label</label>
+              <input
+                id="did-label"
+                className={classes.input}
+                placeholder="Optional"
+                value={didForm.label}
+                onChange={(e) => setDidForm((f) => ({ ...f, label: e.target.value }))}
+              />
+            </div>
           </div>
-          <div className={classes.formField}>
-            <label>Campaign</label>
-            <select
-              className={classes.select}
-              value={didForm.campaignId}
-              onChange={(e) => setDidForm((f) => ({ ...f, campaignId: e.target.value }))}
-            >
-              <option value="">Select campaign</option>
-              {campaigns.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label} ({c.id})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className={classes.formField}>
-            <label>Label</label>
-            <input
-              className={classes.input}
-              placeholder="Optional"
-              value={didForm.label}
-              onChange={(e) => setDidForm((f) => ({ ...f, label: e.target.value }))}
-            />
-          </div>
-          <div className={classes.formFieldInline}>
+          <div className={classes.didFormActions}>
             <label className={classes.check}>
               <input
                 type="checkbox"
@@ -172,6 +220,7 @@ export default function AdminPhoneRoutingPage() {
                 <tr>
                   <th>Phone</th>
                   <th>Campaign</th>
+                  <th>Agency</th>
                   <th>Label</th>
                   <th>Status</th>
                   <th className={classes.actionsHead}>Actions</th>
@@ -180,18 +229,36 @@ export default function AdminPhoneRoutingPage() {
               <tbody>
                 {dids.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className={classes.muted}>
+                    <td colSpan={6} className={classes.muted}>
                       No routes yet
                     </td>
                   </tr>
                 ) : (
                   dids.map((d) => {
                     const active = d.active !== false;
+                    const agencyLabel = resolveAgencyLabel(d.agencyId, agencyNameById);
                     return (
                       <tr key={d.id}>
-                        <td className={classes.mono}>{d.phoneE164}</td>
-                        <td>{d.campaignId}</td>
-                        <td>{d.label || '—'}</td>
+                        <td className={classes.mono}>
+                          <span className={classes.tableCellTruncate} title={d.phoneE164}>
+                            {d.phoneE164}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={classes.tableCellTruncate} title={d.campaignId}>
+                            {d.campaignId}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={classes.tableCellWrap} title={agencyLabel}>
+                            {agencyLabel}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={classes.tableCellWrap} title={d.label || undefined}>
+                            {d.label || '—'}
+                          </span>
+                        </td>
                         <td>
                           <span className={`${classes.statusPill} ${active ? classes.dispAnswered : classes.dispMissed}`}>
                             {active ? 'Active' : 'Inactive'}

@@ -47,6 +47,10 @@ export function listAdminDids() {
   return apiFetch('/api/admin/dids', { method: 'GET' });
 }
 
+export function listAdminAgencies() {
+  return apiFetch('/api/admin/agencies', { method: 'GET' });
+}
+
 export function createAdminDid(body) {
   return apiFetch('/api/admin/dids', { method: 'POST', body });
 }
