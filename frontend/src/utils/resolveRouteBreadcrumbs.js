@@ -87,23 +87,35 @@ export function resolveRouteBreadcrumbs(pathname) {
     ];
   }
 
-  const agenciesOps = normalized.match(/^\/app\/admin\/ops\/agencies(?:\/([^/]+))?$/);
-  if (agenciesOps) {
-    const tenantId = agenciesOps[1];
+  if (normalized === '/app/admin/ops/agencies') {
     return [
       { label: 'Admin', href: ADMIN_HOME },
-      { label: 'Agencies', href: tenantId ? '/app/admin/ops/agencies' : undefined },
-      ...(tenantId ? [{ label: 'Loading…' }] : []),
+      { label: 'Agencies' },
     ];
   }
 
-  const teamsOps = normalized.match(/^\/app\/admin\/ops\/teams(?:\/([^/]+))?$/);
-  if (teamsOps) {
-    const tenantId = teamsOps[1];
+  if (normalized === '/app/admin/ops/teams') {
     return [
       { label: 'Admin', href: ADMIN_HOME },
-      { label: 'Manager Teams', href: tenantId ? '/app/admin/ops/teams' : undefined },
-      ...(tenantId ? [{ label: 'Loading…' }] : []),
+      { label: 'Manager Teams' },
+    ];
+  }
+
+  const agenciesOpsLegacy = normalized.match(/^\/app\/admin\/ops\/agencies\/([^/]+)$/);
+  if (agenciesOpsLegacy) {
+    return [
+      { label: 'Admin', href: ADMIN_HOME },
+      { label: 'Agencies', href: '/app/admin/ops/agencies' },
+      { label: 'Loading…' },
+    ];
+  }
+
+  const teamsOpsLegacy = normalized.match(/^\/app\/admin\/ops\/teams\/([^/]+)$/);
+  if (teamsOpsLegacy) {
+    return [
+      { label: 'Admin', href: ADMIN_HOME },
+      { label: 'Manager Teams', href: '/app/admin/ops/teams' },
+      { label: 'Loading…' },
     ];
   }
 

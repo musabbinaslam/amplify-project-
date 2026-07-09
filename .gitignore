@@ -18,3 +18,7 @@ PROJECT_CONTEXT_FOR_CHATGPT.md
 CLAUDE.md
 README.md
 frontend/docs/DESIGN.md
+backend/scripts/lib/mockCallLogHelpers.js
+backend/scripts/seed_ops_mock_data.js
+backend/scripts/seed_manager_mock_data.js
+backend/scripts/seed_agency_mock_data.js

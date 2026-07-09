@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { UserCog, Users, Radio } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { listAdminManagers } from '../../services/adminService';
 import AdminOpsCommandShell from '../../components/admin/AdminOpsCommandShell';
@@ -20,8 +19,8 @@ function defaultRange() {
 }
 
 export default function AdminTeamsOpsPage() {
-  const navigate = useNavigate();
-  const { managerUid } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedId = searchParams.get('selected') || '';
   const range = useMemo(() => defaultRange(), []);
   const [loading, setLoading] = useState(true);
   const [managers, setManagers] = useState([]);
@@ -43,54 +42,55 @@ export default function AdminTeamsOpsPage() {
     const withAgents = managers.filter((m) => (m.agentCount ?? 0) > 0).length;
     const agents = managers.reduce((sum, m) => sum + (m.agentCount ?? 0), 0);
     return [
-      { label: 'Total teams', value: managers.length, icon: UserCog },
-      { label: 'With agents', value: withAgents, icon: Radio },
-      { label: 'Managed agents', value: agents, icon: Users },
+      { label: 'teams', value: managers.length },
+      { label: 'with agents', value: withAgents },
+      { label: 'agents', value: agents },
     ];
   }, [managers]);
 
   const validManager = useMemo(
-    () => (managerUid ? managers.find((m) => m.uid === managerUid) : null),
-    [managers, managerUid],
+    () => (selectedId ? managers.find((m) => m.uid === selectedId) : null),
+    [managers, selectedId],
   );
 
   useEffect(() => {
-    if (!managerUid || loading) return;
+    if (!selectedId || loading) return;
     if (!validManager) {
       toast.error('Manager team not found');
-      navigate(BASE_PATH, { replace: true });
+      setSearchParams({}, { replace: true });
     }
-  }, [managerUid, validManager, loading, navigate]);
+  }, [selectedId, validManager, loading, setSearchParams]);
 
   const breadcrumbs = useMemo(() => {
     const crumbs = [
       { label: 'Admin', href: '/app/admin' },
-      { label: 'Manager Teams', href: managerUid ? BASE_PATH : undefined },
+      { label: 'Manager Teams', href: selectedId ? BASE_PATH : undefined },
     ];
-    if (managerUid) {
+    if (selectedId) {
       const teamLabel = validManager?.teamName || validManager?.name || 'Loading…';
       crumbs.push({ label: teamLabel });
     }
     return crumbs;
-  }, [managerUid, validManager?.teamName, validManager?.name]);
+  }, [selectedId, validManager?.teamName, validManager?.name]);
 
   usePageBreadcrumbs(breadcrumbs);
 
   const handleSelect = (id) => {
-    navigate(id ? `${BASE_PATH}/${id}` : BASE_PATH);
+    if (id) {
+      setSearchParams({ selected: id }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
   };
 
   if (loading && !managers.length) return <PageLoader />;
 
   return (
     <AdminOpsCommandShell
-      title="Manager Teams"
-      description="Command center for platform manager teams — roster performance, live ops, and call history."
-      icon={UserCog}
       metrics={metrics}
       loading={loading}
       tenants={managers}
-      activeId={managerUid || ''}
+      activeId={selectedId}
       onSelect={handleSelect}
       getTenantId={(m) => m.uid}
       getPrimaryLabel={(m) => m.teamName || m.name || m.uid}
@@ -106,9 +106,8 @@ export default function AdminTeamsOpsPage() {
         m.email,
         m.uid,
       ].filter(Boolean).join(' ')}
-      settingsHref={(id) => `/app/admin/managers?selected=${encodeURIComponent(id)}`}
-      settingsLabel="Team settings"
       settingsRoute="/app/admin/managers"
+      settingsLabel="Team settings"
       emptyTenantsTitle="No manager teams yet"
       emptyTenantsBody="Promote a platform user to manager in settings, then monitor their team here."
       emptySelectionTitle="Select a team"
@@ -116,11 +115,11 @@ export default function AdminTeamsOpsPage() {
     >
       {validManager ? (
         <TeamDashboardLayout
-          key={managerUid}
-          scope={{ managerUid }}
+          scope={{ managerUid: selectedId }}
           embedMode
           compactHeader
-          backHref={BASE_PATH}
+          settingsHref={`/app/admin/managers?selected=${encodeURIComponent(selectedId)}`}
+          settingsLabel="Team settings"
         />
       ) : null}
     </AdminOpsCommandShell>

@@ -76,7 +76,7 @@ export function OpsCallTrendChart({ data, loading, reduceMotion, totalCalls }) {
       </div>
       <div className={classes.chartContainer}>
         <ResponsiveContainer width="100%" height={260}>
-          <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+          <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 4 }}>
             <defs>
               <linearGradient id="opsGradCalls" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--accent-cyan)" stopOpacity={0.35} />
@@ -326,7 +326,7 @@ export function OpsEarningsTrendChart({ data, loading, reduceMotion }) {
       </div>
       <div className={classes.chartContainer}>
         <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
+          <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 4 }}>
             <defs>
               <linearGradient id="opsGradEarnings" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--accent-green)" stopOpacity={0.35} />

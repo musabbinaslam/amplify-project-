@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Building2, Users, Radio } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { listAdminAgencies } from '../../services/agencyService';
 import AdminOpsCommandShell from '../../components/admin/AdminOpsCommandShell';
@@ -11,8 +10,8 @@ import { usePageBreadcrumbs } from '../../hooks/usePageBreadcrumbs';
 const BASE_PATH = '/app/admin/ops/agencies';
 
 export default function AdminAgenciesOpsPage() {
-  const navigate = useNavigate();
-  const { agencyId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedId = searchParams.get('selected') || '';
   const [loading, setLoading] = useState(true);
   const [agencies, setAgencies] = useState([]);
 
@@ -33,53 +32,54 @@ export default function AdminAgenciesOpsPage() {
     const active = agencies.filter((a) => a.status !== 'suspended').length;
     const agents = agencies.reduce((sum, a) => sum + (a.agentCount ?? 0), 0);
     return [
-      { label: 'Total agencies', value: agencies.length, icon: Building2 },
-      { label: 'Active', value: active, icon: Radio },
-      { label: 'Agency agents', value: agents, icon: Users },
+      { label: 'agencies', value: agencies.length },
+      { label: 'active', value: active },
+      { label: 'agents', value: agents },
     ];
   }, [agencies]);
 
   const validAgency = useMemo(
-    () => (agencyId ? agencies.find((a) => a.id === agencyId) : null),
-    [agencies, agencyId],
+    () => (selectedId ? agencies.find((a) => a.id === selectedId) : null),
+    [agencies, selectedId],
   );
 
   useEffect(() => {
-    if (!agencyId || loading) return;
+    if (!selectedId || loading) return;
     if (!validAgency) {
       toast.error('Agency not found');
-      navigate(BASE_PATH, { replace: true });
+      setSearchParams({}, { replace: true });
     }
-  }, [agencyId, validAgency, loading, navigate]);
+  }, [selectedId, validAgency, loading, setSearchParams]);
 
   const breadcrumbs = useMemo(() => {
     const crumbs = [
       { label: 'Admin', href: '/app/admin' },
-      { label: 'Agencies', href: agencyId ? BASE_PATH : undefined },
+      { label: 'Agencies', href: selectedId ? BASE_PATH : undefined },
     ];
-    if (agencyId) {
+    if (selectedId) {
       crumbs.push({ label: validAgency?.name || 'Loading…' });
     }
     return crumbs;
-  }, [agencyId, validAgency?.name]);
+  }, [selectedId, validAgency?.name]);
 
   usePageBreadcrumbs(breadcrumbs);
 
   const handleSelect = (id) => {
-    navigate(id ? `${BASE_PATH}/${id}` : BASE_PATH);
+    if (id) {
+      setSearchParams({ selected: id }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
   };
 
   if (loading && !agencies.length) return <PageLoader />;
 
   return (
     <AdminOpsCommandShell
-      title="Agencies"
-      description="Command center for all agency tenants — live ops, analytics, and call logs in one workspace."
-      icon={Building2}
       metrics={metrics}
       loading={loading}
       tenants={agencies}
-      activeId={agencyId || ''}
+      activeId={selectedId}
       onSelect={handleSelect}
       getTenantId={(a) => a.id}
       getPrimaryLabel={(a) => a.name}
@@ -90,9 +90,8 @@ export default function AdminAgenciesOpsPage() {
         variant: a.status === 'suspended' ? 'suspended' : 'active',
       })}
       getSearchText={(a) => [a.name, a.slug, a.id, a.status].filter(Boolean).join(' ')}
-      settingsHref={(id) => `/app/admin/agencies?selected=${encodeURIComponent(id)}`}
-      settingsLabel="Agency settings"
       settingsRoute="/app/admin/agencies"
+      settingsLabel="Agency settings"
       emptyTenantsTitle="No agencies yet"
       emptyTenantsBody="Create your first agency in settings, then return here to monitor performance."
       emptySelectionTitle="Select an agency"
@@ -100,11 +99,11 @@ export default function AdminAgenciesOpsPage() {
     >
       {validAgency ? (
         <AgencyDashboardLayout
-          key={agencyId}
-          scope={{ agencyId }}
+          scope={{ agencyId: selectedId }}
           embedMode
           compactHeader
-          backHref={BASE_PATH}
+          settingsHref={`/app/admin/agencies?selected=${encodeURIComponent(selectedId)}`}
+          settingsLabel="Agency settings"
         />
       ) : null}
     </AdminOpsCommandShell>

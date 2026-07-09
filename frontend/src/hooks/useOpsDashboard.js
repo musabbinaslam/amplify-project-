@@ -164,13 +164,24 @@ export function useOpsDashboard(mode, scope = {}) {
   useEffect(() => {
     setLoadingAgents(true);
     setAnalyticsLoading(true);
+    setLogsLoading(true);
     setScopeError(null);
+    setAgents([]);
+    setSummary(null);
+    setAgentStats([]);
+    setByDay([]);
+    setCampaigns([]);
+    setLogs([]);
+    setSelectedAgent('');
+    setDrilldown(null);
+    if (!useAgencyApi) setTeamName(null);
+    if (useAgencyApi) setAgencyInfo(null);
     loadAgents().catch((e) => {
       if (scopeKey && (e?.status === 404 || /not found/i.test(e?.message || ''))) {
         setScopeError(e);
       }
     });
-  }, [loadAgents, scopeKey]);
+  }, [loadAgents, scopeKey, useAgencyApi]);
   useEffect(() => { loadAnalytics(); }, [loadAnalytics]);
   useEffect(() => { loadLogs(); }, [loadLogs]);
   useEffect(() => {

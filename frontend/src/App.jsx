@@ -106,6 +106,28 @@ const ReferralRedirect = () => {
   return <Navigate to={`/signup?ref=${encodeURIComponent(code || '')}`} replace />;
 };
 
+/** Redirect legacy /admin/ops/agencies/:id → ?selected= */
+const OpsAgencyRedirect = () => {
+  const { agencyId } = useParams();
+  return (
+    <Navigate
+      to={`/app/admin/ops/agencies?selected=${encodeURIComponent(agencyId || '')}`}
+      replace
+    />
+  );
+};
+
+/** Redirect legacy /admin/ops/teams/:uid → ?selected= */
+const OpsTeamRedirect = () => {
+  const { managerUid } = useParams();
+  return (
+    <Navigate
+      to={`/app/admin/ops/teams?selected=${encodeURIComponent(managerUid || '')}`}
+      replace
+    />
+  );
+};
+
 const AnimatedRoutes = () => {
   return (
     <>
@@ -242,13 +264,7 @@ const AnimatedRoutes = () => {
               </AdminOnly>
             </Suspense>
           } />
-          <Route path="admin/ops/agencies/:agencyId" element={
-            <Suspense fallback={<PageLoader />}>
-              <AdminOnly>
-                <AdminAgenciesOpsPage />
-              </AdminOnly>
-            </Suspense>
-          } />
+          <Route path="admin/ops/agencies/:agencyId" element={<OpsAgencyRedirect />} />
           <Route path="admin/ops/teams" element={
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
@@ -256,13 +272,7 @@ const AnimatedRoutes = () => {
               </AdminOnly>
             </Suspense>
           } />
-          <Route path="admin/ops/teams/:managerUid" element={
-            <Suspense fallback={<PageLoader />}>
-              <AdminOnly>
-                <AdminTeamsOpsPage />
-              </AdminOnly>
-            </Suspense>
-          } />
+          <Route path="admin/ops/teams/:managerUid" element={<OpsTeamRedirect />} />
           <Route path="admin/ai-training" element={
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
