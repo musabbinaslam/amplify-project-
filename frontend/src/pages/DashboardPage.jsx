@@ -19,6 +19,7 @@ const PERIOD_OPTIONS = ['This Week', 'This Month', 'Last 30 Days'];
 
 const CAMPAIGN_DESCRIPTIONS = {
   fe_inbounds_short: 'FE Inbounds Short Duration',
+  fe_inbounds: 'High-intent FE inbound callers',
   fe_tv_calls: 'High-intent Final Expense TV calls',
   medicare_transfers: 'Live transfer Medicare calls',
   medicare_inbound_1: 'High-intent Medicare inbound calls',
