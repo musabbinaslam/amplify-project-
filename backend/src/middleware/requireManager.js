@@ -17,6 +17,22 @@ async function requireManager(req, res, next) {
     if (role === 'admin') {
       req.managerRole = role;
       req.agencyId = null;
+
+      const managerUid = String(req.query.managerUid || '').trim();
+      if (managerUid) {
+        const targetDoc = await getUserDoc(managerUid);
+        if (!targetDoc || targetDoc.role !== 'manager' || normalizeAgencyId(targetDoc.agencyId)) {
+          return res.status(404).json({ error: 'Manager team not found' });
+        }
+        req.managedAgents = Array.isArray(targetDoc.managedAgents)
+          ? targetDoc.managedAgents.filter(Boolean)
+          : [];
+        req.teamName = typeof targetDoc.teamName === 'string'
+          ? targetDoc.teamName.trim() || null
+          : null;
+        return next();
+      }
+
       req.managedAgents = null;
       return next();
     }

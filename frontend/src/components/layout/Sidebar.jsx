@@ -8,6 +8,7 @@ import {
   DollarSign, Box, User, HeadphonesIcon,
   MessageSquare, Gift, Settings, LogOut,
   ChevronLeft, ChevronRight, Shield, FileEdit, ShieldCheck, Users,
+  Building2, UserCog,
 } from 'lucide-react';
 import { isAgencyAdminUser } from '../../utils/authRoles';
 import classes from './Sidebar.module.css';
@@ -21,6 +22,14 @@ const NAV_GROUP_LABELS = {
   admin: 'Admin',
   qa: 'QA',
 };
+
+function matchesNavItem(item, pathname) {
+  if (typeof item.activeMatch === 'function') {
+    return item.activeMatch(pathname);
+  }
+  if (item.end) return pathname === item.path;
+  return pathname === item.path || pathname.startsWith(`${item.path}/`);
+}
 
 const navItems = [
   { path: '/app', label: 'Welcome', icon: Play, end: true, group: 'work' },
@@ -52,7 +61,18 @@ const Sidebar = () => {
     const base = [...navItems];
     if (role === 'admin') {
       base.push(
-        { path: '/app/admin', label: 'Admin', icon: Shield, end: false, group: 'admin' },
+        {
+          path: '/app/admin',
+          label: 'Admin',
+          icon: Shield,
+          group: 'admin',
+          activeMatch: (pathname) => (
+            pathname === '/app/admin'
+            || (pathname.startsWith('/app/admin/') && !pathname.startsWith('/app/admin/ops/'))
+          ),
+        },
+        { path: '/app/admin/ops/agencies', label: 'Agencies', icon: Building2, end: false, group: 'admin' },
+        { path: '/app/admin/ops/teams', label: 'Manager Teams', icon: UserCog, end: false, group: 'admin' },
       );
     }
     if (role === 'qa') {
@@ -66,7 +86,7 @@ const Sidebar = () => {
         { path: '/app/agency', label: 'Agency Dashboard', icon: Users, end: true, group: 'agency' },
       );
     }
-    if (role === 'manager' || role === 'admin') {
+    if (role === 'manager') {
       base.push(
         { path: '/app/team-dashboard', label: 'Team Dashboard', icon: Users, end: true, group: 'manager' },
       );
@@ -112,17 +132,15 @@ const Sidebar = () => {
       key={item.path}
       to={item.disabled ? '#' : item.path}
       end={item.end || false}
+      isActive={() => matchesNavItem(item, location.pathname)}
       ref={(el) => {
         if (!el) return;
-        const matches = item.end
-          ? location.pathname === item.path
-          : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
-        if (matches && !item.disabled) {
+        if (matchesNavItem(item, location.pathname) && !item.disabled) {
           activeItemRef.current = el;
         }
       }}
-      className={({ isActive }) =>
-        `${classes.navItem} ${isSidebarCollapsed ? classes.navItemCollapsed : ''} ${isActive && !item.disabled ? classes.active : ''} ${item.disabled ? classes.disabled : ''} ${item.teaser ? classes.teaser : ''}`
+      className={() =>
+        `${classes.navItem} ${isSidebarCollapsed ? classes.navItemCollapsed : ''} ${matchesNavItem(item, location.pathname) && !item.disabled ? classes.active : ''} ${item.disabled ? classes.disabled : ''} ${item.teaser ? classes.teaser : ''}`
       }
       onClick={(e) => item.disabled && e.preventDefault()}
       aria-disabled={item.disabled ? 'true' : undefined}

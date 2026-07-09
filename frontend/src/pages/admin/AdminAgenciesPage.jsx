@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { usePageBreadcrumbs } from '../../hooks/usePageBreadcrumbs';
 import {
   Building2,
   Plus,
@@ -273,11 +275,12 @@ function AssignMembersModal({
 
 export default function AdminAgenciesPage() {
   const presets = useSubtlePageMotion();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [agencies, setAgencies] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [users, setUsers] = useState([]);
-  const [selectedId, setSelectedId] = useState('');
+  const [selectedId, setSelectedId] = useState(() => searchParams.get('selected') || '');
   const [members, setMembers] = useState([]);
   const [dids, setDids] = useState([]);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -295,6 +298,36 @@ export default function AdminAgenciesPage() {
   const [savingCampaigns, setSavingCampaigns] = useState(false);
 
   const selected = agencies.find((a) => a.id === selectedId) || null;
+
+  const breadcrumbs = useMemo(() => {
+    const crumbs = [
+      { label: 'Admin', href: '/app/admin' },
+      { label: 'Agencies', href: selectedId ? '/app/admin/agencies' : undefined },
+    ];
+    if (selectedId) {
+      crumbs.push({ label: selected?.name || 'Loading…' });
+    }
+    return crumbs;
+  }, [selectedId, selected?.name]);
+
+  usePageBreadcrumbs(breadcrumbs);
+
+  const updateSelectedId = useCallback((id) => {
+    setSelectedId(id);
+    if (id) {
+      setSearchParams({ selected: id }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
+  }, [setSearchParams]);
+
+  useEffect(() => {
+    const param = searchParams.get('selected');
+    if (!param || !agencies.length) return;
+    if (agencies.some((a) => a.id === param) && param !== selectedId) {
+      setSelectedId(param);
+    }
+  }, [agencies, searchParams, selectedId]);
 
   const filteredMembers = useMemo(
     () => filterByQuery(members, membersSearch, ['role']),
@@ -396,7 +429,7 @@ export default function AdminAgenciesPage() {
       toast.success('Agency created');
       setCreateForm({ name: '', slug: '' });
       await loadAgencies();
-      if (out?.agency?.id) setSelectedId(out.agency.id);
+      if (out?.agency?.id) updateSelectedId(out.agency.id);
     } catch (err) {
       toast.error(err.message || 'Failed to create agency');
     }
@@ -527,7 +560,7 @@ export default function AdminAgenciesPage() {
     try {
       await deleteAdminAgency(id);
       toast.success('Agency deleted');
-      if (selectedId === id) setSelectedId('');
+      if (selectedId === id) updateSelectedId('');
       await loadAgencies();
     } catch (err) {
       toast.error(err.message || 'Failed to delete agency');
@@ -641,7 +674,7 @@ export default function AdminAgenciesPage() {
                         <tr
                           key={agency.id}
                           className={`${shared.clickableRow} ${isActive ? shared.rowActive : ''}`}
-                          onClick={() => setSelectedId(agency.id)}
+                          onClick={() => updateSelectedId(agency.id)}
                         >
                           <td>
                             <strong>{agency.name}</strong>
@@ -720,7 +753,7 @@ export default function AdminAgenciesPage() {
                   <button
                     type="button"
                     className={classes.closeBtn}
-                    onClick={() => setSelectedId('')}
+                    onClick={() => updateSelectedId('')}
                     aria-label="Close agency details"
                   >
                     <X size={16} />

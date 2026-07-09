@@ -10,6 +10,9 @@ export const useUIStore = create((set, get) => ({
 
   theme: localStorage.getItem('theme') || 'dark',
 
+  pageBreadcrumbs: null,
+  setPageBreadcrumbs: (crumbs) => set({ pageBreadcrumbs: crumbs }),
+
   initTheme: () => {
     applyTheme(get().theme);
   },
