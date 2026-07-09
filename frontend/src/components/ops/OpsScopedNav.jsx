@@ -3,12 +3,12 @@ import { ArrowLeft, Settings2 } from 'lucide-react';
 import shared from './opsShared.module.css';
 
 /* eslint-disable react/prop-types */
-export function OpsSettingsLink({ settingsHref, className }) {
+export function OpsSettingsLink({ settingsHref, className, label = 'Settings' }) {
   if (!settingsHref) return null;
   return (
     <Link to={settingsHref} className={className || shared.settingsBtn}>
       <Settings2 size={16} />
-      Settings
+      {label}
     </Link>
   );
 }

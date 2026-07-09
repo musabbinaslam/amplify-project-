@@ -29,6 +29,7 @@ export default function TeamDashboardLayout({
   backHref,
   backLabel = 'All teams',
   settingsHref,
+  settingsLabel = 'Settings',
   embedMode = false,
   compactHeader = false,
 }) {
@@ -42,42 +43,71 @@ export default function TeamDashboardLayout({
     navigate(backHref, { replace: true });
   }, [ops.scopeError, backHref, navigate]);
 
-  if (ops.initialLoading) return <PageLoader />;
+  if (ops.initialLoading && !embedMode) return <PageLoader />;
 
   const s = ops.summary;
   const adminView = ops.isAdminView;
+  const teamTitle = ops.teamName || 'Team Dashboard';
+  const compactSub = [
+    `${ops.agents.length} agents`,
+    `${ops.onlineCount} online`,
+    RANGE_LABELS[ops.rangePreset],
+  ].join(' · ');
+
+  const Wrapper = embedMode ? 'div' : motion.div;
+  const wrapperProps = embedMode
+    ? { className: `${shared.page} ${shared.pageEmbedded}` }
+    : {
+      className: shared.page,
+      variants: presets.root,
+      initial: 'hidden',
+      animate: 'visible',
+    };
+
+  if (embedMode && ops.initialLoading) {
+    return (
+      <div className={shared.embedLoading} role="status" aria-live="polite">
+        <span className={shared.embedLoadingSpinner} aria-hidden="true" />
+        Loading dashboard…
+      </div>
+    );
+  }
 
   return (
-    <motion.div
-      className={`${shared.page} ${embedMode ? shared.pageEmbedded : ''}`}
-      variants={presets.root}
-      initial="hidden"
-      animate="visible"
-    >
+    <Wrapper {...wrapperProps}>
       {adminView && !embedMode ? (
         <motion.div variants={presets.child}>
           <OpsScopedNav backHref={backHref} backLabel={backLabel} settingsHref={settingsHref} />
         </motion.div>
       ) : null}
       {compactHeader ? (
-        <motion.div className={`glass ${shared.compactToolbar}`} variants={presets.child}>
-          <div className={shared.filterRow}>
-            {Object.keys(RANGE_LABELS).map((key) => (
-              <button
-                key={key}
-                type="button"
-                className={`${shared.filterBtn} ${ops.rangePreset === key ? shared.filterBtnActive : ''}`}
-                onClick={() => ops.setRangePreset(key)}
-              >
-                {RANGE_LABELS[key]}
-              </button>
-            ))}
+        <div className={`glass ${shared.compactToolbar}`}>
+          <div className={shared.compactToolbarLead}>
+            <h2 className={shared.compactTitle}>{teamTitle}</h2>
+            <p className={shared.compactSub}>{compactSub}</p>
           </div>
-          <button type="button" className={shared.refreshBtn} onClick={ops.loadAll}>
-            <RefreshCw size={16} className={ops.analyticsLoading ? shared.spin : ''} />
-            Refresh
-          </button>
-        </motion.div>
+          <div className={shared.compactToolbarActions}>
+            <div className={shared.filterRow}>
+              {Object.keys(RANGE_LABELS).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`${shared.filterBtn} ${ops.rangePreset === key ? shared.filterBtnActive : ''}`}
+                  onClick={() => ops.setRangePreset(key)}
+                >
+                  {RANGE_LABELS[key]}
+                </button>
+              ))}
+            </div>
+            <button type="button" className={shared.refreshBtn} onClick={ops.loadAll}>
+              <RefreshCw size={16} className={ops.analyticsLoading ? shared.spin : ''} />
+              Refresh
+            </button>
+            {settingsHref ? (
+              <OpsSettingsLink settingsHref={settingsHref} label={settingsLabel} />
+            ) : null}
+          </div>
+        </div>
       ) : (
       <motion.div className={shared.header} variants={presets.child}>
         <div className={shared.iconBox}><Users size={24} /></div>
@@ -144,7 +174,9 @@ export default function TeamDashboardLayout({
         </motion.div>
       </motion.div>
 
-      <TeamRosterPanel agentCount={ops.agents.length} onUpdated={ops.loadAll} />
+      {!(embedMode && compactHeader) ? (
+        <TeamRosterPanel agentCount={ops.agents.length} onUpdated={ops.loadAll} />
+      ) : null}
 
       <motion.div className={team.chartsRow} variants={presets.child}>
         <div className={`glass ${chartClasses.chartCard} ${team.chartsMain}`}>
@@ -290,6 +322,6 @@ export default function TeamDashboardLayout({
       {ops.activeRecording && (
         <RecordingModal log={ops.activeRecording} onClose={() => ops.setActiveRecording(null)} />
       )}
-    </motion.div>
+    </Wrapper>
   );
 }
