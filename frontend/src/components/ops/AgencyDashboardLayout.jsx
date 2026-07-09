@@ -2,11 +2,14 @@ import {
   Building2, Users, Phone, Radio, CircleDollarSign, RefreshCw, Search,
   ChevronLeft, ChevronRight, AlertTriangle,
 } from 'lucide-react';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import PageLoader from '../ui/PageLoader';
 import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
 import { RecordingModal } from '../../pages/CallLogsPage';
 import { useOpsDashboard } from '../../hooks/useOpsDashboard';
+import OpsScopedNav, { OpsSettingsLink } from './OpsScopedNav';
 import {
   OpsOnlineGauge,
   OpsEarningsTrendChart,
@@ -27,19 +30,63 @@ const CAMPAIGN_LABELS = {
   medicare_inbound_1: 'Medicare Inbound',
 };
 
-export default function AgencyDashboardLayout() {
+export default function AgencyDashboardLayout({
+  scope,
+  backHref,
+  backLabel = 'All agencies',
+  settingsHref,
+  embedMode = false,
+  compactHeader = false,
+}) {
   const presets = useSubtlePageMotion();
   const reduceMotion = useReducedMotion();
-  const ops = useOpsDashboard('agency');
+  const navigate = useNavigate();
+  const ops = useOpsDashboard('agency', scope);
+
+  useEffect(() => {
+    if (!ops.scopeError || !backHref) return;
+    navigate(backHref, { replace: true });
+  }, [ops.scopeError, backHref, navigate]);
 
   if (ops.initialLoading) return <PageLoader />;
 
   const s = ops.summary;
   const agencyName = ops.agencyInfo?.name || 'Your Agency';
   const lockedIds = ops.agencyInfo?.lockedCampaignIds || [];
+  const adminView = ops.isAdminView;
 
   return (
-    <motion.div className={shared.page} variants={presets.root} initial="hidden" animate="visible">
+    <motion.div
+      className={`${shared.page} ${embedMode ? shared.pageEmbedded : ''}`}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      {adminView && !embedMode ? (
+        <motion.div variants={presets.child}>
+          <OpsScopedNav backHref={backHref} backLabel={backLabel} settingsHref={settingsHref} />
+        </motion.div>
+      ) : null}
+      {compactHeader ? (
+        <motion.div className={`glass ${shared.compactToolbar}`} variants={presets.child}>
+          <div className={shared.filterRow}>
+            {Object.keys(RANGE_LABELS).map((key) => (
+              <button
+                key={key}
+                type="button"
+                className={`${shared.filterBtn} ${ops.rangePreset === key ? shared.filterBtnActive : ''}`}
+                onClick={() => ops.setRangePreset(key)}
+              >
+                {RANGE_LABELS[key]}
+              </button>
+            ))}
+          </div>
+          <button type="button" className={shared.refreshBtn} onClick={ops.loadAll}>
+            <RefreshCw size={16} className={ops.analyticsLoading ? shared.spin : ''} />
+            Refresh
+          </button>
+        </motion.div>
+      ) : (
       <motion.div className={`glass ${agency.tenantBanner}`} variants={presets.child}>
         <div className={agency.tenantMain}>
           <div className={agency.tenantIcon}><Building2 size={24} /></div>
@@ -47,6 +94,7 @@ export default function AgencyDashboardLayout() {
             <h1 className={agency.tenantTitle}>{agencyName}</h1>
             <p className={agency.tenantSub}>
               {ops.agents.length} agents · {ops.onlineCount} online · {RANGE_LABELS[ops.rangePreset]}
+              {adminView ? ' · Viewing as platform administrator' : ''}
             </p>
             {lockedIds.length > 0 ? (
               <div className={agency.chipRow}>
@@ -70,12 +118,18 @@ export default function AgencyDashboardLayout() {
               </button>
             ))}
           </div>
-          <button type="button" className={shared.refreshBtn} onClick={ops.loadAll}>
-            <RefreshCw size={16} className={ops.analyticsLoading ? shared.spin : ''} />
-            Refresh
-          </button>
+          <div className={shared.headerActionRow}>
+            <button type="button" className={shared.refreshBtn} onClick={ops.loadAll}>
+              <RefreshCw size={16} className={ops.analyticsLoading ? shared.spin : ''} />
+              Refresh
+            </button>
+            {embedMode && !compactHeader && settingsHref ? (
+              <OpsSettingsLink settingsHref={settingsHref} />
+            ) : null}
+          </div>
         </div>
       </motion.div>
+      )}
 
       <motion.div className={agency.liveCommandRow} variants={presets.child}>
         <div className={`glass ${shared.card}`}>

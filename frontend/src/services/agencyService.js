@@ -1,35 +1,38 @@
 import { apiFetch } from './apiClient';
 
-export function getAgencyAgents() {
-  return apiFetch('/api/agency/agents', { method: 'GET' });
-}
-
-export function getAgencyAnalytics({ from, to } = {}) {
+function agencyQueryParams({ agencyId, from, to, agentId, limit } = {}) {
   const qs = new URLSearchParams();
-  if (from) qs.set('from', from);
-  if (to) qs.set('to', to);
-  return apiFetch(`/api/agency/analytics${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
-}
-
-export function getAgencyCallLogs({ from, to, agentId, limit } = {}) {
-  const qs = new URLSearchParams();
+  if (agencyId) qs.set('agencyId', agencyId);
   if (from) qs.set('from', from);
   if (to) qs.set('to', to);
   if (agentId) qs.set('agentId', agentId);
   if (limit) qs.set('limit', String(limit));
+  return qs;
+}
+
+export function getAgencyAgents({ agencyId } = {}) {
+  const qs = agencyQueryParams({ agencyId });
+  return apiFetch(`/api/agency/agents${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
+}
+
+export function getAgencyAnalytics({ agencyId, from, to } = {}) {
+  const qs = agencyQueryParams({ agencyId, from, to });
+  return apiFetch(`/api/agency/analytics${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
+}
+
+export function getAgencyCallLogs({ agencyId, from, to, agentId, limit } = {}) {
+  const qs = agencyQueryParams({ agencyId, from, to, agentId, limit });
   return apiFetch(`/api/agency/call-logs${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
 }
 
-export function getAgencyAnalyticsDrilldown({ from, to, agentId } = {}) {
-  const qs = new URLSearchParams();
-  if (from) qs.set('from', from);
-  if (to) qs.set('to', to);
-  if (agentId) qs.set('agentId', agentId);
+export function getAgencyAnalyticsDrilldown({ agencyId, from, to, agentId } = {}) {
+  const qs = agencyQueryParams({ agencyId, from, to, agentId });
   return apiFetch(`/api/agency/analytics-drilldown${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
 }
 
-export function getAgencyMe() {
-  return apiFetch('/api/agency/me', { method: 'GET' });
+export function getAgencyMe({ agencyId } = {}) {
+  const qs = agencyQueryParams({ agencyId });
+  return apiFetch(`/api/agency/me${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
 }
 
 export function listAdminAgencies() {

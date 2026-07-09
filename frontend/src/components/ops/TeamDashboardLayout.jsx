@@ -2,11 +2,14 @@ import {
   Users, Phone, Radio, CircleDollarSign, RefreshCw, Search,
   ChevronLeft, ChevronRight, AlertTriangle, Activity,
 } from 'lucide-react';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import PageLoader from '../ui/PageLoader';
 import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
 import { RecordingModal } from '../../pages/CallLogsPage';
 import { useOpsDashboard } from '../../hooks/useOpsDashboard';
+import OpsScopedNav, { OpsSettingsLink } from './OpsScopedNav';
 import {
   OpsCallTrendChart,
   OpsCampaignMixChart,
@@ -21,28 +24,43 @@ import { RANGE_LABELS, LOW_BILLABLE_THRESHOLD } from './opsUtils';
 import shared from './opsShared.module.css';
 import team from './TeamDashboard.module.css';
 
-export default function TeamDashboardLayout() {
+export default function TeamDashboardLayout({
+  scope,
+  backHref,
+  backLabel = 'All teams',
+  settingsHref,
+  embedMode = false,
+  compactHeader = false,
+}) {
   const presets = useSubtlePageMotion();
   const reduceMotion = useReducedMotion();
-  const ops = useOpsDashboard('team');
+  const navigate = useNavigate();
+  const ops = useOpsDashboard('team', scope);
+
+  useEffect(() => {
+    if (!ops.scopeError || !backHref) return;
+    navigate(backHref, { replace: true });
+  }, [ops.scopeError, backHref, navigate]);
 
   if (ops.initialLoading) return <PageLoader />;
 
   const s = ops.summary;
+  const adminView = ops.isAdminView;
 
   return (
-    <motion.div className={shared.page} variants={presets.root} initial="hidden" animate="visible">
-      <motion.div className={shared.header} variants={presets.child}>
-        <div className={shared.iconBox}><Users size={24} /></div>
-        <div>
-          <h1 className={shared.title}>{ops.teamName || 'Team Dashboard'}</h1>
-          <p className={shared.subtitle}>
-            {ops.teamName
-              ? `Analytics for ${ops.teamName}. Managers can add or remove agents from their roster.`
-              : 'Analytics and performance for your assigned agents. Managers can also build their own team roster.'}
-          </p>
-        </div>
-        <div className={shared.headerActions}>
+    <motion.div
+      className={`${shared.page} ${embedMode ? shared.pageEmbedded : ''}`}
+      variants={presets.root}
+      initial="hidden"
+      animate="visible"
+    >
+      {adminView && !embedMode ? (
+        <motion.div variants={presets.child}>
+          <OpsScopedNav backHref={backHref} backLabel={backLabel} settingsHref={settingsHref} />
+        </motion.div>
+      ) : null}
+      {compactHeader ? (
+        <motion.div className={`glass ${shared.compactToolbar}`} variants={presets.child}>
           <div className={shared.filterRow}>
             {Object.keys(RANGE_LABELS).map((key) => (
               <button
@@ -59,8 +77,45 @@ export default function TeamDashboardLayout() {
             <RefreshCw size={16} className={ops.analyticsLoading ? shared.spin : ''} />
             Refresh
           </button>
+        </motion.div>
+      ) : (
+      <motion.div className={shared.header} variants={presets.child}>
+        <div className={shared.iconBox}><Users size={24} /></div>
+        <div>
+          <h1 className={shared.title}>{ops.teamName || 'Team Dashboard'}</h1>
+          <p className={shared.subtitle}>
+            {adminView
+              ? 'Viewing as platform administrator.'
+              : ops.teamName
+                ? `Analytics for ${ops.teamName}. Managers can add or remove agents from their roster.`
+                : 'Analytics and performance for your assigned agents. Managers can also build their own team roster.'}
+          </p>
+        </div>
+        <div className={shared.headerActions}>
+          <div className={shared.filterRow}>
+            {Object.keys(RANGE_LABELS).map((key) => (
+              <button
+                key={key}
+                type="button"
+                className={`${shared.filterBtn} ${ops.rangePreset === key ? shared.filterBtnActive : ''}`}
+                onClick={() => ops.setRangePreset(key)}
+              >
+                {RANGE_LABELS[key]}
+              </button>
+            ))}
+          </div>
+          <div className={shared.headerActionRow}>
+            <button type="button" className={shared.refreshBtn} onClick={ops.loadAll}>
+              <RefreshCw size={16} className={ops.analyticsLoading ? shared.spin : ''} />
+              Refresh
+            </button>
+            {embedMode && !compactHeader && settingsHref ? (
+              <OpsSettingsLink settingsHref={settingsHref} />
+            ) : null}
+          </div>
         </div>
       </motion.div>
+      )}
 
       <motion.div className={shared.kpiGrid} variants={presets.statsStrip}>
         <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>

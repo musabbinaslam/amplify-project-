@@ -16,9 +16,12 @@ import {
 } from '../services/managerService';
 import { PERF_PAGE_SIZE, LOG_PAGE_SIZE } from '../components/ops/opsUtils';
 
-export function useOpsDashboard(mode) {
+export function useOpsDashboard(mode, scope = {}) {
   const useAgencyApi = mode === 'agency';
   const refreshUserRole = useAuthStore((s) => s.refreshUserRole);
+  const agencyId = scope?.agencyId || undefined;
+  const managerUid = scope?.managerUid || undefined;
+  const scopeKey = useAgencyApi ? agencyId : managerUid;
 
   const [rangePreset, setRangePreset] = useState('7d');
   const [loadingAgents, setLoadingAgents] = useState(true);
@@ -47,6 +50,7 @@ export function useOpsDashboard(mode) {
   const [logSearch, setLogSearch] = useState('');
   const [logPage, setLogPage] = useState(1);
   const [activeRecording, setActiveRecording] = useState(null);
+  const [scopeError, setScopeError] = useState(null);
 
   const getRange = useCallback(() => {
     const now = new Date();
@@ -59,32 +63,37 @@ export function useOpsDashboard(mode) {
 
   const loadAgents = useCallback(async () => {
     try {
-      const data = useAgencyApi ? await getAgencyAgents() : await getManagerAgents();
+      const data = useAgencyApi
+        ? await getAgencyAgents({ agencyId })
+        : await getManagerAgents({ managerUid });
       setAgents(Array.isArray(data?.agents) ? data.agents : []);
       setTeamName(useAgencyApi ? null : (data?.teamName || null));
       setLiveCalls(Array.isArray(data?.liveCalls) ? data.liveCalls : []);
     } catch (e) {
       toast.error(e.message || 'Failed to load team status');
+      throw e;
     } finally {
       setLoadingAgents(false);
     }
-  }, [useAgencyApi]);
+  }, [useAgencyApi, agencyId, managerUid]);
 
   const loadAgencyInfo = useCallback(async () => {
     if (!useAgencyApi) return;
     try {
-      const out = await getAgencyMe();
+      const out = await getAgencyMe({ agencyId });
       setAgencyInfo(out?.agency || null);
-    } catch {
+    } catch (e) {
       setAgencyInfo(null);
+      throw e;
     }
-  }, [useAgencyApi]);
+  }, [useAgencyApi, agencyId]);
 
   const loadAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
     try {
-      const fetchAnalytics = useAgencyApi ? getAgencyAnalytics : getManagerAnalytics;
-      const bundle = await fetchAnalytics(getRange());
+      const bundle = useAgencyApi
+        ? await getAgencyAnalytics({ ...getRange(), agencyId })
+        : await getManagerAnalytics({ ...getRange(), managerUid });
       setSummary(bundle?.summary || null);
       setAgentStats(Array.isArray(bundle?.agents) ? bundle.agents : []);
       setByDay(Array.isArray(bundle?.byDay) ? bundle.byDay : []);
@@ -94,20 +103,21 @@ export function useOpsDashboard(mode) {
     } finally {
       setAnalyticsLoading(false);
     }
-  }, [getRange, useAgencyApi]);
+  }, [getRange, useAgencyApi, agencyId, managerUid]);
 
   const loadLogs = useCallback(async () => {
     setLogsLoading(true);
     try {
-      const fetchLogs = useAgencyApi ? getAgencyCallLogs : getManagerCallLogs;
-      const data = await fetchLogs({ ...getRange(), agentId: logAgentFilter || undefined });
+      const data = useAgencyApi
+        ? await getAgencyCallLogs({ ...getRange(), agentId: logAgentFilter || undefined, agencyId })
+        : await getManagerCallLogs({ ...getRange(), agentId: logAgentFilter || undefined, managerUid });
       setLogs(Array.isArray(data?.logs) ? data.logs : []);
     } catch (e) {
       toast.error(e.message || 'Failed to load call logs');
     } finally {
       setLogsLoading(false);
     }
-  }, [getRange, logAgentFilter, useAgencyApi]);
+  }, [getRange, logAgentFilter, useAgencyApi, agencyId, managerUid]);
 
   const loadDrilldown = useCallback(async (agentId) => {
     if (!agentId) {
@@ -116,8 +126,9 @@ export function useOpsDashboard(mode) {
     }
     setDrilldownLoading(true);
     try {
-      const fetchDrilldown = useAgencyApi ? getAgencyAnalyticsDrilldown : getManagerAnalyticsDrilldown;
-      const out = await fetchDrilldown({ ...getRange(), agentId });
+      const out = useAgencyApi
+        ? await getAgencyAnalyticsDrilldown({ ...getRange(), agentId, agencyId })
+        : await getManagerAnalyticsDrilldown({ ...getRange(), agentId, managerUid });
       setDrilldown(out);
     } catch (e) {
       toast.error(e.message || 'Failed to load agent drilldown');
@@ -125,7 +136,7 @@ export function useOpsDashboard(mode) {
     } finally {
       setDrilldownLoading(false);
     }
-  }, [getRange, useAgencyApi]);
+  }, [getRange, useAgencyApi, agencyId, managerUid]);
 
   const selectAgent = useCallback((agentId) => {
     setSelectedAgent(agentId);
@@ -150,10 +161,26 @@ export function useOpsDashboard(mode) {
   }, [loadAgents, loadAnalytics, loadLogs, loadAgencyInfo, useAgencyApi]);
 
   useEffect(() => { refreshUserRole?.(); }, [refreshUserRole]);
-  useEffect(() => { loadAgents(); }, [loadAgents]);
+  useEffect(() => {
+    setLoadingAgents(true);
+    setAnalyticsLoading(true);
+    setScopeError(null);
+    loadAgents().catch((e) => {
+      if (scopeKey && (e?.status === 404 || /not found/i.test(e?.message || ''))) {
+        setScopeError(e);
+      }
+    });
+  }, [loadAgents, scopeKey]);
   useEffect(() => { loadAnalytics(); }, [loadAnalytics]);
   useEffect(() => { loadLogs(); }, [loadLogs]);
-  useEffect(() => { if (useAgencyApi) loadAgencyInfo(); }, [loadAgencyInfo, useAgencyApi]);
+  useEffect(() => {
+    if (!useAgencyApi) return;
+    loadAgencyInfo().catch((e) => {
+      if (scopeKey && (e?.status === 404 || /not found/i.test(e?.message || ''))) {
+        setScopeError(e);
+      }
+    });
+  }, [loadAgencyInfo, useAgencyApi, scopeKey]);
   useEffect(() => { loadDrilldown(selectedAgent); }, [selectedAgent, rangePreset, loadDrilldown]);
   useEffect(() => { setDrilldownDay(''); }, [rangePreset]);
 
@@ -330,5 +357,7 @@ export function useOpsDashboard(mode) {
     onlineCount,
     initialLoading,
     loadAll,
+    scopeError,
+    isAdminView: Boolean(scopeKey),
   };
 }

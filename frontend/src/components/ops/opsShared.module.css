@@ -55,6 +55,33 @@
   max-width: 100%;
 }
 
+.headerActionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pageEmbedded {
+  padding-bottom: 0;
+  gap: 18px;
+}
+
+.compactToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+}
+
+.compactToolbar > * {
+  position: relative;
+  z-index: 1;
+}
+
 .filterRow {
   display: flex;
   align-items: center;
@@ -479,4 +506,52 @@
   }
 
   .drilldownKpiGrid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.adminNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.backLink:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
+}
+
+.settingsBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 10%, transparent);
+  color: var(--brand-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.settingsBtn:hover {
+  background: color-mix(in srgb, var(--brand-text) 16%, transparent);
+  border-color: color-mix(in srgb, var(--brand-text) 32%, var(--glass-border));
 }

@@ -1,12 +1,13 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Wallet, Moon, Sun, Bell } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Wallet, Moon, Sun, Bell, ChevronRight } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
 import useDialerStore from '../../store/useDialerStore';
 import { dropdownPanelMotion } from '../../motion/appMotion';
 import NotificationDetailModal from '../modals/NotificationDetailModal';
+import { resolveRouteBreadcrumbs } from '../../utils/resolveRouteBreadcrumbs';
 import classes from './Topbar.module.css';
 
 /* eslint-disable react/prop-types -- topbar props wired from AppShell */
@@ -24,7 +25,7 @@ const Topbar = ({
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
   const user = useAuthStore((s) => s.user);
-  const { theme, toggleTheme } = useUIStore();
+  const { theme, toggleTheme, pageBreadcrumbs } = useUIStore();
   const [balanceCents, setBalanceCents] = useState(null);
   const [isInboxOpen, setIsInboxOpen] = useState(false);
   const [isBellAnimating, setIsBellAnimating] = useState(false);
@@ -85,21 +86,10 @@ const Topbar = ({
     return () => window.clearTimeout(timer);
   }, [notificationTick]);
 
-  const getPageTitle = (pathname) => {
-    const stripped = pathname.replace(/^\/app\/?/, '');
-    if (!stripped) return 'Lets get started';
-    const ACRONYMS = new Set(['ai', 'aca', 'id', 'api', 'us']);
-    const titleize = (segment) =>
-      segment
-        .split('-')
-        .map((word) => {
-          if (!word) return word;
-          if (ACRONYMS.has(word.toLowerCase())) return word.toUpperCase();
-          return word.charAt(0).toUpperCase() + word.slice(1);
-        })
-        .join(' ');
-    return stripped.split('/').map(titleize).join(' / ');
-  };
+  const breadcrumbs = useMemo(() => {
+    if (pageBreadcrumbs?.length) return pageBreadcrumbs;
+    return resolveRouteBreadcrumbs(location.pathname);
+  }, [pageBreadcrumbs, location.pathname]);
 
   const formatBalance = (cents) => {
     if (cents === null) return '...';
@@ -182,7 +172,38 @@ const Topbar = ({
   return (
     <header className={classes.topbar}>
       <div className={classes.pageInfo}>
-        <h1 className={classes.title}>{getPageTitle(location.pathname)}</h1>
+        <nav className={classes.breadcrumbs} aria-label="Breadcrumb">
+          <ol className={classes.breadcrumbList}>
+            {breadcrumbs.map((crumb, index) => {
+              const isLast = index === breadcrumbs.length - 1;
+              const isLink = Boolean(crumb.href) && !isLast;
+
+              return (
+                <li key={`${crumb.label}-${index}`} className={classes.breadcrumbItem}>
+                  {index > 0 ? (
+                    <ChevronRight
+                      size={14}
+                      className={classes.breadcrumbSep}
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  {isLink ? (
+                    <Link to={crumb.href} className={classes.breadcrumbLink}>
+                      {crumb.label}
+                    </Link>
+                  ) : (
+                    <span
+                      className={isLast ? classes.breadcrumbCurrent : classes.breadcrumbText}
+                      aria-current={isLast ? 'page' : undefined}
+                    >
+                      {crumb.label}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
       </div>
 
       <div className={classes.actions}>

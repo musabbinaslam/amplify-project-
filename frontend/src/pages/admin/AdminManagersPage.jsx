@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { usePageBreadcrumbs } from '../../hooks/usePageBreadcrumbs';
 import {
   UserCog,
   Plus,
@@ -329,11 +331,12 @@ function AssignAgentsModal({
 
 export default function AdminManagersPage() {
   const presets = useSubtlePageMotion();
+  const [searchParams, setSearchParams] = useSearchParams();
   const range = useMemo(() => defaultRange(), []);
   const [loading, setLoading] = useState(true);
   const [managers, setManagers] = useState([]);
   const [users, setUsers] = useState([]);
-  const [selectedUid, setSelectedUid] = useState('');
+  const [selectedUid, setSelectedUid] = useState(() => searchParams.get('selected') || '');
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [createUid, setCreateUid] = useState('');
@@ -354,6 +357,37 @@ export default function AdminManagersPage() {
   const [savingTeamName, setSavingTeamName] = useState(false);
 
   const selected = managers.find((m) => m.uid === selectedUid) || null;
+
+  const breadcrumbs = useMemo(() => {
+    const crumbs = [
+      { label: 'Admin', href: '/app/admin' },
+      { label: 'Manager Teams', href: selectedUid ? '/app/admin/managers' : undefined },
+    ];
+    if (selectedUid) {
+      const teamLabel = selected?.teamName || selected?.name || 'Loading…';
+      crumbs.push({ label: teamLabel });
+    }
+    return crumbs;
+  }, [selectedUid, selected?.teamName, selected?.name]);
+
+  usePageBreadcrumbs(breadcrumbs);
+
+  const updateSelectedUid = useCallback((uid) => {
+    setSelectedUid(uid);
+    if (uid) {
+      setSearchParams({ selected: uid }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
+  }, [setSearchParams]);
+
+  useEffect(() => {
+    const param = searchParams.get('selected');
+    if (!param || !managers.length) return;
+    if (managers.some((m) => m.uid === param) && param !== selectedUid) {
+      setSelectedUid(param);
+    }
+  }, [managers, searchParams, selectedUid]);
 
   const stats = useMemo(() => {
     const withAgents = managers.filter((m) => (m.agentCount ?? 0) > 0).length;
@@ -495,7 +529,7 @@ export default function AdminManagersPage() {
       setCreateTeamName('');
       setCreateSearch('');
       await Promise.all([loadManagers(), loadUsers()]);
-      setSelectedUid(uid);
+      updateSelectedUid(uid);
     } catch (err) {
       toast.error(err.message || 'Failed to create manager team');
     } finally {
@@ -510,7 +544,7 @@ export default function AdminManagersPage() {
     try {
       await patchManagerSettings(uid, { role: 'agent', managedAgents: [] });
       toast.success('Manager demoted');
-      if (selectedUid === uid) setSelectedUid('');
+      if (selectedUid === uid) updateSelectedUid('');
       await Promise.all([loadManagers(), loadUsers()]);
     } catch (err) {
       toast.error(err.message || 'Failed to demote manager');
@@ -705,7 +739,7 @@ export default function AdminManagersPage() {
                       <tr
                         key={manager.uid}
                         className={`${shared.clickableRow} ${isActive ? shared.rowActive : ''}`}
-                        onClick={() => setSelectedUid(manager.uid)}
+                        onClick={() => updateSelectedUid(manager.uid)}
                       >
                         <td>
                           <strong>{manager.teamName || '—'}</strong>
@@ -784,7 +818,7 @@ export default function AdminManagersPage() {
                 <button
                   type="button"
                   className={classes.closeBtn}
-                  onClick={() => setSelectedUid('')}
+                  onClick={() => updateSelectedUid('')}
                   aria-label="Close team details"
                 >
                   <X size={16} />
