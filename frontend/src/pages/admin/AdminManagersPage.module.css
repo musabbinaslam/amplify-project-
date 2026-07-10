@@ -1,3 +1,135 @@
+.contextHeaderRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.contextLead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.contextIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent-cyan);
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-cyan) 22%, transparent);
+}
+
+.contextCopy {
+  min-width: 0;
+}
+
+.contextTitle {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.contextMeta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.contextActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.opsLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.opsLink:hover {
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 8%, transparent);
+}
+
+.opsLinkLabel {
+  white-space: nowrap;
+}
+
+.contextActionBtn {
+  gap: 6px;
+}
+
+.createFooterForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.createFooterForm label {
+  font-size: 11px;
+}
+
+.createFooterBtn {
+  width: 100%;
+  justify-content: center;
+}
+
+.createFooterForm .createUserRow {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.createFooterForm .selectedUserBox {
+  min-width: 0;
+}
+
+.tabContent {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.tabToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tabIntro {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
 .statsRow {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

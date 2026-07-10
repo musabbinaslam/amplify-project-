@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { usePageBreadcrumbs } from '../../hooks/usePageBreadcrumbs';
 import {
   Building2,
@@ -7,7 +7,6 @@ import {
   Trash2,
   Users,
   Phone,
-  Settings2,
   UserPlus,
   X,
   Pause,
@@ -15,8 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  LayoutDashboard,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
   listAdminAgencies,
@@ -32,15 +31,20 @@ import {
   assignAgencyDid,
 } from '../../services/agencyService';
 import { getAdminOverviewLite, listAdminUsers } from '../../services/adminService';
-import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
+import AdminAgencySettingsShell from '../../components/admin/AdminAgencySettingsShell';
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
-import AdminPageShell from '../../components/admin/AdminPageShell';
 import PageLoader from '../../components/ui/PageLoader';
 import shared from '../../components/admin/adminShared.module.css';
 import classes from './AdminAgenciesPage.module.css';
 
 const MEMBERS_PAGE_SIZE = 25;
 const PICKER_PAGE_SIZE = 12;
+
+const SETTINGS_TABS = [
+  { id: 'members', label: 'Members' },
+  { id: 'campaigns', label: 'Campaigns' },
+  { id: 'dids', label: 'DIDs' },
+];
 
 function dedupeUsers(list) {
   const map = new Map();
@@ -274,13 +278,13 @@ function AssignMembersModal({
 }
 
 export default function AdminAgenciesPage() {
-  const presets = useSubtlePageMotion();
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [agencies, setAgencies] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedId, setSelectedId] = useState(() => searchParams.get('selected') || '');
+  const [settingsTab, setSettingsTab] = useState('members');
   const [members, setMembers] = useState([]);
   const [dids, setDids] = useState([]);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -344,6 +348,12 @@ export default function AdminAgenciesPage() {
     return { total: agencies.length, active, agents };
   }, [agencies]);
 
+  const metrics = useMemo(() => [
+    { label: 'agencies', value: stats.total },
+    { label: 'active', value: stats.active },
+    { label: 'agents', value: stats.agents },
+  ], [stats]);
+
   const loadAgencies = useCallback(async () => {
     const out = await listAdminAgencies();
     setAgencies(out.agencies || []);
@@ -400,6 +410,7 @@ export default function AdminAgenciesPage() {
     setMemberForm({ selectedUids: [], role: 'agency_agent' });
     setMemberSearch('');
     setPickerPage(1);
+    setSettingsTab('members');
   }, [selectedId]);
 
   useEffect(() => {
@@ -581,469 +592,367 @@ export default function AdminAgenciesPage() {
 
   if (loading && !agencies.length) return <PageLoader />;
 
+  const contextHeader = selected ? (
+    <div className={classes.contextHeaderRow}>
+      <div className={classes.contextLead}>
+        <div className={classes.contextIcon} aria-hidden="true">
+          <Building2 size={20} />
+        </div>
+        <div className={classes.contextCopy}>
+          <h3 className={classes.contextTitle}>{selected.name}</h3>
+          <p className={classes.contextMeta}>
+            {selected.slug || selected.id}
+            {' · '}
+            {selected.agentCount ?? 0} member{(selected.agentCount ?? 0) !== 1 ? 's' : ''}
+          </p>
+        </div>
+      </div>
+      <div className={classes.contextActions}>
+        <span className={`${shared.statusPill} ${selected.status === 'suspended' ? shared.dispMissed : shared.dispAnswered}`}>
+          {selected.status === 'suspended' ? 'Suspended' : 'Active'}
+        </span>
+        <Link
+          to={`/app/admin/ops/agencies?selected=${encodeURIComponent(selected.id)}`}
+          className={classes.opsLink}
+        >
+          <LayoutDashboard size={15} />
+          <span className={classes.opsLinkLabel}>View ops dashboard</span>
+        </Link>
+        <button
+          type="button"
+          className={`${shared.rowBtnWarn} ${classes.contextActionBtn}`}
+          onClick={() => handleSuspend(selected)}
+        >
+          {selected.status === 'suspended' ? <Play size={14} /> : <Pause size={14} />}
+          {selected.status === 'suspended' ? 'Activate' : 'Suspend'}
+        </button>
+        <button
+          type="button"
+          className={shared.rowBtnDanger}
+          onClick={() => handleDeleteAgency(selected.id)}
+          aria-label="Delete agency"
+        >
+          <Trash2 size={14} />
+        </button>
+        <button
+          type="button"
+          className={classes.closeBtn}
+          onClick={() => updateSelectedId('')}
+          aria-label="Close agency settings"
+        >
+          <X size={16} />
+        </button>
+      </div>
+    </div>
+  ) : null;
+
+  const railCreate = (
+    <form className={classes.createFooterForm} onSubmit={handleCreate}>
+      <div className={shared.formField}>
+        <label>Name</label>
+        <input
+          className={shared.input}
+          value={createForm.name}
+          onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
+          placeholder="Acme Call Center"
+        />
+      </div>
+      <div className={shared.formField}>
+        <label>Slug (optional)</label>
+        <input
+          className={shared.input}
+          value={createForm.slug}
+          onChange={(e) => setCreateForm((f) => ({ ...f, slug: e.target.value }))}
+          placeholder="acme-call-center"
+        />
+      </div>
+      <button type="submit" className={`${shared.primaryBtn} ${classes.createFooterBtn}`}>
+        <Plus size={16} />
+        Create agency
+      </button>
+    </form>
+  );
+
   return (
-    <AdminPageShell
-      title="Agencies"
-      description="Multi-tenant agency accounts with isolated agents, DIDs, and locked campaigns."
-      icon={Building2}
-      category={ADMIN_CATEGORIES.configuration}
-    >
-      <motion.div className={classes.statsRow} variants={presets.statsStrip}>
-        {[
-          { label: 'Total agencies', value: stats.total },
-          { label: 'Active', value: stats.active },
-          { label: 'Agency agents', value: stats.agents },
-        ].map((stat) => (
-          <motion.div
-            key={stat.label}
-            className={`glass ${shared.statCard}`}
-            variants={presets.child}
-          >
-            <div className={shared.statIconBox} aria-hidden="true">
-              <Building2 size={18} className={shared.statIcon} />
-            </div>
-            <span className={shared.statLabel}>{stat.label}</span>
-            <span className={shared.statValue}>{stat.value}</span>
-          </motion.div>
-        ))}
-      </motion.div>
-
-      <motion.section
-        className={`glass ${shared.sectionCard}`}
-        variants={presets.child}
+    <>
+      <AdminAgencySettingsShell
+        metrics={metrics}
+        loading={loading}
+        category={ADMIN_CATEGORIES.configuration}
+        tenants={agencies}
+        activeId={selectedId}
+        onSelect={updateSelectedId}
+        getTenantId={(a) => a.id}
+        getPrimaryLabel={(a) => a.name}
+        getSecondaryLabel={(a) => a.slug || a.id}
+        getAgentCount={(a) => a.agentCount ?? 0}
+        getStatusPill={(a) => ({
+          label: a.status === 'suspended' ? 'Suspended' : 'Active',
+          variant: a.status === 'suspended' ? 'suspended' : 'active',
+        })}
+        getSearchText={(a) => [a.name, a.slug, a.id, a.status].filter(Boolean).join(' ')}
+        railCreate={railCreate}
+        detailHeader={contextHeader}
+        tabs={SETTINGS_TABS}
+        activeTab={settingsTab}
+        onTabChange={setSettingsTab}
+        emptyTenantsTitle="No agencies yet"
+        emptyTenantsBody="Use the form above to create your first agency."
+        emptySelectionTitle="Select an agency"
+        emptySelectionBody="Choose from the directory to manage members, campaigns, and DIDs."
       >
-          <div className={shared.cardTopRow}>
-            <div>
-              <h2 className={shared.cardTitle}>Agencies</h2>
-              <p className={shared.hint}>Create tenants and select one to manage members, campaigns, and DIDs.</p>
+        {settingsTab === 'members' ? (
+          <div className={classes.tabContent}>
+            <div className={classes.tabToolbar}>
+              <p className={classes.tabIntro}>
+                {members.length} assigned · search and paginate for large teams
+              </p>
+              <button
+                type="button"
+                className={shared.primaryBtn}
+                onClick={() => setAssignModalOpen(true)}
+              >
+                <UserPlus size={16} />
+                Add members
+              </button>
             </div>
-          </div>
 
-          <form className={classes.createRow} onSubmit={handleCreate}>
-            <div className={shared.formField}>
-              <label>Name</label>
-              <input
-                className={shared.input}
-                value={createForm.name}
-                onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Acme Call Center"
-              />
+            <div className={classes.membersToolbar}>
+              <div className={classes.membersSearchWrap}>
+                <Search size={16} className={classes.searchIcon} aria-hidden="true" />
+                <input
+                  className={`${shared.searchInput} ${classes.membersSearch}`}
+                  placeholder="Search members by name, email, or ID…"
+                  value={membersSearch}
+                  onChange={(e) => setMembersSearch(e.target.value)}
+                />
+              </div>
+              {membersSearch ? (
+                <span className={classes.pickerMeta}>
+                  {filteredMembers.length} match{filteredMembers.length !== 1 ? 'es' : ''}
+                </span>
+              ) : null}
             </div>
-            <div className={shared.formField}>
-              <label>Slug (optional)</label>
-              <input
-                className={shared.input}
-                value={createForm.slug}
-                onChange={(e) => setCreateForm((f) => ({ ...f, slug: e.target.value }))}
-                placeholder="acme-call-center"
-              />
-            </div>
-            <button type="submit" className={shared.primaryBtn}>
-              <Plus size={16} />
-              Create
-            </button>
-          </form>
 
-          <div className={shared.tableWrap}>
-            <div className={shared.tableScroll}>
-              <table className={`${shared.table} ${classes.agencyTable}`}>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Status</th>
-                    <th>Agents</th>
-                    <th className={shared.actionsHead}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {agencies.length === 0 ? (
+            <div className={shared.tableWrap}>
+              <div className={shared.tableScroll}>
+                <table className={`${shared.table} ${classes.memberTable}`}>
+                  <thead>
                     <tr>
-                      <td colSpan={4}>
-                        <div className={shared.emptyPanel}>
-                          <Building2 size={28} className={shared.emptyPanelIcon} />
-                          <h4>No agencies yet</h4>
-                          <p>Create your first agency above to assign agents and lock campaigns.</p>
-                        </div>
-                      </td>
+                      <th>User</th>
+                      <th>Role</th>
+                      <th className={shared.actionsHead}>Actions</th>
                     </tr>
-                  ) : (
-                    agencies.map((agency) => {
-                      const isActive = selectedId === agency.id;
-                      const suspended = agency.status === 'suspended';
-                      return (
-                        <tr
-                          key={agency.id}
-                          className={`${shared.clickableRow} ${isActive ? shared.rowActive : ''}`}
-                          onClick={() => updateSelectedId(agency.id)}
-                        >
+                  </thead>
+                  <tbody>
+                    {detailLoading ? (
+                      <tr>
+                        <td colSpan={3} className={shared.muted}>Loading members…</td>
+                      </tr>
+                    ) : members.length === 0 ? (
+                      <tr>
+                        <td colSpan={3}>
+                          <div className={shared.emptyPanel}>
+                            <Users size={24} className={shared.emptyPanelIcon} />
+                            <h4>No members yet</h4>
+                            <p>Use Add members to assign platform users to this agency.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : membersPager.items.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className={shared.muted}>No members match your search.</td>
+                      </tr>
+                    ) : (
+                      membersPager.items.map((m) => (
+                        <tr key={m.uid}>
+                          <td><MemberCell member={m} /></td>
                           <td>
-                            <strong>{agency.name}</strong>
-                            {agency.slug ? (
-                              <span className={shared.agentSubId}>{agency.slug}</span>
-                            ) : null}
+                            <select
+                              className={`${shared.select} ${classes.roleSelect}`}
+                              value={m.role === 'agency_admin' ? 'agency_admin' : 'agency_agent'}
+                              disabled={roleUpdatingUid === m.uid}
+                              onChange={(e) => handleUpdateMemberRole(m.uid, e.target.value)}
+                              aria-label={`Role for ${m.name || m.email || m.uid}`}
+                            >
+                              <option value="agency_agent">Agency Agent</option>
+                              <option value="agency_admin">Agency Admin</option>
+                            </select>
                           </td>
-                          <td>
-                            <span className={`${shared.statusPill} ${suspended ? shared.dispMissed : shared.dispAnswered}`}>
-                              {suspended ? 'Suspended' : 'Active'}
-                            </span>
-                          </td>
-                          <td>{agency.agentCount ?? 0}</td>
-                          <td className={shared.actionsCell} onClick={(e) => e.stopPropagation()}>
-                            <div className={shared.actionGroup}>
-                              <button
-                                type="button"
-                                className={shared.rowBtnWarn}
-                                onClick={() => handleSuspend(agency)}
-                                aria-label={suspended ? 'Activate agency' : 'Suspend agency'}
-                                title={suspended ? 'Activate' : 'Suspend'}
-                              >
-                                {suspended ? <Play size={14} /> : <Pause size={14} />}
-                              </button>
-                              <button
-                                type="button"
-                                className={shared.rowBtnDanger}
-                                onClick={() => handleDeleteAgency(agency.id)}
-                                aria-label="Delete agency"
-                                title="Delete"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
+                          <td className={shared.actionsCell}>
+                            <button
+                              type="button"
+                              className={shared.dangerBtn}
+                              onClick={() => handleRemoveMember(m.uid)}
+                            >
+                              Remove
+                            </button>
                           </td>
                         </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {!selected && agencies.length > 0 ? (
-            <p className={classes.tableHint}>Click a row to manage members, lock campaigns, and assign DIDs.</p>
-          ) : null}
-      </motion.section>
-
-      {selected ? (
-          <div className={classes.detailPanel}>
-            <motion.section
-              className={`glass ${classes.detailHeader}`}
-              variants={presets.child}
-            >
-              <div className={classes.detailTitleRow}>
-                <div>
-                  <h3>{selected.name}</h3>
-                  <p className={classes.detailMeta}>
-                    {selected.slug || selected.id}
-                    {' · '}
-                    {selected.agentCount ?? 0} member{(selected.agentCount ?? 0) !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                <div className={classes.detailActions}>
-                  <span className={`${shared.statusPill} ${selected.status === 'suspended' ? shared.dispMissed : shared.dispAnswered}`}>
-                    {selected.status === 'suspended' ? 'Suspended' : 'Active'}
-                  </span>
-                  <button
-                    type="button"
-                    className={shared.rowBtnWarn}
-                    onClick={() => handleSuspend(selected)}
-                  >
-                    {selected.status === 'suspended' ? 'Activate' : 'Suspend'}
-                  </button>
-                  <button
-                    type="button"
-                    className={classes.closeBtn}
-                    onClick={() => updateSelectedId('')}
-                    aria-label="Close agency details"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
-            </motion.section>
+            </div>
 
-            <motion.section
-              className={`glass ${classes.sectionBlock}`}
-              variants={presets.child}
-            >
-              <div className={classes.membersHeader}>
-                <div className={classes.sectionHead}>
-                  <div className={classes.sectionIcon} aria-hidden="true">
-                    <Users size={16} />
-                  </div>
-                  <div>
-                    <h4>Members</h4>
-                    <p className={shared.hint} style={{ margin: 0 }}>
-                      {members.length} assigned · search and paginate for large teams
-                    </p>
-                  </div>
+            <TablePagination
+              page={membersPager.safePage}
+              totalPages={membersPager.totalPages}
+              rangeStart={membersPager.rangeStart}
+              rangeEnd={membersPager.rangeEnd}
+              total={membersPager.total}
+              onPageChange={setMembersPage}
+            />
+          </div>
+        ) : null}
+
+        {settingsTab === 'campaigns' ? (
+          <div className={classes.tabContent}>
+            <p className={classes.tabIntro}>
+              Agency agents only see selected campaigns in Take Calls.
+            </p>
+            {campaigns.length === 0 ? (
+              <div className={shared.emptyPanel}>
+                <h4>No campaigns configured</h4>
+                <p>Add campaigns in Campaign Settings first.</p>
+              </div>
+            ) : (
+              <>
+                <div className={classes.campaignGrid}>
+                  {campaigns.map((c) => {
+                    const checked = lockedDraft.includes(c.id);
+                    return (
+                      <label
+                        key={c.id}
+                        className={`${classes.campaignChip} ${checked ? classes.campaignChipActive : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleLockedCampaign(c.id)}
+                        />
+                        <span className={classes.campaignChipBody}>
+                          <span className={classes.campaignChipLabel}>{c.label || c.id}</span>
+                          <span className={classes.campaignChipMeta}>
+                            ${Number(c.price).toFixed(0)} · {c.buffer}s
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
                 <button
                   type="button"
                   className={shared.primaryBtn}
-                  onClick={() => setAssignModalOpen(true)}
+                  onClick={handleSaveLockedCampaigns}
+                  disabled={savingCampaigns}
                 >
-                  <UserPlus size={16} />
-                  Add members
+                  {savingCampaigns ? 'Saving…' : 'Save locked campaigns'}
                 </button>
-              </div>
-
-              <div className={classes.membersToolbar}>
-                <div className={classes.membersSearchWrap}>
-                  <Search size={16} className={classes.searchIcon} aria-hidden="true" />
-                  <input
-                    className={`${shared.searchInput} ${classes.membersSearch}`}
-                    placeholder="Search members by name, email, or ID…"
-                    value={membersSearch}
-                    onChange={(e) => setMembersSearch(e.target.value)}
-                  />
-                </div>
-                {membersSearch ? (
-                  <span className={classes.pickerMeta}>
-                    {filteredMembers.length} match{filteredMembers.length !== 1 ? 'es' : ''}
-                  </span>
-                ) : null}
-              </div>
-
-              <div className={shared.tableWrap}>
-                <div className={shared.tableScroll}>
-                  <table className={`${shared.table} ${classes.memberTable}`}>
-                    <thead>
-                      <tr>
-                        <th>User</th>
-                        <th>Role</th>
-                        <th className={shared.actionsHead}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detailLoading ? (
-                        <tr>
-                          <td colSpan={3} className={shared.muted}>Loading members…</td>
-                        </tr>
-                      ) : members.length === 0 ? (
-                        <tr>
-                          <td colSpan={3}>
-                            <div className={shared.emptyPanel}>
-                              <Users size={24} className={shared.emptyPanelIcon} />
-                              <h4>No members yet</h4>
-                              <p>Use Add members to assign platform users to this agency.</p>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : membersPager.items.length === 0 ? (
-                        <tr>
-                          <td colSpan={3} className={shared.muted}>No members match your search.</td>
-                        </tr>
-                      ) : (
-                        membersPager.items.map((m) => (
-                          <tr key={m.uid}>
-                            <td><MemberCell member={m} /></td>
-                            <td>
-                              <select
-                                className={`${shared.select} ${classes.roleSelect}`}
-                                value={m.role === 'agency_admin' ? 'agency_admin' : 'agency_agent'}
-                                disabled={roleUpdatingUid === m.uid}
-                                onChange={(e) => handleUpdateMemberRole(m.uid, e.target.value)}
-                                aria-label={`Role for ${m.name || m.email || m.uid}`}
-                              >
-                                <option value="agency_agent">Agency Agent</option>
-                                <option value="agency_admin">Agency Admin</option>
-                              </select>
-                            </td>
-                            <td className={shared.actionsCell}>
-                              <button
-                                type="button"
-                                className={shared.dangerBtn}
-                                onClick={() => handleRemoveMember(m.uid)}
-                              >
-                                Remove
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <TablePagination
-                page={membersPager.safePage}
-                totalPages={membersPager.totalPages}
-                rangeStart={membersPager.rangeStart}
-                rangeEnd={membersPager.rangeEnd}
-                total={membersPager.total}
-                onPageChange={setMembersPage}
-              />
-            </motion.section>
-
-            <AssignMembersModal
-              open={assignModalOpen}
-              onClose={closeAssignModal}
-              users={users}
-              selectedUids={memberForm.selectedUids}
-              role={memberForm.role}
-              search={memberSearch}
-              pickerPage={pickerPage}
-              assigning={assigningMembers}
-              onSearchChange={setMemberSearch}
-              onPickerPageChange={setPickerPage}
-              onToggle={toggleMemberSelection}
-              onSelectPage={selectPageMembers}
-              onSelectAllFiltered={selectAllFilteredMembers}
-              onRoleChange={(role) => setMemberForm((f) => ({ ...f, role }))}
-              onSubmit={handleAssignMember}
-            />
-
-            <motion.section
-              className={`glass ${classes.sectionBlock}`}
-              variants={presets.child}
-            >
-              <div className={classes.sectionHead}>
-                <div className={classes.sectionIcon} aria-hidden="true">
-                  <Settings2 size={16} />
-                </div>
-                <div>
-                  <h4>Locked campaigns</h4>
-                  <p className={shared.hint} style={{ margin: 0 }}>
-                    Agency agents only see selected campaigns in Take Calls.
-                  </p>
-                </div>
-              </div>
-
-              {campaigns.length === 0 ? (
-                <div className={shared.emptyPanel}>
-                  <h4>No campaigns configured</h4>
-                  <p>Add campaigns in Campaign Settings first.</p>
-                </div>
-              ) : (
-                <>
-                  <div className={classes.campaignGrid}>
-                    {campaigns.map((c) => {
-                      const checked = lockedDraft.includes(c.id);
-                      return (
-                        <label
-                          key={c.id}
-                          className={`${classes.campaignChip} ${checked ? classes.campaignChipActive : ''}`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleLockedCampaign(c.id)}
-                          />
-                          <span className={classes.campaignChipBody}>
-                            <span className={classes.campaignChipLabel}>{c.label || c.id}</span>
-                            <span className={classes.campaignChipMeta}>
-                              ${Number(c.price).toFixed(0)} · {c.buffer}s
-                            </span>
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  <button
-                    type="button"
-                    className={shared.primaryBtn}
-                    onClick={handleSaveLockedCampaigns}
-                    disabled={savingCampaigns}
-                  >
-                    {savingCampaigns ? 'Saving…' : 'Save locked campaigns'}
-                  </button>
-                </>
-              )}
-            </motion.section>
-
-            <motion.section
-              className={`glass ${classes.sectionBlock}`}
-              variants={presets.child}
-            >
-              <div className={classes.sectionHead}>
-                <div className={classes.sectionIcon} aria-hidden="true">
-                  <Phone size={16} />
-                </div>
-                <div>
-                  <h4>Agency DIDs</h4>
-                  <p className={shared.hint} style={{ margin: 0 }}>
-                    Phone numbers routed exclusively to this agency&apos;s campaigns.
-                  </p>
-                </div>
-              </div>
-
-              <form className={classes.didForm} onSubmit={handleAssignDid}>
-                <div className={shared.formField}>
-                  <label>Phone (E.164)</label>
-                  <input
-                    className={shared.input}
-                    value={didForm.phoneE164}
-                    onChange={(e) => setDidForm((f) => ({ ...f, phoneE164: e.target.value }))}
-                    placeholder="+15551234567"
-                  />
-                </div>
-                <div className={shared.formField}>
-                  <label>Campaign</label>
-                  <select
-                    className={shared.select}
-                    value={didForm.campaignId}
-                    onChange={(e) => setDidForm((f) => ({ ...f, campaignId: e.target.value }))}
-                  >
-                    <option value="">Select campaign</option>
-                    {campaigns.map((c) => (
-                      <option key={c.id} value={c.id}>{c.label || c.id}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className={shared.formField}>
-                  <label>Label</label>
-                  <input
-                    className={shared.input}
-                    value={didForm.label}
-                    onChange={(e) => setDidForm((f) => ({ ...f, label: e.target.value }))}
-                    placeholder="Optional"
-                  />
-                </div>
-                <button type="submit" className={shared.primaryBtn} disabled={!didForm.phoneE164 || !didForm.campaignId}>
-                  <Plus size={16} />
-                  Add DID
-                </button>
-              </form>
-
-              <div className={shared.tableWrap}>
-                <div className={shared.tableScroll}>
-                  <table className={`${shared.table} ${shared.routingTable}`}>
-                    <thead>
-                      <tr>
-                        <th>Number</th>
-                        <th>Campaign</th>
-                        <th>Label</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dids.length === 0 ? (
-                        <tr>
-                          <td colSpan={3}>
-                            <div className={shared.emptyPanel}>
-                              <Phone size={24} className={shared.emptyPanelIcon} />
-                              <h4>No DIDs assigned</h4>
-                              <p>Add a phone number above to route inbound calls to this agency.</p>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : (
-                        dids.map((d) => (
-                          <tr key={d.id}>
-                            <td className={shared.mono}>{d.phoneE164}</td>
-                            <td>{d.campaignId}</td>
-                            <td>{d.label || '—'}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </motion.section>
+              </>
+            )}
           </div>
         ) : null}
-    </AdminPageShell>
+
+        {settingsTab === 'dids' ? (
+          <div className={classes.tabContent}>
+            <p className={classes.tabIntro}>
+              Phone numbers routed exclusively to this agency&apos;s campaigns.
+            </p>
+            <form className={classes.didForm} onSubmit={handleAssignDid}>
+              <div className={shared.formField}>
+                <label>Phone (E.164)</label>
+                <input
+                  className={shared.input}
+                  value={didForm.phoneE164}
+                  onChange={(e) => setDidForm((f) => ({ ...f, phoneE164: e.target.value }))}
+                  placeholder="+15551234567"
+                />
+              </div>
+              <div className={shared.formField}>
+                <label>Campaign</label>
+                <select
+                  className={shared.select}
+                  value={didForm.campaignId}
+                  onChange={(e) => setDidForm((f) => ({ ...f, campaignId: e.target.value }))}
+                >
+                  <option value="">Select campaign</option>
+                  {campaigns.map((c) => (
+                    <option key={c.id} value={c.id}>{c.label || c.id}</option>
+                  ))}
+                </select>
+              </div>
+              <div className={shared.formField}>
+                <label>Label</label>
+                <input
+                  className={shared.input}
+                  value={didForm.label}
+                  onChange={(e) => setDidForm((f) => ({ ...f, label: e.target.value }))}
+                  placeholder="Optional"
+                />
+              </div>
+              <button type="submit" className={shared.primaryBtn} disabled={!didForm.phoneE164 || !didForm.campaignId}>
+                <Plus size={16} />
+                Add DID
+              </button>
+            </form>
+
+            <div className={shared.tableWrap}>
+              <div className={shared.tableScroll}>
+                <table className={`${shared.table} ${shared.routingTable}`}>
+                  <thead>
+                    <tr>
+                      <th>Number</th>
+                      <th>Campaign</th>
+                      <th>Label</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dids.length === 0 ? (
+                      <tr>
+                        <td colSpan={3}>
+                          <div className={shared.emptyPanel}>
+                            <Phone size={24} className={shared.emptyPanelIcon} />
+                            <h4>No DIDs assigned</h4>
+                            <p>Add a phone number above to route inbound calls to this agency.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      dids.map((d) => (
+                        <tr key={d.id}>
+                          <td className={shared.mono}>{d.phoneE164}</td>
+                          <td>{d.campaignId}</td>
+                          <td>{d.label || '—'}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </AdminAgencySettingsShell>
+
+      <AssignMembersModal
+        open={assignModalOpen}
+        onClose={closeAssignModal}
+        users={users}
+        selectedUids={memberForm.selectedUids}
+        role={memberForm.role}
+        search={memberSearch}
+        pickerPage={pickerPage}
+        assigning={assigningMembers}
+        onSearchChange={setMemberSearch}
+        onPickerPageChange={setPickerPage}
+        onToggle={toggleMemberSelection}
+        onSelectPage={selectPageMembers}
+        onSelectAllFiltered={selectAllFilteredMembers}
+        onRoleChange={(role) => setMemberForm((f) => ({ ...f, role }))}
+        onSubmit={handleAssignMember}
+      />
+    </>
   );
 }
