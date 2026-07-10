@@ -219,7 +219,9 @@ async function cleanManagedAgentIds(managerUid, managedAgents, { platformAgentsO
   const blocked = snaps
     .filter((s) => {
       const data = s.data() || {};
-      return !isPlatformUser(data) || data.role === 'manager';
+      const role = String(data.role || '');
+      if (role === 'admin' || role === 'qa') return true;
+      return !isPlatformUser(data) || role === 'manager';
     })
     .map((s) => s.id);
   if (blocked.length) {

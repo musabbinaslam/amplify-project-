@@ -116,6 +116,10 @@ const useAuthStore = create((set, get) => ({
     const token = await credential.user.getIdToken();
 
     const saved = await saveProfile(credential.user.uid, {
+      fullName,
+      name: fullName,
+      displayName: fullName,
+      email: credential.user.email || email,
       onboarding: {
         phone: formData.phone || '',
         weeklySpend: formData.weeklySpend || '',
@@ -221,7 +225,10 @@ const useAuthStore = create((set, get) => ({
   saveGoogleOnboarding: async (formData) => {
     const currentUser = auth.currentUser;
     if (!currentUser) throw new Error('No authenticated user');
+    const displayName = String(formData.fullName || currentUser.displayName || '').trim();
     await saveProfile(currentUser.uid, {
+      ...(displayName ? { fullName: displayName, name: displayName, displayName } : {}),
+      email: currentUser.email || '',
       onboarding: {
         phone: formData.phone || '',
         weeklySpend: formData.weeklySpend || '',
@@ -277,9 +284,17 @@ const useAuthStore = create((set, get) => ({
   },
 
   updateName: async (displayName) => {
-    await updateProfile(auth.currentUser, { displayName });
+    const trimmed = String(displayName || '').trim();
+    await updateProfile(auth.currentUser, { displayName: trimmed });
+    if (trimmed) {
+      await saveProfile(auth.currentUser.uid, {
+        name: trimmed,
+        displayName: trimmed,
+        fullName: trimmed,
+      });
+    }
     set((state) => ({
-      user: state.user ? { ...state.user, name: displayName } : null,
+      user: state.user ? { ...state.user, name: trimmed } : null,
     }));
   },
 

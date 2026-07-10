@@ -88,6 +88,12 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.createFooterForm > * {
+  min-width: 0;
 }
 
 .createFooterForm label {
@@ -102,10 +108,25 @@
 .createFooterForm .createUserRow {
   flex-direction: column;
   align-items: stretch;
+  min-width: 0;
 }
 
 .createFooterForm .selectedUserBox {
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.createFooterForm .selectedUserName,
+.createFooterForm .memberMeta {
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+.createFooterForm input,
+.createFooterForm select {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .tabContent {
@@ -155,7 +176,7 @@
 
 .selectedUserBox {
   flex: 1;
-  min-width: 200px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -165,6 +186,7 @@
   background: color-mix(in srgb, var(--surface-container-high) 40%, transparent);
   min-height: 44px;
   justify-content: center;
+  overflow: hidden;
 }
 
 .selectedUserName {
@@ -172,6 +194,8 @@
   font-weight: 600;
   color: var(--text-primary);
   line-height: 1.3;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .selectedUserPlaceholder {
@@ -498,6 +522,31 @@
 .memberTable td {
   vertical-align: middle;
   padding: 0.7rem 1rem;
+}
+
+.agentsTableViewport {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.agentsTableViewportScrollable {
+  --agent-row-height: 3.35rem;
+  --agent-head-height: 2.65rem;
+  overflow-y: auto;
+  max-height: calc(
+    var(--agent-head-height)
+    + var(--agents-visible-rows, 5) * var(--agent-row-height)
+  );
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-secondary) 28%, transparent) transparent;
+}
+
+.agentsTableViewportScrollable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: color-mix(in srgb, var(--surface-container-high) 92%, transparent);
+  box-shadow: 0 1px 0 var(--border);
 }
 
 .pagination {

@@ -794,6 +794,23 @@ async function patchMe(req, res) {
     if (!existingProfile) {
       body.role = 'agent';
     }
+    const identitySync = {};
+    const authEmail = String(req.user?.email || '').trim();
+    if (authEmail && !existingProfile?.email) identitySync.email = authEmail;
+    const nameFromBody = [body.fullName, body.displayName, body.name]
+      .map((v) => String(v || '').trim())
+      .find(Boolean);
+    const authName = String(req.user?.name || '').trim();
+    const nameCandidate = nameFromBody || (authName && authName !== authEmail ? authName : '');
+    const hasFirestoreName = Boolean(
+      existingProfile?.fullName || existingProfile?.displayName || existingProfile?.name,
+    );
+    if (nameCandidate && !hasFirestoreName) {
+      identitySync.name = nameCandidate;
+      identitySync.displayName = nameCandidate;
+      identitySync.fullName = nameCandidate;
+    }
+    Object.assign(body, identitySync);
     if ('averageAp' in body) {
       const n = Number(body.averageAp);
       if (!Number.isFinite(n) || n < 0) {

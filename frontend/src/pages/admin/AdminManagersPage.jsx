@@ -27,8 +27,9 @@ import PageLoader from '../../components/ui/PageLoader';
 import shared from '../../components/admin/adminShared.module.css';
 import classes from './AdminManagersPage.module.css';
 
-const MEMBERS_PAGE_SIZE = 25;
+const AGENTS_VISIBLE_CAP = 5;
 const PICKER_PAGE_SIZE = 12;
+const MANAGER_INELIGIBLE_ROLES = new Set(['admin', 'qa', 'manager']);
 
 const SETTINGS_TABS = [
   { id: 'settings', label: 'Settings' },
@@ -52,6 +53,41 @@ function filterByQuery(list, query, extraFields = []) {
     const base = [row.name, row.email, row.uid, ...extraFields.map((f) => row[f])];
     return base.some((v) => String(v || '').toLowerCase().includes(q));
   });
+}
+
+function isUidPlaceholderName(user) {
+  const name = String(user?.name || '').trim();
+  const uid = String(user?.uid || '').trim();
+  return !name || name === uid;
+}
+
+function pickerDisplayName(user) {
+  const email = String(user?.email || '').trim();
+  if (!isUidPlaceholderName(user)) return String(user.name).trim();
+  if (email) return email;
+  return 'Unnamed user';
+}
+
+function pickerDisplayMeta(user) {
+  const email = String(user?.email || '').trim();
+  if (!isUidPlaceholderName(user) && email) return email;
+  return null;
+}
+
+function filterByNameEmail(list, query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return list;
+  return list.filter((row) => {
+    const name = isUidPlaceholderName(row) ? '' : String(row.name || '');
+    return [name, row.email].some((v) => String(v || '').toLowerCase().includes(q));
+  });
+}
+
+function hasPickerIdentity(user) {
+  if (user?.authMissing) return false;
+  const email = String(user?.email || '').trim();
+  if (email) return true;
+  return !isUidPlaceholderName(user);
 }
 
 function paginate(list, page, pageSize) {
@@ -106,14 +142,12 @@ function TablePagination({ page, totalPages, rangeStart, rangeEnd, total, onPage
 }
 
 function MemberCell({ member }) {
-  const displayName = member.name || member.email || 'Unnamed user';
+  const displayName = pickerDisplayName(member);
+  const meta = pickerDisplayMeta(member);
   return (
     <div className={classes.memberCell}>
       <span className={classes.memberName}>{displayName}</span>
-      {member.email && member.name ? (
-        <span className={classes.memberMeta}>{member.email}</span>
-      ) : null}
-      <span className={classes.memberMeta}>{member.uid}</span>
+      {meta ? <span className={classes.memberMeta}>{meta}</span> : null}
     </div>
   );
 }
@@ -130,7 +164,7 @@ function CreateTeamUserModal({
 }) {
   if (!open) return null;
 
-  const filtered = filterByQuery(users, search);
+  const filtered = filterByNameEmail(users, search);
   const picker = paginate(filtered, pickerPage, PICKER_PAGE_SIZE);
 
   return (
@@ -143,14 +177,15 @@ function CreateTeamUserModal({
           </button>
         </div>
         <p className={shared.modalSub}>
-          Select a platform user to promote as a manager. Agency users are not shown.
+          Select a platform agent to promote as a manager. Admins, QA, existing managers,
+          and agency users are not shown.
         </p>
 
         <div className={classes.modalSearchRow}>
           <Search size={16} className={classes.searchIcon} aria-hidden="true" />
           <input
             className={`${shared.searchInput} ${classes.modalSearch}`}
-            placeholder="Search by name, email, or ID…"
+            placeholder="Search by name or email…"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             autoFocus
@@ -162,7 +197,8 @@ function CreateTeamUserModal({
             <p className={classes.userPickerEmpty}>No eligible users match your search.</p>
           ) : (
             picker.items.map((u) => {
-              const label = u.name || u.email || 'Unnamed user';
+              const label = pickerDisplayName(u);
+              const meta = pickerDisplayMeta(u);
               return (
                 <button
                   key={u.uid}
@@ -172,10 +208,7 @@ function CreateTeamUserModal({
                 >
                   <span className={classes.userPickerBody}>
                     <span className={classes.userPickerName}>{label}</span>
-                    {u.email && u.name ? (
-                      <span className={classes.memberMeta}>{u.email}</span>
-                    ) : null}
-                    <span className={classes.memberMeta}>{u.uid}</span>
+                    {meta ? <span className={classes.memberMeta}>{meta}</span> : null}
                   </span>
                 </button>
               );
@@ -213,7 +246,7 @@ function AssignAgentsModal({
 }) {
   if (!open) return null;
 
-  const filtered = filterByQuery(users, search);
+  const filtered = filterByNameEmail(users, search);
   const picker = paginate(filtered, pickerPage, PICKER_PAGE_SIZE);
   const pageUids = picker.items.map((u) => u.uid);
   const pageAllSelected = pageUids.length > 0 && pageUids.every((id) => selectedUids.includes(id));
@@ -236,7 +269,7 @@ function AssignAgentsModal({
           <Search size={16} className={classes.searchIcon} aria-hidden="true" />
           <input
             className={`${shared.searchInput} ${classes.modalSearch}`}
-            placeholder="Search by name, email, or ID…"
+            placeholder="Search by name or email…"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             autoFocus
@@ -283,7 +316,8 @@ function AssignAgentsModal({
             <p className={classes.userPickerEmpty}>No users match your search.</p>
           ) : (
             picker.items.map((u) => {
-              const label = u.name || u.email || 'Unnamed user';
+              const label = pickerDisplayName(u);
+              const meta = pickerDisplayMeta(u);
               const checked = selectedUids.includes(u.uid);
               return (
                 <label
@@ -293,10 +327,7 @@ function AssignAgentsModal({
                   <input type="checkbox" checked={checked} onChange={() => onToggle(u.uid)} />
                   <span className={classes.userPickerBody}>
                     <span className={classes.userPickerName}>{label}</span>
-                    {u.email && u.name ? (
-                      <span className={classes.memberMeta}>{u.email}</span>
-                    ) : null}
-                    <span className={classes.memberMeta}>{u.uid}</span>
+                    {meta ? <span className={classes.memberMeta}>{meta}</span> : null}
                   </span>
                 </label>
               );
@@ -351,7 +382,6 @@ export default function AdminManagersPage() {
   const [createPickerPage, setCreatePickerPage] = useState(1);
   const [creating, setCreating] = useState(false);
   const [membersSearch, setMembersSearch] = useState('');
-  const [membersPage, setMembersPage] = useState(1);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignSearch, setAssignSearch] = useState('');
   const [pickerPage, setPickerPage] = useState(1);
@@ -414,7 +444,11 @@ export default function AdminManagersPage() {
   );
 
   const createCandidates = useMemo(
-    () => platformUsers.filter((u) => u.role !== 'manager' && !managerUids.has(u.uid)),
+    () => platformUsers.filter(
+      (u) => hasPickerIdentity(u)
+        && !MANAGER_INELIGIBLE_ROLES.has(u.role)
+        && !managerUids.has(u.uid),
+    ),
     [platformUsers, managerUids],
   );
 
@@ -438,7 +472,10 @@ export default function AdminManagersPage() {
     if (!detail?.manager) return [];
     const memberSet = new Set(detail.manager.managedAgents || []);
     return platformUsers.filter(
-      (u) => u.uid !== detail.manager.uid && !memberSet.has(u.uid) && u.role !== 'manager',
+      (u) => hasPickerIdentity(u)
+        && u.uid !== detail.manager.uid
+        && !memberSet.has(u.uid)
+        && !MANAGER_INELIGIBLE_ROLES.has(u.role),
     );
   }, [detail, platformUsers]);
 
@@ -446,10 +483,11 @@ export default function AdminManagersPage() {
     () => filterByQuery(detail?.members || [], membersSearch, ['role']),
     [detail, membersSearch],
   );
-  const membersPager = useMemo(
-    () => paginate(filteredMembers, membersPage, MEMBERS_PAGE_SIZE),
-    [filteredMembers, membersPage],
-  );
+
+  const agentsListScrollable = filteredMembers.length > AGENTS_VISIBLE_CAP;
+  const agentsVisibleRows = agentsListScrollable
+    ? AGENTS_VISIBLE_CAP
+    : Math.max(filteredMembers.length, 1);
 
   const chartData = useMemo(() => {
     if (!detail?.byDay?.length) return [];
@@ -507,7 +545,6 @@ export default function AdminManagersPage() {
   useEffect(() => {
     if (selectedUid) {
       loadDetail(selectedUid);
-      setMembersPage(1);
       setMembersSearch('');
       setSettingsTab('settings');
     } else {
@@ -525,6 +562,10 @@ export default function AdminManagersPage() {
     e.preventDefault();
     if (!createUid) {
       toast.error('Select a user first');
+      return;
+    }
+    if (MANAGER_INELIGIBLE_ROLES.has(selectedCreateUser?.role)) {
+      toast.error('Platform admin and QA accounts cannot be assigned as manager team leads');
       return;
     }
     setCreating(true);
@@ -655,7 +696,7 @@ export default function AdminManagersPage() {
               </>
             ) : (
               <>
-                {selected.email || selected.uid}
+                {pickerDisplayMeta(selected) || pickerDisplayName(selected)}
                 {' · '}
               </>
             )}
@@ -700,12 +741,11 @@ export default function AdminManagersPage() {
             {selectedCreateUser ? (
               <>
                 <span className={classes.selectedUserName}>
-                  {selectedCreateUser.name || selectedCreateUser.email || selectedCreateUser.uid}
+                  {pickerDisplayName(selectedCreateUser)}
                 </span>
-                {selectedCreateUser.email && selectedCreateUser.name ? (
-                  <span className={classes.memberMeta}>{selectedCreateUser.email}</span>
+                {pickerDisplayMeta(selectedCreateUser) ? (
+                  <span className={classes.memberMeta}>{pickerDisplayMeta(selectedCreateUser)}</span>
                 ) : null}
-                <span className={classes.memberMeta}>{selectedCreateUser.uid}</span>
               </>
             ) : (
               <span className={classes.selectedUserPlaceholder}>No user selected</span>
@@ -755,19 +795,19 @@ export default function AdminManagersPage() {
         getPrimaryLabel={(m) => m.teamName || m.name}
         getSecondaryLabel={(m) => {
           const primary = m.teamName || m.name;
-          if (m.name && m.name !== primary) return m.name;
-          return m.email || m.uid;
+          if (m.name && m.name !== primary && !isUidPlaceholderName(m)) return m.name;
+          return m.email || '';
         }}
         getAgentCount={(m) => m.agentCount ?? 0}
         getSearchText={(m) => [
           m.teamName,
-          m.name,
+          isUidPlaceholderName(m) ? '' : m.name,
           m.email,
-          m.uid,
         ].filter(Boolean).join(' ')}
         railCreate={railCreate}
         createPanelTitle="New team"
         createPanelHint="Promote a user, then configure the team on the right"
+        createTriggerLabel="Create team"
         searchPlaceholder="Search teams…"
         sidebarAriaLabel="Manager teams sidebar"
         directoryListAriaLabel="Manager teams"
@@ -777,7 +817,7 @@ export default function AdminManagersPage() {
         activeTab={settingsTab}
         onTabChange={setSettingsTab}
         emptyTenantsTitle="No manager teams yet"
-        emptyTenantsBody="Use the form above to promote your first manager."
+        emptyTenantsBody="Click Create team above to promote your first manager."
         emptySelectionTitle="Select a team"
         emptySelectionBody="Choose from the directory to manage agents and view performance."
       >
@@ -854,7 +894,7 @@ export default function AdminManagersPage() {
               <p className={classes.tabIntro}>
                 {detailLoading
                   ? 'Loading agents…'
-                  : `${(detail?.members || []).length} assigned · search and paginate for large teams`}
+                  : `${(detail?.members || []).length} assigned · ${agentsListScrollable ? 'scroll the list for more' : 'search to filter'}`}
               </p>
               <button
                 type="button"
@@ -885,7 +925,10 @@ export default function AdminManagersPage() {
             </div>
 
             <div className={shared.tableWrap}>
-              <div className={shared.tableScroll}>
+              <div
+                className={`${shared.tableScroll} ${classes.agentsTableViewport} ${agentsListScrollable ? classes.agentsTableViewportScrollable : ''}`}
+                style={{ '--agents-visible-rows': agentsVisibleRows }}
+              >
                 <table className={`${shared.table} ${classes.memberTable}`}>
                   <thead>
                     <tr>
@@ -911,12 +954,12 @@ export default function AdminManagersPage() {
                           </div>
                         </td>
                       </tr>
-                    ) : membersPager.items.length === 0 ? (
+                    ) : filteredMembers.length === 0 ? (
                       <tr>
                         <td colSpan={5} className={shared.muted}>No agents match your search.</td>
                       </tr>
                     ) : (
-                      membersPager.items.map((m) => (
+                      filteredMembers.map((m) => (
                         <tr key={m.uid}>
                           <td><MemberCell member={m} /></td>
                           <td>{m.calls ?? 0}</td>
@@ -939,15 +982,6 @@ export default function AdminManagersPage() {
                 </table>
               </div>
             </div>
-
-            <TablePagination
-              page={membersPager.safePage}
-              totalPages={membersPager.totalPages}
-              rangeStart={membersPager.rangeStart}
-              rangeEnd={membersPager.rangeEnd}
-              total={membersPager.total}
-              onPageChange={setMembersPage}
-            />
           </div>
         ) : null}
       </AdminAgencySettingsShell>
