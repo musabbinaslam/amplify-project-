@@ -1,6 +1,7 @@
 import { Play, TrendingUp, Phone, Activity, Radio, CircleDollarSign } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { AdminDrilldownTrendChart } from '../admin/AdminCharts';
+import { CallLogDispositionBadge, CallLogStatusBadge } from '../callLogs/CallLogStatusCells';
 import shared from './opsShared.module.css';
 
 /* eslint-disable react/prop-types */
@@ -106,15 +107,11 @@ export default function OpsDrilldownPanel({
                       <td>{log.campaignLabel || log.campaign}</td>
                       <td>{log.duration}s</td>
                       <td>
-                        {log.isBillable ? (
-                          <span className={`${shared.statusPill} ${shared.statAvailable}`}>Sold</span>
-                        ) : log.status === 'completed' ? (
-                          <span className={`${shared.statusPill} ${shared.statInCall}`}>Answered</span>
-                        ) : (
-                          <span className={`${shared.statusPill} ${shared.statOffline}`}>Missed</span>
-                        )}
+                        <CallLogStatusBadge log={log} />
                       </td>
-                      <td>{log.disposition || <span className={shared.muted}>—</span>}</td>
+                      <td>
+                        <CallLogDispositionBadge log={log} />
+                      </td>
                       <td>{log.cost > 0 ? `$${log.cost.toFixed(2)}` : '—'}</td>
                       <td>
                         {(log.recordingSid || log.recordingUrl) ? (
