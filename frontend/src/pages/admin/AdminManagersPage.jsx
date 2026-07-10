@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { usePageBreadcrumbs } from '../../hooks/usePageBreadcrumbs';
 import {
   UserCog,
@@ -11,8 +11,8 @@ import {
   ChevronRight,
   Search,
   UserMinus,
+  LayoutDashboard,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
   listAdminManagers,
@@ -20,9 +20,8 @@ import {
   listAdminUsers,
   patchManagerSettings,
 } from '../../services/adminService';
-import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
+import AdminAgencySettingsShell from '../../components/admin/AdminAgencySettingsShell';
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
-import AdminPageShell from '../../components/admin/AdminPageShell';
 import { AdminCallTrendChart } from '../../components/admin/AdminCharts';
 import PageLoader from '../../components/ui/PageLoader';
 import shared from '../../components/admin/adminShared.module.css';
@@ -30,6 +29,12 @@ import classes from './AdminManagersPage.module.css';
 
 const MEMBERS_PAGE_SIZE = 25;
 const PICKER_PAGE_SIZE = 12;
+
+const SETTINGS_TABS = [
+  { id: 'settings', label: 'Settings' },
+  { id: 'performance', label: 'Performance' },
+  { id: 'agents', label: 'Agents' },
+];
 
 function defaultRange() {
   const now = new Date();
@@ -330,13 +335,13 @@ function AssignAgentsModal({
 }
 
 export default function AdminManagersPage() {
-  const presets = useSubtlePageMotion();
   const [searchParams, setSearchParams] = useSearchParams();
   const range = useMemo(() => defaultRange(), []);
   const [loading, setLoading] = useState(true);
   const [managers, setManagers] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedUid, setSelectedUid] = useState(() => searchParams.get('selected') || '');
+  const [settingsTab, setSettingsTab] = useState('settings');
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [createUid, setCreateUid] = useState('');
@@ -394,6 +399,12 @@ export default function AdminManagersPage() {
     const agents = managers.reduce((sum, m) => sum + (m.agentCount ?? 0), 0);
     return { total: managers.length, withAgents, agents };
   }, [managers]);
+
+  const metrics = useMemo(() => [
+    { label: 'teams', value: stats.total },
+    { label: 'with agents', value: stats.withAgents },
+    { label: 'agents', value: stats.agents },
+  ], [stats]);
 
   const managerUids = useMemo(() => new Set(managers.map((m) => m.uid)), [managers]);
 
@@ -498,6 +509,7 @@ export default function AdminManagersPage() {
       loadDetail(selectedUid);
       setMembersPage(1);
       setMembersSearch('');
+      setSettingsTab('settings');
     } else {
       setDetail(null);
       setTeamNameDraft('');
@@ -626,250 +638,186 @@ export default function AdminManagersPage() {
 
   if (loading && !managers.length) return <PageLoader />;
 
-  return (
-    <AdminPageShell
-      title="Manager Teams"
-      description="Platform read-only supervisors scoped to assigned agents. Each manager sees a Team Dashboard for their allowlist only."
-      icon={UserCog}
-      category={ADMIN_CATEGORIES.configuration}
-    >
-      <motion.div className={classes.statsRow} variants={presets.statsStrip}>
-        {[
-          { label: 'Total teams', value: stats.total },
-          { label: 'Teams with agents', value: stats.withAgents },
-          { label: 'Managed agents', value: stats.agents },
-        ].map((stat) => (
-          <motion.div
-            key={stat.label}
-            className={`glass ${shared.statCard}`}
-            variants={presets.child}
+  const contextHeader = selected ? (
+    <div className={classes.contextHeaderRow}>
+      <div className={classes.contextLead}>
+        <div className={classes.contextIcon} aria-hidden="true">
+          <UserCog size={20} />
+        </div>
+        <div className={classes.contextCopy}>
+          <h3 className={classes.contextTitle}>{selected.teamName || selected.name}</h3>
+          <p className={classes.contextMeta}>
+            {selected.teamName ? (
+              <>
+                Manager: {selected.name}
+                {selected.email ? ` · ${selected.email}` : ''}
+                {' · '}
+              </>
+            ) : (
+              <>
+                {selected.email || selected.uid}
+                {' · '}
+              </>
+            )}
+            {selected.agentCount ?? 0} agent{(selected.agentCount ?? 0) !== 1 ? 's' : ''}
+          </p>
+        </div>
+      </div>
+      <div className={classes.contextActions}>
+        <Link
+          to={`/app/admin/ops/teams?selected=${encodeURIComponent(selected.uid)}`}
+          className={classes.opsLink}
+        >
+          <LayoutDashboard size={15} />
+          <span className={classes.opsLinkLabel}>View ops dashboard</span>
+        </Link>
+        <button
+          type="button"
+          className={`${shared.rowBtnWarn} ${classes.contextActionBtn}`}
+          onClick={() => handleDemote(selected.uid, selected.name)}
+        >
+          <UserMinus size={14} />
+          Demote
+        </button>
+        <button
+          type="button"
+          className={classes.closeBtn}
+          onClick={() => updateSelectedUid('')}
+          aria-label="Close team settings"
+        >
+          <X size={16} />
+        </button>
+      </div>
+    </div>
+  ) : null;
+
+  const railCreate = (
+    <form className={classes.createFooterForm} onSubmit={handleCreate}>
+      <div className={shared.formField}>
+        <label>User</label>
+        <div className={classes.createUserRow}>
+          <div className={classes.selectedUserBox} aria-live="polite">
+            {selectedCreateUser ? (
+              <>
+                <span className={classes.selectedUserName}>
+                  {selectedCreateUser.name || selectedCreateUser.email || selectedCreateUser.uid}
+                </span>
+                {selectedCreateUser.email && selectedCreateUser.name ? (
+                  <span className={classes.memberMeta}>{selectedCreateUser.email}</span>
+                ) : null}
+                <span className={classes.memberMeta}>{selectedCreateUser.uid}</span>
+              </>
+            ) : (
+              <span className={classes.selectedUserPlaceholder}>No user selected</span>
+            )}
+          </div>
+          <button
+            type="button"
+            className={shared.rowBtn}
+            onClick={() => setCreateModalOpen(true)}
           >
-            <div className={shared.statIconBox} aria-hidden="true">
-              <UserCog size={18} className={shared.statIcon} />
-            </div>
-            <span className={shared.statLabel}>{stat.label}</span>
-            <span className={shared.statValue}>{stat.value}</span>
-          </motion.div>
-        ))}
-      </motion.div>
-
-      <motion.section className={`glass ${shared.sectionCard}`} variants={presets.child}>
-        <div className={shared.cardTopRow}>
-          <div>
-            <h2 className={shared.cardTitle}>Manager teams</h2>
-            <p className={shared.hint}>
-              Promote platform users to managers and assign agents. Managers can also choose their own agents from Team Dashboard.
-            </p>
-          </div>
-        </div>
-
-        <form className={classes.createRow} onSubmit={handleCreate}>
-          <div className={shared.formField}>
-            <label>User</label>
-            <div className={classes.createUserRow}>
-              <div className={classes.selectedUserBox} aria-live="polite">
-                {selectedCreateUser ? (
-                  <>
-                    <span className={classes.selectedUserName}>
-                      {selectedCreateUser.name || selectedCreateUser.email || selectedCreateUser.uid}
-                    </span>
-                    {selectedCreateUser.email && selectedCreateUser.name ? (
-                      <span className={classes.memberMeta}>{selectedCreateUser.email}</span>
-                    ) : null}
-                    <span className={classes.memberMeta}>{selectedCreateUser.uid}</span>
-                  </>
-                ) : (
-                  <span className={classes.selectedUserPlaceholder}>No user selected</span>
-                )}
-              </div>
-              <button
-                type="button"
-                className={shared.rowBtn}
-                onClick={() => setCreateModalOpen(true)}
-              >
-                Choose user
-              </button>
-            </div>
-          </div>
-          <div className={shared.formField}>
-            <label htmlFor="createTeamName">Team name</label>
-            <input
-              id="createTeamName"
-              className={shared.input}
-              placeholder="e.g. East Coast Team"
-              value={createTeamName}
-              onChange={(e) => setCreateTeamName(e.target.value)}
-              maxLength={80}
-            />
-          </div>
-          <button type="submit" className={shared.primaryBtn} disabled={creating || !createUid}>
-            <Plus size={16} />
-            {creating ? 'Creating…' : 'Create team'}
+            Choose user
           </button>
-        </form>
-
-        <div className={shared.tableWrap}>
-          <div className={shared.tableScroll}>
-            <table className={`${shared.table} ${classes.managerTable}`}>
-              <thead>
-                <tr>
-                  <th>Team</th>
-                  <th>Manager</th>
-                  <th>Agents</th>
-                  <th>7d calls</th>
-                  <th>7d earnings</th>
-                  <th className={shared.actionsHead}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {managers.length === 0 ? (
-                  <tr>
-                    <td colSpan={6}>
-                      <div className={shared.emptyPanel}>
-                        <UserCog size={28} className={shared.emptyPanelIcon} />
-                        <h4>No manager teams yet</h4>
-                        <p>Promote a platform user above to create their first team.</p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  managers.map((manager) => {
-                    const isActive = selectedUid === manager.uid;
-                    return (
-                      <tr
-                        key={manager.uid}
-                        className={`${shared.clickableRow} ${isActive ? shared.rowActive : ''}`}
-                        onClick={() => updateSelectedUid(manager.uid)}
-                      >
-                        <td>
-                          <strong>{manager.teamName || '—'}</strong>
-                        </td>
-                        <td>
-                          <div className={classes.managerCell}>
-                            <strong className={classes.managerName}>{manager.name}</strong>
-                            {manager.email ? (
-                              <span className={classes.managerEmail}>{manager.email}</span>
-                            ) : manager.name !== manager.uid ? (
-                              <span className={classes.managerEmail}>{manager.uid}</span>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td>{manager.agentCount ?? 0}</td>
-                        <td>{manager.summary?.totalCalls ?? 0}</td>
-                        <td>{formatMoney(manager.summary?.totalCost)}</td>
-                        <td className={shared.actionsCell} onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            className={shared.rowBtnWarn}
-                            onClick={() => handleDemote(manager.uid, manager.name)}
-                            aria-label="Demote manager"
-                            title="Demote"
-                          >
-                            <UserMinus size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
         </div>
+      </div>
+      <div className={shared.formField}>
+        <label htmlFor="createTeamName">Team name</label>
+        <input
+          id="createTeamName"
+          className={shared.input}
+          placeholder="e.g. East Coast Team"
+          value={createTeamName}
+          onChange={(e) => setCreateTeamName(e.target.value)}
+          maxLength={80}
+        />
+      </div>
+      <button
+        type="submit"
+        className={`${shared.primaryBtn} ${classes.createFooterBtn}`}
+        disabled={creating || !createUid}
+      >
+        <Plus size={16} />
+        {creating ? 'Creating…' : 'Create team'}
+      </button>
+    </form>
+  );
 
-        {!selected && managers.length > 0 ? (
-          <p className={classes.tableHint}>Click a row to manage agents and view team performance.</p>
-        ) : null}
-      </motion.section>
-
-      {selected ? (
-        <div className={classes.detailPanel}>
-          <motion.section className={`glass ${classes.detailHeader}`} variants={presets.child}>
-            <div className={classes.detailTitleRow}>
-              <div>
-                <h3>{selected.teamName || selected.name}</h3>
-                <p className={classes.detailMeta}>
-                  {selected.teamName ? (
-                    <>
-                      Manager: {selected.name}
-                      {selected.email ? ` · ${selected.email}` : ''}
-                      {' · '}
-                    </>
-                  ) : (
-                    <>
-                      {selected.email || selected.uid}
-                      {' · '}
-                    </>
-                  )}
-                  {selected.agentCount ?? 0} agent{(selected.agentCount ?? 0) !== 1 ? 's' : ''}
-                  {' · '}
-                  Last 7 days
-                </p>
-              </div>
-              <div className={classes.detailActions}>
-                <button
-                  type="button"
-                  className={shared.rowBtnWarn}
-                  onClick={() => handleDemote(selected.uid, selected.name)}
-                >
-                  <UserMinus size={14} />
-                  Demote
-                </button>
-                <button
-                  type="button"
-                  className={classes.closeBtn}
-                  onClick={() => updateSelectedUid('')}
-                  aria-label="Close team details"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-          </motion.section>
-
-          {detailLoading ? (
-            <motion.section className={`glass ${classes.sectionBlock}`} variants={presets.child}>
+  return (
+    <>
+      <AdminAgencySettingsShell
+        metrics={metrics}
+        loading={loading}
+        category={ADMIN_CATEGORIES.configuration}
+        tenants={managers}
+        activeId={selectedUid}
+        onSelect={updateSelectedUid}
+        getTenantId={(m) => m.uid}
+        getPrimaryLabel={(m) => m.teamName || m.name}
+        getSecondaryLabel={(m) => {
+          const primary = m.teamName || m.name;
+          if (m.name && m.name !== primary) return m.name;
+          return m.email || m.uid;
+        }}
+        getAgentCount={(m) => m.agentCount ?? 0}
+        getSearchText={(m) => [
+          m.teamName,
+          m.name,
+          m.email,
+          m.uid,
+        ].filter(Boolean).join(' ')}
+        railCreate={railCreate}
+        createPanelTitle="New team"
+        createPanelHint="Promote a user, then configure the team on the right"
+        searchPlaceholder="Search teams…"
+        sidebarAriaLabel="Manager teams sidebar"
+        directoryListAriaLabel="Manager teams"
+        settingsSectionsAriaLabel="Team settings sections"
+        detailHeader={contextHeader}
+        tabs={SETTINGS_TABS}
+        activeTab={settingsTab}
+        onTabChange={setSettingsTab}
+        emptyTenantsTitle="No manager teams yet"
+        emptyTenantsBody="Use the form above to promote your first manager."
+        emptySelectionTitle="Select a team"
+        emptySelectionBody="Choose from the directory to manage agents and view performance."
+      >
+        {settingsTab === 'settings' ? (
+          <div className={classes.tabContent}>
+            {detailLoading ? (
               <p className={shared.muted}>Loading team details…</p>
-            </motion.section>
-          ) : detail ? (
-            <>
-              <motion.section className={`glass ${classes.sectionBlock}`} variants={presets.child}>
-                <div className={classes.sectionHead}>
-                  <div className={classes.sectionIcon} aria-hidden="true">
-                    <UserCog size={16} />
-                  </div>
-                  <h4>Team settings</h4>
+            ) : detail ? (
+              <div className={classes.teamNameRow}>
+                <div className={shared.formField}>
+                  <label htmlFor="teamNameDraft">Team name</label>
+                  <input
+                    id="teamNameDraft"
+                    className={shared.input}
+                    placeholder="e.g. East Coast Team"
+                    value={teamNameDraft}
+                    onChange={(e) => setTeamNameDraft(e.target.value)}
+                    maxLength={80}
+                  />
                 </div>
-                <div className={classes.teamNameRow}>
-                  <div className={shared.formField}>
-                    <label htmlFor="teamNameDraft">Team name</label>
-                    <input
-                      id="teamNameDraft"
-                      className={shared.input}
-                      placeholder="e.g. East Coast Team"
-                      value={teamNameDraft}
-                      onChange={(e) => setTeamNameDraft(e.target.value)}
-                      maxLength={80}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className={shared.primaryBtn}
-                    onClick={handleSaveTeamName}
-                    disabled={savingTeamName}
-                  >
-                    {savingTeamName ? 'Saving…' : 'Save name'}
-                  </button>
-                </div>
-              </motion.section>
+                <button
+                  type="button"
+                  className={shared.primaryBtn}
+                  onClick={handleSaveTeamName}
+                  disabled={savingTeamName}
+                >
+                  {savingTeamName ? 'Saving…' : 'Save name'}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
-              <motion.section className={`glass ${classes.sectionBlock}`} variants={presets.child}>
-                <div className={classes.sectionHead}>
-                  <div className={classes.sectionIcon} aria-hidden="true">
-                    <UserCog size={16} />
-                  </div>
-                  <h4>Team performance</h4>
-                </div>
+        {settingsTab === 'performance' ? (
+          <div className={classes.tabContent}>
+            {detailLoading ? (
+              <p className={shared.muted}>Loading team details…</p>
+            ) : detail ? (
+              <>
+                <p className={classes.tabIntro}>Last 7 days</p>
                 <div className={classes.performanceStrip}>
                   <div className={classes.perfCard}>
                     <span className={classes.perfLabel}>Total calls</span>
@@ -895,113 +843,114 @@ export default function AdminManagersPage() {
                     answerRatePct={Math.round((detail.summary?.answerRate ?? 0) * 100)}
                   />
                 </div>
-              </motion.section>
+              </>
+            ) : null}
+          </div>
+        ) : null}
 
-              <motion.section className={`glass ${classes.sectionBlock}`} variants={presets.child}>
-                <div className={classes.membersHeader}>
-                  <div className={classes.sectionHead}>
-                    <div className={classes.sectionIcon} aria-hidden="true">
-                      <Users size={16} />
-                    </div>
-                    <div>
-                      <h4>Agents</h4>
-                      <p className={shared.hint} style={{ margin: 0 }}>
-                        {(detail.members || []).length} assigned · search and paginate for large teams
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className={shared.primaryBtn}
-                    onClick={() => setAssignModalOpen(true)}
-                  >
-                    <UserPlus size={16} />
-                    Add agents
-                  </button>
-                </div>
+        {settingsTab === 'agents' ? (
+          <div className={classes.tabContent}>
+            <div className={classes.tabToolbar}>
+              <p className={classes.tabIntro}>
+                {detailLoading
+                  ? 'Loading agents…'
+                  : `${(detail?.members || []).length} assigned · search and paginate for large teams`}
+              </p>
+              <button
+                type="button"
+                className={shared.primaryBtn}
+                onClick={() => setAssignModalOpen(true)}
+                disabled={!detail || detailLoading}
+              >
+                <UserPlus size={16} />
+                Add agents
+              </button>
+            </div>
 
-                <div className={classes.membersToolbar}>
-                  <div className={classes.membersSearchWrap}>
-                    <Search size={16} className={classes.searchIcon} aria-hidden="true" />
-                    <input
-                      className={`${shared.searchInput} ${classes.membersSearch}`}
-                      placeholder="Search agents by name, email, or ID…"
-                      value={membersSearch}
-                      onChange={(e) => setMembersSearch(e.target.value)}
-                    />
-                  </div>
-                  {membersSearch ? (
-                    <span className={classes.pickerMeta}>
-                      {filteredMembers.length} match{filteredMembers.length !== 1 ? 'es' : ''}
-                    </span>
-                  ) : null}
-                </div>
-
-                <div className={shared.tableWrap}>
-                  <div className={shared.tableScroll}>
-                    <table className={`${shared.table} ${classes.memberTable}`}>
-                      <thead>
-                        <tr>
-                          <th>Agent</th>
-                          <th>Calls</th>
-                          <th>Billable %</th>
-                          <th>Earnings</th>
-                          <th className={shared.actionsHead}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(detail.members || []).length === 0 ? (
-                          <tr>
-                            <td colSpan={5}>
-                              <div className={shared.emptyPanel}>
-                                <Users size={24} className={shared.emptyPanelIcon} />
-                                <h4>No agents yet</h4>
-                                <p>Use Add agents to build this manager&apos;s team allowlist.</p>
-                              </div>
-                            </td>
-                          </tr>
-                        ) : membersPager.items.length === 0 ? (
-                          <tr>
-                            <td colSpan={5} className={shared.muted}>No agents match your search.</td>
-                          </tr>
-                        ) : (
-                          membersPager.items.map((m) => (
-                            <tr key={m.uid}>
-                              <td><MemberCell member={m} /></td>
-                              <td>{m.calls ?? 0}</td>
-                              <td>{Math.round((m.billableRate ?? 0) * 100)}%</td>
-                              <td>{formatMoney(m.totalCost)}</td>
-                              <td className={shared.actionsCell}>
-                                <button
-                                  type="button"
-                                  className={shared.dangerBtn}
-                                  disabled={savingMembers}
-                                  onClick={() => handleRemoveMember(m.uid)}
-                                >
-                                  Remove
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <TablePagination
-                  page={membersPager.safePage}
-                  totalPages={membersPager.totalPages}
-                  rangeStart={membersPager.rangeStart}
-                  rangeEnd={membersPager.rangeEnd}
-                  total={membersPager.total}
-                  onPageChange={setMembersPage}
+            <div className={classes.membersToolbar}>
+              <div className={classes.membersSearchWrap}>
+                <Search size={16} className={classes.searchIcon} aria-hidden="true" />
+                <input
+                  className={`${shared.searchInput} ${classes.membersSearch}`}
+                  placeholder="Search agents by name, email, or ID…"
+                  value={membersSearch}
+                  onChange={(e) => setMembersSearch(e.target.value)}
                 />
-              </motion.section>
-            </>
-          ) : null}
-        </div>
-      ) : null}
+              </div>
+              {membersSearch ? (
+                <span className={classes.pickerMeta}>
+                  {filteredMembers.length} match{filteredMembers.length !== 1 ? 'es' : ''}
+                </span>
+              ) : null}
+            </div>
+
+            <div className={shared.tableWrap}>
+              <div className={shared.tableScroll}>
+                <table className={`${shared.table} ${classes.memberTable}`}>
+                  <thead>
+                    <tr>
+                      <th>Agent</th>
+                      <th>Calls</th>
+                      <th>Billable %</th>
+                      <th>Earnings</th>
+                      <th className={shared.actionsHead}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detailLoading ? (
+                      <tr>
+                        <td colSpan={5} className={shared.muted}>Loading agents…</td>
+                      </tr>
+                    ) : (detail?.members || []).length === 0 ? (
+                      <tr>
+                        <td colSpan={5}>
+                          <div className={shared.emptyPanel}>
+                            <Users size={24} className={shared.emptyPanelIcon} />
+                            <h4>No agents yet</h4>
+                            <p>Use Add agents to build this manager&apos;s team allowlist.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : membersPager.items.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className={shared.muted}>No agents match your search.</td>
+                      </tr>
+                    ) : (
+                      membersPager.items.map((m) => (
+                        <tr key={m.uid}>
+                          <td><MemberCell member={m} /></td>
+                          <td>{m.calls ?? 0}</td>
+                          <td>{Math.round((m.billableRate ?? 0) * 100)}%</td>
+                          <td>{formatMoney(m.totalCost)}</td>
+                          <td className={shared.actionsCell}>
+                            <button
+                              type="button"
+                              className={shared.dangerBtn}
+                              disabled={savingMembers}
+                              onClick={() => handleRemoveMember(m.uid)}
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <TablePagination
+              page={membersPager.safePage}
+              totalPages={membersPager.totalPages}
+              rangeStart={membersPager.rangeStart}
+              rangeEnd={membersPager.rangeEnd}
+              total={membersPager.total}
+              onPageChange={setMembersPage}
+            />
+          </div>
+        ) : null}
+      </AdminAgencySettingsShell>
 
       <CreateTeamUserModal
         open={createModalOpen}
@@ -1029,6 +978,6 @@ export default function AdminManagersPage() {
         onSelectAllFiltered={selectAllFiltered}
         onSubmit={handleAssignAgents}
       />
-    </AdminPageShell>
+    </>
   );
 }

@@ -1,46 +1,4 @@
-.statsRow {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-}
-
-.pageStack {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.createRow {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 12px;
-  align-items: end;
-  margin-bottom: 20px;
-}
-
-.tableHint {
-  margin: 14px 0 0;
-  font-size: 13px;
-  color: var(--text-tertiary);
-  line-height: 1.45;
-}
-
-.detailPanel {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.detailHeader {
-  padding: 20px 22px;
-}
-
-.detailHeader > * {
-  position: relative;
-  z-index: 1;
-}
-
-.detailTitleRow {
+.contextHeaderRow {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -48,25 +6,119 @@
   flex-wrap: wrap;
 }
 
-.detailTitleRow h3 {
+.contextLead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.contextIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent-cyan);
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-cyan) 22%, transparent);
+}
+
+.contextCopy {
+  min-width: 0;
+}
+
+.contextTitle {
   margin: 0 0 4px;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 
-.detailMeta {
+.contextMeta {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-secondary);
+  line-height: 1.4;
 }
 
-.detailActions {
+.contextActions {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.opsLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.opsLink:hover {
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 8%, transparent);
+}
+
+.opsLinkLabel {
+  white-space: nowrap;
+}
+
+.contextActionBtn {
+  gap: 6px;
+}
+
+.createFooterForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.createFooterForm label {
+  font-size: 11px;
+}
+
+.createFooterBtn {
+  width: 100%;
+  justify-content: center;
+}
+
+.tabContent {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.tabToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tabIntro {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.45;
 }
 
 .closeBtn {
@@ -87,55 +139,6 @@
 .closeBtn:hover {
   color: var(--text-primary);
   border-color: color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
-}
-
-.sectionBlock {
-  padding: 20px 22px;
-}
-
-.sectionBlock > * {
-  position: relative;
-  z-index: 1;
-}
-
-.sectionHead {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.sectionHead h4 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.sectionIcon {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-lg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: var(--brand-text);
-  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
-}
-
-.membersHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-
-.membersHeader .sectionHead {
-  margin-bottom: 0;
 }
 
 .membersToolbar {
@@ -473,41 +476,23 @@
   border-color: color-mix(in srgb, var(--accent-cyan) 24%, var(--glass-border));
 }
 
-.agencyTable {
-  min-width: 560px;
-}
-
-.agencyTable .actionsCell {
-  width: 1%;
-  white-space: nowrap;
-}
-
 @media (max-width: 1024px) {
-  .statsRow {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-  }
-
-  .createRow {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .createRow button {
-    grid-column: 1 / -1;
-    justify-self: start;
-  }
-
   .didForm {
     grid-template-columns: 1fr;
+  }
+
+  .contextActions {
+    width: 100%;
+    justify-content: flex-start;
   }
 }
 
 @media (max-width: 768px) {
-  .statsRow {
-    grid-template-columns: 1fr;
+  .contextLead {
+    flex: 1 1 100%;
   }
 
-  .createRow {
-    grid-template-columns: 1fr;
+  .opsLinkLabel {
+    display: none;
   }
 }
