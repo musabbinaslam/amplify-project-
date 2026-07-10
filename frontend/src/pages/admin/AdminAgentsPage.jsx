@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Users, Trash2, X } from 'lucide-react';
+import { Users, Trash2, X, Flag, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -155,58 +155,43 @@ export default function AdminAgentsPage() {
                     <th>Avg Handle (s)</th>
                     <th>Total Cost</th>
                     <th>Balance</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {analyticsLoading ? (
-                    <tr><td colSpan={7} className={classes.muted}>Loading analytics…</td></tr>
+                    <tr><td colSpan={8} className={classes.muted}>Loading analytics…</td></tr>
                   ) : filteredAgentStats.length === 0 ? (
-                    <tr><td colSpan={7} className={classes.muted}>No agent stats match this filter</td></tr>
+                    <tr><td colSpan={8} className={classes.muted}>No agent stats match this filter</td></tr>
                   ) : (
                     filteredAgentStats.map((row) => (
                       <tr key={row.agentId}>
                         <td className={classes.agentCell}>
-                          <details style={{ cursor: 'pointer' }}>
-                            <summary style={{ listStyle: 'none' }} title="Tap to view phone number">
-                              <strong>{getAgentName(row)}</strong>
+                          <details className={classes.agentDetails}>
+                            <summary title="Tap to view phone number">
+                              <span className={classes.agentSummaryLine}>
+                                <strong>{getAgentName(row)}</strong>
+                                {row.flagged ? (
+                                  <span className={classes.agentFlagBadge}>
+                                    <Flag size={10} aria-hidden="true" />
+                                    Flagged
+                                  </span>
+                                ) : null}
+                              </span>
                               {getAgentName(row) !== getAgentId(row) ? (
-                                <span className={classes.agentSubId}>{getAgentId(row)}</span>
+                                <span className={classes.agentSubId} title={getAgentId(row)}>
+                                  {getAgentId(row)}
+                                </span>
                               ) : null}
                             </summary>
-                            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div className={classes.agentPhoneReveal}>
                               {row.phone ? (
                                 <a href={`tel:${row.phone}`} className={classes.agentPhone}>
                                   {row.phone}
                                 </a>
                               ) : (
-                                <span className={classes.agentPhone} style={{ opacity: 0.5 }}>No phone</span>
+                                <span className={classes.agentPhoneMuted}>No phone on file</span>
                               )}
-                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
-                                {row.flagged ? (
-                                  <>
-                                    <span style={{ color: 'hsl(0 80% 55%)', fontWeight: 'bold', fontSize: '11px' }}>
-                                      🚩 FLAGGED
-                                    </span>
-                                    <button
-                                      className={classes.primaryBtn}
-                                      style={{ padding: '4px 8px', fontSize: '11px', minHeight: 'auto' }}
-                                      type="button"
-                                      onClick={() => handleResumeAgent(row.agentId, getAgentName(row))}
-                                    >
-                                      ✅ Resume Agent
-                                    </button>
-                                  </>
-                                ) : (
-                                  <button
-                                    className={classes.dangerBtn}
-                                    style={{ padding: '4px 8px', fontSize: '11px', minHeight: 'auto' }}
-                                    type="button"
-                                    onClick={() => setFlagModal({ agentId: row.agentId, agentName: getAgentName(row) })}
-                                  >
-                                    🚩 Flag Agent
-                                  </button>
-                                )}
-                              </div>
                             </div>
                           </details>
                         </td>
@@ -219,6 +204,27 @@ export default function AdminAgentsPage() {
                           {typeof row.walletBalanceCents === 'number'
                             ? `$${(row.walletBalanceCents / 100).toFixed(2)}`
                             : '—'}
+                        </td>
+                        <td className={classes.agentActionsCell}>
+                          {row.flagged ? (
+                            <button
+                              type="button"
+                              className={`${classes.rowBtnPrimary} ${classes.agentActionBtn}`}
+                              onClick={() => handleResumeAgent(row.agentId, getAgentName(row))}
+                            >
+                              <ShieldCheck size={14} aria-hidden="true" />
+                              Resume
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className={`${classes.rowBtnDanger} ${classes.agentActionBtn}`}
+                              onClick={() => setFlagModal({ agentId: row.agentId, agentName: getAgentName(row) })}
+                            >
+                              <Flag size={14} aria-hidden="true" />
+                              Flag
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -264,29 +270,37 @@ export default function AdminAgentsPage() {
             animate={{ opacity: 1, scale: 1 }}
           >
             <div className={classes.modalHeader}>
-              <h3>Flag Agent</h3>
+              <div className={classes.modalTitleRow}>
+                <span className={classes.modalIconDanger} aria-hidden="true">
+                  <Flag size={18} />
+                </span>
+                <h3>Flag agent</h3>
+              </div>
               <button type="button" className={classes.modalCloseBtn} onClick={() => setFlagModal(null)}>
                 <X size={18} />
               </button>
             </div>
             <p className={classes.modalSub}>
-              You are about to flag <strong>{flagModal.agentName}</strong>. This will instantly kick them offline and prevent them from taking calls until you manually resume them.
+              You are about to flag <strong>{flagModal.agentName}</strong>. This instantly removes them from the pool and blocks go-live until you resume them.
             </p>
             <form onSubmit={handleFlagSubmit}>
-              <label className={classes.modalLabel}>
+              <label className={classes.modalLabelStack}>
                 Reason shown to agent
-                <input
-                  className={classes.input}
+                <textarea
+                  className={classes.modalTextarea}
+                  rows={3}
                   value={flagReason}
                   onChange={(e) => setFlagReason(e.target.value)}
+                  placeholder="e.g. Low billable rate — below 30% threshold"
                 />
               </label>
               <div className={classes.modalActions}>
                 <button type="button" className={classes.modalCancelBtn} onClick={() => setFlagModal(null)} disabled={actionSubmitting}>
                   Cancel
                 </button>
-                <button type="submit" className={classes.dangerBtn} disabled={actionSubmitting}>
-                  {actionSubmitting ? 'Flagging...' : 'Confirm Flag'}
+                <button type="submit" className={`${classes.dangerBtn} ${classes.agentActionBtn}`} disabled={actionSubmitting}>
+                  <Flag size={14} aria-hidden="true" />
+                  {actionSubmitting ? 'Flagging…' : 'Confirm flag'}
                 </button>
               </div>
             </form>

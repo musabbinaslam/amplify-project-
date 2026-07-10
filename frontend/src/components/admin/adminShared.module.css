@@ -702,6 +702,101 @@
   text-decoration: underline;
 }
 
+.agentDetails {
+  cursor: pointer;
+  min-width: 0;
+}
+
+.agentDetails summary {
+  list-style: none;
+}
+
+.agentDetails summary::-webkit-details-marker {
+  display: none;
+}
+
+.agentActionPanel {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.agentSummaryLine {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.agentPhoneMuted {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
+.agentActionsCell {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.agentActionRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.agentFlagBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent);
+  color: var(--accent-red);
+  border: 1px solid color-mix(in srgb, var(--accent-red) 28%, transparent);
+}
+
+.agentActionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.modalTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.modalIconDanger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: var(--radius-lg);
+  color: var(--accent-red);
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-red) 24%, transparent);
+}
+
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 13px;
@@ -1518,6 +1613,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  margin-bottom: 16px;
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
