@@ -1,4 +1,5 @@
 const agencyService = require('../services/agencyService');
+const agencyCampaignService = require('../services/agencyCampaignService');
 const phoneRouteService = require('../services/phoneRouteService');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const admin = require('../config/firebaseAdmin');
@@ -253,16 +254,10 @@ async function lockCampaignsForAgency(req, res) {
     const db = getDb();
     const { FieldValue } = admin.firestore;
     const pricingRef = db.collection('system').doc('pricing');
+
+    await agencyCampaignService.releaseCampaignsForAgency(agencyId, { lockedCampaignIds: [] });
     const pricingSnap = await pricingRef.get();
     const campaigns = { ...(pricingSnap.data()?.campaigns || {}) };
-
-    Object.keys(campaigns).forEach((campaignId) => {
-      const meta = campaigns[campaignId];
-      if (!meta || typeof meta !== 'object') return;
-      if (normalizeAgencyId(meta.agencyId) === agencyId) {
-        campaigns[campaignId] = { ...meta, locked: false, agencyId: null };
-      }
-    });
 
     lockedCampaignIds.forEach((campaignId) => {
       if (!CAMPAIGN_CONFIG[campaignId] && !campaigns[campaignId]) return;

@@ -20,6 +20,16 @@ function isLockedAgencyCampaign(campaignId) {
   return Boolean(meta?.locked && meta?.agencyId);
 }
 
+async function getKnownAgencyIds() {
+  const agencies = await agencyService.listAgencies();
+  return new Set(agencies.map((a) => String(a.id)));
+}
+
+function isActiveAgencyLock(meta, knownAgencyIds) {
+  if (!meta?.locked || !meta.agencyId) return false;
+  return knownAgencyIds.has(meta.agencyId);
+}
+
 /**
  * Returns null if allowed, or an error message if blocked.
  */
@@ -41,7 +51,10 @@ async function validateAgentCampaignAccess(agentAgencyId, campaignId) {
   }
 
   if (meta.locked && meta.agencyId) {
-    return 'This campaign is reserved for agency agents only';
+    const knownAgencyIds = await getKnownAgencyIds();
+    if (isActiveAgencyLock(meta, knownAgencyIds)) {
+      return 'This campaign is reserved for agency agents only';
+    }
   }
 
   return null;
@@ -62,7 +75,7 @@ function listCampaignsForAgent(agentAgencyId) {
 
 /**
  * Agency agents may ONLY see campaigns in their agency's lockedCampaignIds list.
- * Platform agents see all non-agency-locked campaigns.
+ * Platform agents see all non-agency-locked campaigns (ignoring locks for deleted agencies).
  */
 async function listCampaignsForAgentAsync(agentAgencyId) {
   const userAgencyId = normalizeAgencyId(agentAgencyId);
@@ -81,7 +94,13 @@ async function listCampaignsForAgentAsync(agentAgencyId) {
       });
   }
 
-  return listCampaignsForAgent(null);
+  const knownAgencyIds = await getKnownAgencyIds();
+  return Object.keys(CAMPAIGN_CONFIG)
+    .map((id) => getCampaignMeta(id))
+    .filter((meta) => {
+      if (!meta) return false;
+      return !isActiveAgencyLock(meta, knownAgencyIds);
+    });
 }
 
 module.exports = {
