@@ -692,12 +692,13 @@ export default function AdminAgenciesPage() {
         })}
         getSearchText={(a) => [a.name, a.slug, a.id, a.status].filter(Boolean).join(' ')}
         railCreate={railCreate}
+        createTriggerLabel="Create agency"
         detailHeader={contextHeader}
         tabs={SETTINGS_TABS}
         activeTab={settingsTab}
         onTabChange={setSettingsTab}
         emptyTenantsTitle="No agencies yet"
-        emptyTenantsBody="Use the form above to create your first agency."
+        emptyTenantsBody="Click Create agency above to add your first tenant."
         emptySelectionTitle="Select an agency"
         emptySelectionBody="Choose from the directory to manage members, campaigns, and DIDs."
       >

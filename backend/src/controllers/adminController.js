@@ -973,8 +973,10 @@ async function getAllUsers(req, res) {
         role: data.role || 'agent',
         agencyId: data.agencyId ?? null,
         managedAgents: Array.isArray(data.managedAgents) ? data.managedAgents : [],
+        authMissing: false,
+        isMock: Boolean(data.settings?.mock),
       });
-      if (!name) missing.push(doc.id);
+      if (!name || !data.email) missing.push(doc.id);
     });
 
     // Backfill display names from Firebase Auth for users with no Firestore name.
@@ -986,11 +988,22 @@ async function getAllUsers(req, res) {
         const out = await admin.auth().getUsers(chunk.map((uid) => ({ uid })));
         out.users.forEach((u) => {
           const entry = byId.get(u.uid);
-          if (entry) entry.name = entry.name || u.displayName || u.email || u.uid;
+          if (!entry) return;
+          const authName = u.displayName || u.email || null;
+          if (authName && authName !== u.uid) {
+            entry.name = entry.name || authName;
+          }
+          if (!entry.email && u.email) entry.email = u.email;
+        });
+        (out.notFound || []).forEach((row) => {
+          const entry = byId.get(row.uid);
+          if (entry) entry.authMissing = true;
         });
       }
     }
-    users.forEach((u) => { if (!u.name) u.name = u.uid; });
+    users.forEach((u) => {
+      if (u.name === u.uid) u.name = null;
+    });
     users.sort((a, b) => String(a.name).localeCompare(String(b.name)));
 
     res.json({ users });
@@ -1050,6 +1063,16 @@ async function patchManagerSettings(req, res) {
     const targetSnap = await targetRef.get();
     if (!targetSnap.exists) return res.status(404).json({ error: 'User not found' });
 
+    const existing = targetSnap.data() || {};
+    const existingRole = String(existing.role || 'agent');
+    const PROTECTED_PLATFORM_ROLES = new Set(['admin', 'qa']);
+
+    if (PROTECTED_PLATFORM_ROLES.has(existingRole)) {
+      return res.status(403).json({
+        error: 'Platform admin and QA accounts cannot be assigned as manager team leads or demoted through manager settings.',
+      });
+    }
+
     // Sanitize the allowlist: unique, truthy, and exclude self-management.
     const cleanedAgents = role === 'manager'
       ? [...new Set((managedAgents || []).filter((id) => typeof id === 'string' && id.trim() && id !== uid))]
@@ -1062,6 +1085,14 @@ async function patchManagerSettings(req, res) {
       const invalid = snaps.filter((s) => !s.exists).map((s) => s.id);
       if (invalid.length) {
         return res.status(400).json({ error: `Unknown agent UID(s): ${invalid.join(', ')}` });
+      }
+      const protectedMembers = snaps
+        .filter((s) => s.exists && PROTECTED_PLATFORM_ROLES.has(String(s.data()?.role || '')))
+        .map((s) => s.id);
+      if (protectedMembers.length) {
+        return res.status(403).json({
+          error: 'Platform admin and QA accounts cannot be added to a manager team.',
+        });
       }
     }
 

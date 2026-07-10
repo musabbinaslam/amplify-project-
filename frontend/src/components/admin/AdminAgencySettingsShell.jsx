@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Search } from 'lucide-react';
+import AdminCreateRailPanel from './AdminCreateRailPanel';
 import classes from './AdminAgencySettingsShell.module.css';
 
 const DIRECTORY_VISIBLE_CAP = 7;
@@ -28,6 +29,7 @@ export default function AdminAgencySettingsShell({
   railCreate,
   createPanelTitle = 'New agency',
   createPanelHint = 'Create a tenant, then configure it on the right',
+  createTriggerLabel = 'Create',
   searchPlaceholder = 'Search…',
   sidebarAriaLabel = 'Settings sidebar',
   directoryListAriaLabel = 'Directory',
@@ -46,6 +48,7 @@ export default function AdminAgencySettingsShell({
   children,
 }) {
   const [search, setSearch] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
 
   const filteredTenants = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -63,6 +66,10 @@ export default function AdminAgencySettingsShell({
 
   const visibleListRows = Math.min(filteredTenants.length, DIRECTORY_VISIBLE_CAP);
   const listScrollable = filteredTenants.length > DIRECTORY_VISIBLE_CAP;
+
+  useEffect(() => {
+    setCreateOpen(false);
+  }, [activeId]);
 
   return (
     <div className={classes.page}>
@@ -93,13 +100,15 @@ export default function AdminAgencySettingsShell({
       <div className={classes.workspace}>
         <aside className={classes.rail} aria-label={sidebarAriaLabel}>
           {railCreate ? (
-            <div className={`glass ${classes.createPanel}`}>
-              <div className={classes.railHead}>
-                <p className={classes.railTitle}>{createPanelTitle}</p>
-                <p className={classes.railCount}>{createPanelHint}</p>
-              </div>
+            <AdminCreateRailPanel
+              open={createOpen}
+              onOpenChange={setCreateOpen}
+              triggerLabel={createTriggerLabel}
+              title={createPanelTitle}
+              hint={createPanelHint}
+            >
               {railCreate}
-            </div>
+            </AdminCreateRailPanel>
           ) : null}
 
           <div className={`glass ${classes.railPanel}`}>

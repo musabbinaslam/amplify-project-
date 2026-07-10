@@ -102,20 +102,12 @@
   gap: 14px;
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   max-height: calc(100dvh - var(--topbar-height) - 140px);
+  overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--text-secondary) 28%, transparent) transparent;
-}
-
-.createPanel {
-  flex-shrink: 0;
-  padding: 14px;
-}
-
-.createPanel > * {
-  position: relative;
-  z-index: 1;
 }
 
 .railPanel {
@@ -465,7 +457,6 @@
     overflow-y: visible;
   }
 
-  .createPanel,
   .railPanel {
     max-height: none;
   }
