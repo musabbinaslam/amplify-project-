@@ -569,8 +569,13 @@ export default function AdminAgenciesPage() {
   const handleDeleteAgency = async (id) => {
     if (!window.confirm('Delete this agency? It must have no members.')) return;
     try {
-      await deleteAdminAgency(id);
-      toast.success('Agency deleted');
+      const result = await deleteAdminAgency(id);
+      const unlocked = result?.unlockedCampaignIds?.length || 0;
+      const routes = result?.updatedRouteIds?.length || 0;
+      const parts = ['Agency deleted'];
+      if (unlocked > 0) parts.push(`${unlocked} campaign${unlocked !== 1 ? 's' : ''} returned to platform`);
+      if (routes > 0) parts.push(`${routes} phone route${routes !== 1 ? 's' : ''} moved to platform`);
+      toast.success(parts.join('. '));
       if (selectedId === id) updateSelectedId('');
       await loadAgencies();
     } catch (err) {

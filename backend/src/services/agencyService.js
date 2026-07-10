@@ -1,6 +1,7 @@
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const { normalizeAgencyId, isPlatformRole } = require('../utils/tenancy');
+const agencyCampaignService = require('./agencyCampaignService');
 
 const COLLECTION = 'agencies';
 
@@ -115,8 +116,19 @@ async function deleteAgency(id) {
   const members = await db.collection('users').where('agencyId', '==', id).limit(1).get();
   if (!members.empty) throw new Error('Cannot delete agency with assigned users');
 
+  const agencyData = snap.data() || {};
+  const lockedCampaignIds = Array.isArray(agencyData.lockedCampaignIds)
+    ? agencyData.lockedCampaignIds.filter(Boolean)
+    : [];
+
+  const released = await agencyCampaignService.releaseAgencyResources(id, { lockedCampaignIds });
+
   await ref.delete();
-  return { id };
+  return {
+    id,
+    unlockedCampaignIds: released.unlockedCampaignIds,
+    updatedRouteIds: released.updatedRouteIds,
+  };
 }
 
 async function countAgencyMembers(agencyId) {
