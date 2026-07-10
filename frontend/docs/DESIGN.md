@@ -8,6 +8,9 @@ Design reference extracted from the redesigned Dashboard. Use this document when
 - Dashboard — [DashboardPage.jsx](../src/pages/DashboardPage.jsx) + [DashboardPage.module.css](../src/pages/DashboardPage.module.css)
 - Welcome — [WelcomePage.jsx](../src/pages/WelcomePage.jsx) + [WelcomePage.module.css](../src/pages/WelcomePage.module.css)
 - Take Calls — [TakeCallsPage.jsx](../src/pages/TakeCallsPage.jsx) + [TakeCallsPage.module.css](../src/pages/TakeCallsPage.module.css)
+- Call Logs — [CallLogsPage.jsx](../src/pages/CallLogsPage.jsx) + shared [CallLogStatusCells.jsx](../src/components/callLogs/CallLogStatusCells.jsx)
+- Admin Phone Routing — [AdminPhoneRoutingPage.jsx](../src/pages/admin/AdminPhoneRoutingPage.jsx)
+- Admin Ops (agency / manager) — [AdminAgenciesOpsPage.jsx](../src/pages/admin/AdminAgenciesOpsPage.jsx), [AdminTeamsOpsPage.jsx](../src/pages/admin/AdminTeamsOpsPage.jsx)
 
 **Token source of truth:** [variables.css](../src/styles/variables.css)  
 **Motion source of truth:** [appMotion.js](../src/motion/appMotion.js)
@@ -413,6 +416,43 @@ Two views driven by dialer `callState` — setup wizard (offline/error) and live
 
 **Removed anti-patterns:** opaque `--surface-container-*` card fills, `box-shadow: var(--brand-glow)` on primary buttons/icons, hardcoded hex inline banners, per-card radial `.pulsingGlow`, plain-text disposition colors.
 
+### 7.14 Admin configuration pages
+
+Admin settings and configuration screens (Agencies, Manager Teams, Phone Routing) share [`adminShared.module.css`](../src/components/admin/adminShared.module.css).
+
+**Responsive admin forms**
+- Forms above data tables use CSS grid with `align-items: end` so inputs share a baseline when labels wrap to different heights.
+- Prefer short field labels with `title` tooltips over long uppercase labels inside grid cells.
+- DID / routing forms: 4 columns above 1200px, 2 columns at 1024–1200px, 1 column at ≤768px.
+- Reference: [AdminPhoneRoutingPage.jsx](../src/pages/admin/AdminPhoneRoutingPage.jsx) + `.didFormFields` / `.didFormFieldLabel`.
+
+**Modals and overlays**
+- Do **not** rely on `position: fixed` inside `.glass` panels that use `backdrop-filter` — they create a containing block and clip overlays to that panel.
+- Global modals (recording player, confirmations) must render via `createPortal(..., document.body)` or mount at AppShell level.
+- Admin ops embed chain: `AdminOpsCommandShell.detail.glass` → `embedArea` → dashboard layout — modals nested here without a portal will appear trapped in the detail pane.
+
+### 7.15 Ops dashboards (agency / manager teams)
+
+Agency and manager team ops reuse [AgencyDashboardLayout.jsx](../src/components/ops/AgencyDashboardLayout.jsx) / [TeamDashboardLayout.jsx](../src/components/ops/TeamDashboardLayout.jsx) inside [AdminOpsCommandShell.jsx](../src/components/admin/AdminOpsCommandShell.jsx).
+
+**Call log column semantics (canonical)**
+
+| Column | Meaning | Examples |
+|--------|---------|----------|
+| **Status** | Call outcome / billing | Billable, Answered, Missed |
+| **Disposition** | Agent wrap-up label | Sold, Call back, Not Interested, Policy Closed |
+
+Rule: `isBillable` → Status shows **Billable**, not Sold. Sold belongs in Disposition.
+
+Shared badge components: [CallLogStatusCells.jsx](../src/components/callLogs/CallLogStatusCells.jsx) — used by Call Logs, `OpsCallLogSection`, and `OpsDrilldownPanel`. Pass `variant="ops"` for ops table pill styling.
+
+**Recording playback**
+- `RecordingModal` (exported from CallLogsPage) is portaled to `document.body` so it covers the full app on ops pages.
+
+**Laptop testing checklist**
+- Test at **1280×800** and **1366×768**, not only large monitors.
+- Verify: admin split-pane ops, phone routing form alignment, recording modal full-viewport overlay, horizontal table scroll in call logs.
+
 ### 7.13 Maintenance banner
 
 Full-width alert strip in [AppShell.jsx](../src/components/layout/AppShell.jsx) above Topbar when maintenance is active or upcoming. Styles in [AppShell.module.css](../src/components/layout/AppShell.module.css).
@@ -500,6 +540,7 @@ Use Framer `useMotionValue` + `animate`, 0.9s duration. When `useReducedMotion()
 Standard breakpoints across dashboard-style pages:
 
 ```css
+@media (max-width: 1200px) { /* laptop / small desktop — admin forms, ops split-pane */ }
 @media (max-width: 1024px) { /* tablet */ }
 @media (max-width: 768px)  { /* small tablet */ }
 @media (max-width: 480px)  { /* mobile */ }
@@ -511,6 +552,8 @@ Rules of thumb:
 - Charts row: always stacks to 1 column at 1024px.
 - Campaign grid: 3 → 2 → 1.
 - Section headers: stack vertically on small tablet.
+- Admin DID/routing forms: 4 columns above 1200px → 2 columns at 1200px → 1 column at 768px; use `align-items: end` on field grids.
+- Test layouts at **1280×800** and **1366×768** laptop sizes, not only large external monitors.
 
 ---
 
@@ -538,12 +581,12 @@ When redesigning a page (Call Logs, Billing, Take Calls, etc.):
 
 ### Suggested rollout order
 
-1. Call Logs (table + filters — high traffic)
+1. ~~Call Logs (table + filters — high traffic)~~ ✓ — [CallLogsPage](../src/pages/CallLogsPage.jsx)
 2. Billing (stats + tables)
 3. ~~Welcome~~ ✓ — [WelcomePage](../src/pages/WelcomePage.jsx) (cards + embedded video)
 4. Profile (cards + forms)
-5. Take Calls (complex — migrate section by section) ✓ — [TakeCallsPage](../src/pages/TakeCallsPage.jsx)
-6. Admin / QA dashboards (reuse dashboard patterns directly)
+5. ~~Take Calls (complex — migrate section by section)~~ ✓ — [TakeCallsPage](../src/pages/TakeCallsPage.jsx)
+6. Admin / QA dashboards — reuse dashboard patterns; reference [AdminPhoneRoutingPage](../src/pages/admin/AdminPhoneRoutingPage.jsx), [AdminAgenciesOpsPage](../src/pages/admin/AdminAgenciesOpsPage.jsx), [AdminTeamsOpsPage](../src/pages/admin/AdminTeamsOpsPage.jsx)
 
 ---
 

@@ -758,9 +758,18 @@
 
 .didFormFields {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  grid-template-columns: 1.1fr 1.2fr 1.3fr 1fr;
   gap: 12px;
   width: 100%;
+  align-items: end;
+}
+
+.didFormFieldLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 2.7em;
+  line-height: 1.35;
 }
 
 .didFormActions {
@@ -1902,6 +1911,12 @@
 }
 
 /* ─── Responsive ─── */
+@media (max-width: 1200px) {
+  .didFormFields {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 1024px) {
   .statsRow,
   .grid {
@@ -1911,10 +1926,6 @@
 
   .contestReviewGrid {
     grid-template-columns: 1fr;
-  }
-
-  .didFormFields {
-    grid-template-columns: 1fr 1fr;
   }
 
   .notificationGrid {

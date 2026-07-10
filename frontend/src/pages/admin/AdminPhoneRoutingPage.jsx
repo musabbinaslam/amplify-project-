@@ -179,7 +179,9 @@ export default function AdminPhoneRoutingPage() {
           <div>
             <h2 className={classes.cardTitle}>Phone numbers → campaign</h2>
             <p className={classes.hint}>
-              Incoming Twilio calls use the called number to resolve the campaign and agency. Setting an agency ensures calls are routed to agency agents, not the platform pool.
+              Incoming Twilio calls use the called number to resolve the campaign and agency.
+              Setting an agency ensures calls are routed to agency agents, not the platform pool.
+              Agency is required when routing DIDs to agency-locked campaigns.
             </p>
           </div>
         </div>
@@ -187,7 +189,7 @@ export default function AdminPhoneRoutingPage() {
         <form className={classes.didForm} onSubmit={handleCreateDid}>
           <div className={classes.didFormFields}>
             <div className={classes.formField}>
-              <label htmlFor="did-phone">Phone (E.164)</label>
+              <label htmlFor="did-phone" className={classes.didFormFieldLabel}>Phone (E.164)</label>
               <input
                 id="did-phone"
                 className={classes.input}
@@ -197,7 +199,7 @@ export default function AdminPhoneRoutingPage() {
               />
             </div>
             <div className={classes.formField}>
-              <label htmlFor="did-campaign">Campaign</label>
+              <label htmlFor="did-campaign" className={classes.didFormFieldLabel}>Campaign</label>
               <select
                 id="did-campaign"
                 className={classes.select}
@@ -213,9 +215,13 @@ export default function AdminPhoneRoutingPage() {
               </select>
             </div>
             <div className={classes.formField}>
-              <label htmlFor="did-agency" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Building2 size={13} />
-                Agency (required for agency DIDs)
+              <label
+                htmlFor="did-agency"
+                className={classes.didFormFieldLabel}
+                title="Required for agency DIDs"
+              >
+                <Building2 size={13} aria-hidden="true" />
+                Agency
               </label>
               <select
                 id="did-agency"
@@ -232,7 +238,7 @@ export default function AdminPhoneRoutingPage() {
               </select>
             </div>
             <div className={classes.formField}>
-              <label htmlFor="did-label">Label</label>
+              <label htmlFor="did-label" className={classes.didFormFieldLabel}>Label</label>
               <input
                 id="did-label"
                 className={classes.input}
