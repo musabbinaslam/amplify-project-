@@ -36,6 +36,109 @@ function getCampaigns(campaignControls = null) {
   }));
 }
 
+/**
+ * POST /admin/campaigns
+ * Upsert (create or update) a campaign in the live system/pricing Firestore doc.
+ * The onSnapshot listener in pricing.js immediately applies the change in-memory.
+ */
+const upsertCampaign = async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database unavailable' });
+
+    const { id, label, buffer, price } = req.body || {};
+
+    // ── Validation ────────────────────────────────────────────────────────────
+    if (!id || typeof id !== 'string' || !/^[a-z0-9_]+$/.test(id.trim())) {
+      return res.status(400).json({ error: 'Invalid campaign ID. Use lowercase letters, numbers, and underscores only.' });
+    }
+    if (!label || typeof label !== 'string' || !label.trim()) {
+      return res.status(400).json({ error: 'Label is required.' });
+    }
+    const bufferNum = Number(buffer);
+    if (!Number.isFinite(bufferNum) || bufferNum < 0) {
+      return res.status(400).json({ error: 'Buffer must be a non-negative number (seconds).' });
+    }
+    const priceNum = Number(price);
+    if (!Number.isFinite(priceNum) || priceNum < 0) {
+      return res.status(400).json({ error: 'Price must be a non-negative number.' });
+    }
+
+    const campaignId = id.trim().toLowerCase();
+    const isNew = !Object.prototype.hasOwnProperty.call(CAMPAIGN_CONFIG, campaignId);
+
+    const ref = db.collection('system').doc('pricing');
+    await ref.set(
+      {
+        campaigns: {
+          [campaignId]: {
+            label: label.trim(),
+            buffer: bufferNum,
+            price: priceNum,
+          },
+        },
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: req.user?.uid || null,
+      },
+      { merge: true }
+    );
+
+    console.log(`[Admin] Campaign "${campaignId}" ${isNew ? 'created' : 'updated'} by ${req.user?.uid}`);
+    res.json({ success: true, isNew, campaign: { id: campaignId, label: label.trim(), buffer: bufferNum, price: priceNum } });
+  } catch (err) {
+    console.error('[Admin] upsertCampaign error:', err.message);
+    res.status(500).json({ error: 'Failed to save campaign' });
+  }
+};
+
+/**
+ * DELETE /admin/campaigns/:campaignId
+ * Permanently removes a campaign from Firestore (system/pricing) and
+ * campaign controls (system/campaignControls), then deletes it from the
+ * in-memory CAMPAIGN_CONFIG so the change takes effect immediately.
+ */
+const deleteCampaign = async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database unavailable' });
+
+    const { campaignId } = req.params;
+    const id = String(campaignId || '').trim().toLowerCase();
+    if (!id) return res.status(400).json({ error: 'campaignId is required' });
+
+    if (!Object.prototype.hasOwnProperty.call(CAMPAIGN_CONFIG, id)) {
+      return res.status(404).json({ error: `Campaign "${id}" not found` });
+    }
+
+    // 1. Remove from Firestore system/pricing
+    const pricingRef = db.collection('system').doc('pricing');
+    await pricingRef.update({
+      [`campaigns.${id}`]: admin.firestore.FieldValue.delete(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedBy: req.user?.uid || null,
+    });
+
+    // 2. Remove from Firestore system/campaignControls (best-effort)
+    try {
+      const controlsRef = db.collection('system').doc('campaignControls');
+      await controlsRef.update({
+        [`campaigns.${id}`]: admin.firestore.FieldValue.delete(),
+      });
+    } catch (_) { /* doc may not exist — safe to ignore */ }
+
+    // 3. Remove from in-memory CAMPAIGN_CONFIG immediately
+    delete CAMPAIGN_CONFIG[id];
+
+    console.log(`[Admin] Campaign "${id}" deleted by ${req.user?.uid}`);
+    res.json({ success: true, deleted: id });
+  } catch (err) {
+    console.error('[Admin] deleteCampaign error:', err.message);
+    res.status(500).json({ error: 'Failed to delete campaign' });
+  }
+};
+
+
+
 function parseRange(query) {
   const now = new Date();
   const end = query.to ? new Date(`${query.to}T23:59:59.999Z`) : now;
@@ -681,8 +784,8 @@ async function getAnalyticsBundle(req, res) {
 async function getOverviewLite(req, res) {
   try {
     const campaignControls = await getCampaignControlsState();
-    const overview = await agentManager.getOverview();
-    const activeCalls = await agentManager.listActiveCalls();
+    const overview = await agentManager.getOverview(null);
+    const activeCalls = await agentManager.listActiveCalls(null);
     const routingDiagnostics = agentManager.getRoutingDiagnostics
       ? agentManager.getRoutingDiagnostics()
       : null;
@@ -738,12 +841,13 @@ async function listDids(req, res) {
 
 async function createDid(req, res) {
   try {
-    const { phoneE164, campaignId, label, active } = req.body || {};
+    const { phoneE164, campaignId, label, active, agencyId } = req.body || {};
     const row = await phoneRouteService.createPhoneRoute({
       phoneE164,
       campaignId,
       label,
       active,
+      agencyId: agencyId || null,
     });
     res.status(201).json(row);
   } catch (err) {
@@ -778,7 +882,7 @@ async function deleteDid(req, res) {
 
 async function getLiveCalls(req, res) {
   try {
-    const rows = await agentManager.listActiveCalls();
+    const rows = await agentManager.listActiveCalls(null);
     const metaMap = await buildUserMetaMap(rows.map((r) => r.agentId));
     res.json({
       rows: rows.map((r) => ({
@@ -841,6 +945,191 @@ async function forceRemoveAgent(req, res) {
   } catch (err) {
     console.error('[Admin] forceRemoveAgent:', err.message);
     res.status(500).json({ error: err.message || 'Failed to remove agent' });
+  }
+}
+
+async function getAllUsers(req, res) {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database unavailable' });
+    const snap = await db.collection('users').get();
+    const users = [];
+    const missing = [];
+    snap.docs.forEach((doc) => {
+      const data = doc.data() || {};
+      const firstLast = [data.firstName, data.lastName].filter(Boolean).join(' ').trim();
+      const name =
+        data.fullName ||
+        data.displayName ||
+        data.name ||
+        data.agentName ||
+        firstLast ||
+        data.email ||
+        null;
+      users.push({
+        uid: doc.id,
+        name,
+        email: data.email || null,
+        role: data.role || 'agent',
+        agencyId: data.agencyId ?? null,
+        managedAgents: Array.isArray(data.managedAgents) ? data.managedAgents : [],
+        authMissing: false,
+        isMock: Boolean(data.settings?.mock),
+      });
+      if (!name || !data.email) missing.push(doc.id);
+    });
+
+    // Backfill display names from Firebase Auth for users with no Firestore name.
+    if (missing.length && admin) {
+      const byId = new Map(users.map((u) => [u.uid, u]));
+      for (let i = 0; i < missing.length; i += 100) {
+        const chunk = missing.slice(i, i + 100);
+        // eslint-disable-next-line no-await-in-loop
+        const out = await admin.auth().getUsers(chunk.map((uid) => ({ uid })));
+        out.users.forEach((u) => {
+          const entry = byId.get(u.uid);
+          if (!entry) return;
+          const authName = u.displayName || u.email || null;
+          if (authName && authName !== u.uid) {
+            entry.name = entry.name || authName;
+          }
+          if (!entry.email && u.email) entry.email = u.email;
+        });
+        (out.notFound || []).forEach((row) => {
+          const entry = byId.get(row.uid);
+          if (entry) entry.authMissing = true;
+        });
+      }
+    }
+    users.forEach((u) => {
+      if (u.name === u.uid) u.name = null;
+    });
+    users.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+
+    res.json({ users });
+  } catch (err) {
+    console.error('[Admin] getAllUsers:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to list users' });
+  }
+}
+
+const managerTeamService = require('../services/managerTeamService');
+
+async function listManagerTeams(req, res) {
+  try {
+    const managers = await managerTeamService.listManagerTeams(req.query || {});
+    res.json({ managers });
+  } catch (err) {
+    console.error('[Admin] listManagerTeams:', err.message);
+    const status = err.message === 'Invalid date range' ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to list manager teams' });
+  }
+}
+
+async function getManagerTeam(req, res) {
+  try {
+    const uid = String(req.params.uid || '').trim();
+    if (!uid) return res.status(400).json({ error: 'uid is required' });
+    const team = await managerTeamService.getManagerTeam(uid, req.query || {});
+    if (!team) return res.status(404).json({ error: 'Manager team not found' });
+    res.json(team);
+  } catch (err) {
+    console.error('[Admin] getManagerTeam:', err.message);
+    const status = err.message === 'Invalid date range' ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to load manager team' });
+  }
+}
+
+async function patchManagerSettings(req, res) {
+  try {
+    const uid = String(req.params.uid || '').trim();
+    if (!uid) return res.status(400).json({ error: 'uid is required' });
+
+    const { role, managedAgents, teamName } = req.body || {};
+    if (!['agent', 'manager'].includes(role)) {
+      return res.status(400).json({ error: "role must be 'agent' or 'manager'" });
+    }
+    if (managedAgents != null && !Array.isArray(managedAgents)) {
+      return res.status(400).json({ error: 'managedAgents must be an array of user UIDs' });
+    }
+    if (teamName != null && typeof teamName !== 'string') {
+      return res.status(400).json({ error: 'teamName must be a string' });
+    }
+
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database unavailable' });
+
+    const targetRef = db.collection('users').doc(uid);
+    const targetSnap = await targetRef.get();
+    if (!targetSnap.exists) return res.status(404).json({ error: 'User not found' });
+
+    const existing = targetSnap.data() || {};
+    const existingRole = String(existing.role || 'agent');
+    const PROTECTED_PLATFORM_ROLES = new Set(['admin', 'qa']);
+
+    if (PROTECTED_PLATFORM_ROLES.has(existingRole)) {
+      return res.status(403).json({
+        error: 'Platform admin and QA accounts cannot be assigned as manager team leads or demoted through manager settings.',
+      });
+    }
+
+    // Sanitize the allowlist: unique, truthy, and exclude self-management.
+    const cleanedAgents = role === 'manager'
+      ? [...new Set((managedAgents || []).filter((id) => typeof id === 'string' && id.trim() && id !== uid))]
+      : [];
+
+    // Validate the allowlist refers to real user docs (prevents typos / stale UIDs).
+    if (cleanedAgents.length) {
+      const refs = cleanedAgents.map((id) => db.collection('users').doc(id));
+      const snaps = await db.getAll(...refs);
+      const invalid = snaps.filter((s) => !s.exists).map((s) => s.id);
+      if (invalid.length) {
+        return res.status(400).json({ error: `Unknown agent UID(s): ${invalid.join(', ')}` });
+      }
+      const protectedMembers = snaps
+        .filter((s) => s.exists && PROTECTED_PLATFORM_ROLES.has(String(s.data()?.role || '')))
+        .map((s) => s.id);
+      if (protectedMembers.length) {
+        return res.status(403).json({
+          error: 'Platform admin and QA accounts cannot be added to a manager team.',
+        });
+      }
+    }
+
+    const { FieldValue } = admin.firestore;
+    const update = {
+      role,
+      managedAgents: cleanedAgents,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    if (role === 'agent') {
+      update.teamName = FieldValue.delete();
+    } else if (teamName !== undefined) {
+      const trimmed = String(teamName || '').trim();
+      update.teamName = trimmed ? trimmed.slice(0, 80) : FieldValue.delete();
+    }
+
+    await targetRef.set(update, { merge: true });
+
+    const savedTeamName = role === 'manager' && teamName !== undefined
+      ? (String(teamName || '').trim().slice(0, 80) || null)
+      : undefined;
+    const outTeamName = savedTeamName !== undefined
+      ? savedTeamName
+      : (role === 'manager' ? (targetSnap.data()?.teamName || null) : null);
+
+    console.log(`[Admin] Set role=${role} managedAgents=${cleanedAgents.length} on ${uid} by ${req.user?.uid || 'unknown'}`);
+    res.json({
+      success: true,
+      uid,
+      role,
+      managedAgents: cleanedAgents,
+      teamName: role === 'manager' ? outTeamName : null,
+    });
+  } catch (err) {
+    console.error('[Admin] patchManagerSettings:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to update manager settings' });
   }
 }
 
@@ -1210,6 +1499,54 @@ async function postBroadcastNotification(req, res) {
   }
 }
 
+async function postTargetedNotification(req, res) {
+  try {
+    const { userIds, title, body, priority, expiresAt } = req.body || {};
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: 'No users selected for targeted notification' });
+    }
+    const { sendTargetedNotification } = require('../services/notificationService');
+    const payload = await sendTargetedNotification(
+      userIds,
+      {
+        type: 'admin_broadcast',
+        title,
+        body,
+        priority,
+        expiresAt,
+      },
+      req.user?.uid || 'admin',
+      req.user?.uid || null,
+    );
+    payload.created.forEach(({ uid, id }) => {
+      const socketRegistry = require('../sockets/socketRegistry');
+      socketRegistry.emitToAgent(uid, 'notification:new', {
+        id,
+        broadcastId: payload.broadcastId,
+        type: payload.type,
+        title: payload.title,
+        body: payload.body,
+        priority: payload.priority,
+        source: 'admin',
+        read: false,
+        createdAt: payload.createdAt,
+        expiresAt: payload.expiresAt || null,
+      });
+    });
+    res.status(201).json({
+      success: true,
+      broadcastId: payload.broadcastId,
+      recipientCount: payload.recipientCount,
+      createdCount: payload.createdCount,
+      message: 'Targeted notification sent',
+    });
+  } catch (err) {
+    console.error('[Admin] postTargetedNotification:', err.message);
+    const status = /required|exceeds|must|Invalid|priority|No users/i.test(err.message) ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to send targeted notification' });
+  }
+}
+
 async function patchMaintenance(req, res) {
   try {
     const maintenance = await setMaintenanceState(req.body || {}, req.user?.uid || null);
@@ -1258,6 +1595,27 @@ async function patchMaintenance(req, res) {
     console.error('[Admin] patchMaintenance:', err.message);
     const status = /required|exceeds|must|valid date/i.test(err.message) ? 400 : 500;
     res.status(status).json({ error: err.message || 'Failed to update maintenance state' });
+  }
+}
+
+async function listAllUsersLite(req, res) {
+  try {
+    const db = getDb();
+    const snap = await db.collection('users').select().limit(5000).get();
+    const ids = snap.docs.map((d) => d.id);
+    const metaMap = await buildUserMetaMap(ids);
+    
+    const users = ids.map((id) => {
+      const entry = metaMap.get(id) || {};
+      const name = entry.name || id;
+      return { id, name, email: entry.email || null, phone: entry.phone || null };
+    });
+    
+    users.sort((a, b) => a.name.localeCompare(b.name));
+    res.json({ users });
+  } catch (err) {
+    console.error('[Admin] listAllUsersLite:', err.message);
+    res.status(500).json({ error: 'Failed to list users' });
   }
 }
 
@@ -1540,6 +1898,10 @@ module.exports = {
   getAnalyticsBundle,
   getLiveCalls,
   forceRemoveAgent,
+  getAllUsers,
+  listManagerTeams,
+  getManagerTeam,
+  patchManagerSettings,
   flagAgent,
   resumeAgent,
   getAnalyticsDrilldown,
@@ -1555,14 +1917,18 @@ module.exports = {
   grantDiscount: grantDiscountHandler,
   revokeDiscount: revokeDiscountHandler,
   postBroadcastNotification,
+  postTargetedNotification,
   getBroadcastNotifications,
   getBroadcastNotification,
   patchBroadcastNotification,
   deleteBroadcastNotification,
   patchMaintenance,
   getMaintenance,
+  listAllUsersLite,
   getCampaignControls,
   patchCampaignControls,
+  upsertCampaign,
+  deleteCampaign,
   getPoolDebug,
   listCallContests,
   getCallContest,

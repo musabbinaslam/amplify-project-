@@ -8,6 +8,7 @@ import PageLoader from './components/ui/PageLoader';
 import ErrorFallback from './components/ui/ErrorFallback';
 import LandingPage from './pages/LandingPage';
 import useAuthStore from './store/authStore';
+import { isAgencyAdminUser } from './utils/authRoles';
 import { auth } from './config/firebase';
 import UpdateBanner from './components/ui/UpdateBanner';
 
@@ -29,12 +30,25 @@ const NotesPage = lazy(() => import('./pages/NotesPage'));
 const LeadsPage = lazy(() => import('./pages/LeadsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ReferralProgramPage = lazy(() => import('./pages/ReferralProgramPage'));
-const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
+const AdminHubPage = lazy(() => import('./pages/admin/AdminHubPage'));
+const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
+const AdminLiveOpsPage = lazy(() => import('./pages/admin/AdminLiveOpsPage'));
+const AdminCallContestsPage = lazy(() => import('./pages/admin/AdminCallContestsPage'));
+const AdminAgentsPage = lazy(() => import('./pages/admin/AdminAgentsPage'));
+const AdminCampaignsPage = lazy(() => import('./pages/admin/AdminCampaignsPage'));
+const AdminPhoneRoutingPage = lazy(() => import('./pages/admin/AdminPhoneRoutingPage'));
+const AdminAgenciesPage = lazy(() => import('./pages/admin/AdminAgenciesPage'));
+const AdminManagersPage = lazy(() => import('./pages/admin/AdminManagersPage'));
+const AdminAgenciesOpsPage = lazy(() => import('./pages/admin/AdminAgenciesOpsPage'));
+const AdminTeamsOpsPage = lazy(() => import('./pages/admin/AdminTeamsOpsPage'));
 const AdminAITrainingPage = lazy(() => import('./pages/AdminAITrainingPage'));
 const AdminNotificationSettingsPage = lazy(() => import('./pages/AdminNotificationSettingsPage'));
 
 const QaDashboardPage = lazy(() => import('./pages/QaDashboardPage'));
 const QaAITrainingPage = lazy(() => import('./pages/QaAITrainingPage'));
+
+const TeamDashboardPage = lazy(() => import('./pages/TeamDashboardPage'));
+const AgencyDashboardPage = lazy(() => import('./pages/AgencyDashboardPage'));
 
 
 import DialerOverlay from './components/ui/DialerOverlay';
@@ -70,10 +84,48 @@ const AdminOnly = ({ children }) => {
   return children;
 };
 
+const AgencyAdminOnly = ({ children }) => {
+  const user = useAuthStore((s) => s.user);
+  if (!isAgencyAdminUser(user) && user?.role !== 'manager') {
+    return <Navigate to="/app" replace />;
+  }
+  return children;
+};
+
+const ManagerOnly = ({ children }) => {
+  const role = useAuthStore((s) => s.user?.role);
+  if (role !== 'admin' && role !== 'manager') {
+    return <Navigate to="/app" replace />;
+  }
+  return children;
+};
+
 /** Tiny redirect: /r/AGENT-XXXXXX → /signup?ref=AGENT-XXXXXX */
 const ReferralRedirect = () => {
   const { code } = useParams();
   return <Navigate to={`/signup?ref=${encodeURIComponent(code || '')}`} replace />;
+};
+
+/** Redirect legacy /admin/ops/agencies/:id → ?selected= */
+const OpsAgencyRedirect = () => {
+  const { agencyId } = useParams();
+  return (
+    <Navigate
+      to={`/app/admin/ops/agencies?selected=${encodeURIComponent(agencyId || '')}`}
+      replace
+    />
+  );
+};
+
+/** Redirect legacy /admin/ops/teams/:uid → ?selected= */
+const OpsTeamRedirect = () => {
+  const { managerUid } = useParams();
+  return (
+    <Navigate
+      to={`/app/admin/ops/teams?selected=${encodeURIComponent(managerUid || '')}`}
+      replace
+    />
+  );
 };
 
 const AnimatedRoutes = () => {
@@ -145,10 +197,82 @@ const AnimatedRoutes = () => {
           <Route path="admin" element={
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
-                <AdminDashboardPage />
+                <AdminHubPage />
               </AdminOnly>
             </Suspense>
           } />
+          <Route path="admin/analytics" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminAnalyticsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/live-ops" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminLiveOpsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/call-contests" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminCallContestsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/agents" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminAgentsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/campaigns" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminCampaignsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/phone-routing" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminPhoneRoutingPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/agencies" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminAgenciesPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/managers" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminManagersPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/ops/agencies" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminAgenciesOpsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/ops/agencies/:agencyId" element={<OpsAgencyRedirect />} />
+          <Route path="admin/ops/teams" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminTeamsOpsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/ops/teams/:managerUid" element={<OpsTeamRedirect />} />
           <Route path="admin/ai-training" element={
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
@@ -176,6 +300,21 @@ const AnimatedRoutes = () => {
               <QaOnly>
                 <QaAITrainingPage />
               </QaOnly>
+            </Suspense>
+          } />
+
+          <Route path="agency" element={
+            <Suspense fallback={<PageLoader />}>
+              <AgencyAdminOnly>
+                <AgencyDashboardPage />
+              </AgencyAdminOnly>
+            </Suspense>
+          } />
+          <Route path="team-dashboard" element={
+            <Suspense fallback={<PageLoader />}>
+              <ManagerOnly>
+                <TeamDashboardPage />
+              </ManagerOnly>
             </Suspense>
           } />
 

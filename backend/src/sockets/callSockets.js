@@ -4,6 +4,9 @@ const { getBalance } = require('../services/walletService');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const socketRegistry = require('./socketRegistry');
 const { isCampaignPaused } = require('../services/notificationService');
+const { getUserDoc } = require('../services/userDataService');
+const { validateAgentCampaignAccess } = require('../services/campaignAccessService');
+const { normalizeAgencyId } = require('../utils/tenancy');
 
 const HEARTBEAT_TTL_SECONDS = 35;
 
@@ -42,6 +45,20 @@ exports.setupCallSockets = (io) => {
             const { agentId, campaign, sessionId } = payload;
             const identity = agentId || socket.id;
             const safeSessionId = String(sessionId || `${identity}-${Date.now()}`).trim();
+
+            try {
+                const userDoc = await getUserDoc(identity);
+                const accessError = await validateAgentCampaignAccess(userDoc?.agencyId, campaign);
+                if (accessError) {
+                    socket.emit('agent:go_live_error', {
+                        code: 'CAMPAIGN_FORBIDDEN',
+                        message: accessError,
+                    });
+                    return;
+                }
+            } catch (err) {
+                console.warn(`[Agency] Campaign access check failed for ${identity}:`, err.message);
+            }
 
             try {
                 if (await isCampaignPaused(campaign)) {
@@ -112,7 +129,23 @@ exports.setupCallSockets = (io) => {
             }
             socket.pendingGoLivePayload = null; // consume
 
-            const registered = await agentManager.registerAgent(socket.agentId, payload);
+            // Use agencyId from the go_live payload (sent by frontend from authStore).
+            // Fall back to a Firestore lookup only if the frontend didn't send it.
+            let agencyId = normalizeAgencyId(payload.agencyId);
+            if (!agencyId) {
+                try {
+                    const userDoc = await getUserDoc(socket.agentId);
+                    agencyId = normalizeAgencyId(userDoc?.agencyId);
+                } catch {
+                    agencyId = null;
+                }
+            }
+            console.log(`[Socket] Agent ${socket.agentId} pool_ready — agencyId=${agencyId || 'platform'}`);
+
+            const registered = await agentManager.registerAgent(socket.agentId, {
+                ...payload,
+                agencyId,
+            });
 
             // Update session ID from registrar (may have been normalised)
             socket.agentSessionId = registered?.sessionId || socket.agentSessionId;

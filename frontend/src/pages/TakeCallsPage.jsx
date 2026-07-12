@@ -297,8 +297,19 @@ const StepOne = ({ onNext }) => {
   );
 };
 
+// Icon map — keeps icons stable even when campaigns are added dynamically
+const CAMPAIGN_ICON_MAP = {
+  fe_inbounds_short: Umbrella,
+  fe_inbounds: PhoneIncoming,
+  fe_tv_calls: Tv,
+  medicare_transfers: HeartPulse,
+  medicare_inbound_1: Shield,
+  medicare_inbound_2: ShieldCheck,
+  aca_transfers: Users,
+};
+
 // ─── Step 2: Campaign Selection ──────────────────────────────────────────────
-const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {} }) => {
+const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {}, liveCampaigns = [] }) => {
   const [selectedCampaign, setSelectedCampaign] = useState(selected);
   const campaigns = [
     { id: 'fe_inbounds_short', title: 'FE Inbounds Short', subtitle: 'FE Inbounds Short Duration', price: '$25', buffer: '10s buffer', icon: Umbrella },
@@ -317,6 +328,12 @@ const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {} }) => {
       </div>
       <p className={classes.subtitle}>Select the campaign you'd like to receive calls from</p>
       <div className={`glass ${classes.sectionCard}`}>
+        {campaigns.length === 0 ? (
+          <div className={classes.emptyState}>
+            <p>No campaigns are assigned to your agency yet.</p>
+            <p className={classes.continueSub}>Contact your agency admin to get access to campaigns.</p>
+          </div>
+        ) : (
         <div className={classes.campaignsList}>
           {campaigns.map((c) => {
             const isPaused = Boolean(pausedCampaigns[c.id]);
@@ -348,11 +365,12 @@ const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {} }) => {
             );
           })}
         </div>
+        )}
       </div>
 
       <div className={`glass ${classes.stickyActionBar}`}>
         <button className={classes.ghostBtn} onClick={onBack}>Back</button>
-        <button className={classes.primaryBtn} onClick={() => onNext(selectedCampaign)} disabled={!selectedCampaign || Boolean(pausedCampaigns[selectedCampaign])}>
+        <button className={classes.primaryBtn} onClick={() => onNext(selectedCampaign)} disabled={!selectedCampaign || Boolean(pausedCampaigns[selectedCampaign]) || campaigns.length === 0}>
           Continue
         </button>
       </div>
@@ -674,7 +692,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
         <div className={classes.summaryBox}>
           <div className={`glass ${classes.summaryRow}`}>
             <span className={classes.summaryLabel}>Campaign</span>
-            <span className={classes.summaryValue}>{campaignLabels[campaign] || campaign}</span>
+            <span className={classes.summaryValue}>{campaignLabel}</span>
           </div>
           <div className={`glass ${classes.summaryRow}`}>
             <span className={classes.summaryLabel}>Licensed States</span>
@@ -918,6 +936,7 @@ const TakeCallsPage = () => {
   const [history, setHistory] = useState([]);
   const [walletBalance, setWalletBalance] = useState(0);
   const [pausedCampaigns, setPausedCampaigns] = useState({});
+  const [liveCampaigns, setLiveCampaigns] = useState([]);
   const [statePresets, setStatePresets] = useState([]);
   const reduceMotion = useReducedMotion();
 
@@ -955,6 +974,7 @@ const TakeCallsPage = () => {
           if (row?.id) pausedMap[row.id] = Boolean(row.paused);
         });
         setPausedCampaigns(pausedMap);
+        setLiveCampaigns(campaigns);
       } catch {
         // Non-blocking: keep wizard usable even if pricing fetch fails.
       }
@@ -1001,15 +1021,8 @@ const TakeCallsPage = () => {
       toast.error('This campaign is currently paused by admin. Please choose another campaign.');
       return;
     }
-    const campaignPriceMap = {
-      fe_inbounds_short: 25,
-      fe_tv_calls: 65,
-      medicare_transfers: 25,
-      medicare_inbound_1: 35,
-      medicare_inbound_2: 15,
-      aca_transfers: 30,
-    };
-    const requiredBalance = campaignPriceMap[campaign] || 0;
+    const selected = liveCampaigns.find((c) => c.id === campaign);
+    const requiredBalance = Number(selected?.price) || 0;
 
     if (walletBalance < requiredBalance) {
       alert("Low balance for the selected campaign. Please top up your wallet.");
@@ -1258,9 +1271,10 @@ const TakeCallsPage = () => {
                   exit="exit"
                 >
                   {step === 1 && <StepOne onNext={() => goStep(2)} />}
-                  {step === 2 && <StepTwo selected={campaign} pausedCampaigns={pausedCampaigns} onNext={(sel) => { setCampaign(sel); goStep(3); }} onBack={() => goStep(1)} />}
+                  {step === 2 && <StepTwo selected={campaign} pausedCampaigns={pausedCampaigns} liveCampaigns={liveCampaigns} onNext={(sel) => { setCampaign(sel); goStep(3); }} onBack={() => goStep(1)} />}
+
                   {step === 3 && <StepThree onNext={(states, presetId) => { setWizardStates(states); setWizardPresetId(presetId ?? null); goStep(4); }} onBack={() => goStep(2)} statePresets={statePresets} onSavePresets={persistPresets} selectedPresetId={wizardPresetId} />}
-                  {step === 4 && <StepFour onBack={() => goStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} />}
+                  {step === 4 && <StepFour onBack={() => goStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} liveCampaigns={liveCampaigns} />}
                 </motion.div>
               </AnimatePresence>
             </div>

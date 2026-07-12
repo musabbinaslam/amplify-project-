@@ -4,6 +4,10 @@ export function getAdminOverviewLite() {
   return apiFetch('/api/admin/overview-lite', { method: 'GET' });
 }
 
+export function listAdminUsersLite() {
+  return apiFetch('/api/admin/users/all-lite', { method: 'GET' });
+}
+
 export function getAdminAnalyticsBundle({ from, to } = {}) {
   const qs = new URLSearchParams();
   if (from) qs.set('from', from);
@@ -43,6 +47,10 @@ export function listAdminDids() {
   return apiFetch('/api/admin/dids', { method: 'GET' });
 }
 
+export function listAdminAgencies() {
+  return apiFetch('/api/admin/agencies', { method: 'GET' });
+}
+
 export function createAdminDid(body) {
   return apiFetch('/api/admin/dids', { method: 'POST', body });
 }
@@ -57,6 +65,10 @@ export function deleteAdminDid(id) {
 
 export function postAdminBroadcastNotification(body) {
   return apiFetch('/api/admin/notifications/broadcast', { method: 'POST', body });
+}
+
+export function postAdminTargetedNotification(body) {
+  return apiFetch('/api/admin/notifications/targeted', { method: 'POST', body });
 }
 
 export function listAdminBroadcasts({ limit = 50, cursor } = {}) {
@@ -98,6 +110,35 @@ export function forceRemoveAgent(agentId) {
   return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/force-remove`, { method: 'POST' });
 }
 
+export function listAdminUsers() {
+  return apiFetch('/api/admin/users', { method: 'GET' });
+}
+
+export function patchManagerSettings(uid, { role, managedAgents, teamName }) {
+  const body = { role, managedAgents };
+  if (teamName !== undefined) body.teamName = teamName;
+  return apiFetch(`/api/admin/users/${encodeURIComponent(uid)}/manager-settings`, {
+    method: 'PATCH',
+    body,
+  });
+}
+
+export function listAdminManagers(params = {}) {
+  const qs = new URLSearchParams();
+  if (params.from) qs.set('from', params.from);
+  if (params.to) qs.set('to', params.to);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch(`/api/admin/managers${suffix}`, { method: 'GET' });
+}
+
+export function getAdminManager(uid, params = {}) {
+  const qs = new URLSearchParams();
+  if (params.from) qs.set('from', params.from);
+  if (params.to) qs.set('to', params.to);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch(`/api/admin/managers/${encodeURIComponent(uid)}${suffix}`, { method: 'GET' });
+}
+
 export function flagAdminAgent(agentId, reason) {
   return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/flag`, { method: 'POST', body: JSON.stringify({ reason }) });
 }
@@ -137,3 +178,17 @@ export function refundAdminCall({ agentId, callLogId, reason }) {
     body: { agentId, callLogId, reason },
   });
 }
+
+export function upsertAdminCampaign({ id, label, buffer, price }) {
+  return apiFetch('/api/admin/campaigns', {
+    method: 'POST',
+    body: { id, label, buffer, price },
+  });
+}
+
+export function deleteAdminCampaign(campaignId) {
+  return apiFetch(`/api/admin/campaigns/${encodeURIComponent(campaignId)}`, {
+    method: 'DELETE',
+  });
+}
+

@@ -794,6 +794,23 @@ async function patchMe(req, res) {
     if (!existingProfile) {
       body.role = 'agent';
     }
+    const identitySync = {};
+    const authEmail = String(req.user?.email || '').trim();
+    if (authEmail && !existingProfile?.email) identitySync.email = authEmail;
+    const nameFromBody = [body.fullName, body.displayName, body.name]
+      .map((v) => String(v || '').trim())
+      .find(Boolean);
+    const authName = String(req.user?.name || '').trim();
+    const nameCandidate = nameFromBody || (authName && authName !== authEmail ? authName : '');
+    const hasFirestoreName = Boolean(
+      existingProfile?.fullName || existingProfile?.displayName || existingProfile?.name,
+    );
+    if (nameCandidate && !hasFirestoreName) {
+      identitySync.name = nameCandidate;
+      identitySync.displayName = nameCandidate;
+      identitySync.fullName = nameCandidate;
+    }
+    Object.assign(body, identitySync);
     if ('averageAp' in body) {
       const n = Number(body.averageAp);
       if (!Number.isFinite(n) || n < 0) {
@@ -1928,6 +1945,32 @@ async function uploadCustomScript(req, res) {
     res.status(500).json({ error: err.message || 'Failed to process file' });
   }
 }
+async function getAvailableCampaigns(req, res) {
+  try {
+    const { getUserDoc } = require('../services/userDataService');
+    const { listCampaignsForAgentAsync } = require('../services/campaignAccessService');
+    const { getCampaignControls } = require('../services/notificationService');
+    const doc = await getUserDoc(req.user.uid);
+    const controls = await getCampaignControls();
+    const pausedMap = controls?.campaigns || {};
+    const metas = await listCampaignsForAgentAsync(doc?.agencyId);
+    const campaigns = metas.map((meta) => ({
+      id: meta.id,
+      label: meta.label,
+      price: meta.price,
+      buffer: meta.buffer,
+      paused: Boolean(pausedMap[meta.id]?.paused),
+      pauseReason: pausedMap[meta.id]?.reason || '',
+      locked: meta.locked,
+      agencyId: meta.agencyId,
+    }));
+    res.json({ campaigns, agencyId: doc?.agencyId ?? null });
+  } catch (err) {
+    console.error('[Users] getAvailableCampaigns:', err.message);
+    res.status(500).json({ error: 'Failed to load campaigns' });
+  }
+}
+
 module.exports = {
   getMe,
   getMeBootstrap,
@@ -1964,4 +2007,5 @@ module.exports = {
   uploadCustomScript,
   updateCustomScript,
   deleteCustomScript,
+  getAvailableCampaigns,
 };

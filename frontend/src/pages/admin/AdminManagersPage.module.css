@@ -1,0 +1,659 @@
+.contextHeaderRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.contextLead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.contextIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent-cyan);
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-cyan) 22%, transparent);
+}
+
+.contextCopy {
+  min-width: 0;
+}
+
+.contextTitle {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.contextMeta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.contextActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.opsLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.opsLink:hover {
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 8%, transparent);
+}
+
+.opsLinkLabel {
+  white-space: nowrap;
+}
+
+.contextActionBtn {
+  gap: 6px;
+}
+
+.createFooterForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.createFooterForm > * {
+  min-width: 0;
+}
+
+.createFooterForm label {
+  font-size: 11px;
+}
+
+.createFooterBtn {
+  width: 100%;
+  justify-content: center;
+}
+
+.createFooterForm .createUserRow {
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.createFooterForm .selectedUserBox {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.createFooterForm .selectedUserName,
+.createFooterForm .memberMeta {
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+.createFooterForm input,
+.createFooterForm select {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.tabContent {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.tabToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tabIntro {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.createRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.createUserRow {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.selectedUserBox {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 40%, transparent);
+  min-height: 44px;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.selectedUserName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+.selectedUserPlaceholder {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.tableHint {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  line-height: 1.45;
+}
+
+.detailPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.detailHeader {
+  padding: 20px 22px;
+}
+
+.detailHeader > * {
+  position: relative;
+  z-index: 1;
+}
+
+.detailTitleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.detailTitleRow h3 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.detailMeta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.detailActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.closeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.closeBtn:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
+}
+
+.sectionBlock {
+  padding: 20px 22px;
+}
+
+.sectionBlock > * {
+  position: relative;
+  z-index: 1;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.sectionHead h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sectionIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+}
+
+.membersHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.membersHeader .sectionHead {
+  margin-bottom: 0;
+}
+
+.membersToolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.membersSearchWrap {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+  max-width: 420px;
+}
+
+.membersSearchWrap .searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.membersSearch {
+  width: 100%;
+  padding-left: 36px;
+}
+
+.performanceStrip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.perfCard {
+  padding: 16px 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 40%, transparent);
+}
+
+.perfLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.perfValue {
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.chartSection {
+  margin-bottom: 20px;
+}
+
+.modalSearchRow {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.modalSearchRow .searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.modalSearch {
+  width: 100%;
+  padding-left: 36px;
+}
+
+.assignModal {
+  max-width: 560px;
+}
+
+.pickerToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.pickerMeta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.pickerToolbarBtns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.userPickerList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 200px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-container-high) 35%, transparent);
+}
+
+.userPickerItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.userPickerItem:hover {
+  background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
+}
+
+.userPickerItemActive {
+  border-color: color-mix(in srgb, var(--brand-text) 28%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 8%, transparent);
+}
+
+.userPickerItem input {
+  margin-top: 3px;
+  flex-shrink: 0;
+  accent-color: var(--brand-text);
+}
+
+.userPickerBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.userPickerName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.userPickerEmpty {
+  margin: 0;
+  padding: 24px 8px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.memberCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.memberName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.memberMeta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  word-break: break-all;
+  line-height: 1.35;
+}
+
+.memberTable th,
+.memberTable td {
+  vertical-align: middle;
+  padding: 0.7rem 1rem;
+}
+
+.agentsTableViewport {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.agentsTableViewportScrollable {
+  --agent-row-height: 3.35rem;
+  --agent-head-height: 2.65rem;
+  overflow-y: auto;
+  max-height: calc(
+    var(--agent-head-height)
+    + var(--agents-visible-rows, 5) * var(--agent-row-height)
+  );
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-secondary) 28%, transparent) transparent;
+}
+
+.agentsTableViewportScrollable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: color-mix(in srgb, var(--surface-container-high) 92%, transparent);
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.pageBtns {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pageMeta,
+.pageIndicator {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.pageBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pageBtn:hover:not(:disabled) {
+  background: var(--surface-container-high);
+  border-color: color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
+}
+
+.pageBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.managerTable {
+  min-width: 720px;
+}
+
+.managerCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.managerName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.managerEmail {
+  display: block;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.teamNameRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: end;
+  max-width: 480px;
+}
+
+@media (max-width: 1024px) {
+  .statsRow,
+  .performanceStrip {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  .createRow {
+    grid-template-columns: 1fr;
+  }
+
+  .createRow button {
+    justify-self: start;
+  }
+
+  .teamNameRow {
+    grid-template-columns: 1fr;
+    max-width: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .statsRow,
+  .performanceStrip {
+    grid-template-columns: 1fr;
+  }
+}

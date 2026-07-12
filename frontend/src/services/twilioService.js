@@ -88,11 +88,13 @@ export const initializeTwilioDevice = async (passedIdentity, campaign, licensedS
         store.setSocket && store.setSocket(socket);
         // Emit go_live for balance check + session setup.
         // Backend responds with agent:live_pending (NOT live_confirmed yet).
+        const agencyId = useAuthStore.getState().user?.agencyId || null;
         socket.emit('agent:go_live', {
           campaign,
           agentId: passedIdentity,
           licensedStates,
           sessionId: liveSessionId,
+          agencyId,
         });
         socket._agentSessionId = liveSessionId;
 

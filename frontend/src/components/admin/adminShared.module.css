@@ -702,6 +702,101 @@
   text-decoration: underline;
 }
 
+.agentDetails {
+  cursor: pointer;
+  min-width: 0;
+}
+
+.agentDetails summary {
+  list-style: none;
+}
+
+.agentDetails summary::-webkit-details-marker {
+  display: none;
+}
+
+.agentActionPanel {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.agentSummaryLine {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.agentPhoneMuted {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
+.agentActionsCell {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.agentActionRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.agentFlagBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent);
+  color: var(--accent-red);
+  border: 1px solid color-mix(in srgb, var(--accent-red) 28%, transparent);
+}
+
+.agentActionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.modalTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.modalIconDanger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: var(--radius-lg);
+  color: var(--accent-red);
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-red) 24%, transparent);
+}
+
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 13px;
@@ -749,10 +844,36 @@
 
 /* ─── Forms & inputs ─── */
 .didForm {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   margin-bottom: 20px;
+  width: 100%;
+}
+
+.didFormFields {
+  display: grid;
+  grid-template-columns: 1.1fr 1.2fr 1.3fr 1fr;
+  gap: 12px;
+  width: 100%;
+  align-items: end;
+}
+
+.didFormFieldLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 2.7em;
+  line-height: 1.35;
+}
+
+.didFormActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+  width: 100%;
 }
 
 .input,
@@ -769,6 +890,18 @@
   min-width: 0;
   width: 100%;
   transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23969696' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+  cursor: pointer;
 }
 
 .textarea,
@@ -821,13 +954,76 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  line-height: 1.35;
+  white-space: normal;
 }
 
 .formFieldInline {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.formFieldInline .primaryBtn {
+  flex-shrink: 0;
+}
+
+.didFormActions .primaryBtn {
+  flex-shrink: 0;
+}
+
+/* Searchable user combobox (Manager settings) */
+.combo {
+  position: relative;
+}
+
+.comboMenu {
+  position: absolute;
+  z-index: 100;
+  bottom: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--surface-container-highest);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.comboItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.comboItem:hover {
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+}
+
+.comboItemName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.comboItemSub {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  word-break: break-all;
+}
+
+.comboEmpty {
+  padding: 10px;
+  font-size: 13px;
+  color: var(--text-tertiary);
 }
 
 .formRow {
@@ -837,11 +1033,23 @@
 }
 
 .check {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   font-size: 14px;
   color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.check input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--brand-solid);
+  cursor: pointer;
 }
 
 .notificationGrid {
@@ -866,6 +1074,7 @@
 .primaryBtn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 10px 18px;
   border-radius: var(--radius-full);
@@ -875,11 +1084,17 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: var(--glass-highlight);
   transition: filter 0.15s ease;
 }
 
 .primaryBtn:hover:not(:disabled) {
   filter: brightness(1.08);
+}
+
+.primaryBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .notificationForm .primaryBtn,
@@ -921,6 +1136,21 @@
   font-weight: 700;
 }
 
+.checkboxGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px 16px;
+  margin: 12px 0 16px;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
 .linkBtn {
   background: none;
   border: none;
@@ -940,6 +1170,198 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+/* Campaign management table — full-width columns, right-aligned actions */
+.campaignTable {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.campaignTable th:nth-child(1),
+.campaignTable td:nth-child(1) {
+  width: 22%;
+}
+
+.campaignTable th:nth-child(2),
+.campaignTable td:nth-child(2) {
+  width: 8%;
+}
+
+.campaignTable th:nth-child(3),
+.campaignTable td:nth-child(3) {
+  width: 9%;
+}
+
+.campaignTable th:nth-child(4),
+.campaignTable td:nth-child(4) {
+  width: 10%;
+}
+
+.campaignTable th:nth-child(5),
+.campaignTable td:nth-child(5) {
+  width: auto;
+}
+
+.campaignTable th:nth-child(6),
+.campaignTable td:nth-child(6) {
+  width: 240px;
+}
+
+.campaignTable .input {
+  width: 100%;
+}
+
+.actionsHead,
+.actionsCell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.actionGroup {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.rowBtn,
+.rowBtnPrimary,
+.rowBtnWarn,
+.rowBtnDanger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.rowBtn {
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
+  color: var(--text-primary);
+}
+
+.rowBtn:hover {
+  border-color: color-mix(in srgb, var(--brand-text) 28%, var(--glass-border));
+  color: var(--brand-text);
+}
+
+.rowBtnPrimary {
+  border: 1px solid color-mix(in srgb, var(--brand-text) 35%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  color: var(--brand-text);
+}
+
+.rowBtnPrimary:hover {
+  background: color-mix(in srgb, var(--brand-text) 18%, transparent);
+}
+
+.rowBtnWarn {
+  border: 1px solid color-mix(in srgb, var(--accent-yellow) 40%, var(--glass-border));
+  background: color-mix(in srgb, var(--accent-yellow) 10%, transparent);
+  color: var(--accent-yellow);
+}
+
+.rowBtnWarn:hover {
+  background: color-mix(in srgb, var(--accent-yellow) 16%, transparent);
+}
+
+.rowBtnDanger {
+  border: 1px solid color-mix(in srgb, var(--accent-red) 35%, var(--glass-border));
+  background: color-mix(in srgb, var(--accent-red) 10%, transparent);
+  color: var(--accent-red);
+}
+
+.rowBtnDanger:hover {
+  background: color-mix(in srgb, var(--accent-red) 16%, transparent);
+}
+
+/* Phone routing table — scroll on narrow viewports, no column overlap */
+.routingTable {
+  table-layout: fixed;
+  width: 100%;
+  min-width: 860px;
+}
+
+.routingTable th,
+.routingTable td {
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.routingTable th:nth-child(1),
+.routingTable td:nth-child(1) {
+  width: 14%;
+  min-width: 132px;
+}
+
+.routingTable th:nth-child(2),
+.routingTable td:nth-child(2) {
+  width: 16%;
+  min-width: 128px;
+}
+
+.routingTable th:nth-child(3),
+.routingTable td:nth-child(3) {
+  width: 16%;
+  min-width: 120px;
+}
+
+.routingTable th:nth-child(4),
+.routingTable td:nth-child(4) {
+  width: auto;
+  min-width: 140px;
+}
+
+.routingTable th:nth-child(5),
+.routingTable td:nth-child(5) {
+  width: 10%;
+  min-width: 96px;
+}
+
+.routingTable th:nth-child(6),
+.routingTable td:nth-child(6) {
+  width: 220px;
+  min-width: 200px;
+}
+
+.tableCellTruncate {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.tableCellWrap {
+  display: block;
+  overflow: hidden;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+@media (max-width: 900px) {
+  .campaignTable {
+    table-layout: auto;
+  }
+
+  .campaignTable th:nth-child(6),
+  .campaignTable td:nth-child(6) {
+    width: auto;
+  }
+
+  .actionGroup {
+    flex-wrap: wrap;
+  }
 }
 
 /* ─── Status pills & dispositions ─── */
@@ -1101,7 +1523,7 @@
   100% { background-position: -200% 0; }
 }
 
-/* ─── Modal ─── */
+/* ─── Modal (DESIGN.md glass + form tokens) ─── */
 .modalOverlay {
   position: fixed;
   inset: 0;
@@ -1116,81 +1538,157 @@
 }
 
 .modalBox {
-  background: var(--glass-bg);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
-  padding: 28px;
   max-width: 480px;
   width: 100%;
-  box-shadow: var(--glass-highlight), var(--glass-edge);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 28px;
+  border-radius: var(--radius-xl);
 }
 
 .modalHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin-bottom: 8px;
 }
 
 .modalHeader h3 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .modalCloseBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
   padding: 4px;
+  border-radius: var(--radius-md);
+  transition: color 0.15s ease, background 0.15s ease;
 }
 
 .modalCloseBtn:hover {
   color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface-container-high) 60%, transparent);
 }
 
 .modalSub {
   color: var(--text-secondary);
-  font-size: 0.85rem;
-  line-height: 1.45;
-  margin: 0 0 1rem;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+.modalField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.modalField:last-of-type {
+  margin-bottom: 0;
 }
 
 .modalLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.modalLabelStack {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.8rem;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-size: 12px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--text-secondary);
+}
+
+.modalHint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.modalFormGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.modalFormGrid .modalField {
+  margin-bottom: 16px;
+}
+
+.inputDisabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .modalActions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 1.25rem;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
 }
 
 .modalCancelBtn {
   background: transparent;
   border: 1px solid var(--glass-border);
   color: var(--text-secondary);
-  padding: 0.5rem 1rem;
+  padding: 10px 16px;
   border-radius: var(--radius-full);
-  font-size: 0.85rem;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
 .modalCancelBtn:hover:not(:disabled) {
   color: var(--text-primary);
   border-color: color-mix(in srgb, var(--brand-text) 20%, var(--glass-border));
+  background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
+}
+
+.modalCancelBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.modalActions .dangerBtn {
+  padding: 10px 16px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .modalFormGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ─── Call charge contests ─── */
@@ -1509,6 +2007,12 @@
 }
 
 /* ─── Responsive ─── */
+@media (max-width: 1200px) {
+  .didFormFields {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 1024px) {
   .statsRow,
   .grid {
@@ -1518,10 +2022,6 @@
 
   .contestReviewGrid {
     grid-template-columns: 1fr;
-  }
-
-  .didForm {
-    grid-template-columns: 1fr 1fr;
   }
 
   .notificationGrid {
@@ -1551,13 +2051,19 @@
     align-self: flex-end;
   }
 
-  .didForm {
+  .didFormFields {
     grid-template-columns: 1fr;
   }
 
+  .didFormActions,
   .formFieldInline {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .didFormActions .primaryBtn,
+  .formFieldInline .primaryBtn {
+    width: 100%;
   }
 
   .searchInput {

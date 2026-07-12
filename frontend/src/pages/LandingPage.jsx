@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
@@ -16,6 +16,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
+import { fetchCampaignPricing } from '../services/dashboardService';
 import classes from './LandingPage.module.css';
 
 const QUICK_PROOF = [
@@ -103,9 +104,27 @@ const FAQItem = ({ item, isOpen, onToggle }) => (
 
 const LandingPage = () => {
   const [openFaq, setOpenFaq] = useState(null);
+  const [verticalPricing, setVerticalPricing] = useState([]);
   const { theme, toggleTheme } = useUIStore();
   const bookingUrl = import.meta.env.VITE_CALENDLY_URL || '#';
   const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    fetchCampaignPricing()
+      .then((campaigns) => {
+        setVerticalPricing(
+          campaigns.map((c) => ({
+            name: c.label,
+            price: `$${Number(c.price).toFixed(0)}`,
+            buffer: `${c.buffer}s`,
+            detail: c.label,
+          }))
+        );
+      })
+      .catch(() => {
+        // Non-blocking — page is still fully usable without pricing
+      });
+  }, []);
 
   const fadeUp = {
     hidden: { opacity: 0, y: reduceMotion ? 0 : 24 },
@@ -276,7 +295,8 @@ const LandingPage = () => {
           </motion.div>
 
           <div className={classes.pricingGrid}>
-            {VERTICAL_PRICING.map((item) => (
+            {verticalPricing.map((item) => (
+
               <motion.article key={item.name} className={classes.pricingCard} variants={fadeUp}>
                 <h3>{item.name}</h3>
                 <div className={classes.priceRow}>

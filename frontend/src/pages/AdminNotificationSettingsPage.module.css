@@ -63,9 +63,10 @@
 
 .notificationGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
   margin-top: 12px;
+  width: 100%;
 }
 
 .notificationForm {
@@ -191,11 +192,57 @@
   font-size: 13px;
 }
 
+.historyTable {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.historyTable th:nth-child(1),
+.historyTable td:nth-child(1) {
+  width: 12%;
+}
+
+.historyTable th:nth-child(2),
+.historyTable td:nth-child(2) {
+  width: 14%;
+}
+
+.historyTable th:nth-child(3),
+.historyTable td:nth-child(3) {
+  width: auto;
+}
+
+.historyTable th:nth-child(4),
+.historyTable td:nth-child(4) {
+  width: 9%;
+}
+
+.historyTable th:nth-child(5),
+.historyTable td:nth-child(5) {
+  width: 12%;
+}
+
+.historyTable th:nth-child(6),
+.historyTable td:nth-child(6) {
+  width: 9%;
+}
+
+.historyTable th:nth-child(7),
+.historyTable td:nth-child(7) {
+  width: 10%;
+}
+
+.historyTable th:nth-child(8),
+.historyTable td:nth-child(8) {
+  width: 180px;
+}
+
 .table th,
 .table td {
   padding: 12px 14px;
   text-align: left;
   border-bottom: 1px solid color-mix(in srgb, var(--glass-border) 80%, transparent);
+  vertical-align: middle;
 }
 
 .table th {
@@ -212,17 +259,81 @@
 }
 
 .previewCell {
-  max-width: 280px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-secondary);
 }
 
+.actionsHead,
 .actionsCell {
-  display: flex;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.actionGroup {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  flex-wrap: wrap;
+  width: 100%;
+}
+
+.rowBtn,
+.rowBtnDanger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.rowBtn {
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
+  color: var(--text-primary);
+}
+
+.rowBtn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--brand-text) 28%, var(--glass-border));
+  color: var(--brand-text);
+}
+
+.rowBtnDanger {
+  border: 1px solid color-mix(in srgb, var(--accent-red) 35%, var(--glass-border));
+  background: color-mix(in srgb, var(--accent-red) 10%, transparent);
+  color: var(--accent-red);
+}
+
+.rowBtnDanger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-red) 16%, transparent);
+}
+
+.rowBtn:disabled,
+.rowBtnDanger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .historyTable {
+    table-layout: auto;
+  }
+
+  .historyTable th:nth-child(8),
+  .historyTable td:nth-child(8) {
+    width: auto;
+  }
+
+  .actionGroup {
+    flex-wrap: wrap;
+  }
 }
 
 .typePill,
@@ -346,6 +457,12 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+@media (max-width: 1100px) {
+  .notificationGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 960px) {

@@ -1,0 +1,101 @@
+.panel {
+  flex-shrink: 0;
+  padding: 14px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.panelOpen {
+  border-color: color-mix(in srgb, var(--brand-text) 18%, var(--glass-border));
+}
+
+.panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.fadeBlock {
+  min-width: 0;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 18px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--brand-solid);
+  color: var(--brand-on);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--glass-highlight);
+  transition: filter 0.15s ease;
+}
+
+.trigger:hover {
+  filter: brightness(1.08);
+}
+
+.formBody {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.headRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.headCopy {
+  min-width: 0;
+  flex: 1;
+}
+
+.headTitle {
+  margin: 0 0 2px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-tertiary);
+}
+
+.headHint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.closeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.closeBtn:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
+}

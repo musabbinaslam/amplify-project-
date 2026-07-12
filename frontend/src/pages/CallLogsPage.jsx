@@ -9,6 +9,7 @@ import { EASE_SMOOTH } from '../motion/appMotion';
 import { auth } from '../config/firebase';
 import CustomSelect from '../components/ui/CustomSelect';
 import PageLoader from '../components/ui/PageLoader';
+import { CallLogDispositionBadge, CallLogStatusBadge } from '../components/callLogs/CallLogStatusCells';
 import classes from './CallLogsPage.module.css';
 
 const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
@@ -658,7 +659,7 @@ export const RecordingModal = ({ log, onClose }) => {
   const playedPct = effectiveTotal > 0 ? (sliderValue / effectiveTotal) * 100 : 0;
   const bufferedPct = effectiveTotal > 0 ? Math.min(100, (buffered / effectiveTotal) * 100) : 0;
 
-  return (
+  return createPortal(
     <div
       className={classes.modalOverlay}
       onClick={onClose}
@@ -818,7 +819,8 @@ export const RecordingModal = ({ log, onClose }) => {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 
@@ -1110,34 +1112,12 @@ const CallLogsPage = () => {
                       </td>
                       <td className={classes.colStatus}>
                         <div className={classes.statusCell}>
-                          {log.isBillable ? (
-                            <span className={`${classes.dispBadge} ${classes.dispSold}`}>
-                              <DollarSign size={12} /> Billable {log.saleAmount ? `($${Number(log.saleAmount).toFixed(0)})` : ''}
-                            </span>
-                          ) : log.status === 'missed' ? (
-                            <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Missed</span>
-                          ) : (
-                            <span className={`${classes.dispBadge} ${classes.dispAnswered}`}>Answered</span>
-                          )}
+                          <CallLogStatusBadge log={log} />
                         </div>
                       </td>
                       <td className={classes.colDisposition}>
                         <div className={classes.statusCell}>
-                          {log.disposition === 'callback' ? (
-                            <span className={`${classes.dispBadge} ${classes.dispAnswered}`}>Call back</span>
-                          ) : log.disposition === 'not_interested' ? (
-                            <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Not Interested</span>
-                          ) : log.disposition === 'busy' ? (
-                            <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Busy</span>
-                          ) : log.disposition === 'dead_air' ? (
-                            <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Dead Air</span>
-                          ) : log.disposition === 'policy_closed' ? (
-                            <span className={`${classes.dispBadge} ${classes.dispPolicyClosed}`}>Policy Closed</span>
-                          ) : log.disposition === 'sold' || log.isBillable ? (
-                            <span className={`${classes.dispBadge} ${classes.dispSold}`}>Sold</span>
-                          ) : (
-                            <span className={classes.scoreDash}>—</span>
-                          )}
+                          <CallLogDispositionBadge log={log} />
                         </div>
                       </td>
                       <td className={classes.colCost}>

@@ -1,0 +1,498 @@
+.contextHeaderRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.contextLead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.contextIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent-cyan);
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-cyan) 22%, transparent);
+}
+
+.contextCopy {
+  min-width: 0;
+}
+
+.contextTitle {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.contextMeta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.contextActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.opsLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.opsLink:hover {
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 8%, transparent);
+}
+
+.opsLinkLabel {
+  white-space: nowrap;
+}
+
+.contextActionBtn {
+  gap: 6px;
+}
+
+.createFooterForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.createFooterForm label {
+  font-size: 11px;
+}
+
+.createFooterBtn {
+  width: 100%;
+  justify-content: center;
+}
+
+.tabContent {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.tabToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tabIntro {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.closeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.closeBtn:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
+}
+
+.membersToolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.membersSearchWrap {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+  max-width: 420px;
+}
+
+.membersSearchWrap .searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.membersSearch {
+  width: 100%;
+  padding-left: 36px;
+}
+
+.modalSearchRow {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.modalSearchRow .searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.modalSearch {
+  width: 100%;
+  padding-left: 36px;
+}
+
+.assignModal {
+  max-width: 560px;
+}
+
+.pickerToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.pickerMeta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.pickerToolbarBtns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.userPickerList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 200px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-container-high) 35%, transparent);
+}
+
+.userPickerItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.userPickerItem:hover {
+  background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
+}
+
+.userPickerItemActive {
+  border-color: color-mix(in srgb, var(--brand-text) 28%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 8%, transparent);
+}
+
+.userPickerItem input {
+  margin-top: 3px;
+  flex-shrink: 0;
+  accent-color: var(--brand-text);
+}
+
+.userPickerBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.userPickerName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.userPickerEmpty {
+  margin: 0;
+  padding: 24px 8px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.memberCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.memberName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.memberMeta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  word-break: break-all;
+  line-height: 1.35;
+}
+
+.memberTable {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.memberTable th,
+.memberTable td {
+  vertical-align: middle;
+  padding: 0.7rem 1rem;
+}
+
+.memberTable th:nth-child(1),
+.memberTable td:nth-child(1) {
+  width: 50%;
+  text-align: left;
+}
+
+.memberTable th:nth-child(2),
+.memberTable td:nth-child(2) {
+  width: 30%;
+  text-align: left;
+}
+
+.memberTable th:nth-child(3),
+.memberTable td:nth-child(3) {
+  width: 20%;
+  text-align: right;
+}
+
+.roleSelect {
+  width: 100%;
+  max-width: 200px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.modalFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.modalFooter .modalActions {
+  margin-top: 0;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.pageBtns {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pageMeta,
+.pageIndicator {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.pageBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pageBtn:hover:not(:disabled) {
+  background: var(--surface-container-high);
+  border-color: color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
+}
+
+.pageBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.didForm {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.campaignGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.campaignChip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 45%, transparent);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  text-align: left;
+}
+
+.campaignChip:hover {
+  border-color: color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
+}
+
+.campaignChipActive {
+  border-color: color-mix(in srgb, var(--brand-text) 40%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 10%, transparent);
+}
+
+.campaignChip input {
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--brand-text);
+}
+
+.campaignChipBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.campaignChipLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.campaignChipMeta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.rolePill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  color: var(--brand-text);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 24%, var(--glass-border));
+}
+
+.rolePillAdmin {
+  background: color-mix(in srgb, var(--accent-cyan) 12%, transparent);
+  color: var(--accent-cyan);
+  border-color: color-mix(in srgb, var(--accent-cyan) 24%, var(--glass-border));
+}
+
+@media (max-width: 1024px) {
+  .didForm {
+    grid-template-columns: 1fr;
+  }
+
+  .contextActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .contextLead {
+    flex: 1 1 100%;
+  }
+
+  .opsLinkLabel {
+    display: none;
+  }
+}

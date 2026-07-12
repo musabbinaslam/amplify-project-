@@ -18,7 +18,12 @@ const ALLOWED_TYPES = new Set([
 ]);
 const ADMIN_NOTIFICATION_TYPES = new Set(['admin_alert']);
 const ALLOWED_PRIORITIES = new Set(['low', 'normal', 'high']);
-const CAMPAIGN_IDS = new Set(Object.keys(CAMPAIGN_CONFIG || {}));
+// CAMPAIGN_IDS is intentionally NOT a frozen Set — we check the live
+// CAMPAIGN_CONFIG reference directly so newly added campaigns are valid
+// without requiring a server restart.
+function isKnownCampaign(id) {
+  return Object.prototype.hasOwnProperty.call(CAMPAIGN_CONFIG, id);
+}
 const CAMPAIGN_CONTROLS_CACHE_TTL_MS = 5000;
 let campaignControlsCache = { expiresAt: 0, data: null };
 
@@ -92,7 +97,7 @@ function campaignControlsDocRef() {
 function normalizeCampaignId(campaignId) {
   const id = String(campaignId || '').trim();
   if (!id) throw new Error('campaignId is required');
-  if (!CAMPAIGN_IDS.has(id)) throw new Error('Invalid campaignId');
+  if (!isKnownCampaign(id)) throw new Error('Invalid campaignId');
   return id;
 }
 
@@ -157,7 +162,7 @@ async function setCampaignPaused(campaignId, input = {}, updatedBy = null) {
 
 async function isCampaignPaused(campaignId) {
   const id = String(campaignId || '').trim();
-  if (!id || !CAMPAIGN_IDS.has(id)) return false;
+  if (!id || !isKnownCampaign(id)) return false;
   const controls = await getCampaignControls();
   return Boolean(controls?.campaigns?.[id]?.paused);
 }
@@ -489,6 +494,51 @@ async function broadcastNotificationToAllUsers(payload, source = 'admin', create
   };
 }
 
+async function sendTargetedNotification(userIds, payload, source = 'admin', createdBy = null) {
+  if (!Array.isArray(userIds) || userIds.length === 0) {
+    throw new Error('No users selected for targeted notification');
+  }
+  const type = payload.type || 'admin_broadcast';
+  const base = buildNotificationPayload({ ...payload, type }, source);
+  const registry = await createBroadcastRegistry(
+    {
+      type,
+      title: base.title,
+      body: base.body,
+      priority: base.priority,
+      expiresAt: base.expiresAt,
+    },
+    createdBy,
+    userIds.length,
+  );
+  const broadcastId = registry.id;
+  const userPayload = { ...base, broadcastId };
+  const db = ensureFirestore();
+  const created = [];
+  for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
+    const batch = db.batch();
+    const chunk = userIds.slice(i, i + BATCH_SIZE);
+    chunk.forEach((uid) => {
+      const ref = notificationsCollection(uid).doc();
+      batch.set(ref, userPayload, { merge: false });
+      created.push({ uid, id: ref.id });
+    });
+    await batch.commit();
+  }
+  return {
+    broadcastId,
+    recipientCount: userIds.length,
+    createdCount: created.length,
+    created,
+    title: base.title,
+    body: base.body,
+    type: base.type,
+    priority: base.priority,
+    createdAt: base.createdAtIso,
+    ...(base.expiresAt ? { expiresAt: base.expiresAt } : {}),
+  };
+}
+
 async function listBroadcasts(options = {}) {
   const limit = parseLimit(options.limit);
   let query = broadcastsCollection().orderBy('createdAt', 'desc').limit(limit + 1);
@@ -698,6 +748,7 @@ module.exports = {
   notifyAdminsInBackground,
   toRealtimeNotification,
   broadcastNotificationToAllUsers,
+  sendTargetedNotification,
   listBroadcasts,
   getBroadcast,
   updateBroadcast,
