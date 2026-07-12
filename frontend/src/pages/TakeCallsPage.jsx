@@ -692,7 +692,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
         <div className={classes.summaryBox}>
           <div className={`glass ${classes.summaryRow}`}>
             <span className={classes.summaryLabel}>Campaign</span>
-            <span className={classes.summaryValue}>{campaignLabel}</span>
+            <span className={classes.summaryValue}>{campaignLabels[campaign] || campaign}</span>
           </div>
           <div className={`glass ${classes.summaryRow}`}>
             <span className={classes.summaryLabel}>Licensed States</span>
