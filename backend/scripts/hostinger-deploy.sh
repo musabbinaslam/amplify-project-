@@ -20,7 +20,8 @@ fi
 
 npm install --production
 ./scripts/record-release.sh $COMMIT_SHA
-pm2 restart backend || pm2 restart all
+# Rolling reload keeps other cluster workers up during restart (multi-node safe)
+pm2 reload backend || pm2 restart backend || pm2 restart all
 
 echo "Release endpoint should now return:"
 cat "$ROOT/.release"

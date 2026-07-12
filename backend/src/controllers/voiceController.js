@@ -370,7 +370,7 @@ exports.handleCallCompleted = async (req, res) => {
 
                     // Notify the agent's browser immediately so the UI shows "Offline"
                     // instead of staying stuck on "Listening for Calls".
-                    socketRegistry.emitToAgent(agentId, 'agent:forced_offline', {
+                    await socketRegistry.emitToAgent(agentId, 'agent:forced_offline', {
                         reason: 'missed_call',
                         message: 'You missed a call and have been taken offline. Please go live again when ready.'
                     });
@@ -829,7 +829,7 @@ exports.updateCallLog = async (req, res) => {
         if (campaignPaused) {
           // Campaign paused while agent was on call / in WRAP_UP — do not re-enter pool
           await agentManager.removeAgent(uid);
-          socketRegistry.emitToAgent(uid, 'agent:forced_offline', {
+          await socketRegistry.emitToAgent(uid, 'agent:forced_offline', {
             reason: 'campaign_paused',
             message: 'This campaign was paused by an admin. You have been taken offline. Go live on another campaign when ready.',
           });

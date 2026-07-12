@@ -249,8 +249,8 @@ async function approveContest(contestId, adminUid, adminReason) {
         contestId,
         walletBalanceCents,
       }, 'contest')
-      .then((realtime) => {
-        if (realtime) socketRegistry.emitToAgent(agentId, 'notification:new', realtime);
+      .then(async (realtime) => {
+        if (realtime) await socketRegistry.emitToAgent(agentId, 'notification:new', realtime);
       })
       .catch((notifyErr) => {
         console.warn('[Contest] Agent credit notification failed:', notifyErr.message);

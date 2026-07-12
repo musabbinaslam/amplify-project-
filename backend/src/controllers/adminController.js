@@ -904,7 +904,7 @@ async function getLiveCalls(req, res) {
 
 async function kickAgentOfflineForCampaignPause(agentId) {
   await agentManager.removeAgent(agentId);
-  socketRegistry.emitToAgent(agentId, 'agent:forced_offline', {
+  await socketRegistry.emitToAgent(agentId, 'agent:forced_offline', {
     reason: 'campaign_paused',
     message: 'This campaign was paused by an admin. You have been taken offline. Go live on another campaign when ready.',
   });
@@ -927,7 +927,7 @@ async function forceRemoveAgent(req, res) {
     await agentManager.removeAgent(id);
 
     // Notify the agent's browser immediately so Take Calls UI goes offline
-    socketRegistry.emitToAgent(id, 'agent:forced_offline', {
+    await socketRegistry.emitToAgent(id, 'agent:forced_offline', {
       reason: 'admin_removed',
       message: 'An admin removed you from the call pool. Go live again when you are ready to take calls.',
     });
@@ -1154,7 +1154,7 @@ async function flagAgent(req, res) {
     await agentManager.removeAgent(id);
 
     // 3. Notify their browser via socket if they are online
-    socketRegistry.emitToAgent(id, 'agent:flagged', {
+    await socketRegistry.emitToAgent(id, 'agent:flagged', {
       reason,
       message: 'Your account has been flagged due to inactivity or a low billable rate. Please contact admin@callsflow.io to resume your activity.',
     });
@@ -1196,7 +1196,7 @@ async function resumeAgent(req, res) {
     });
 
     // 2. Notify their browser via socket if they are online
-    socketRegistry.emitToAgent(id, 'agent:flag_lifted', {
+    await socketRegistry.emitToAgent(id, 'agent:flag_lifted', {
       message: 'Your account has been resumed. You can now go live!',
     });
 
@@ -1471,20 +1471,22 @@ async function postBroadcastNotification(req, res) {
       req.user?.uid || 'admin',
       req.user?.uid || null,
     );
-    payload.created.forEach(({ uid, id }) => {
-      socketRegistry.emitToAgent(uid, 'notification:new', {
-        id,
-        broadcastId: payload.broadcastId,
-        type: payload.type,
-        title: payload.title,
-        body: payload.body,
-        priority: payload.priority,
-        source: 'admin',
-        read: false,
-        createdAt: payload.createdAt,
-        expiresAt: payload.expiresAt || null,
-      });
-    });
+    await Promise.all(
+      payload.created.map(({ uid, id }) =>
+        socketRegistry.emitToAgent(uid, 'notification:new', {
+          id,
+          broadcastId: payload.broadcastId,
+          type: payload.type,
+          title: payload.title,
+          body: payload.body,
+          priority: payload.priority,
+          source: 'admin',
+          read: false,
+          createdAt: payload.createdAt,
+          expiresAt: payload.expiresAt || null,
+        }),
+      ),
+    );
     res.status(201).json({
       success: true,
       broadcastId: payload.broadcastId,
@@ -1518,21 +1520,22 @@ async function postTargetedNotification(req, res) {
       req.user?.uid || 'admin',
       req.user?.uid || null,
     );
-    payload.created.forEach(({ uid, id }) => {
-      const socketRegistry = require('../sockets/socketRegistry');
-      socketRegistry.emitToAgent(uid, 'notification:new', {
-        id,
-        broadcastId: payload.broadcastId,
-        type: payload.type,
-        title: payload.title,
-        body: payload.body,
-        priority: payload.priority,
-        source: 'admin',
-        read: false,
-        createdAt: payload.createdAt,
-        expiresAt: payload.expiresAt || null,
-      });
-    });
+    await Promise.all(
+      payload.created.map(({ uid, id }) =>
+        socketRegistry.emitToAgent(uid, 'notification:new', {
+          id,
+          broadcastId: payload.broadcastId,
+          type: payload.type,
+          title: payload.title,
+          body: payload.body,
+          priority: payload.priority,
+          source: 'admin',
+          read: false,
+          createdAt: payload.createdAt,
+          expiresAt: payload.expiresAt || null,
+        }),
+      ),
+    );
     res.status(201).json({
       success: true,
       broadcastId: payload.broadcastId,
@@ -1552,9 +1555,11 @@ async function patchMaintenance(req, res) {
     const maintenance = await setMaintenanceState(req.body || {}, req.user?.uid || null);
     const db = getDb();
     const usersSnap = await db.collection('users').select().limit(20000).get();
-    usersSnap.docs.forEach((doc) => {
-      socketRegistry.emitToAgent(doc.id, 'maintenance:update', maintenance);
-    });
+    await Promise.all(
+      usersSnap.docs.map((doc) =>
+        socketRegistry.emitToAgent(doc.id, 'maintenance:update', maintenance),
+      ),
+    );
 
     if (maintenance.active) {
       const payload = await broadcastNotificationToAllUsers(
@@ -1570,23 +1575,27 @@ async function patchMaintenance(req, res) {
       );
       await maintenanceDocRef().set({ broadcastId: payload.broadcastId }, { merge: true });
       const linkedMaintenance = await getMaintenanceState();
-      payload.created.forEach(({ uid, id }) => {
-        socketRegistry.emitToAgent(uid, 'notification:new', {
-          id,
-          broadcastId: payload.broadcastId,
-          type: payload.type,
-          title: payload.title,
-          body: payload.body,
-          priority: payload.priority,
-          source: 'admin',
-          read: false,
-          createdAt: payload.createdAt,
-          expiresAt: payload.expiresAt || null,
-        });
-      });
-      usersSnap.docs.forEach((doc) => {
-        socketRegistry.emitToAgent(doc.id, 'maintenance:update', linkedMaintenance);
-      });
+      await Promise.all(
+        payload.created.map(({ uid, id }) =>
+          socketRegistry.emitToAgent(uid, 'notification:new', {
+            id,
+            broadcastId: payload.broadcastId,
+            type: payload.type,
+            title: payload.title,
+            body: payload.body,
+            priority: payload.priority,
+            source: 'admin',
+            read: false,
+            createdAt: payload.createdAt,
+            expiresAt: payload.expiresAt || null,
+          }),
+        ),
+      );
+      await Promise.all(
+        usersSnap.docs.map((doc) =>
+          socketRegistry.emitToAgent(doc.id, 'maintenance:update', linkedMaintenance),
+        ),
+      );
       res.json({ maintenance: linkedMaintenance, broadcastId: payload.broadcastId });
       return;
     }
@@ -1654,15 +1663,19 @@ async function patchBroadcastNotification(req, res) {
       priority: out.row.priority,
       expiresAt: out.row.expiresAt || null,
     };
-    out.affectedUids.forEach((uid) => {
-      socketRegistry.emitToAgent(uid, 'notification:updated', syncPayload);
-    });
+    await Promise.all(
+      out.affectedUids.map((uid) =>
+        socketRegistry.emitToAgent(uid, 'notification:updated', syncPayload),
+      ),
+    );
     if (out.maintenance) {
       const db = getDb();
       const usersSnap = await db.collection('users').select().limit(20000).get();
-      usersSnap.docs.forEach((doc) => {
-        socketRegistry.emitToAgent(doc.id, 'maintenance:update', out.maintenance);
-      });
+      await Promise.all(
+        usersSnap.docs.map((doc) =>
+          socketRegistry.emitToAgent(doc.id, 'maintenance:update', out.maintenance),
+        ),
+      );
     }
     res.json({ row: out.row, updatedCount: out.affectedUids.length });
   } catch (err) {
@@ -1675,9 +1688,11 @@ async function patchBroadcastNotification(req, res) {
 async function deleteBroadcastNotification(req, res) {
   try {
     const out = await revokeBroadcast(req.params.id, req.user?.uid || null);
-    out.affectedUids.forEach((uid) => {
-      socketRegistry.emitToAgent(uid, 'notification:removed', { broadcastId: req.params.id });
-    });
+    await Promise.all(
+      out.affectedUids.map((uid) =>
+        socketRegistry.emitToAgent(uid, 'notification:removed', { broadcastId: req.params.id }),
+      ),
+    );
     res.json({ row: out.row, removedCount: out.affectedUids.length });
   } catch (err) {
     console.error('[Admin] deleteBroadcastNotification:', err.message);

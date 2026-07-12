@@ -1,0 +1,66 @@
+# CallsFlow API — nginx sample for Hostinger VPS
+# Host: api.callsflow.io → local PM2 cluster on 127.0.0.1:3001
+#
+# Install:
+#   1. Copy to /etc/nginx/sites-available/api.callsflow.io
+#   2. Adjust ssl_certificate paths (or run certbot --nginx -d api.callsflow.io)
+#   3. ln -s ... sites-enabled && nginx -t && systemctl reload nginx
+#
+# Notes:
+#   - Sticky sessions are NOT required (Phase 1 Socket.IO rooms + Redis adapter).
+#   - Node already sets trust proxy = 1 (one nginx hop).
+#   - proxy_read_timeout 65s aligns with Node keepAliveTimeout (65000).
+
+upstream callsflow_backend {
+    server 127.0.0.1:3001;
+    keepalive 64;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name api.callsflow.io;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name api.callsflow.io;
+
+    # Managed by certbot — placeholders until certificates exist:
+    # ssl_certificate     /etc/letsencrypt/live/api.callsflow.io/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/api.callsflow.io/privkey.pem;
+    # include /etc/letsencrypt/options-ssl-nginx.conf;
+    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    client_max_body_size 8m;
+
+    location / {
+        proxy_pass http://callsflow_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 65s;
+        proxy_read_timeout 65s;
+    }
+
+    # Socket.IO long-lived WebSocket upgrade
+    location /socket.io/ {
+        proxy_pass http://callsflow_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 86400s;
+        proxy_read_timeout 86400s;
+    }
+}

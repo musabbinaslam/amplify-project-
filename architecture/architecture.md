@@ -376,31 +376,39 @@ A call is **billable** if `duration >= campaign.buffer && status === 'completed'
 
 ### 12. Environment Variables (Backend)
 
+Full template: `backend/.env.example`. Ops cutover: `backend/deploy/OPS_RUNBOOK.md`.
+
 | Variable | Purpose |
 |---|---|
-| `PORT` | HTTP port (default 3001) |
+| `PORT` | HTTP port (default 3001; nginx proxies here) |
+| `NODE_ENV` | `production` on VPS (enables Redis adapter fail-fast) |
+| `API_BASE_URL` | Public API origin, e.g. `https://api.callsflow.io` |
+| `VOICE_WEBHOOK_BASE_URL` | Preferred base for Twilio absolute webhook URLs (falls back to `API_BASE_URL`) |
 | `CLIENT_URLS` | Comma-separated allowed CORS origins |
-| `CLIENT_URL` | Single origin fallback (used in Stripe redirect URLs) |
+| `CLIENT_URL` | Single origin fallback (Stripe redirects, referrals) |
 | `TWILIO_ACCOUNT_SID` | Twilio account SID |
 | `TWILIO_AUTH_TOKEN` | Twilio auth token (REST client + recording proxy) |
 | `TWILIO_API_KEY_SID` | API Key SID for JWT access tokens |
 | `TWILIO_API_KEY_SECRET` | API Key secret for JWT access tokens |
 | `TWILIO_TWIML_APP_SID` | TwiML App SID for VoiceGrant |
-| `REDIS_URL` | Upstash Redis URL (`rediss://...`); omit to use in-memory mock |
+| `TWILIO_VALIDATE_WEBHOOKS` | Set `true` in production to enforce signature validation |
+| `REDIS_URL` | Upstash Redis URL (`rediss://...`); required in production multi-node |
 | `REDIS_KEY_PREFIX` | Optional namespace for all Redis keys (e.g. `staging` → `staging:pool:…`). **Required on staging if it shares the same Upstash DB as production** — otherwise “Active agents” and call routing see production presence. |
 | `STRIPE_SECRET_KEY` | Stripe secret key (`sk_test_...` or `sk_live_...`) |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (required in production) |
-| `STRIPE_PRICE_SILVER` | Stripe Price ID for Silver plan |
-| `STRIPE_PRICE_GOLD` | Stripe Price ID for Gold plan |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (required in production). Dashboard URL: `https://api.callsflow.io/api/stripe/webhook` |
 | `GEMINI_API_KEY` | Google AI API key for QA insight generation |
 | `GEMINI_MODEL` | Model name (default: `gemini-2.5-flash`) |
-| `EMAIL_HOST` | SMTP host for support emails (Nodemailer) |
-| `EMAIL_PORT` | SMTP port |
-| `EMAIL_USER` | SMTP username |
-| `EMAIL_PASS` | SMTP password |
-| `SUPPORT_EMAIL_TO` | Destination address for support email tickets |
+| `SMTP_HOST` | SMTP host for support emails (Nodemailer; default Titan) |
+| `SMTP_PORT` | SMTP port (default 465) |
+| `SMTP_SECURE` | `true`/`false` (defaults from port) |
+| `SMTP_USER` | SMTP username |
+| `SMTP_PASS` | SMTP password |
+| `SUPPORT_TO_EMAIL` | Destination address for support email tickets |
+| `SENTRY_DSN` | Backend Sentry DSN (optional; no-op if unset) |
+| `SENTRY_ENVIRONMENT` | Sentry environment tag (e.g. `production`) |
 
-**Firebase** is configured via a `firebase-service-account.json` file in the backend root (gitignored).
+**Firebase Admin** via `FIREBASE_SERVICE_ACCOUNT_JSON` or discrete `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` (or `_BASE64`).  
+**Firebase Web** fields (`FIREBASE_API_KEY`, etc.) are served to the SPA via `GET /api/public/firebase-config`.
 
 ---
 

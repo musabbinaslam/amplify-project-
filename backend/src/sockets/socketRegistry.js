@@ -1,81 +1,115 @@
 /**
- * Socket Registry — agentId → socket mapping
+ * Socket Registry — multi-node safe agent targeting via Socket.IO rooms.
  *
- * Allows non-socket code (e.g. callLogService after a Twilio webhook) to emit
- * events directly to a specific connected agent without going through io.emit (broadcast).
+ * Agents join room `agent:{uid}` on notification:register / agent:go_live.
+ * emitToAgent uses io.to(room) so the Redis adapter routes to whichever
+ * Node process holds the socket(s).
  *
  * Usage:
  *   const socketRegistry = require('../sockets/socketRegistry');
- *   socketRegistry.emitToAgent(agentId, 'agent:balance_exhausted', { balance: 0 });
+ *   socketRegistry.init(io); // once after Redis adapter attach
+ *   await socketRegistry.emitToAgent(agentId, 'agent:balance_exhausted', { balance: 0 });
  */
 
-const registry = new Map(); // uid (Firebase UID) -> Set<socket>
+const { redisClient } = require('../config/redis');
 
-function getConnectedSet(uid, create = false) {
-    let sockets = registry.get(uid);
-    if (!sockets && create) {
-        sockets = new Set();
-        registry.set(uid, sockets);
+let io = null;
+
+function roomFor(agentId) {
+    return `agent:${String(agentId)}`;
+}
+
+function init(socketIo) {
+    io = socketIo;
+}
+
+/**
+ * Join a socket to the agent's room so targeted emits reach this connection.
+ */
+function joinAgent(socket, agentId) {
+    if (!socket || !agentId) return;
+    const id = String(agentId).trim();
+    if (!id) return;
+    const room = roomFor(id);
+    socket.join(room);
+    console.log(`[socketRegistry] Joined socket ${socket.id} to ${room}`);
+}
+
+/**
+ * Leave the agent room (optional — disconnect auto-leaves rooms).
+ */
+function leaveAgent(socket, agentId) {
+    if (!socket || !agentId) return;
+    const id = String(agentId).trim();
+    if (!id) return;
+    const room = roomFor(id);
+    socket.leave(room);
+    console.log(`[socketRegistry] Left socket ${socket.id} from ${room}`);
+}
+
+/**
+ * Emit an event to all sockets in the agent's room (cross-node via Redis adapter).
+ * Always publishes via io.to(room); membership check is best-effort for the return value.
+ * Returns true if at least one socket was found in the room (or emit succeeded after a
+ * fetchSockets timeout — the Redis publish still ran).
+ */
+async function emitToAgent(agentId, event, data) {
+    if (!io || !agentId) {
+        console.log(`[socketRegistry] emitToAgent skipped: io=${Boolean(io)} agentId=${agentId} (event: ${event})`);
+        return false;
     }
-    return sockets || null;
+    const id = String(agentId).trim();
+    if (!id) return false;
+
+    const room = roomFor(id);
+    try {
+        // Always publish first — Redis adapter delivers to the node that holds the socket(s).
+        io.to(room).emit(event, data);
+
+        // Membership check across nodes (may race briefly when a process just joined the cluster).
+        let sockets = [];
+        try {
+            sockets = await io.in(room).fetchSockets();
+        } catch (fetchErr) {
+            console.warn(`[socketRegistry] fetchSockets failed after emit (event still published): ${fetchErr.message}`);
+            return true;
+        }
+
+        if (!sockets.length) {
+            console.log(`[socketRegistry] emitToAgent: ${event} to ${id} — published, but no sockets currently in ${room}`);
+            return false;
+        }
+        console.log(`[socketRegistry] emitToAgent: ${event} to ${id} (${sockets.length} socket(s)). Success: true`);
+        return true;
+    } catch (err) {
+        console.error(`[socketRegistry] emitToAgent error for ${id} (${event}):`, err.message);
+        return false;
+    }
+}
+
+/**
+ * True if the agent has a live Redis heartbeat (browser session presence).
+ * Prefer this over fetchSockets for hot-path presence checks.
+ */
+async function isAgentConnected(agentId) {
+    if (!agentId) return false;
+    try {
+        const hb = await redisClient.get(`agent:heartbeat:${String(agentId).trim()}`);
+        return Boolean(hb);
+    } catch {
+        return false;
+    }
 }
 
 module.exports = {
-    /**
-     * Register a socket for a given agentId. Called when agent goes live.
-     */
-    register(agentId, socket) {
-        if (!agentId || !socket) return;
-        const sockets = getConnectedSet(agentId, true);
-        sockets.add(socket);
-        console.log(`[socketRegistry] Registered socket ${socket.id} for ${agentId}. Total: ${sockets.size}`);
-    },
-
-    /**
-     * Remove a socket registration. Called when agent goes offline or disconnects.
-     */
-    unregister(agentId, socket) {
-        if (!agentId) return;
-        if (!socket) {
-            console.log(`[socketRegistry] Deleting entire set for ${agentId}`);
-            registry.delete(agentId);
-            return;
-        }
-        const sockets = getConnectedSet(agentId);
-        if (!sockets) return;
-        sockets.delete(socket);
-        console.log(`[socketRegistry] Unregistered socket ${socket.id} for ${agentId}. Remaining: ${sockets.size}`);
-        if (!sockets.size) registry.delete(agentId);
-    },
-
-    /**
-     * Emit an event to a specific agent's socket.
-     * Returns true if the agent was connected and the event was sent, false otherwise.
-     */
-    emitToAgent(agentId, event, data) {
-        const sockets = getConnectedSet(agentId);
-        if (!sockets || !sockets.size) {
-            console.log(`[socketRegistry] emitToAgent failed: No sockets for ${agentId} (event: ${event})`);
-            return false;
-        }
-        let emitted = false;
-        for (const socket of sockets) {
-            if (socket && socket.connected) {
-                socket.emit(event, data);
-                emitted = true;
-            }
-        }
-        console.log(`[socketRegistry] emitToAgent: ${event} to ${agentId}. Success: ${emitted}`);
-        return emitted;
-    },
-
-    /** True if at least one live Socket.IO connection exists for this agent. */
-    isAgentConnected(agentId) {
-        const sockets = getConnectedSet(agentId);
-        if (!sockets?.size) return false;
-        for (const socket of sockets) {
-            if (socket?.connected) return true;
-        }
-        return false;
-    },
+    init,
+    roomFor,
+    joinAgent,
+    leaveAgent,
+    emitToAgent,
+    isAgentConnected,
+    /** @deprecated use joinAgent */
+    register: joinAgent,
+    /** @deprecated use leaveAgent */
+    unregister: leaveAgent,
 };

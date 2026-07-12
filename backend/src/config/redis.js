@@ -80,12 +80,25 @@ const clientMock = {
         return 1;
     },
     get: async (key) => storage.has(key) ? storage.get(key) : null,
+    set: async (key, value, options = {}) => {
+        const nx = Boolean(options.NX);
+        const ex = Number(options.EX);
+        if (nx && storage.has(key)) return null;
+        storage.set(key, value);
+        if (Number.isFinite(ex) && ex > 0) {
+            setTimeout(() => {
+                if (storage.get(key) === value) storage.delete(key);
+            }, ex * 1000);
+        }
+        return 'OK';
+    },
     setEx: async (key, seconds, value) => {
         storage.set(key, value);
         setTimeout(() => storage.delete(key), seconds * 1000);
         return 'OK';
     },
     exists: async (key) => storage.has(key) ? 1 : 0,
+    ping: async () => 'PONG',
     hGetAll: async (key) => storage.get(key) || null,
     del: async (key) => {
         storage.delete(key);
