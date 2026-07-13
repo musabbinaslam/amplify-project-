@@ -21,8 +21,11 @@ router.post('/dial-status', webhookCallLimiter, validateTwilioWebhook, voiceCont
 // Fetch history (authenticated — per-user from Firestore)
 router.get('/logs', verifyFirebaseToken, voiceController.getLogs);
 
-// Update call log (disposition)
+// Update call log (disposition — post-call wrap-up, also releases agent)
 router.patch('/logs/:callSid', verifyFirebaseToken, voiceController.updateCallLog);
+
+// Update disposition on a historical log by Firestore document ID (no agent pool side-effects)
+router.patch('/logs/:logId/disposition', verifyFirebaseToken, voiceController.updateLogDisposition);
 
 // Contest a billable call charge
 router.post('/logs/:callLogId/contest', verifyFirebaseToken, handleContestUpload, voiceController.submitCallContest);

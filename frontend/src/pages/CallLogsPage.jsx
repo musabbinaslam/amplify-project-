@@ -9,6 +9,7 @@ import { EASE_SMOOTH } from '../motion/appMotion';
 import { auth } from '../config/firebase';
 import CustomSelect from '../components/ui/CustomSelect';
 import PageLoader from '../components/ui/PageLoader';
+import DispositionDropdown from '../components/ui/DispositionDropdown';
 import classes from './CallLogsPage.module.css';
 
 const FILTER_OPTIONS = ['All', 'Inbound', 'Missed'];
@@ -981,6 +982,14 @@ const CallLogsPage = () => {
     );
   };
 
+  const handleDispositionUpdate = useCallback((logId, newDisposition) => {
+    setCallLogs((prev) =>
+      prev.map((row) =>
+        row.id === logId ? { ...row, disposition: newDisposition } : row,
+      ),
+    );
+  }, []);
+
   if (initialLoading) return <PageLoader />;
 
   return (
@@ -1122,23 +1131,13 @@ const CallLogsPage = () => {
                         </div>
                       </td>
                       <td className={classes.colDisposition}>
-                        <div className={classes.statusCell}>
-                          {log.disposition === 'callback' ? (
-                            <span className={`${classes.dispBadge} ${classes.dispAnswered}`}>Call back</span>
-                          ) : log.disposition === 'not_interested' ? (
-                            <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Not Interested</span>
-                          ) : log.disposition === 'busy' ? (
-                            <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Busy</span>
-                          ) : log.disposition === 'dead_air' ? (
-                            <span className={`${classes.dispBadge} ${classes.dispMissed}`}>Dead Air</span>
-                          ) : log.disposition === 'policy_closed' ? (
-                            <span className={`${classes.dispBadge} ${classes.dispPolicyClosed}`}>Policy Closed</span>
-                          ) : log.disposition === 'sold' || log.isBillable ? (
-                            <span className={`${classes.dispBadge} ${classes.dispSold}`}>Sold</span>
-                          ) : (
-                            <span className={classes.scoreDash}>—</span>
-                          )}
-                        </div>
+                        <DispositionDropdown
+                          logId={log.id}
+                          disposition={log.disposition}
+                          isBillable={log.isBillable}
+                          onUpdate={handleDispositionUpdate}
+                          size="md"
+                        />
                       </td>
                       <td className={classes.colCost}>
                         {log.cost > 0 ? (

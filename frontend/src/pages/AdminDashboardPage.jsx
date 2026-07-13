@@ -44,6 +44,7 @@ import { RecordingModal } from './CallLogsPage';
 import { auth } from '../config/firebase';
 import { getApiBaseUrl } from '../config/apiBase';
 import classes from './AdminDashboardPage.module.css';
+import DispositionDropdown from '../components/ui/DispositionDropdown';
 
 const CHART_TOOLTIP_STYLE = {
   background: 'color-mix(in srgb, var(--surface-container-highest) 92%, transparent)',
@@ -1118,6 +1119,20 @@ const AdminDashboardPage = () => {
     row?.agentId || row?.id || ''
   ), []);
 
+  const handleDrilldownDispositionUpdate = useCallback((logId, newDisposition) => {
+    setDrilldown((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        recentLogs: Array.isArray(prev.recentLogs)
+          ? prev.recentLogs.map((row) =>
+              row.id === logId ? { ...row, disposition: newDisposition } : row
+            )
+          : prev.recentLogs,
+      };
+    });
+  }, []);
+
   const filteredAgentStats = useMemo(() => {
     const query = agentSearch.trim().toLowerCase();
     if (!query) return agentStats;
@@ -1700,21 +1715,13 @@ const AdminDashboardPage = () => {
                           )}
                         </td>
                         <td className={`${classes.pillCell} ${classes.pillCellWrap}`}>
-                          {log.disposition === 'sold' ? (
-                            <span className={`${classes.drillPill} ${classes.dispSold}`}>Sold</span>
-                          ) : log.disposition === 'callback' ? (
-                            <span className={`${classes.drillPill} ${classes.dispAnswered}`}>Call back</span>
-                          ) : log.disposition === 'not_interested' ? (
-                            <span className={`${classes.drillPill} ${classes.dispMissed}`}>Not Interested</span>
-                          ) : log.disposition === 'busy' ? (
-                            <span className={`${classes.drillPill} ${classes.dispMissed}`}>Busy</span>
-                          ) : log.disposition === 'dead_air' ? (
-                            <span className={`${classes.drillPill} ${classes.dispMissed}`}>Dead Air</span>
-                          ) : log.disposition === 'policy_closed' ? (
-                            <span className={`${classes.drillPill} ${classes.dispAnswered}`} style={{borderColor: 'var(--brand-text)'}}>Policy Closed</span>
-                          ) : (
-                            <span className={classes.muted}>—</span>
-                          )}
+                          <DispositionDropdown
+                            logId={log.id}
+                            disposition={log.disposition}
+                            isBillable={log.isBillable}
+                            onUpdate={handleDrilldownDispositionUpdate}
+                            size="md"
+                          />
                         </td>
                         <td className={classes.compactCell}>{log.cost > 0 ? `$${log.cost.toFixed(2)}` : '—'}</td>
                         <td className={classes.pillCell}>

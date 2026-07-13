@@ -243,7 +243,7 @@
 
 /* ─── Table ─── */
 .tableWrap {
-  overflow: hidden;
+  overflow: visible;
   max-width: 100%;
   min-width: 0;
   padding: 0;
@@ -256,7 +256,7 @@
 
 .tableScroll {
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -333,9 +333,15 @@
   min-width: 88px;
 }
 
-.colStatus,
-.colDisposition {
+.colStatus {
   min-width: 110px;
+}
+
+.colDisposition {
+  min-width: 148px;
+  position: relative;
+  overflow: visible;
+  z-index: auto;
 }
 
 .colCost {

@@ -754,6 +754,68 @@ exports.getCallContestStatus = async (req, res) => {
     }
 };
 
+/**
+ * PATCH /api/voice/logs/:logId/disposition
+ * Update the disposition of a historical call log by Firestore document ID.
+ * Unlike updateCallLog, this does NOT release the agent or touch pool management.
+ * Safe to call from the Call Logs page or Admin dashboard for any past call.
+ */
+exports.updateLogDisposition = async (req, res) => {
+    try {
+        const { logId } = req.params;
+        const { disposition } = req.body;
+        const uid = req.user.uid;
+
+        const VALID_DISPOSITIONS = ['not_interested', 'callback', 'busy', 'policy_closed', 'dead_air', 'sold'];
+        if (!logId || !disposition) {
+            return res.status(400).json({ error: 'logId and disposition are required' });
+        }
+        if (!VALID_DISPOSITIONS.includes(disposition)) {
+            return res.status(400).json({ error: `Invalid disposition. Must be one of: ${VALID_DISPOSITIONS.join(', ')}` });
+        }
+
+        const admin = require('../config/firebaseAdmin');
+        const { getDb } = require('../config/firestoreDb');
+        const db = getDb();
+
+        // Try the agent's own call logs first
+        const userDocRef = db.collection('users').doc(uid).collection('callLogs').doc(logId);
+        const userDoc = await userDocRef.get();
+
+        if (userDoc.exists) {
+            await userDocRef.update({
+                disposition,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            return res.json({ success: true, disposition });
+        }
+
+        // Admin: also allow updating any user's log (admin role check)
+        const callerDoc = await db.collection('users').doc(uid).get();
+        const callerRole = callerDoc.exists ? callerDoc.data()?.role : null;
+        if (callerRole === 'admin' || callerRole === 'superadmin') {
+            // Search across all users for this logId
+            const usersSnap = await db.collection('users').listDocuments();
+            for (const userRef of usersSnap) {
+                const logRef = userRef.collection('callLogs').doc(logId);
+                const logDoc = await logRef.get();
+                if (logDoc.exists) {
+                    await logRef.update({
+                        disposition,
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                    return res.json({ success: true, disposition });
+                }
+            }
+        }
+
+        return res.status(404).json({ error: 'Call log not found' });
+    } catch (err) {
+        console.error('[Voice] updateLogDisposition error:', err.message);
+        res.status(500).json({ error: 'Failed to update disposition' });
+    }
+};
+
 exports.updateCallLog = async (req, res) => {
     try {
         const { callSid } = req.params;

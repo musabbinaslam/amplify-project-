@@ -17,6 +17,7 @@ import { apiFetch } from '../services/apiClient';
 import { stripeService } from '../services/stripeService';
 import { getProfile, saveProfile } from '../services/profileService';
 import { fetchCampaignPricing } from '../services/dashboardService';
+import DispositionDropdown from '../components/ui/DispositionDropdown';
 
 // All 50 US States
 const US_STATES = [
@@ -783,7 +784,7 @@ const DispositionModal = ({ callSid, onComplete }) => {
 };
 
 // ─── Call History Table ──────────────────────────────────────────────────────
-const CallHistory = ({ logs }) => {
+const CallHistory = ({ logs, onDispositionUpdate }) => {
   if (!logs || logs.length === 0) {
     return <div className={classes.emptyLogs}><p>No recent calls yet. Go live to start taking calls!</p></div>;
   }
@@ -815,21 +816,13 @@ const CallHistory = ({ logs }) => {
               )}
             </div>
             <div className={classes.colStatus}>
-              {log.isBillable ? (
-                <span className={classes.badgeSale}>Sold</span>
-              ) : log.disposition === 'callback' ? (
-                <span className={classes.badgeCallback}>Call back</span>
-              ) : log.disposition === 'not_interested' ? (
-                <span className={classes.badgeNeutral}>Not Interested</span>
-              ) : log.disposition === 'busy' ? (
-                <span className={classes.badgeNeutral}>Busy</span>
-              ) : log.disposition === 'dead_air' ? (
-                <span className={classes.badgeNeutral}>Dead Air</span>
-              ) : log.disposition === 'policy_closed' ? (
-                <span className={classes.badgeSale}>Policy Closed</span>
-              ) : (
-                <span className={classes.badgeEmpty}>—</span>
-              )}
+              <DispositionDropdown
+                logId={log.id}
+                disposition={log.disposition}
+                isBillable={log.isBillable}
+                onUpdate={onDispositionUpdate}
+                size="sm"
+              />
             </div>
           </div>
         ))}
@@ -962,6 +955,14 @@ const TakeCallsPage = () => {
       console.error('Error fetching data:', err);
     }
   };
+
+  const handleHistoryDispositionUpdate = useCallback((logId, newDisposition) => {
+    setHistory((prev) =>
+      prev.map((row) =>
+        row.id === logId ? { ...row, disposition: newDisposition } : row
+      )
+    );
+  }, []);
 
   const persistPresets = async (next) => {
     setStatePresets(next);
@@ -1140,7 +1141,7 @@ const TakeCallsPage = () => {
           )}
 
           <motion.div className={`glass ${classes.activeLogsSection}`} variants={presets.child}>
-            <CallHistory logs={history} />
+            <CallHistory logs={history} onDispositionUpdate={handleHistoryDispositionUpdate} />
           </motion.div>
 
           {pendingDispositionCall && (

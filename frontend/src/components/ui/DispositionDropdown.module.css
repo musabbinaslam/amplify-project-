@@ -1,0 +1,184 @@
+/* ─── DispositionDropdown ─────────────────────────────────────────────────── */
+
+.wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ─── Pill (trigger + static) ─── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.22rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  line-height: 1.4;
+  /* default — overridden by color variant */
+  background: color-mix(in srgb, var(--text-tertiary) 12%, transparent);
+  color: var(--text-tertiary);
+}
+
+.pillSm {
+  font-size: 0.7rem;
+  padding: 0.18rem 0.5rem;
+}
+
+.pillClickable {
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  background-clip: padding-box;
+}
+
+.pillClickable:hover {
+  filter: brightness(1.12);
+  border-color: color-mix(in srgb, currentColor 28%, transparent);
+}
+
+.pillClickable:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ─── Color variants ─── */
+.pill_brand {
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 22%, transparent);
+}
+
+.pill_yellow {
+  background: color-mix(in srgb, var(--accent-yellow) 16%, transparent);
+  color: var(--accent-yellow);
+  border-color: color-mix(in srgb, var(--accent-yellow) 24%, transparent);
+}
+
+.pill_red {
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent);
+  color: var(--accent-red);
+  border-color: color-mix(in srgb, var(--accent-red) 22%, transparent);
+}
+
+.pill_cyan {
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+  color: var(--accent-cyan);
+  border-color: color-mix(in srgb, var(--accent-cyan) 22%, transparent);
+}
+
+.pill_muted {
+  background: color-mix(in srgb, var(--text-tertiary) 12%, transparent);
+  color: var(--text-tertiary);
+  border-color: color-mix(in srgb, var(--text-tertiary) 18%, transparent);
+}
+
+/* ─── Chevron ─── */
+.chevron {
+  opacity: 0.65;
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+/* ─── Spinner ─── */
+.spinner {
+  animation: dispSpin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes dispSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ─── Dropdown menu (relative, for non-table use) ─── */
+.menu {
+  position: absolute;
+  left: 0;
+  z-index: 9000;
+  min-width: 164px;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-container-highest, #262626);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), var(--glass-highlight);
+  transform-origin: top left;
+}
+
+/* Portal variant: position:fixed so it escapes all table/scroll clipping */
+.menuPortal {
+  position: fixed;
+  z-index: 9999;
+  min-width: 164px;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-container-highest, #262626);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), var(--glass-highlight);
+  transform-origin: top left;
+}
+
+/* ─── Menu items ─── */
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  user-select: none;
+}
+
+.menuItem:hover {
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
+  color: var(--text-primary);
+}
+
+.menuItemActive {
+  background: color-mix(in srgb, var(--brand-text) 10%, transparent);
+  color: var(--brand-text);
+}
+
+/* ─── Color dot per option ─── */
+.menuDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot_brand   { background: var(--brand-text); }
+.dot_yellow  { background: var(--accent-yellow); }
+.dot_red     { background: var(--accent-red); }
+.dot_cyan    { background: var(--accent-cyan); }
+.dot_muted   { background: var(--text-tertiary); }
+
+/* ─── Item color hints on hover ─── */
+.menuItem_brand:hover  { color: var(--brand-text); }
+.menuItem_yellow:hover { color: var(--accent-yellow); }
+.menuItem_red:hover    { color: var(--accent-red); }
+.menuItem_cyan:hover   { color: var(--accent-cyan); }
+.menuItem_muted:hover  { color: var(--text-tertiary); }
+
+.menuItem_brand.menuItemActive  { color: var(--brand-text); }
+.menuItem_yellow.menuItemActive { background: color-mix(in srgb, var(--accent-yellow) 12%, transparent); color: var(--accent-yellow); }
+.menuItem_red.menuItemActive    { background: color-mix(in srgb, var(--accent-red) 12%, transparent);    color: var(--accent-red); }
+.menuItem_muted.menuItemActive  { background: color-mix(in srgb, var(--text-tertiary) 12%, transparent); color: var(--text-tertiary); }
