@@ -22,11 +22,13 @@ export async function fetchDashboardLogs({ startDate, endDate, limit = 1000 } = 
 export async function fetchCampaignPricing() {
   try {
     const data = await apiFetch('/api/users/me/campaigns', { method: 'GET' });
-    if (data && Array.isArray(data.campaigns)) {
-      return data.campaigns;
+    return Array.isArray(data?.campaigns) ? data.campaigns : [];
+  } catch (err) {
+    // Only use the public (unfiltered) catalog when there is no session.
+    // Authenticated agency agents must never see the full default list.
+    if (err?.message !== 'Not signed in') {
+      throw err;
     }
-  } catch {
-    /* fall through to public catalog for logged-out pages (e.g. landing) */
   }
   const url = `${getApiBaseUrl()}/api/public/campaigns`;
   const res = await fetch(url);

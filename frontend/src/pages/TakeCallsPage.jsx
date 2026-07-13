@@ -311,15 +311,15 @@ const CAMPAIGN_ICON_MAP = {
 // ─── Step 2: Campaign Selection ──────────────────────────────────────────────
 const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {}, liveCampaigns = [] }) => {
   const [selectedCampaign, setSelectedCampaign] = useState(selected);
-  const campaigns = [
-    { id: 'fe_inbounds_short', title: 'FE Inbounds Short', subtitle: 'FE Inbounds Short Duration', price: '$25', buffer: '10s buffer', icon: Umbrella },
-    { id: 'fe_inbounds', title: 'FE Inbounds', subtitle: 'High-intent FE inbound callers', price: '$50', buffer: '90s buffer', icon: PhoneIncoming },
-    { id: 'fe_tv_calls', title: 'FE TV Calls', subtitle: 'High-intent Final Expense TV calls', price: '$65', buffer: '30s buffer', icon: Tv },
-    { id: 'medicare_transfers', title: 'Medicare Transfers', subtitle: 'Live transfer Medicare calls', price: '$25', buffer: '120s buffer', icon: HeartPulse },
-    { id: 'medicare_inbound_1', title: 'Medicare Inbounds (1)', subtitle: 'High-intent Medicare inbound calls', price: '$35', buffer: '90s buffer', icon: Shield },
-    { id: 'medicare_inbound_2', title: 'Medicare Inbounds (2)', subtitle: 'Standard Medicare inbound calls', price: '$15', buffer: '15s buffer', icon: ShieldCheck },
-    { id: 'aca_transfers', title: 'ACA Transfers', subtitle: 'Live transfer ACA health calls', price: '$30', buffer: '120s buffer', icon: Users },
-  ];
+  // Use agency-filtered campaigns from /api/users/me/campaigns — never the hardcoded catalog.
+  const campaigns = (liveCampaigns || []).map((c) => ({
+    id: c.id,
+    title: c.label || c.id,
+    subtitle: c.label || c.id,
+    price: `$${Number(c.price) || 0}`,
+    buffer: `${Number(c.buffer) || 0}s buffer`,
+    icon: CAMPAIGN_ICON_MAP[c.id] || PhoneIncoming,
+  }));
 
   return (
     <div className={`${classes.stepCard} ${classes.stepCardWide}`}>
@@ -658,27 +658,13 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
 };
 
 // ─── Step 4: Review Rules & Go Live ─────────────────────────────────────────
-const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, walletBalance }) => {
-  const campaignPriceMap = {
-    fe_inbounds_short: 25,
-    fe_inbounds: 50,
-    fe_tv_calls: 65,
-    medicare_transfers: 25,
-    medicare_inbound_1: 35,
-    medicare_inbound_2: 15,
-    aca_transfers: 30,
-  };
-  const requiredBalance = campaignPriceMap[campaign] || 0;
+const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, walletBalance, liveCampaigns = [] }) => {
+  const selected = liveCampaigns.find((c) => c.id === campaign);
+  const requiredBalance = Number(selected?.price) || 0;
   const hasBalance = walletBalance >= requiredBalance;
-  const campaignLabels = {
-    fe_inbounds_short: 'FE Inbounds Short ($25 / 10s)',
-    fe_inbounds: 'FE Inbounds ($50 / 90s)',
-    fe_tv_calls: 'FE TV Calls ($65 / 30s)',
-    medicare_transfers: 'Medicare Transfers ($25 / 120s)',
-    medicare_inbound_1: 'Medicare Inbounds 1 ($35 / 90s)',
-    medicare_inbound_2: 'Medicare Inbounds 2 ($15 / 15s)',
-    aca_transfers: 'ACA Transfers ($30 / 120s)',
-  };
+  const campaignLabel = selected
+    ? `${selected.label} ($${Number(selected.price).toFixed(0)} / ${selected.buffer}s)`
+    : campaign;
 
   return (
     <div className={classes.stepCard}>
@@ -692,7 +678,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
         <div className={classes.summaryBox}>
           <div className={`glass ${classes.summaryRow}`}>
             <span className={classes.summaryLabel}>Campaign</span>
-            <span className={classes.summaryValue}>{campaignLabels[campaign] || campaign}</span>
+            <span className={classes.summaryValue}>{campaignLabel}</span>
           </div>
           <div className={`glass ${classes.summaryRow}`}>
             <span className={classes.summaryLabel}>Licensed States</span>
