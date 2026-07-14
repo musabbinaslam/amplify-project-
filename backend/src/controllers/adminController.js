@@ -1013,6 +1013,147 @@ async function getAllUsers(req, res) {
   }
 }
 
+function resolveUserDisplayName(data = {}, fallbackId = null) {
+  const firstLast = [data.firstName, data.lastName].filter(Boolean).join(' ').trim();
+  return (
+    data.fullName ||
+    data.displayName ||
+    data.name ||
+    data.agentName ||
+    firstLast ||
+    data.email ||
+    fallbackId ||
+    null
+  );
+}
+
+function toIsoMaybe(value) {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (value.toDate) return value.toDate().toISOString();
+  if (value instanceof Date) return value.toISOString();
+  return null;
+}
+
+/**
+ * GET /admin/agents — every signed-up user with profile + call stats for the date range.
+ * Unlike analytics-bundle, agents with zero calls in-range are still returned.
+ */
+async function listAgentsDirectory(req, res) {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database unavailable' });
+
+    const { from, end } = parseRange(req.query || {});
+    const [usersSnap, statsPayload] = await Promise.all([
+      db.collection('users').get(),
+      (async () => {
+        const keys = enumerateDayKeys(from, end);
+        if (!keys.length) {
+          return { agents: [] };
+        }
+        const dayRefs = keys.map((k) => db.collection('adminMetrics').doc('daily').collection('days').doc(k));
+        const snaps = await db.getAll(...dayRefs);
+        const existing = snaps.filter((s) => s.exists);
+        if (existing.length > 0) {
+          return aggregateFromDailyDocs(existing, from, end);
+        }
+        const rows = await readLogsInRange(from, end);
+        return aggregateAnalytics(rows, from, end);
+      })(),
+    ]);
+
+    const statsById = new Map(
+      (statsPayload.agents || []).map((row) => [row.agentId, row]),
+    );
+
+    const agents = [];
+    const needAuthBackfill = [];
+
+    usersSnap.docs.forEach((doc) => {
+      const data = doc.data() || {};
+      const stats = statsById.get(doc.id) || {};
+      const name = resolveUserDisplayName(data, null);
+      const email = data.email || null;
+      const phone = data.phoneNumber || data.phone || data.onboarding?.phone || null;
+      const calls = Number(stats.calls || 0);
+      const answeredCalls = Number(stats.answeredCalls || 0);
+      const billableCalls = Number(stats.billableCalls || 0);
+      const totalDuration = Number(stats.totalDuration || 0);
+      const totalCost = Number(stats.totalCost || 0);
+      agents.push({
+        agentId: doc.id,
+        agentName: name,
+        email,
+        phone,
+        role: data.role || 'agent',
+        agencyId: data.agencyId ?? null,
+        flagged: data.flagged === true,
+        flagReason: data.flagReason || null,
+        walletBalanceCents: typeof data.wallet?.balance === 'number' ? data.wallet.balance : null,
+        createdAt: toIsoMaybe(data.createdAt) || toIsoMaybe(data.createdAtIso) || null,
+        isMock: Boolean(data.settings?.mock),
+        calls,
+        answeredCalls,
+        billableCalls,
+        totalDuration,
+        totalCost,
+        answerRate: ratio(answeredCalls, calls),
+        billableRate: ratio(billableCalls, calls),
+        avgHandleTime: calls ? Math.round(totalDuration / calls) : 0,
+      });
+      if (!name || !email || !phone) needAuthBackfill.push(doc.id);
+    });
+
+    if (needAuthBackfill.length && admin) {
+      const byId = new Map(agents.map((a) => [a.agentId, a]));
+      for (let i = 0; i < needAuthBackfill.length; i += 100) {
+        const chunk = needAuthBackfill.slice(i, i + 100);
+        // eslint-disable-next-line no-await-in-loop
+        const out = await admin.auth().getUsers(chunk.map((uid) => ({ uid })));
+        out.users.forEach((u) => {
+          const entry = byId.get(u.uid);
+          if (!entry) return;
+          if (!entry.agentName) entry.agentName = u.displayName || u.email || null;
+          if (!entry.email && u.email) entry.email = u.email;
+          if (!entry.phone && u.phoneNumber) entry.phone = u.phoneNumber;
+          if (!entry.createdAt && u.metadata?.creationTime) {
+            entry.createdAt = new Date(u.metadata.creationTime).toISOString();
+          }
+        });
+      }
+    }
+
+    agents.forEach((a) => {
+      if (!a.agentName || a.agentName === a.agentId) a.agentName = a.email || a.agentId;
+    });
+
+    // Default high → low by calls, then cost, then name
+    agents.sort((a, b) => {
+      if (b.calls !== a.calls) return b.calls - a.calls;
+      if (b.totalCost !== a.totalCost) return b.totalCost - a.totalCost;
+      return String(a.agentName || '').localeCompare(String(b.agentName || ''));
+    });
+
+    res.json({
+      agents,
+      total: agents.length,
+      meta: {
+        generatedAt: new Date().toISOString(),
+        window: {
+          from: from.toISOString().slice(0, 10),
+          to: end.toISOString().slice(0, 10),
+        },
+        source: 'firestore.users+adminMetrics',
+      },
+    });
+  } catch (err) {
+    console.error('[Admin] listAgentsDirectory:', err.message);
+    const status = err.message === 'Invalid date range' ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to list agents' });
+  }
+}
+
 const managerTeamService = require('../services/managerTeamService');
 
 async function listManagerTeams(req, res) {
@@ -1913,6 +2054,7 @@ module.exports = {
   getAnalyticsBundle,
   getLiveCalls,
   forceRemoveAgent,
+  listAgentsDirectory,
   getAllUsers,
   listManagerTeams,
   getManagerTeam,

@@ -15,6 +15,13 @@ export function getAdminAnalyticsBundle({ from, to } = {}) {
   return apiFetch(`/api/admin/analytics-bundle${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
 }
 
+export function listAdminAgentsDirectory({ from, to } = {}) {
+  const qs = new URLSearchParams();
+  if (from) qs.set('from', from);
+  if (to) qs.set('to', to);
+  return apiFetch(`/api/admin/agents${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
+}
+
 export function getAdminAnalyticsDrilldown({ type, id, from, to } = {}) {
   const qs = new URLSearchParams();
   if (type) qs.set('type', type);
