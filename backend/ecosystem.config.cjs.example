@@ -1,18 +1,29 @@
 /**
- * PM2 example for Hostinger — copy to ecosystem.config.cjs and adjust paths.
- * RELEASE_ID is written automatically by GitHub Actions into backend/.release
- * (ensure-release.js also reads RELEASE_ID env on start).
+ * PM2 cluster config for Hostinger VPS — copy to ecosystem.config.cjs and adjust paths.
+ *
+ * Multi-node requirements:
+ * - REDIS_URL must be set (Socket.IO Redis adapter + agent pools)
+ * - script is src/server.js (not npm) so cluster mode forks Node workers cleanly
+ * - RELEASE_ID is written at deploy time by hostinger-deploy.sh / record-release.sh
+ *   (do not wrap in `npm start` under cluster mode)
+ *
+ * Rate limits are per-process (in-memory). With instances: 2 the effective
+ * per-IP limit is roughly 2× the configured max — acceptable for day one.
  */
 module.exports = {
   apps: [
     {
       name: 'backend',
       cwd: '/home/YOUR_USER/path/to/backend',
-      script: 'npm',
-      args: 'start',
+      script: 'src/server.js',
+      instances: 2,
+      exec_mode: 'cluster',
       env: {
         NODE_ENV: 'production',
+        // REQUIRE_REDIS_ADAPTER defaults on when NODE_ENV=production
       },
+      listen_timeout: 10000,
+      kill_timeout: 10000,
     },
   ],
 };
