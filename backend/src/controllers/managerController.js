@@ -107,7 +107,7 @@ async function getMyAgents(req, res) {
 /** GET /api/manager/analytics — performance stats scoped to the manager's agents. */
 async function getAnalytics(req, res) {
   try {
-    const { from, end } = parseRange(req.query || {});
+    const { from, end, tz } = parseRange(req.query || {});
     const allowed = req.managedAgents;
     const agencyId = req.agencyId || null;
     if (Array.isArray(allowed) && allowed.length === 0 && !agencyId) {
@@ -126,7 +126,7 @@ async function getAnalytics(req, res) {
     const rows = await readLogsForAgents(agentIds, from, end);
     const agents = aggregateByAgent(rows);
     const metaMap = await buildUserMetaMap(agents.map((a) => a.agentId));
-    const { byDay, campaigns } = aggregateChartSeries(rows);
+    const { byDay, campaigns } = aggregateChartSeries(rows, tz);
 
     res.json({
       from: from.toISOString().slice(0, 10),
@@ -155,7 +155,7 @@ async function getAnalytics(req, res) {
 /** GET /api/manager/call-logs — read-only call history scoped to the manager's agents. */
 async function getCallLogs(req, res) {
   try {
-    const { from, end } = parseRange(req.query || {});
+    const { from, end, tz } = parseRange(req.query || {});
     const allowed = req.managedAgents;
     const agencyId = req.agencyId || null;
     const limit = Math.min(Number(req.query.limit || 500), 2000);
@@ -203,7 +203,7 @@ async function getCallLogs(req, res) {
 /** GET /api/manager/analytics-drilldown — agent trend + recent calls (scoped). */
 async function getAnalyticsDrilldown(req, res) {
   try {
-    const { from, end } = parseRange(req.query || {});
+    const { from, end, tz } = parseRange(req.query || {});
     const allowed = req.managedAgents;
     const agencyId = req.agencyId || null;
     const agentId = String(req.query.agentId || req.query.id || '').trim();
@@ -227,7 +227,7 @@ async function getAnalyticsDrilldown(req, res) {
     const byDay = new Map();
     const outcomes = { completed: 0, missed: 0, billable: 0 };
     rows.forEach((r) => {
-      const key = dayKey(r.createdAt);
+      const key = dayKey(r.createdAt, tz);
       if (!key) return;
       if (!byDay.has(key)) byDay.set(key, { day: key, calls: 0, answered: 0, billable: 0 });
       const d = byDay.get(key);

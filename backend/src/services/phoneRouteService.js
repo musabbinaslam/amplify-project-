@@ -82,10 +82,17 @@ async function createPhoneRoute({ phoneE164, campaignId, label, active = true, a
   // Without it the router will look in the wrong Redis pool and agency agents will never
   // receive calls (they are registered under pool:<agencyId>:<campaign>, not pool:platform:<campaign>).
   const campaignCfg = CAMPAIGN_CONFIG[campaignId];
-  if (campaignCfg?.locked && campaignCfg?.agencyId && !normalizedAgencyId) {
-    throw new Error(
-      `Campaign "${campaignId}" is agency-locked. An agencyId is required when creating a phone route for this campaign.`,
-    );
+  if (campaignCfg?.locked && campaignCfg?.agencyId) {
+    if (!normalizedAgencyId) {
+      throw new Error(
+        `Campaign "${campaignId}" is agency-locked. An agencyId is required when creating a phone route for this campaign.`,
+      );
+    }
+    if (normalizedAgencyId !== campaignCfg.agencyId) {
+      throw new Error(
+        `Campaign "${campaignId}" is locked to a different agency. You cannot assign this DID to it.`,
+      );
+    }
   }
 
   const { FieldValue } = admin.firestore;
@@ -140,6 +147,24 @@ async function updatePhoneRoute(id, { phoneE164, campaignId, label, active, agen
   if (active !== undefined) patch.active = Boolean(active);
   if (agencyId !== undefined) {
     patch.agencyId = agencyId == null || agencyId === '' ? null : String(agencyId).trim();
+  }
+
+  // Cross-agency validation
+  const finalCampaignId = patch.campaignId !== undefined ? patch.campaignId : snap.data().campaignId;
+  const finalAgencyId = patch.agencyId !== undefined ? patch.agencyId : snap.data().agencyId;
+  const campaignCfg = CAMPAIGN_CONFIG[finalCampaignId];
+
+  if (campaignCfg?.locked && campaignCfg?.agencyId) {
+    if (!finalAgencyId) {
+      throw new Error(
+        `Campaign "${finalCampaignId}" is agency-locked. An agencyId is required when routing to this campaign.`,
+      );
+    }
+    if (finalAgencyId !== campaignCfg.agencyId) {
+      throw new Error(
+        `Campaign "${finalCampaignId}" is locked to a different agency. You cannot assign this DID to it.`,
+      );
+    }
   }
 
   await ref.set(patch, { merge: true });

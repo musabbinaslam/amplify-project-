@@ -139,22 +139,49 @@ const deleteCampaign = async (req, res) => {
 
 
 
+function validateTz(tz) {
+  if (!tz || typeof tz !== 'string') return null;
+  try { Intl.DateTimeFormat(undefined, { timeZone: tz }); return tz; } catch { return null; }
+}
+
+function dateStrToUtcInTz(dateStr, endOfDay, tz) {
+  if (!tz) {
+    return new Date(`${dateStr}${endOfDay ? 'T23:59:59.999Z' : 'T00:00:00.000Z'}`);
+  }
+  const midday = new Date(`${dateStr}T12:00:00Z`);
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(midday).map((p) => [p.type, Number(p.value)]),
+  );
+  const offsetMs = (parts.hour * 3600 + parts.minute * 60 + parts.second - 12 * 3600) * 1000;
+  const base = endOfDay
+    ? new Date(`${dateStr}T23:59:59.999Z`)
+    : new Date(`${dateStr}T00:00:00.000Z`);
+  return new Date(base.getTime() - offsetMs);
+}
+
 function parseRange(query) {
+  const tz = validateTz(query.tz);
   const now = new Date();
-  const end = query.to ? new Date(`${query.to}T23:59:59.999Z`) : now;
+  const end = query.to ? dateStrToUtcInTz(query.to, true, tz) : now;
   const from = query.from
-    ? new Date(`${query.from}T00:00:00.000Z`)
+    ? dateStrToUtcInTz(query.from, false, tz)
     : new Date(end.getTime() - (6 * 24 * 60 * 60 * 1000));
   if (Number.isNaN(from.getTime()) || Number.isNaN(end.getTime()) || from > end) {
     throw new Error('Invalid date range');
   }
-  return { from, end };
+  return { from, end, tz };
 }
 
-function dayKey(isoLike) {
+function dayKey(isoLike, tz) {
   const d = new Date(isoLike);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 10);
+  if (!tz) return d.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 }
 
 function getCallCreatedAt(log) {
@@ -251,7 +278,7 @@ async function readLogsInRange(from, end) {
   return out;
 }
 
-function aggregateAnalytics(rows, from, end) {
+function aggregateAnalytics(rows, from, end, tz) {
   const byDayMap = new Map();
   const byCampaign = new Map();
   const byAgent = new Map();
@@ -263,7 +290,7 @@ function aggregateAnalytics(rows, from, end) {
   let totalCost = 0;
 
   rows.forEach((r) => {
-    const dKey = dayKey(r.createdAt);
+    const dKey = dayKey(r.createdAt, tz);
     if (dKey) {
       if (!byDayMap.has(dKey)) {
         byDayMap.set(dKey, {
@@ -715,7 +742,7 @@ async function readCoachingRows(query = {}) {
 
 async function getAnalyticsBundle(req, res) {
   try {
-    const { from, end } = parseRange(req.query || {});
+    const { from, end, tz } = parseRange(req.query || {});
     const key = cacheKey(from, end);
     const cached = analyticsCache.get(key);
     if (cached && cached.expiresAt > Date.now()) {
@@ -740,7 +767,7 @@ async function getAnalyticsBundle(req, res) {
     } else {
       const rows = await readLogsInRange(from, end);
       payload = {
-        ...aggregateAnalytics(rows, from, end),
+        ...aggregateAnalytics(rows, from, end, tz),
         meta: {
           generatedAt: new Date().toISOString(),
           source: 'firestore.users.callLogs.fanout',
@@ -1044,7 +1071,7 @@ async function listAgentsDirectory(req, res) {
     const db = getDb();
     if (!db) return res.status(503).json({ error: 'Database unavailable' });
 
-    const { from, end } = parseRange(req.query || {});
+    const { from, end, tz } = parseRange(req.query || {});
     const [usersSnap, statsPayload] = await Promise.all([
       db.collection('users').get(),
       (async () => {
@@ -1059,7 +1086,7 @@ async function listAgentsDirectory(req, res) {
           return aggregateFromDailyDocs(existing, from, end);
         }
         const rows = await readLogsInRange(from, end);
-        return aggregateAnalytics(rows, from, end);
+        return aggregateAnalytics(rows, from, end, tz);
       })(),
     ]);
 
@@ -1355,7 +1382,7 @@ async function resumeAgent(req, res) {
 
 async function getAnalyticsDrilldown(req, res) {
   try {
-    const { from, end } = parseRange(req.query || {});
+    const { from, end, tz } = parseRange(req.query || {});
     const type = String(req.query.type || '').trim().toLowerCase();
     const id = String(req.query.id || '').trim();
     if (!['campaign', 'agent'].includes(type)) {
