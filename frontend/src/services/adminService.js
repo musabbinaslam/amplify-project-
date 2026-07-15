@@ -12,6 +12,7 @@ export function getAdminAnalyticsBundle({ from, to } = {}) {
   const qs = new URLSearchParams();
   if (from) qs.set('from', from);
   if (to) qs.set('to', to);
+  try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; if (tz) qs.set('tz', tz); } catch { /* noop */ }
   return apiFetch(`/api/admin/analytics-bundle${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
 }
 
@@ -28,6 +29,7 @@ export function getAdminAnalyticsDrilldown({ type, id, from, to } = {}) {
   if (id) qs.set('id', id);
   if (from) qs.set('from', from);
   if (to) qs.set('to', to);
+  try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; if (tz) qs.set('tz', tz); } catch { /* noop */ }
   return apiFetch(`/api/admin/analytics-drilldown${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
 }
 
