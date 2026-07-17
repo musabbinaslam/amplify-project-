@@ -2,6 +2,11 @@ node_modules/
 backend/.tmp/
 backend/.release
 .env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 .DS_Store
 dist/
 dist-ssr/
@@ -11,13 +16,21 @@ dist-ssr/
 
 # Firebase service account (private key — never commit)
 firebase-service-account.json
+firebase-service-account*.json
+**/firebase-service-account*.json
 
 # AI context docs
 PROJECT_REFERENCE.md
 PROJECT_CONTEXT_FOR_CHATGPT.md
 CLAUDE.md
-README.md
 frontend/docs/DESIGN.md
 backend/scripts/lib/mockCallLogHelpers.js
 backend/scripts/seed_ops_mock_data.js
 backend/scripts/seed_manager_mock_data.js
+
+# Local operational exports and disposable files
+.tmp/
+*.log
+url.txt
+frontend/dist.zip
+frontend/.vercel/
