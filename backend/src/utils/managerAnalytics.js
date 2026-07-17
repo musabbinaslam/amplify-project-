@@ -4,22 +4,71 @@ const agencyService = require('../services/agencyService');
 
 const READ_CONCURRENCY = 10;
 
+/**
+ * Validate an IANA timezone string. Returns the tz if valid, null otherwise.
+ */
+function validateTz(tz) {
+  if (!tz || typeof tz !== 'string') return null;
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return tz;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Convert a YYYY-MM-DD date string to a UTC Date representing
+ * midnight (or end-of-day) in the given IANA timezone.
+ * Falls back to UTC if tz is null/invalid.
+ */
+function dateStrToUtcInTz(dateStr, endOfDay, tz) {
+  if (!tz) {
+    const suffix = endOfDay ? 'T23:59:59.999Z' : 'T00:00:00.000Z';
+    return new Date(`${dateStr}${suffix}`);
+  }
+  // Use midday UTC as a reference to safely determine the tz offset
+  // (avoids DST edge cases that occur exactly at midnight)
+  const midday = new Date(`${dateStr}T12:00:00Z`);
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(midday).map((p) => [p.type, Number(p.value)]),
+  );
+  // offsetMs = (local time at UTC noon) - (UTC noon)
+  const offsetMs = (parts.hour * 3600 + parts.minute * 60 + parts.second - 12 * 3600) * 1000;
+  const base = endOfDay
+    ? new Date(`${dateStr}T23:59:59.999Z`)
+    : new Date(`${dateStr}T00:00:00.000Z`);
+  return new Date(base.getTime() - offsetMs);
+}
+
 function parseRange(query = {}) {
+  const tz = validateTz(query.tz);
   const now = new Date();
-  const end = query.to ? new Date(`${query.to}T23:59:59.999Z`) : now;
+  const end = query.to ? dateStrToUtcInTz(query.to, true, tz) : now;
   const from = query.from
-    ? new Date(`${query.from}T00:00:00.000Z`)
+    ? dateStrToUtcInTz(query.from, false, tz)
     : new Date(end.getTime() - (6 * 24 * 60 * 60 * 1000));
   if (Number.isNaN(from.getTime()) || Number.isNaN(end.getTime()) || from > end) {
     throw new Error('Invalid date range');
   }
-  return { from, end };
+  return { from, end, tz };
 }
 
-function dayKey(isoLike) {
+/**
+ * Returns the YYYY-MM-DD day key for a timestamp, bucketed in the given timezone.
+ * Falls back to UTC if tz is null.
+ */
+function dayKey(isoLike, tz) {
   const d = new Date(isoLike);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 10);
+  if (!tz) return d.toISOString().slice(0, 10);
+  // en-CA locale produces YYYY-MM-DD natively
+  return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 }
 
 function ratio(a, b) {
@@ -164,12 +213,12 @@ function summarize(rows) {
   };
 }
 
-function aggregateChartSeries(rows) {
+function aggregateChartSeries(rows, tz) {
   const byDayMap = new Map();
   const byCampaign = new Map();
 
   rows.forEach((r) => {
-    const dKey = dayKey(r.createdAt);
+    const dKey = dayKey(r.createdAt, tz);
     if (dKey) {
       if (!byDayMap.has(dKey)) {
         byDayMap.set(dKey, { day: dKey, calls: 0, answered: 0, billable: 0, totalCost: 0 });

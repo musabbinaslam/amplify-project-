@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# CallsFlow VPS bootstrap — Ubuntu 24.04 LTS (or 22.04)
+# Target hardware: 4 vCPU / 16 GB / 200 GB / 16 TB — US Boston
+#
+# Usage (on a fresh VPS as a sudo-capable user):
+#   chmod +x provision-vps.sh.example
+#   ./provision-vps.sh.example
+#
+# This script does NOT deploy the app, copy secrets, or issue TLS certs.
+# After it finishes:
+#   1. Clone backend, place .env, configure ecosystem.config.cjs
+#   2. pm2 start / nginx sites (see OPS_RUNBOOK.md §11)
+#   3. certbot --nginx -d api-new.callsflow.io  (dry-run)
+#   4. After DNS flip: certbot --nginx -d api.callsflow.io
+#
+set -euo pipefail
+
+echo "==> Updating apt"
+sudo apt-get update -y
+sudo apt-get upgrade -y
+
+echo "==> Installing base packages"
+sudo apt-get install -y \
+  ca-certificates \
+  curl \
+  gnupg \
+  ufw \
+  git \
+  nginx \
+  certbot \
+  python3-certbot-nginx
+
+echo "==> Configuring UFW (22/80/443)"
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+# Non-interactive enable if possible
+echo "y" | sudo ufw enable || sudo ufw --force enable
+sudo ufw status verbose
+
+echo "==> Installing Node.js 22.x (NodeSource)"
+if ! command -v node >/dev/null 2>&1 || ! node -v | grep -qE '^v22\.'; then
+  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+  sudo apt-get install -y nodejs
+fi
+
+echo "==> Installing PM2 globally"
+sudo npm install -g pm2
+
+echo "==> Enabling nginx"
+sudo systemctl enable nginx
+sudo systemctl start nginx
+
+echo ""
+echo "==> Bootstrap complete"
+echo "    node:  $(node -v)"
+echo "    npm:   $(npm -v)"
+echo "    pm2:   $(pm2 -v)"
+echo "    nginx: $(nginx -v 2>&1)"
+echo ""
+echo "Next steps (see backend/deploy/OPS_RUNBOOK.md §11):"
+echo "  1. mkdir -p /var/www/callsflow && clone repo → .../backend"
+echo "  2. Copy .env (API_BASE_URL / VOICE_WEBHOOK_BASE_URL = https://api.callsflow.io)"
+echo "  3. ecosystem.config.cjs → pm2 start (instances: 2)"
+echo "  4. Install nginx-api-new.callsflow.io.conf.example + certbot for dry-run"
+echo "  5. Do NOT open firewall to port 3001 — keep Node on 127.0.0.1 only"

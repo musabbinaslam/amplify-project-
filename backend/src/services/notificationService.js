@@ -342,11 +342,13 @@ async function notifyAdmins(payload, source = 'system') {
 function notifyAdminsInBackground(payload, source = 'system') {
   setImmediate(() => {
     notifyAdmins(payload, source)
-      .then(({ created }) => {
+      .then(async ({ created }) => {
         const socketRegistry = require('../sockets/socketRegistry');
-        created.forEach(({ uid, notification }) => {
-          socketRegistry.emitToAgent(uid, 'notification:new', notification);
-        });
+        await Promise.all(
+          created.map(({ uid, notification }) =>
+            socketRegistry.emitToAgent(uid, 'notification:new', notification),
+          ),
+        );
       })
       .catch((err) => {
         console.warn('[notificationService] notifyAdminsInBackground failed:', err.message);

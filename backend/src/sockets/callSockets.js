@@ -32,12 +32,12 @@ exports.setupCallSockets = (io) => {
             const uid = String(payload.uid || '').trim();
             if (!uid) return;
             socket.notificationUid = uid;
-            socketRegistry.register(uid, socket);
+            socketRegistry.joinAgent(socket, uid);
         });
 
         socket.on('notification:unregister', () => {
             if (!socket.notificationUid) return;
-            socketRegistry.unregister(socket.notificationUid, socket);
+            socketRegistry.leaveAgent(socket, socket.notificationUid);
             socket.notificationUid = null;
         });
 
@@ -97,8 +97,8 @@ exports.setupCallSockets = (io) => {
             socket.agentSessionId = safeSessionId;
             socket.pendingGoLivePayload = { ...payload, sessionId: safeSessionId };
 
-            // Register socket so notification events work while device is initialising
-            socketRegistry.register(identity, socket);
+            // Join agent room so targeted emits work while device is initialising (multi-node safe)
+            socketRegistry.joinAgent(socket, identity);
 
             // Acknowledge session — frontend proceeds to register Twilio Device
             socket.emit('agent:live_pending', {
@@ -257,14 +257,11 @@ exports.setupCallSockets = (io) => {
         });
 
         socket.on('disconnect', async () => {
+            // Rooms are left automatically on disconnect — no leaveAgent needed.
             if (socket.agentId) {
-                socketRegistry.unregister(socket.agentId, socket);
                 await agentManager.removeAgent(socket.agentId, socket.agentSessionId || null);
             }
-            if (socket.notificationUid) {
-                socketRegistry.unregister(socket.notificationUid, socket);
-                socket.notificationUid = null;
-            }
+            socket.notificationUid = null;
             socket.agentSessionId = null;
             await broadcastAgentCount(io);
             console.log(`❌ WebRTC Socket Disconnected: ${socket.id}`);

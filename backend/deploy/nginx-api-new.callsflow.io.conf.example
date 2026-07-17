@@ -1,0 +1,69 @@
+# CallsFlow API — nginx dry-run sample (api-new.callsflow.io)
+# Use BEFORE flipping production DNS for api.callsflow.io.
+#
+# Install:
+#   1. DNS: api-new.callsflow.io A → new VPS IP
+#   2. Copy to /etc/nginx/sites-available/api-new.callsflow.io
+#   3. ln -s ... sites-enabled && nginx -t && systemctl reload nginx
+#   4. certbot --nginx -d api-new.callsflow.io
+#
+# App .env must still use:
+#   API_BASE_URL=https://api.callsflow.io
+#   VOICE_WEBHOOK_BASE_URL=https://api.callsflow.io
+# Do NOT point Twilio/Stripe at api-new — dry-run is for health + load tests only.
+#
+# If upstream callsflow_backend is already defined in the production site file,
+# omit the upstream block here and reuse the existing one (nginx allows one name).
+
+upstream callsflow_backend {
+    server 127.0.0.1:3001;
+    keepalive 64;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name api-new.callsflow.io;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name api-new.callsflow.io;
+
+    # Managed by certbot — placeholders until certificates exist:
+    # ssl_certificate     /etc/letsencrypt/live/api-new.callsflow.io/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/api-new.callsflow.io/privkey.pem;
+    # include /etc/letsencrypt/options-ssl-nginx.conf;
+    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    client_max_body_size 8m;
+
+    location / {
+        proxy_pass http://callsflow_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 65s;
+        proxy_read_timeout 65s;
+    }
+
+    location /socket.io/ {
+        proxy_pass http://callsflow_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 86400s;
+        proxy_read_timeout 86400s;
+    }
+}

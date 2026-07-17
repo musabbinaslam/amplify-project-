@@ -11,6 +11,13 @@ dist-ssr/
 
 # Firebase service account (private key — never commit)
 firebase-service-account.json
+backend/firebase-service-account.json
+backend/firebase-service-account-prod.json
+
+# Local-only ops scripts, env, and exports (kept on disk, not in git)
+backend/scripts/local/
+backend/.env.production
+.tmp/
 
 # AI context docs
 PROJECT_REFERENCE.md

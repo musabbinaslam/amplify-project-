@@ -82,7 +82,7 @@ class CallLogService {
                 // so the agent's experience on the call was never interrupted.
                 if (typeof newBalance === 'number' && newBalance < config.price * 100) {
                     const socketRegistry = require('../sockets/socketRegistry');
-                    const notified = socketRegistry.emitToAgent(agentId, 'agent:balance_exhausted', {
+                    const notified = await socketRegistry.emitToAgent(agentId, 'agent:balance_exhausted', {
                         balance: newBalance,
                         callSid,
                         message: 'Your wallet balance has been exhausted. Please top up to continue taking calls.',
@@ -342,7 +342,7 @@ class CallLogService {
 
         try {
             const socketRegistry = require('../sockets/socketRegistry');
-            socketRegistry.emitToAgent(agentId, 'wallet:updated', { balance: newBalance });
+            await socketRegistry.emitToAgent(agentId, 'wallet:updated', { balance: newBalance });
         } catch (socketErr) {
             console.warn('[Billing] wallet:updated socket emit failed:', socketErr.message);
         }

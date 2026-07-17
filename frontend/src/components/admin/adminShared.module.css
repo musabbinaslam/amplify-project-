@@ -256,6 +256,74 @@
   background: color-mix(in srgb, var(--brand-text) 16%, transparent);
 }
 
+.agentsFilterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 12px 0 16px;
+}
+
+.sortThBtn {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sortThBtn:hover {
+  color: var(--brand-text);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.pageBtns {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pageMeta,
+.pageIndicator {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.pageBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pageBtn:hover:not(:disabled) {
+  background: var(--surface-container-high);
+  border-color: color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
+}
+
+.pageBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* ─── KPI stat row ─── */
 .statsRow,
 .grid {

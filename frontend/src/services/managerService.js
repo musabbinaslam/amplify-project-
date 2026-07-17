@@ -7,6 +7,10 @@ function managerQueryParams({ managerUid, from, to, agentId, limit } = {}) {
   if (to) qs.set('to', to);
   if (agentId) qs.set('agentId', agentId);
   if (limit) qs.set('limit', String(limit));
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz) qs.set('tz', tz);
+  } catch { /* non-critical — falls back to UTC on backend */ }
   return qs;
 }
 
