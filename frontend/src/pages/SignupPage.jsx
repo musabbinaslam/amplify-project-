@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, Navigate, Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -13,6 +14,95 @@ import {
 import classes from './SignupPage.module.css';
 import { referralService } from '../services/referralService';
 import { initMetaPixelOnSignupPage, trackSignupComplete } from '../services/metaPixel';
+
+const TOS_VERSION = '2026-07-01';
+const TOS_HEADER = `Calls Flow LLC\nTerms of Service`;
+
+const TOS_TEXT = `
+July 1, 2026
+
+1. Acceptance of Terms.
+By accessing or using the Calls Flow LLC platform located at callsflow.io (the "Platform"), you agree to be bound by these Terms of Service. If you do not agree to these Terms, you may not access or use the Platform.
+
+2. Services.
+Calls Flow LLC provides users with the ability to purchase credits that may be used to access and purchase marketing leads and related services through the Platform.
+Calls Flow LLC does not guarantee the accuracy, quality, responsiveness, conversion rate, profitability, or business outcome of any lead provided through the Platform.
+
+3. Credit Purchases.
+All credits purchased on the Platform are non-transferable and may only be used through the Platform in accordance with these Terms. Credits have no cash value and may not be redeemed for cash.
+
+4. No Refund Policy.
+ALL SALES ARE FINAL. By purchasing credits, you expressly acknowledge and agree that:
+
+  • All purchases are final and non-refundable.
+  • No refunds, credits, exchanges, or chargebacks will be provided for credits that have been purchased or used.
+  • Credits are deemed consumed when used to access, unlock, purchase, or contact leads through the Platform.
+  • Dissatisfaction with lead quality, lead responsiveness, conversion rates, business results, or campaign performance does not entitle a user to a refund.
+
+5. Lead Quality Disclaimer.
+Calls Flow LLC makes no representation or warranty regarding:
+
+  • The accuracy of any lead information;
+  • Whether a lead will respond;
+  • Whether a lead will be interested in a user's products or services;
+  • Whether a lead will convert into a sale;
+  • Any revenues, profits, or return on investment.
+
+Users acknowledge that marketing leads involve inherent uncertainty and that business results may vary.
+
+6. Chargebacks and Payment Disputes.
+By completing a purchase, you agree not to initiate a chargeback or payment dispute for any credits that have been delivered, accessed, or used. If a chargeback is initiated for credits that have been delivered or consumed:
+
+  • Calls Flow LLC reserves the right to suspend or terminate the user's account;
+  • Revoke unused credits;
+  • Pursue collection of amounts improperly disputed;
+  • Recover attorneys' fees, costs, and expenses incurred in responding to the chargeback or collection proceedings where permitted by law.
+
+7. Account Suspension.
+Calls Flow LLC reserves the right to suspend or terminate any account suspected of fraud, abuse, unauthorized activity, misuse of purchased leads, or violation of these Terms.
+
+8. Limitation of Liability.
+To the fullest extent permitted by law, Calls Flow LLC shall not be liable for any indirect, incidental, consequential, special, exemplary, or punitive damages, including lost profits, lost business opportunities, lost revenue, or loss of goodwill arising out of or related to the use of the Platform or any leads obtained through the Platform. The total liability of Calls Flow LLC for any claim shall not exceed the amount paid by the user to Calls Flow LLC during the thirty (30) days preceding the event giving rise to the claim.
+
+9. Indemnification.
+Users agree to indemnify, defend, and hold harmless Calls Flow LLC and its officers, directors, members, employees, and agents from any claims, damages, liabilities, costs, and expenses arising from:
+
+  • The user's use of the Platform;
+  • The user's contact with leads;
+  • The user's violation of any law or regulation; or
+  • The user's breach of these Terms.
+
+10. Governing Law.
+These Terms shall be governed by and construed in accordance with the laws of the Commonwealth of Texas, without regard to conflict-of-law principles.
+
+11. Arbitration.
+Any dispute arising out of or relating to these Terms or the Platform shall be resolved through binding arbitration administered by the American Arbitration Association. The parties waive any right to a jury trial or participation in a class action. Any such arbitration proceeding shall take place in Fairfax County, Texas.
+
+12. Modifications.
+Calls Flow LLC may modify these Terms at any time. Continued use of the Platform after modifications become effective constitutes acceptance of the revised Terms.
+
+13. Contact Information
+Calls Flow LLC
+Email: Admin@callsflow.io
+Website: callsflow.io`;
+
+const TosModal = ({ onAccept, onDecline }) =>
+  createPortal(
+    <div className={classes.tosModalOverlay} role="dialog" aria-modal="true" aria-labelledby="tos-modal-title">
+      <div className={classes.tosModal}>
+        <div className={classes.tosModalHeader}>
+          <h2 id="tos-modal-title" className={classes.tosModalTitle}>Terms of Service — Calls Flow LLC</h2>
+          <button className={classes.tosModalClose} onClick={onDecline} aria-label="Close">×</button>
+        </div>
+        <div className={classes.tosModalBody}>{TOS_TEXT}</div>
+        <div className={classes.tosModalFooter}>
+          <button className={classes.tosDeclineBtn} onClick={onDecline}>Decline</button>
+          <button className={classes.tosAcceptBtn} onClick={onAccept}>I Agree &amp; Continue</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
 
 const SPENDING_OPTIONS = [
   'Less than $500',
@@ -77,6 +167,8 @@ const SignupPage = () => {
   });
 
   const [submitting, setSubmitting] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showTosModal, setShowTosModal] = useState(false);
 
   const [searchParams] = useSearchParams();
   const [refCode] = useState(() => searchParams.get('ref')?.trim().toUpperCase() || '');
@@ -127,12 +219,20 @@ const SignupPage = () => {
     if (!validateOnboarding()) return;
     if (form.password.length < 6) return toast.error('Password must be at least 6 characters');
     if (form.password !== form.confirmPassword) return toast.error('Passwords do not match');
+    if (!termsAccepted) {
+      toast.error('You must accept the Terms of Service to continue');
+      setShowTosModal(true);
+      return;
+    }
 
     setSubmitting(true);
     try {
       await signup({
         ...form,
         phone: buildInternationalPhone(form.phoneCountry, form.phone),
+        tosAccepted: true,
+        tosVersion: TOS_VERSION,
+        tosAcceptedAt: new Date().toISOString(),
       });
       await trackSignupComplete({
         email: form.email,
@@ -183,12 +283,20 @@ const SignupPage = () => {
   const handleOnboardingSubmit = async (e) => {
     e.preventDefault();
     if (!validateOnboarding()) return;
+    if (!termsAccepted) {
+      toast.error('You must accept the Terms of Service to continue');
+      setShowTosModal(true);
+      return;
+    }
 
     setSubmitting(true);
     try {
       await saveGoogleOnboarding({
         ...form,
         phone: buildInternationalPhone(form.phoneCountry, form.phone),
+        tosAccepted: true,
+        tosVersion: TOS_VERSION,
+        tosAcceptedAt: new Date().toISOString(),
       });
       const authUser = useAuthStore.getState().user;
       await trackSignupComplete({
@@ -359,26 +467,53 @@ const SignupPage = () => {
 
   if (step === 'onboarding') {
     return (
-      <AuthShell
-        brand={renderBrandPanel(
-          'Profile',
-          'Complete your profile',
-          'A few details so we can route the right calls to you.',
-        )}
-      >
-        <motion.div initial="hidden" animate="visible" variants={formStagger}>
-          <motion.form
-            className={`${classes.form} ${classes.formGrid}`}
-            onSubmit={handleOnboardingSubmit}
-            variants={fieldMotion}
-          >
-            {renderOnboardingFields()}
-            <button className={`${classes.submitBtn} ${classes.spanFull}`} type="submit" disabled={submitting}>
-              {submitting ? 'Saving...' : 'Complete Setup'}
-            </button>
-          </motion.form>
-        </motion.div>
-      </AuthShell>
+      <>
+        <AuthShell
+          brand={renderBrandPanel(
+            'Profile',
+            'Complete your profile',
+            'A few details so we can route the right calls to you.',
+          )}
+        >
+          <motion.div initial="hidden" animate="visible" variants={formStagger}>
+            <motion.form
+              className={`${classes.form} ${classes.formGrid}`}
+              onSubmit={handleOnboardingSubmit}
+              variants={fieldMotion}
+            >
+              {renderOnboardingFields()}
+
+              {/* Inline ToS Box */}
+              <div className={`${classes.tosInlineWrap} ${classes.spanFull}`}>
+                <div className={classes.tosInlineBox}>
+                  <strong className={classes.tosInlineHeader}>{TOS_HEADER}</strong>
+                  {TOS_TEXT}
+                </div>
+                <div className={classes.tosRow}>
+                  <input
+                    id="tos-check-onboarding"
+                    type="checkbox"
+                    className={classes.tosCheckbox}
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                  />
+                  <label htmlFor="tos-check-onboarding" className={classes.tosLabel}>
+                    I have read and agree to the Terms of Service above
+                  </label>
+                </div>
+              </div>
+
+              <button
+                className={`${classes.submitBtn} ${classes.spanFull}`}
+                type="submit"
+                disabled={submitting || !termsAccepted}
+              >
+                {submitting ? 'Saving...' : 'Complete Setup'}
+              </button>
+            </motion.form>
+          </motion.div>
+        </AuthShell>
+      </>
     );
   }
 
@@ -479,7 +614,31 @@ const SignupPage = () => {
             />
           </div>
 
-          <button className={`${classes.submitBtn} ${classes.spanFull}`} type="submit" disabled={submitting}>
+          {/* Inline ToS Box */}
+          <div className={`${classes.tosInlineWrap} ${classes.spanFull}`}>
+            <div className={classes.tosInlineBox}>
+              <strong className={classes.tosInlineHeader}>{TOS_HEADER}</strong>
+              {TOS_TEXT}
+            </div>
+            <div className={classes.tosRow}>
+              <input
+                id="tos-check-email"
+                type="checkbox"
+                className={classes.tosCheckbox}
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+              />
+              <label htmlFor="tos-check-email" className={classes.tosLabel}>
+                I have read and agree to the Terms of Service above
+              </label>
+            </div>
+          </div>
+
+          <button
+            className={`${classes.submitBtn} ${classes.spanFull}`}
+            type="submit"
+            disabled={submitting || !termsAccepted}
+          >
             {submitting ? 'Creating Account...' : 'Continue'}
           </button>
         </motion.form>
