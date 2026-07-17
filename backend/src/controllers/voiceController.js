@@ -99,9 +99,37 @@ exports.handleIncomingCall = async (req, res) => {
             return;
         }
         const parentCallSid = req.body?.CallSid || req.body?.CallSidInbound || '';
-        const available = await agentManager.findAndLockAvailableAgent(campaign, callerState, parentCallSid, {
-            agencyId: routeAgencyId,
-        });
+
+        // ── Two-Phase Confirmation: check for a pre-existing reservation ──────────
+        // If Ringba hit /api/public/confirm before dialing, an agent is already
+        // atomically locked and stored under the caller's phone number. Consume that
+        // reservation first so we don't run findAndLockAvailableAgent on an agent
+        // that's no longer in the pool (they were ZREM'd at confirm time).
+        let available = null;
+        const reservation = await agentManager.consumeReservation(fromNumber);
+
+        if (reservation) {
+            // Agent was pre-locked at confirmation — fetch their current data
+            const rawAgentStr = await redisClient.hGet('agents:data', reservation.agentId);
+            if (rawAgentStr) {
+                try {
+                    available = { id: reservation.agentId, ...JSON.parse(rawAgentStr) };
+                    console.log(`[Router] 🎯 Using pre-confirmed reservation → agent ${reservation.agentId}`);
+                } catch {
+                    // Malformed data — fall through to normal routing
+                    console.warn(`[Router] ⚠️  Reservation agent data parse failed for ${reservation.agentId} — falling back`);
+                }
+            } else {
+                console.warn(`[Router] ⚠️  Reserved agent ${reservation.agentId} has no data — falling back`);
+            }
+        }
+
+        // ── Fallback: no reservation, run normal atomic routing ───────────────────
+        if (!available) {
+            available = await agentManager.findAndLockAvailableAgent(campaign, callerState, parentCallSid, {
+                agencyId: routeAgencyId,
+            });
+        }
 
         if (available) {
             // Stay RINGING until the browser receives the Twilio leg (agent:call_incoming).

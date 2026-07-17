@@ -166,7 +166,7 @@ const startEngine = async () => {
 
     // Run immediately on boot, then every 90 seconds
     runGhostCleanup();
-    const ghostCleanupInterval = setInterval(runGhostCleanup, 90 * 1000);
+    const ghostCleanupInterval = setInterval(runGhostCleanup, 5 * 1000);
 
     // Apply global rate limiting to all /api routes
     app.use('/api/', globalRateLimiter);
