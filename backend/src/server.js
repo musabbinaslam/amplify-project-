@@ -120,10 +120,10 @@ const startEngine = async () => {
 
     async function runGhostCleanup() {
         try {
-            // Only one PM2 instance should sweep — Redis NX lock (TTL 120s > 90s interval)
+            // Only one PM2 instance should sweep — Redis NX lock (TTL 4s < 5s interval)
             const lock = await redisClient.set('ghost-cleanup:lock', String(process.pid), {
                 NX: true,
-                EX: 120,
+                EX: 4,
             });
             if (lock !== 'OK') {
                 return;
