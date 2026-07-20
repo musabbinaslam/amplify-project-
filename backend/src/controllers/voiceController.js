@@ -501,10 +501,15 @@ exports.handleCallCompleted = async (req, res) => {
                 }
             }
 
-            // For conference calls or forcefully killed calls, DialCallStatus might be 'canceled' or missing.
-            // If there's any duration > 0, it means the call was bridged, so it's completed (not missed).
+            // If Twilio explicitly says the call was missed/canceled, force duration to 0 and status to missed.
+            // Otherwise, for conference calls where Twilio omits status, use duration > 0 as a bridge indicator.
+            const isExplicitlyMissed = ['busy', 'no-answer', 'failed', 'cancel'].includes(DialCallStatus);
+            if (isExplicitlyMissed) {
+                effectiveDuration = 0;
+            }
+
             const isCompleted = DialCallStatus === 'completed' || req.body.CallStatus === 'completed';
-            const effectiveStatus = (isCompleted || Number(effectiveDuration) > 0) ? 'completed' : 'missed';
+            const effectiveStatus = (isCompleted || (!isExplicitlyMissed && Number(effectiveDuration) > 0)) ? 'completed' : 'missed';
 
             let finalRecordingUrl = RecordingUrl || null;
 
