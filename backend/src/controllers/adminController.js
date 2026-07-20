@@ -139,22 +139,49 @@ const deleteCampaign = async (req, res) => {
 
 
 
+function validateTz(tz) {
+  if (!tz || typeof tz !== 'string') return null;
+  try { Intl.DateTimeFormat(undefined, { timeZone: tz }); return tz; } catch { return null; }
+}
+
+function dateStrToUtcInTz(dateStr, endOfDay, tz) {
+  if (!tz) {
+    return new Date(`${dateStr}${endOfDay ? 'T23:59:59.999Z' : 'T00:00:00.000Z'}`);
+  }
+  const midday = new Date(`${dateStr}T12:00:00Z`);
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(midday).map((p) => [p.type, Number(p.value)]),
+  );
+  const offsetMs = (parts.hour * 3600 + parts.minute * 60 + parts.second - 12 * 3600) * 1000;
+  const base = endOfDay
+    ? new Date(`${dateStr}T23:59:59.999Z`)
+    : new Date(`${dateStr}T00:00:00.000Z`);
+  return new Date(base.getTime() - offsetMs);
+}
+
 function parseRange(query) {
+  const tz = validateTz(query.tz);
   const now = new Date();
-  const end = query.to ? new Date(`${query.to}T23:59:59.999Z`) : now;
+  const end = query.to ? dateStrToUtcInTz(query.to, true, tz) : now;
   const from = query.from
-    ? new Date(`${query.from}T00:00:00.000Z`)
+    ? dateStrToUtcInTz(query.from, false, tz)
     : new Date(end.getTime() - (6 * 24 * 60 * 60 * 1000));
   if (Number.isNaN(from.getTime()) || Number.isNaN(end.getTime()) || from > end) {
     throw new Error('Invalid date range');
   }
-  return { from, end };
+  return { from, end, tz };
 }
 
-function dayKey(isoLike) {
+function dayKey(isoLike, tz) {
   const d = new Date(isoLike);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 10);
+  if (!tz) return d.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 }
 
 function getCallCreatedAt(log) {
@@ -251,7 +278,7 @@ async function readLogsInRange(from, end) {
   return out;
 }
 
-function aggregateAnalytics(rows, from, end) {
+function aggregateAnalytics(rows, from, end, tz) {
   const byDayMap = new Map();
   const byCampaign = new Map();
   const byAgent = new Map();
@@ -263,7 +290,7 @@ function aggregateAnalytics(rows, from, end) {
   let totalCost = 0;
 
   rows.forEach((r) => {
-    const dKey = dayKey(r.createdAt);
+    const dKey = dayKey(r.createdAt, tz);
     if (dKey) {
       if (!byDayMap.has(dKey)) {
         byDayMap.set(dKey, {
@@ -715,7 +742,7 @@ async function readCoachingRows(query = {}) {
 
 async function getAnalyticsBundle(req, res) {
   try {
-    const { from, end } = parseRange(req.query || {});
+    const { from, end, tz } = parseRange(req.query || {});
     const key = cacheKey(from, end);
     const cached = analyticsCache.get(key);
     if (cached && cached.expiresAt > Date.now()) {
@@ -740,7 +767,7 @@ async function getAnalyticsBundle(req, res) {
     } else {
       const rows = await readLogsInRange(from, end);
       payload = {
-        ...aggregateAnalytics(rows, from, end),
+        ...aggregateAnalytics(rows, from, end, tz),
         meta: {
           generatedAt: new Date().toISOString(),
           source: 'firestore.users.callLogs.fanout',
@@ -904,7 +931,7 @@ async function getLiveCalls(req, res) {
 
 async function kickAgentOfflineForCampaignPause(agentId) {
   await agentManager.removeAgent(agentId);
-  socketRegistry.emitToAgent(agentId, 'agent:forced_offline', {
+  await socketRegistry.emitToAgent(agentId, 'agent:forced_offline', {
     reason: 'campaign_paused',
     message: 'This campaign was paused by an admin. You have been taken offline. Go live on another campaign when ready.',
   });
@@ -927,7 +954,7 @@ async function forceRemoveAgent(req, res) {
     await agentManager.removeAgent(id);
 
     // Notify the agent's browser immediately so Take Calls UI goes offline
-    socketRegistry.emitToAgent(id, 'agent:forced_offline', {
+    await socketRegistry.emitToAgent(id, 'agent:forced_offline', {
       reason: 'admin_removed',
       message: 'An admin removed you from the call pool. Go live again when you are ready to take calls.',
     });
@@ -1010,6 +1037,147 @@ async function getAllUsers(req, res) {
   } catch (err) {
     console.error('[Admin] getAllUsers:', err.message);
     res.status(500).json({ error: err.message || 'Failed to list users' });
+  }
+}
+
+function resolveUserDisplayName(data = {}, fallbackId = null) {
+  const firstLast = [data.firstName, data.lastName].filter(Boolean).join(' ').trim();
+  return (
+    data.fullName ||
+    data.displayName ||
+    data.name ||
+    data.agentName ||
+    firstLast ||
+    data.email ||
+    fallbackId ||
+    null
+  );
+}
+
+function toIsoMaybe(value) {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (value.toDate) return value.toDate().toISOString();
+  if (value instanceof Date) return value.toISOString();
+  return null;
+}
+
+/**
+ * GET /admin/agents — every signed-up user with profile + call stats for the date range.
+ * Unlike analytics-bundle, agents with zero calls in-range are still returned.
+ */
+async function listAgentsDirectory(req, res) {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database unavailable' });
+
+    const { from, end, tz } = parseRange(req.query || {});
+    const [usersSnap, statsPayload] = await Promise.all([
+      db.collection('users').get(),
+      (async () => {
+        const keys = enumerateDayKeys(from, end);
+        if (!keys.length) {
+          return { agents: [] };
+        }
+        const dayRefs = keys.map((k) => db.collection('adminMetrics').doc('daily').collection('days').doc(k));
+        const snaps = await db.getAll(...dayRefs);
+        const existing = snaps.filter((s) => s.exists);
+        if (existing.length > 0) {
+          return aggregateFromDailyDocs(existing, from, end);
+        }
+        const rows = await readLogsInRange(from, end);
+        return aggregateAnalytics(rows, from, end, tz);
+      })(),
+    ]);
+
+    const statsById = new Map(
+      (statsPayload.agents || []).map((row) => [row.agentId, row]),
+    );
+
+    const agents = [];
+    const needAuthBackfill = [];
+
+    usersSnap.docs.forEach((doc) => {
+      const data = doc.data() || {};
+      const stats = statsById.get(doc.id) || {};
+      const name = resolveUserDisplayName(data, null);
+      const email = data.email || null;
+      const phone = data.phoneNumber || data.phone || data.onboarding?.phone || null;
+      const calls = Number(stats.calls || 0);
+      const answeredCalls = Number(stats.answeredCalls || 0);
+      const billableCalls = Number(stats.billableCalls || 0);
+      const totalDuration = Number(stats.totalDuration || 0);
+      const totalCost = Number(stats.totalCost || 0);
+      agents.push({
+        agentId: doc.id,
+        agentName: name,
+        email,
+        phone,
+        role: data.role || 'agent',
+        agencyId: data.agencyId ?? null,
+        flagged: data.flagged === true,
+        flagReason: data.flagReason || null,
+        walletBalanceCents: typeof data.wallet?.balance === 'number' ? data.wallet.balance : null,
+        createdAt: toIsoMaybe(data.createdAt) || toIsoMaybe(data.createdAtIso) || null,
+        isMock: Boolean(data.settings?.mock),
+        calls,
+        answeredCalls,
+        billableCalls,
+        totalDuration,
+        totalCost,
+        answerRate: ratio(answeredCalls, calls),
+        billableRate: ratio(billableCalls, calls),
+        avgHandleTime: calls ? Math.round(totalDuration / calls) : 0,
+      });
+      if (!name || !email || !phone) needAuthBackfill.push(doc.id);
+    });
+
+    if (needAuthBackfill.length && admin) {
+      const byId = new Map(agents.map((a) => [a.agentId, a]));
+      for (let i = 0; i < needAuthBackfill.length; i += 100) {
+        const chunk = needAuthBackfill.slice(i, i + 100);
+        // eslint-disable-next-line no-await-in-loop
+        const out = await admin.auth().getUsers(chunk.map((uid) => ({ uid })));
+        out.users.forEach((u) => {
+          const entry = byId.get(u.uid);
+          if (!entry) return;
+          if (!entry.agentName) entry.agentName = u.displayName || u.email || null;
+          if (!entry.email && u.email) entry.email = u.email;
+          if (!entry.phone && u.phoneNumber) entry.phone = u.phoneNumber;
+          if (!entry.createdAt && u.metadata?.creationTime) {
+            entry.createdAt = new Date(u.metadata.creationTime).toISOString();
+          }
+        });
+      }
+    }
+
+    agents.forEach((a) => {
+      if (!a.agentName || a.agentName === a.agentId) a.agentName = a.email || a.agentId;
+    });
+
+    // Default high → low by calls, then cost, then name
+    agents.sort((a, b) => {
+      if (b.calls !== a.calls) return b.calls - a.calls;
+      if (b.totalCost !== a.totalCost) return b.totalCost - a.totalCost;
+      return String(a.agentName || '').localeCompare(String(b.agentName || ''));
+    });
+
+    res.json({
+      agents,
+      total: agents.length,
+      meta: {
+        generatedAt: new Date().toISOString(),
+        window: {
+          from: from.toISOString().slice(0, 10),
+          to: end.toISOString().slice(0, 10),
+        },
+        source: 'firestore.users+adminMetrics',
+      },
+    });
+  } catch (err) {
+    console.error('[Admin] listAgentsDirectory:', err.message);
+    const status = err.message === 'Invalid date range' ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to list agents' });
   }
 }
 
@@ -1154,7 +1322,7 @@ async function flagAgent(req, res) {
     await agentManager.removeAgent(id);
 
     // 3. Notify their browser via socket if they are online
-    socketRegistry.emitToAgent(id, 'agent:flagged', {
+    await socketRegistry.emitToAgent(id, 'agent:flagged', {
       reason,
       message: 'Your account has been flagged due to inactivity or a low billable rate. Please contact admin@callsflow.io to resume your activity.',
     });
@@ -1196,7 +1364,7 @@ async function resumeAgent(req, res) {
     });
 
     // 2. Notify their browser via socket if they are online
-    socketRegistry.emitToAgent(id, 'agent:flag_lifted', {
+    await socketRegistry.emitToAgent(id, 'agent:flag_lifted', {
       message: 'Your account has been resumed. You can now go live!',
     });
 
@@ -1214,7 +1382,7 @@ async function resumeAgent(req, res) {
 
 async function getAnalyticsDrilldown(req, res) {
   try {
-    const { from, end } = parseRange(req.query || {});
+    const { from, end, tz } = parseRange(req.query || {});
     const type = String(req.query.type || '').trim().toLowerCase();
     const id = String(req.query.id || '').trim();
     if (!['campaign', 'agent'].includes(type)) {
@@ -1471,20 +1639,22 @@ async function postBroadcastNotification(req, res) {
       req.user?.uid || 'admin',
       req.user?.uid || null,
     );
-    payload.created.forEach(({ uid, id }) => {
-      socketRegistry.emitToAgent(uid, 'notification:new', {
-        id,
-        broadcastId: payload.broadcastId,
-        type: payload.type,
-        title: payload.title,
-        body: payload.body,
-        priority: payload.priority,
-        source: 'admin',
-        read: false,
-        createdAt: payload.createdAt,
-        expiresAt: payload.expiresAt || null,
-      });
-    });
+    await Promise.all(
+      payload.created.map(({ uid, id }) =>
+        socketRegistry.emitToAgent(uid, 'notification:new', {
+          id,
+          broadcastId: payload.broadcastId,
+          type: payload.type,
+          title: payload.title,
+          body: payload.body,
+          priority: payload.priority,
+          source: 'admin',
+          read: false,
+          createdAt: payload.createdAt,
+          expiresAt: payload.expiresAt || null,
+        }),
+      ),
+    );
     res.status(201).json({
       success: true,
       broadcastId: payload.broadcastId,
@@ -1518,21 +1688,22 @@ async function postTargetedNotification(req, res) {
       req.user?.uid || 'admin',
       req.user?.uid || null,
     );
-    payload.created.forEach(({ uid, id }) => {
-      const socketRegistry = require('../sockets/socketRegistry');
-      socketRegistry.emitToAgent(uid, 'notification:new', {
-        id,
-        broadcastId: payload.broadcastId,
-        type: payload.type,
-        title: payload.title,
-        body: payload.body,
-        priority: payload.priority,
-        source: 'admin',
-        read: false,
-        createdAt: payload.createdAt,
-        expiresAt: payload.expiresAt || null,
-      });
-    });
+    await Promise.all(
+      payload.created.map(({ uid, id }) =>
+        socketRegistry.emitToAgent(uid, 'notification:new', {
+          id,
+          broadcastId: payload.broadcastId,
+          type: payload.type,
+          title: payload.title,
+          body: payload.body,
+          priority: payload.priority,
+          source: 'admin',
+          read: false,
+          createdAt: payload.createdAt,
+          expiresAt: payload.expiresAt || null,
+        }),
+      ),
+    );
     res.status(201).json({
       success: true,
       broadcastId: payload.broadcastId,
@@ -1552,9 +1723,11 @@ async function patchMaintenance(req, res) {
     const maintenance = await setMaintenanceState(req.body || {}, req.user?.uid || null);
     const db = getDb();
     const usersSnap = await db.collection('users').select().limit(20000).get();
-    usersSnap.docs.forEach((doc) => {
-      socketRegistry.emitToAgent(doc.id, 'maintenance:update', maintenance);
-    });
+    await Promise.all(
+      usersSnap.docs.map((doc) =>
+        socketRegistry.emitToAgent(doc.id, 'maintenance:update', maintenance),
+      ),
+    );
 
     if (maintenance.active) {
       const payload = await broadcastNotificationToAllUsers(
@@ -1570,23 +1743,27 @@ async function patchMaintenance(req, res) {
       );
       await maintenanceDocRef().set({ broadcastId: payload.broadcastId }, { merge: true });
       const linkedMaintenance = await getMaintenanceState();
-      payload.created.forEach(({ uid, id }) => {
-        socketRegistry.emitToAgent(uid, 'notification:new', {
-          id,
-          broadcastId: payload.broadcastId,
-          type: payload.type,
-          title: payload.title,
-          body: payload.body,
-          priority: payload.priority,
-          source: 'admin',
-          read: false,
-          createdAt: payload.createdAt,
-          expiresAt: payload.expiresAt || null,
-        });
-      });
-      usersSnap.docs.forEach((doc) => {
-        socketRegistry.emitToAgent(doc.id, 'maintenance:update', linkedMaintenance);
-      });
+      await Promise.all(
+        payload.created.map(({ uid, id }) =>
+          socketRegistry.emitToAgent(uid, 'notification:new', {
+            id,
+            broadcastId: payload.broadcastId,
+            type: payload.type,
+            title: payload.title,
+            body: payload.body,
+            priority: payload.priority,
+            source: 'admin',
+            read: false,
+            createdAt: payload.createdAt,
+            expiresAt: payload.expiresAt || null,
+          }),
+        ),
+      );
+      await Promise.all(
+        usersSnap.docs.map((doc) =>
+          socketRegistry.emitToAgent(doc.id, 'maintenance:update', linkedMaintenance),
+        ),
+      );
       res.json({ maintenance: linkedMaintenance, broadcastId: payload.broadcastId });
       return;
     }
@@ -1654,15 +1831,19 @@ async function patchBroadcastNotification(req, res) {
       priority: out.row.priority,
       expiresAt: out.row.expiresAt || null,
     };
-    out.affectedUids.forEach((uid) => {
-      socketRegistry.emitToAgent(uid, 'notification:updated', syncPayload);
-    });
+    await Promise.all(
+      out.affectedUids.map((uid) =>
+        socketRegistry.emitToAgent(uid, 'notification:updated', syncPayload),
+      ),
+    );
     if (out.maintenance) {
       const db = getDb();
       const usersSnap = await db.collection('users').select().limit(20000).get();
-      usersSnap.docs.forEach((doc) => {
-        socketRegistry.emitToAgent(doc.id, 'maintenance:update', out.maintenance);
-      });
+      await Promise.all(
+        usersSnap.docs.map((doc) =>
+          socketRegistry.emitToAgent(doc.id, 'maintenance:update', out.maintenance),
+        ),
+      );
     }
     res.json({ row: out.row, updatedCount: out.affectedUids.length });
   } catch (err) {
@@ -1675,9 +1856,11 @@ async function patchBroadcastNotification(req, res) {
 async function deleteBroadcastNotification(req, res) {
   try {
     const out = await revokeBroadcast(req.params.id, req.user?.uid || null);
-    out.affectedUids.forEach((uid) => {
-      socketRegistry.emitToAgent(uid, 'notification:removed', { broadcastId: req.params.id });
-    });
+    await Promise.all(
+      out.affectedUids.map((uid) =>
+        socketRegistry.emitToAgent(uid, 'notification:removed', { broadcastId: req.params.id }),
+      ),
+    );
     res.json({ row: out.row, removedCount: out.affectedUids.length });
   } catch (err) {
     console.error('[Admin] deleteBroadcastNotification:', err.message);
@@ -1898,6 +2081,7 @@ module.exports = {
   getAnalyticsBundle,
   getLiveCalls,
   forceRemoveAgent,
+  listAgentsDirectory,
   getAllUsers,
   listManagerTeams,
   getManagerTeam,

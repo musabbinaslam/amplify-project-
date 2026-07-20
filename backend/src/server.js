@@ -17,6 +17,7 @@ const qaRoutes = require('./routes/qaRoutes');
 const managerRoutes = require('./routes/managerRoutes');
 const agencyRoutes = require('./routes/agencyRoutes');
 const { setupCallSockets } = require('./sockets/callSockets');
+const socketRegistry = require('./sockets/socketRegistry');
 const { verifyFirebaseToken } = require('./middleware/auth');
 const { globalRateLimiter } = require('./middleware/security');
 const { verifyMailer } = require('./config/mailer');
@@ -67,6 +68,11 @@ const startEngine = async () => {
 
     await connectRedis();
 
+    const requireRedisAdapter =
+        process.env.REQUIRE_REDIS_ADAPTER === 'true'
+        || process.env.NODE_ENV === 'production'
+        || Number(process.env.PM2_INSTANCES || process.env.instances || 0) > 1;
+
     if (process.env.REDIS_URL) {
         try {
             const { createClient } = require('redis');
@@ -84,9 +90,17 @@ const startEngine = async () => {
             io.adapter(createAdapter(pubClient, subClient));
             console.log('✅ Socket.IO Redis adapter enabled');
         } catch (err) {
+            if (requireRedisAdapter) {
+                console.error('[Socket.IO] Redis adapter required but failed:', err.message);
+                throw err;
+            }
             console.warn('[Socket.IO] Redis adapter unavailable — single-instance sockets only:', err.message);
         }
+    } else if (requireRedisAdapter) {
+        throw new Error('REDIS_URL is required for multi-node / production Socket.IO (set REQUIRE_REDIS_ADAPTER=false to override in local single-process mode)');
     }
+
+    socketRegistry.init(io);
 
     verifyMailer().catch((err) => {
         console.warn('[mailer] verify crashed:', err?.message || err);
@@ -106,6 +120,15 @@ const startEngine = async () => {
 
     async function runGhostCleanup() {
         try {
+            // Only one PM2 instance should sweep — Redis NX lock (TTL 4s < 5s interval)
+            const lock = await redisClient.set('ghost-cleanup:lock', String(process.pid), {
+                NX: true,
+                EX: 4,
+            });
+            if (lock !== 'OK') {
+                return;
+            }
+
             const cutoff = Date.now() - 65000; // 65 seconds
 
             // ── Pass 1: evict agents whose heartbeat sorted-set score is stale ──
@@ -143,7 +166,7 @@ const startEngine = async () => {
 
     // Run immediately on boot, then every 90 seconds
     runGhostCleanup();
-    const ghostCleanupInterval = setInterval(runGhostCleanup, 90 * 1000);
+    const ghostCleanupInterval = setInterval(runGhostCleanup, 5 * 1000);
 
     // Apply global rate limiting to all /api routes
     app.use('/api/', globalRateLimiter);
@@ -194,7 +217,26 @@ const startEngine = async () => {
       }
     });
 
-    app.get('/health', (req, res) => res.json({ status: 'Engine Active' }));
+    app.get('/health', async (req, res) => {
+      let redis = 'down';
+      try {
+        const pong = await redisClient.ping();
+        if (pong === 'PONG' || pong === 'pong') redis = 'up';
+      } catch (err) {
+        console.warn('[health] Redis ping failed:', err.message);
+      }
+
+      const payload = {
+        status: redis === 'up' ? 'ok' : 'degraded',
+        redis,
+        uptime: Math.round(process.uptime()),
+      };
+
+      if (redis === 'down' && process.env.NODE_ENV === 'production') {
+        return res.status(503).json(payload);
+      }
+      return res.json(payload);
+    });
 
     if (process.env.SENTRY_DSN) {
       Sentry.setupExpressErrorHandler(app);

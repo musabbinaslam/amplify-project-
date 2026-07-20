@@ -99,9 +99,37 @@ exports.handleIncomingCall = async (req, res) => {
             return;
         }
         const parentCallSid = req.body?.CallSid || req.body?.CallSidInbound || '';
-        const available = await agentManager.findAndLockAvailableAgent(campaign, callerState, parentCallSid, {
-            agencyId: routeAgencyId,
-        });
+
+        // ── Two-Phase Confirmation: check for a pre-existing reservation ──────────
+        // If Ringba hit /api/public/confirm before dialing, an agent is already
+        // atomically locked and stored under the caller's phone number. Consume that
+        // reservation first so we don't run findAndLockAvailableAgent on an agent
+        // that's no longer in the pool (they were ZREM'd at confirm time).
+        let available = null;
+        const reservation = await agentManager.consumeReservation(fromNumber);
+
+        if (reservation) {
+            // Agent was pre-locked at confirmation — fetch their current data
+            const rawAgentStr = await redisClient.hGet('agents:data', reservation.agentId);
+            if (rawAgentStr) {
+                try {
+                    available = { id: reservation.agentId, ...JSON.parse(rawAgentStr) };
+                    console.log(`[Router] 🎯 Using pre-confirmed reservation → agent ${reservation.agentId}`);
+                } catch {
+                    // Malformed data — fall through to normal routing
+                    console.warn(`[Router] ⚠️  Reservation agent data parse failed for ${reservation.agentId} — falling back`);
+                }
+            } else {
+                console.warn(`[Router] ⚠️  Reserved agent ${reservation.agentId} has no data — falling back`);
+            }
+        }
+
+        // ── Fallback: no reservation, run normal atomic routing ───────────────────
+        if (!available) {
+            available = await agentManager.findAndLockAvailableAgent(campaign, callerState, parentCallSid, {
+                agencyId: routeAgencyId,
+            });
+        }
 
         if (available) {
             // Stay RINGING until the browser receives the Twilio leg (agent:call_incoming).
@@ -370,7 +398,7 @@ exports.handleCallCompleted = async (req, res) => {
 
                     // Notify the agent's browser immediately so the UI shows "Offline"
                     // instead of staying stuck on "Listening for Calls".
-                    socketRegistry.emitToAgent(agentId, 'agent:forced_offline', {
+                    await socketRegistry.emitToAgent(agentId, 'agent:forced_offline', {
                         reason: 'missed_call',
                         message: 'You missed a call and have been taken offline. Please go live again when ready.'
                     });
@@ -829,7 +857,7 @@ exports.updateCallLog = async (req, res) => {
         if (campaignPaused) {
           // Campaign paused while agent was on call / in WRAP_UP — do not re-enter pool
           await agentManager.removeAgent(uid);
-          socketRegistry.emitToAgent(uid, 'agent:forced_offline', {
+          await socketRegistry.emitToAgent(uid, 'agent:forced_offline', {
             reason: 'campaign_paused',
             message: 'This campaign was paused by an admin. You have been taken offline. Go live on another campaign when ready.',
           });

@@ -14,7 +14,7 @@ function prefixRedisKey(key, prefix) {
 }
 
 const REDIS_KEY_ARG_COMMANDS = new Set([
-    'get', 'set', 'setEx', 'del', 'exists',
+    'get', 'getDel', 'set', 'setEx', 'del', 'exists',
     'hGet', 'hGetAll', 'hSet', 'hDel', 'hKeys',
     'sAdd', 'sRem', 'sMembers', 'sCard', 'sIsMember',
     'zAdd', 'zRem', 'zRange', 'zCard', 'zScore', 'zRangeByScore', 'zRangeWithScores',
@@ -80,12 +80,31 @@ const clientMock = {
         return 1;
     },
     get: async (key) => storage.has(key) ? storage.get(key) : null,
+    getDel: async (key) => {
+        if (!storage.has(key)) return null;
+        const val = storage.get(key);
+        storage.delete(key);
+        return val;
+    },
+    set: async (key, value, options = {}) => {
+        const nx = Boolean(options.NX);
+        const ex = Number(options.EX);
+        if (nx && storage.has(key)) return null;
+        storage.set(key, value);
+        if (Number.isFinite(ex) && ex > 0) {
+            setTimeout(() => {
+                if (storage.get(key) === value) storage.delete(key);
+            }, ex * 1000);
+        }
+        return 'OK';
+    },
     setEx: async (key, seconds, value) => {
         storage.set(key, value);
         setTimeout(() => storage.delete(key), seconds * 1000);
         return 'OK';
     },
     exists: async (key) => storage.has(key) ? 1 : 0,
+    ping: async () => 'PONG',
     hGetAll: async (key) => storage.get(key) || null,
     del: async (key) => {
         storage.delete(key);

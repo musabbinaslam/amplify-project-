@@ -345,6 +345,15 @@ class AgentManager {
          const locked = await redisClient.zRem(this.poolKey(campaignId, routeAgencyId), agent.id);
          if (locked === 1) {
             await redisClient.sAdd('agents:ringing', agent.id);
+
+            // Initialize the ringing timestamp immediately so the heartbeat cron
+            // doesn't instantly evict the agent before Twilio places the dial
+            await redisClient.setEx(
+               `agent:pendingcall:${agent.id}`,
+               RINGING_MAX_AGE_MS / 1000,
+               JSON.stringify({ startedAt: new Date().toISOString() })
+            );
+
             const rawAgentStr = await redisClient.hGet('agents:data', agent.id);
             if (rawAgentStr) {
                const agentObj = JSON.parse(rawAgentStr);
@@ -398,6 +407,76 @@ class AgentManager {
 
       // If any of the parallel checks returned true, we have an available agent
       return results.some(isAvailable => isAvailable);
+   }
+
+   /**
+    * CONFIRMATION RESERVE: Atomically lock an agent at Ringba confirmation time.
+    *
+    * Called by the /api/public/confirm endpoint — the moment Ringba decides to dial
+    * but BEFORE Twilio places the call. The agent is pulled from the pool (ZREM) and
+    * a short-lived reservation is stored in Redis keyed by the caller's phone number.
+    *
+    * When the real inbound call arrives seconds later, consumeReservation() picks up
+    * the pre-locked agent so routing is instant and deterministic.
+    *
+    * TTL is intentionally short (30 s) — long enough to cover network + dial delay,
+    * short enough that an abandoned confirmation can't strand an agent indefinitely.
+    * The existing stale-ringing cleanup handles releasing the agent from agents:ringing
+    * if the call never arrives.
+    *
+    * @param {string} campaignId
+    * @param {string|null} callerPhone  Raw phone string from Ringba (any format)
+    * @param {string|null} callerState  2-letter state code or null
+    * @param {object} options           { agencyId }
+    * @returns {object|null}            Locked agent data or null if none available
+    */
+   async reserveAgentForCall(campaignId, callerPhone = null, callerState = null, options = {}) {
+      // Atomically lock an agent using the existing LRU router (ZREM is the lock)
+      const agent = await this.findAndLockAvailableAgent(campaignId, callerState, null, options);
+      if (!agent) return null;
+
+      // Normalise the phone to last-10 digits so +17025551212 and 7025551212 both key identically
+      const phoneKey = callerPhone
+         ? String(callerPhone).replace(/\D/g, '').slice(-10)
+         : null;
+
+      if (phoneKey) {
+         const RESERVATION_TTL_SECONDS = 30;
+         await redisClient.setEx(
+            `confirm:reservation:${phoneKey}`,
+            RESERVATION_TTL_SECONDS,
+            `${agent.id}|${campaignId}`,
+         );
+         console.log(`[Confirm] 🔒 Reserved agent ${agent.id} for phone ${phoneKey} (TTL ${RESERVATION_TTL_SECONDS}s)`);
+      } else {
+         // No phone provided — reservation can't be keyed, but agent is still locked
+         console.warn(`[Confirm] ⚠️  Agent ${agent.id} locked without phone key — confirm-to-call matching disabled`);
+      }
+
+      return agent;
+   }
+
+   /**
+    * CONFIRMATION CONSUME: Retrieve and delete a pre-existing reservation.
+    *
+    * Called by the inbound Twilio webhook handler. If a reservation exists for the
+    * caller's phone number the agent is already locked in agents:ringing — we just
+    * need to return the agentId so the handler can route directly without running
+    * findAndLockAvailableAgent again (which would find nothing, since the agent is
+    * already out of the pool).
+    *
+    * @param {string} callerPhone  Raw phone string from Twilio (e.g. +17025551212)
+    * @returns {{ agentId: string, campaignId: string }|null}
+    */
+   async consumeReservation(callerPhone) {
+      if (!callerPhone) return null;
+      const phoneKey = String(callerPhone).replace(/\D/g, '').slice(-10);
+      const raw = await redisClient.getDel(`confirm:reservation:${phoneKey}`);
+      if (!raw) return null;
+      const [agentId, campaignId] = raw.split('|');
+      if (!agentId) return null;
+      console.log(`[Confirm] ✅ Consumed reservation for phone ${phoneKey} → agent ${agentId}`);
+      return { agentId, campaignId };
    }
 
    /**

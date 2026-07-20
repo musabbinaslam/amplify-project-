@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Users, Trash2, X, Flag, ShieldCheck } from 'lucide-react';
+import { Users, Trash2, X, Flag, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
-  getAdminAnalyticsBundle,
+  listAdminAgentsDirectory,
   forceRemoveAgent,
   flagAdminAgent,
   resumeAdminAgent,
@@ -15,12 +15,66 @@ import { getAgentName, getAgentId } from '../../components/admin/adminUtils';
 import PageLoader from '../../components/ui/PageLoader';
 import classes from '../../components/admin/adminShared.module.css';
 
+const PAGE_SIZE = 25;
+
+const SORT_OPTIONS = [
+  { value: 'calls', label: 'Calls' },
+  { value: 'totalCost', label: 'Total cost' },
+  { value: 'walletBalanceCents', label: 'Balance' },
+  { value: 'answerRate', label: 'Answer %' },
+  { value: 'billableRate', label: 'Billable %' },
+  { value: 'avgHandleTime', label: 'Avg handle' },
+  { value: 'agentName', label: 'Name' },
+  { value: 'createdAt', label: 'Signed up' },
+];
+
+function paginate(list, page, pageSize) {
+  const total = list.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const start = (safePage - 1) * pageSize;
+  return {
+    items: list.slice(start, start + pageSize),
+    total,
+    totalPages,
+    page: safePage,
+    rangeStart: total === 0 ? 0 : start + 1,
+    rangeEnd: Math.min(safePage * pageSize, total),
+  };
+}
+
+function compareAgents(a, b, sortKey, sortDir) {
+  const dir = sortDir === 'asc' ? 1 : -1;
+  const av = a?.[sortKey];
+  const bv = b?.[sortKey];
+
+  if (sortKey === 'agentName') {
+    return dir * String(getAgentName(a)).localeCompare(String(getAgentName(b)));
+  }
+  if (sortKey === 'createdAt') {
+    const at = av ? new Date(av).getTime() : 0;
+    const bt = bv ? new Date(bv).getTime() : 0;
+    return dir * (at - bt);
+  }
+  const an = typeof av === 'number' ? av : Number(av || 0);
+  const bn = typeof bv === 'number' ? bv : Number(bv || 0);
+  if (bn !== an) return dir * (an - bn);
+  return String(getAgentName(a)).localeCompare(String(getAgentName(b)));
+}
+
 export default function AdminAgentsPage() {
   const presets = useSubtlePageMotion();
-  const [rangePreset] = useState('7d');
-  const [analyticsLoading, setAnalyticsLoading] = useState(true);
-  const [agentStats, setAgentStats] = useState([]);
+  const [rangePreset, setRangePreset] = useState('7d');
+  const [loading, setLoading] = useState(true);
+  const [agents, setAgents] = useState([]);
   const [agentSearch, setAgentSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // all | active | flagged
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [agencyFilter, setAgencyFilter] = useState('all'); // all | platform | agency
+  const [activityFilter, setActivityFilter] = useState('all'); // all | with_calls | no_calls
+  const [sortKey, setSortKey] = useState('calls');
+  const [sortDir, setSortDir] = useState('desc');
+  const [page, setPage] = useState(1);
   const [forceRemoveAgentId, setForceRemoveAgentId] = useState('');
   const [flagModal, setFlagModal] = useState(null);
   const [flagReason, setFlagReason] = useState('Low billable rate — below 30% threshold');
@@ -29,39 +83,78 @@ export default function AdminAgentsPage() {
   const getRange = useCallback(() => {
     const now = new Date();
     const end = now.toISOString().slice(0, 10);
-    const days = rangePreset === 'today' ? 0 : rangePreset === '30d' ? 29 : 6;
+    const days = rangePreset === 'today' ? 0 : rangePreset === '30d' ? 29 : rangePreset === '90d' ? 89 : 6;
     const fromDate = new Date(now);
     fromDate.setDate(now.getDate() - days);
     const from = fromDate.toISOString().slice(0, 10);
     return { from, to: end };
   }, [rangePreset]);
 
-  const loadAnalytics = useCallback(async () => {
-    setAnalyticsLoading(true);
+  const loadAgents = useCallback(async () => {
+    setLoading(true);
     try {
       const range = getRange();
-      const bundle = await getAdminAnalyticsBundle(range);
-      setAgentStats(bundle.agents || []);
+      const out = await listAdminAgentsDirectory(range);
+      setAgents(out.agents || []);
     } catch (e) {
-      toast.error(e.message || 'Failed to load agent stats');
+      toast.error(e.message || 'Failed to load agents');
     } finally {
-      setAnalyticsLoading(false);
+      setLoading(false);
     }
   }, [getRange]);
 
   useEffect(() => {
-    loadAnalytics();
-  }, [loadAnalytics]);
+    loadAgents();
+  }, [loadAgents]);
 
-  const filteredAgentStats = useMemo(() => {
+  useEffect(() => {
+    setPage(1);
+  }, [agentSearch, statusFilter, roleFilter, agencyFilter, activityFilter, sortKey, sortDir, rangePreset]);
+
+  const roleOptions = useMemo(() => {
+    const roles = new Set(agents.map((a) => String(a.role || 'agent').toLowerCase()).filter(Boolean));
+    return ['all', ...[...roles].sort()];
+  }, [agents]);
+
+  const filteredSorted = useMemo(() => {
     const query = agentSearch.trim().toLowerCase();
-    if (!query) return agentStats;
-    return agentStats.filter((row) => {
-      const name = getAgentName(row).toLowerCase();
-      const id = getAgentId(row).toLowerCase();
-      return name.includes(query) || id.includes(query);
+    const filtered = agents.filter((row) => {
+      if (statusFilter === 'flagged' && !row.flagged) return false;
+      if (statusFilter === 'active' && row.flagged) return false;
+
+      const role = String(row.role || 'agent').toLowerCase();
+      if (roleFilter !== 'all' && role !== roleFilter) return false;
+
+      if (agencyFilter === 'platform' && row.agencyId) return false;
+      if (agencyFilter === 'agency' && !row.agencyId) return false;
+
+      const calls = Number(row.calls || 0);
+      if (activityFilter === 'with_calls' && calls <= 0) return false;
+      if (activityFilter === 'no_calls' && calls > 0) return false;
+
+      if (!query) return true;
+      const hay = [
+        getAgentName(row),
+        getAgentId(row),
+        row.email,
+        row.phone,
+        row.role,
+        row.agencyId,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(query);
     });
-  }, [agentStats, agentSearch]);
+
+    return [...filtered].sort((a, b) => compareAgents(a, b, sortKey, sortDir));
+  }, [agents, agentSearch, statusFilter, roleFilter, agencyFilter, activityFilter, sortKey, sortDir]);
+
+  const paged = useMemo(() => paginate(filteredSorted, page, PAGE_SIZE), [filteredSorted, page]);
+
+  useEffect(() => {
+    if (page !== paged.page) setPage(paged.page);
+  }, [page, paged.page]);
 
   const handleFlagSubmit = async (e) => {
     e.preventDefault();
@@ -72,7 +165,7 @@ export default function AdminAgentsPage() {
       if (out.success) {
         toast.success(`Agent ${flagModal.agentName} has been flagged.`);
         setFlagModal(null);
-        await loadAnalytics();
+        await loadAgents();
       } else {
         toast.error('Failed to flag agent');
       }
@@ -91,7 +184,7 @@ export default function AdminAgentsPage() {
       const out = await resumeAdminAgent(agentId);
       if (out.success) {
         toast.success(`Agent ${agentName} has been resumed.`);
-        await loadAnalytics();
+        await loadAgents();
       } else {
         toast.error('Failed to resume agent');
       }
@@ -123,52 +216,164 @@ export default function AdminAgentsPage() {
     }
   };
 
-  if (analyticsLoading && !agentStats.length) return <PageLoader />;
+  const toggleSort = (key) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+      return;
+    }
+    setSortKey(key);
+    setSortDir(key === 'agentName' ? 'asc' : 'desc');
+  };
+
+  if (loading && !agents.length) return <PageLoader />;
 
   return (
     <>
       <AdminPageShell
         title="Agent Management"
-        description="Agent performance, flag or resume agents, and emergency pool removal."
+        description="All signed-up agents with performance, search, filters, and pagination."
         icon={Users}
         category={ADMIN_CATEGORIES.agents}
       >
         <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
           <div className={classes.cardTopRow}>
-            <h2 className={classes.cardTitle}>Agent performance</h2>
+            <div>
+              <h2 className={classes.cardTitle}>All agents</h2>
+              <p className={classes.hint}>
+                {agents.length} signup{agents.length === 1 ? '' : 's'} · {filteredSorted.length} match
+                {filteredSorted.length === 1 ? '' : 'es'} · stats for selected range
+              </p>
+            </div>
             <input
               className={classes.searchInput}
-              placeholder="Search by agent name or ID"
+              placeholder="Search name, email, phone, or ID"
               value={agentSearch}
               onChange={(e) => setAgentSearch(e.target.value)}
             />
           </div>
+
+          <div className={classes.filterRow}>
+            <button type="button" className={`${classes.filterBtn} ${rangePreset === 'today' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('today')}>Today</button>
+            <button type="button" className={`${classes.filterBtn} ${rangePreset === '7d' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('7d')}>Last 7 days</button>
+            <button type="button" className={`${classes.filterBtn} ${rangePreset === '30d' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('30d')}>Last 30 days</button>
+            <button type="button" className={`${classes.filterBtn} ${rangePreset === '90d' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('90d')}>Last 90 days</button>
+          </div>
+
+          <div className={classes.agentsFilterGrid}>
+            <label className={classes.formField}>
+              Status
+              <select className={classes.select} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="all">All</option>
+                <option value="active">Active (not flagged)</option>
+                <option value="flagged">Flagged only</option>
+              </select>
+            </label>
+            <label className={classes.formField}>
+              Role
+              <select className={classes.select} value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+                {roleOptions.map((role) => (
+                  <option key={role} value={role}>
+                    {role === 'all' ? 'All roles' : role}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={classes.formField}>
+              Agency
+              <select className={classes.select} value={agencyFilter} onChange={(e) => setAgencyFilter(e.target.value)}>
+                <option value="all">All</option>
+                <option value="platform">Platform only</option>
+                <option value="agency">In an agency</option>
+              </select>
+            </label>
+            <label className={classes.formField}>
+              Activity
+              <select className={classes.select} value={activityFilter} onChange={(e) => setActivityFilter(e.target.value)}>
+                <option value="all">All</option>
+                <option value="with_calls">With calls in range</option>
+                <option value="no_calls">No calls in range</option>
+              </select>
+            </label>
+            <label className={classes.formField}>
+              Sort by
+              <select
+                className={classes.select}
+                value={sortKey}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setSortKey(next);
+                  setSortDir(next === 'agentName' ? 'asc' : 'desc');
+                }}
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className={classes.formField}>
+              Order
+              <select className={classes.select} value={sortDir} onChange={(e) => setSortDir(e.target.value)}>
+                <option value="desc">High → low</option>
+                <option value="asc">Low → high</option>
+              </select>
+            </label>
+          </div>
+
           <div className={classes.tableWrap}>
             <div className={classes.tableScroll}>
               <table className={classes.table}>
                 <thead>
                   <tr>
-                    <th>Agent</th>
-                    <th>Calls</th>
-                    <th>Answer %</th>
-                    <th>Billable %</th>
-                    <th>Avg Handle (s)</th>
-                    <th>Total Cost</th>
-                    <th>Balance</th>
+                    <th>
+                      <button type="button" className={classes.sortThBtn} onClick={() => toggleSort('agentName')}>
+                        Agent {sortKey === 'agentName' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                      </button>
+                    </th>
+                    <th>Role</th>
+                    <th>
+                      <button type="button" className={classes.sortThBtn} onClick={() => toggleSort('calls')}>
+                        Calls {sortKey === 'calls' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                      </button>
+                    </th>
+                    <th>
+                      <button type="button" className={classes.sortThBtn} onClick={() => toggleSort('answerRate')}>
+                        Answer % {sortKey === 'answerRate' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                      </button>
+                    </th>
+                    <th>
+                      <button type="button" className={classes.sortThBtn} onClick={() => toggleSort('billableRate')}>
+                        Billable % {sortKey === 'billableRate' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                      </button>
+                    </th>
+                    <th>
+                      <button type="button" className={classes.sortThBtn} onClick={() => toggleSort('avgHandleTime')}>
+                        Avg Handle (s) {sortKey === 'avgHandleTime' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                      </button>
+                    </th>
+                    <th>
+                      <button type="button" className={classes.sortThBtn} onClick={() => toggleSort('totalCost')}>
+                        Total Cost {sortKey === 'totalCost' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                      </button>
+                    </th>
+                    <th>
+                      <button type="button" className={classes.sortThBtn} onClick={() => toggleSort('walletBalanceCents')}>
+                        Balance {sortKey === 'walletBalanceCents' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                      </button>
+                    </th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {analyticsLoading ? (
-                    <tr><td colSpan={8} className={classes.muted}>Loading analytics…</td></tr>
-                  ) : filteredAgentStats.length === 0 ? (
-                    <tr><td colSpan={8} className={classes.muted}>No agent stats match this filter</td></tr>
+                  {loading ? (
+                    <tr><td colSpan={9} className={classes.muted}>Loading agents…</td></tr>
+                  ) : paged.items.length === 0 ? (
+                    <tr><td colSpan={9} className={classes.muted}>No agents match these filters</td></tr>
                   ) : (
-                    filteredAgentStats.map((row) => (
+                    paged.items.map((row) => (
                       <tr key={row.agentId}>
                         <td className={classes.agentCell}>
                           <details className={classes.agentDetails}>
-                            <summary title="Tap to view phone number">
+                            <summary title="Tap to view contact">
                               <span className={classes.agentSummaryLine}>
                                 <strong>{getAgentName(row)}</strong>
                                 {row.flagged ? (
@@ -178,13 +383,16 @@ export default function AdminAgentsPage() {
                                   </span>
                                 ) : null}
                               </span>
-                              {getAgentName(row) !== getAgentId(row) ? (
+                              {row.email ? (
+                                <span className={classes.agentSubId} title={row.email}>{row.email}</span>
+                              ) : getAgentName(row) !== getAgentId(row) ? (
                                 <span className={classes.agentSubId} title={getAgentId(row)}>
                                   {getAgentId(row)}
                                 </span>
                               ) : null}
                             </summary>
                             <div className={classes.agentPhoneReveal}>
+                              <div className={classes.agentSubId} title={getAgentId(row)}>{getAgentId(row)}</div>
                               {row.phone ? (
                                 <a href={`tel:${row.phone}`} className={classes.agentPhone}>
                                   {row.phone}
@@ -195,10 +403,11 @@ export default function AdminAgentsPage() {
                             </div>
                           </details>
                         </td>
-                        <td>{row.calls}</td>
+                        <td>{row.role || 'agent'}</td>
+                        <td>{row.calls || 0}</td>
                         <td>{Math.round((row.answerRate || 0) * 100)}%</td>
                         <td>{Math.round((row.billableRate || 0) * 100)}%</td>
-                        <td>{row.avgHandleTime}</td>
+                        <td>{row.avgHandleTime || 0}</td>
                         <td>${(row.totalCost || 0).toFixed(2)}</td>
                         <td>
                           {typeof row.walletBalanceCents === 'number'
@@ -231,6 +440,37 @@ export default function AdminAgentsPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <div className={classes.pagination}>
+            <span className={classes.pageMeta}>
+              {paged.total === 0
+                ? '0 agents'
+                : `Showing ${paged.rangeStart}–${paged.rangeEnd} of ${paged.total}`}
+            </span>
+            <div className={classes.pageBtns}>
+              <button
+                type="button"
+                className={classes.pageBtn}
+                disabled={paged.page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                aria-label="Previous page"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className={classes.pageIndicator}>
+                Page {paged.page} / {paged.totalPages}
+              </span>
+              <button
+                type="button"
+                className={classes.pageBtn}
+                disabled={paged.page >= paged.totalPages}
+                onClick={() => setPage((p) => Math.min(paged.totalPages, p + 1))}
+                aria-label="Next page"
+              >
+                <ChevronRight size={16} />
+              </button>
             </div>
           </div>
         </motion.section>

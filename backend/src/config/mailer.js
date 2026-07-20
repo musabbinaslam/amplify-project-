@@ -29,7 +29,7 @@ function getTransporter() {
     return transporter;
 }
 
-async function sendMail({ to, subject, text, html, replyTo, from, attachments } = {}) {
+async function sendMail({ to, cc, subject, text, html, replyTo, from, attachments } = {}) {
     const t = getTransporter();
     if (!t) {
         throw new Error('Mail transporter is not configured (missing SMTP credentials).');
@@ -45,6 +45,10 @@ async function sendMail({ to, subject, text, html, replyTo, from, attachments } 
         html,
         replyTo
     };
+
+    if (cc) {
+        mailOptions.cc = cc;
+    }
 
     if (Array.isArray(attachments) && attachments.length > 0) {
         mailOptions.attachments = attachments;

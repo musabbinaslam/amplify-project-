@@ -199,6 +199,73 @@ router.get('/ping/:campaignId/:phone', handlePing);
 router.get('/ping/:campaignId/:token/:phone', handlePing);
 
 /**
+ * Universal Vendor Confirm API — Two-Phase Reservation (Option B)
+ *
+ * Ringba calls this endpoint immediately before dialing the lead (after winning the bid).
+ * We atomically lock a specific agent here and store a 30-second reservation keyed by
+ * the caller's phone number. When the real Twilio call arrives seconds later, the inbound
+ * handler picks up the pre-locked agent and routes instantly.
+ *
+ * If no agent can be locked, we return status:0 and Ringba fails over to the next
+ * buyer — the call is never dialed to Twilio, so the publisher is never billed.
+ *
+ * Supports the same URL patterns as the ping for drop-in compatibility:
+ *   GET /api/public/confirm/:campaignId
+ *   GET /api/public/confirm/:campaignId/:phone
+ *   GET /api/public/confirm/:campaignId/:token/:phone
+ *
+ * Response: { status: 1 } = accept (agent reserved)
+ *           { status: 0 } = reject (no agent, Ringba should failover)
+ */
+async function handleConfirm(req, res) {
+   try {
+      const { campaignId, phone: pathPhone } = req.params;
+      const { state: queryState, phone: queryPhone } = req.query;
+
+      const phone = pathPhone || queryPhone || null;
+      let state = queryState || null;
+
+      // Derive state from phone area code if not provided
+      if (phone && !state) {
+         state = phoneUtils.getStateFromPhone(phone);
+         if (state) {
+            console.log(`[Confirm API] 📱 Derived state '${state}' from phone: ${phone}`);
+         }
+      }
+
+      // Reject immediately if campaign is paused
+      if (await isCampaignPaused(campaignId)) {
+         console.log(`[Confirm API] 🚫 Confirm for '${campaignId}' blocked — campaign is paused`);
+         return res.json({ status: 0, campaign: campaignId, paused: true });
+      }
+
+      // Attempt atomic reservation
+      const agent = await agentManager.reserveAgentForCall(campaignId, phone, state);
+
+      const accepted = Boolean(agent);
+      console.log(
+         `[Confirm API] ${accepted ? '✅ ACCEPT' : '❌ REJECT'} campaign='${campaignId}' phone=${phone || 'N/A'} state=${state || 'ANY'}${accepted ? ` → agent=${agent.id}` : ''}`
+      );
+
+      return res.json({
+         status: accepted ? 1 : 0,
+         campaign: campaignId,
+         state: state || 'any',
+         ...(phone && { derived_state: state }),
+      });
+   } catch (err) {
+      console.error('[Confirm API] ❌ Error:', err.message);
+      // Fail closed — return 0 so Ringba fails over rather than blindly dialing
+      return res.status(500).json({ status: 0, error: 'Internal Server Error' });
+   }
+}
+
+// Confirm route registrations — mirror the ping URL patterns exactly
+router.get('/confirm/:campaignId', handleConfirm);
+router.get('/confirm/:campaignId/:phone', handleConfirm);
+router.get('/confirm/:campaignId/:token/:phone', handleConfirm);
+
+/**
  * Server-side Meta Conversions API event for successful signup.
  * Body (minimal): { eventId, email, phone, fullName, eventSourceUrl }
  */
