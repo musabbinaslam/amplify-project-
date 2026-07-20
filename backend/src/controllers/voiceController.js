@@ -274,6 +274,10 @@ exports.handleDialStatus = async (req, res) => {
     }
 
     try {
+        if (event === 'ringing' || callStatus === 'ringing') {
+            await agentManager.setAgentRinging(agentId);
+        }
+
         const isAnswered =
             event === 'answered' ||
             callStatus === 'in-progress' ||
