@@ -357,7 +357,7 @@ class AgentManager {
             const rawAgentStr = await redisClient.hGet('agents:data', agent.id);
             if (rawAgentStr) {
                const agentObj = JSON.parse(rawAgentStr);
-               agentObj.status = 'RINGING';
+               agentObj.status = 'RESERVED';
                await redisClient.hSet('agents:data', agent.id, JSON.stringify(agentObj));
             }
             this.markDiagnostic('locksWon');
@@ -1017,7 +1017,7 @@ class AgentManager {
          const derivedStatus = poolSlot === 'busy'
             ? 'IN_CALL'
             : poolSlot === 'ringing'
-               ? 'RINGING'
+               ? (raw.status === 'RESERVED' ? 'RESERVED' : 'RINGING')
                : poolSlot === 'available'
                   ? 'AVAILABLE'
                   : isWrapUp

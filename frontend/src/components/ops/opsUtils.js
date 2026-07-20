@@ -39,7 +39,8 @@ export function statusMeta(status, online, classes) {
   if (!online) return { label: 'Offline', cls: classes.statOffline };
   switch (status) {
     case 'AVAILABLE': return { label: 'Listening', cls: classes.statAvailable };
-    case 'RINGING': return { label: 'Listening', cls: classes.statAvailable }; // Masked from user view
+    case 'RESERVED': return { label: 'Listening', cls: classes.statAvailable };
+    case 'RINGING': return { label: 'Ringing', cls: classes.statRinging };
     case 'IN_CALL': return { label: 'On Call', cls: classes.statInCall };
     case 'WRAP_UP': return { label: 'Wrapping Up', cls: classes.statInCall };
     default: return { label: status || 'Online', cls: classes.statAvailable };
