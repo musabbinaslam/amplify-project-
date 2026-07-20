@@ -90,8 +90,7 @@ export default function AdminLiveOpsPage() {
     >
       <motion.div className={classes.statsRow} variants={presets.statsStrip}>
         <AdminStatCard label="Live agents" value={overview?.totalAgents ?? 0} icon={Users} variants={presets.child} loading={loading} />
-        <AdminStatCard label="Available" value={pool.available?.length ?? 0} icon={Radio} variants={presets.child} loading={loading} />
-        <AdminStatCard label="Ringing" value={pool.ringing?.length ?? 0} icon={Phone} variants={presets.child} loading={loading} />
+        <AdminStatCard label="Available" value={(pool.available?.length ?? 0) + (pool.ringing?.length ?? 0)} icon={Radio} variants={presets.child} loading={loading} />
         <AdminStatCard label="Busy" value={pool.busy?.length ?? 0} icon={Phone} variants={presets.child} loading={loading} />
       </motion.div>
 
