@@ -279,9 +279,8 @@ exports.handleDialStatus = async (req, res) => {
         }
 
         const isAnswered =
-            event === 'answered' ||
-            callStatus === 'in-progress' ||
-            callStatus === 'answered';
+            (event === 'answered' || callStatus === 'answered' || callStatus === 'in-progress') &&
+            event !== 'ringing' && event !== 'initiated';
 
         if (isAnswered) {
             await agentManager.confirmCallDelivered(agentId, {
