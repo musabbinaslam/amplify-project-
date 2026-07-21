@@ -356,12 +356,12 @@ const QaDashboardPage = () => {
         <motion.div className={classes.statCard} variants={presets.child}>
           <Radio size={18} className={classes.statIcon} />
           <span className={classes.statLabel}>Available</span>
-          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (pool.available?.length ?? 0)}</span>
+          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (overview?.agents || []).filter(a => a.status === 'AVAILABLE' || a.status === 'RESERVED').length}</span>
         </motion.div>
         <motion.div className={classes.statCard} variants={presets.child}>
           <Phone size={18} className={classes.statIcon} />
           <span className={classes.statLabel}>Ringing</span>
-          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (pool.ringing?.length ?? 0)}</span>
+          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (overview?.agents || []).filter(a => a.status === 'RINGING').length}</span>
         </motion.div>
         <motion.div className={classes.statCard} variants={presets.child}>
           <Phone size={18} className={classes.statIcon} />

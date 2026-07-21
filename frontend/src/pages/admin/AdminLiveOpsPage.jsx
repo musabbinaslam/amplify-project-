@@ -90,8 +90,8 @@ export default function AdminLiveOpsPage() {
     >
       <motion.div className={classes.statsRow} variants={presets.statsStrip}>
         <AdminStatCard label="Live agents" value={overview?.totalAgents ?? 0} icon={Users} variants={presets.child} loading={loading} />
-        <AdminStatCard label="Available" value={pool.available?.length ?? 0} icon={Radio} variants={presets.child} loading={loading} />
-        <AdminStatCard label="Ringing" value={pool.ringing?.length ?? 0} icon={Phone} variants={presets.child} loading={loading} />
+        <AdminStatCard label="Available" value={(overview?.agents || []).filter(a => a.status === 'AVAILABLE' || a.status === 'RESERVED').length} icon={Radio} variants={presets.child} loading={loading} />
+        <AdminStatCard label="Ringing" value={(overview?.agents || []).filter(a => a.status === 'RINGING').length} icon={Phone} variants={presets.child} loading={loading} />
         <AdminStatCard label="Busy" value={pool.busy?.length ?? 0} icon={Phone} variants={presets.child} loading={loading} />
       </motion.div>
 
@@ -203,8 +203,8 @@ export default function AdminLiveOpsPage() {
                         )}
                       </td>
                       <td>{a.campaignId}</td>
-                      <td><span className={classes.statusPill}>{{ available: 'Available', busy: 'In Call', ringing: 'Ringing', wrap_up: 'Wrap Up', unknown: 'Unknown' }[a.pool] || a.pool}</span></td>
-                      <td><span className={classes.statusPill}>{{ AVAILABLE: 'Available', IN_CALL: 'In Call', RINGING: 'Ringing', WRAP_UP: 'Wrap Up', UNKNOWN: 'Unknown' }[a.status] || a.status}</span></td>
+                      <td><span className={classes.statusPill}>{{ available: 'Available', busy: 'In Call', ringing: 'Ringing', wrap_up: 'Wrap Up', unknown: 'Unknown', reserved: 'Available' }[a.pool] || a.pool}</span></td>
+                      <td><span className={classes.statusPill}>{{ AVAILABLE: 'Available', IN_CALL: 'In Call', RINGING: 'Ringing', WRAP_UP: 'Wrap Up', UNKNOWN: 'Unknown', RESERVED: 'Available' }[a.status] || a.status}</span></td>
                       <td>{Array.isArray(a.licensedStates) && a.licensedStates.length > 0 ? a.licensedStates.join(', ') : 'None'}</td>
                       <td className={classes.actions}>
                         <button

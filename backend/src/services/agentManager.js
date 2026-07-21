@@ -5,7 +5,7 @@ const POOL_SCAN_LIMIT = 50;
 const PRESENCE_FRESHNESS_MS = 120 * 1000;
 const WRAPUP_MAX_AGE_MS = 10 * 60 * 1000;  // 10 min — WRAP_UP must not last longer
 const INCALL_MAX_AGE_MS = 90 * 60 * 1000;  // 90 min — force-evict any zombie IN_CALL
-const RINGING_MAX_AGE_MS = 25 * 1000;       // dial timeout (20s) + buffer — stale RINGING cleanup
+const RINGING_MAX_AGE_MS = 20 * 1000;       // dial timeout (20s) + buffer — stale RINGING cleanup
 const PENDING_CALL_TTL_SEC = 35;
 const VOICE_READY_KEY_PREFIX = 'agent:voice_ready:';
 
@@ -357,7 +357,7 @@ class AgentManager {
             const rawAgentStr = await redisClient.hGet('agents:data', agent.id);
             if (rawAgentStr) {
                const agentObj = JSON.parse(rawAgentStr);
-               agentObj.status = 'RINGING';
+               agentObj.status = 'RESERVED';
                await redisClient.hSet('agents:data', agent.id, JSON.stringify(agentObj));
             }
             this.markDiagnostic('locksWon');
@@ -441,7 +441,7 @@ class AgentManager {
          : null;
 
       if (phoneKey) {
-         const RESERVATION_TTL_SECONDS = 30;
+         const RESERVATION_TTL_SECONDS = 20;
          await redisClient.setEx(
             `confirm:reservation:${phoneKey}`,
             RESERVATION_TTL_SECONDS,
@@ -1017,7 +1017,7 @@ class AgentManager {
          const derivedStatus = poolSlot === 'busy'
             ? 'IN_CALL'
             : poolSlot === 'ringing'
-               ? 'RINGING'
+               ? (raw.status === 'RESERVED' ? 'RESERVED' : 'RINGING')
                : poolSlot === 'available'
                   ? 'AVAILABLE'
                   : isWrapUp
