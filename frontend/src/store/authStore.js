@@ -47,9 +47,10 @@ async function loadUserRole(uid) {
       agencyId: profile?.agencyId || null,
       flagged: profile?.flagged === true,
       flagReason: profile?.flagReason || null,
+      acceptedTermsVersion: profile?.acceptedTermsVersion || null,
     };
   } catch {
-    return { role: 'agent', agencyRole: null, agencyId: null, flagged: false, flagReason: null };
+    return { role: 'agent', agencyRole: null, agencyId: null, flagged: false, flagReason: null, acceptedTermsVersion: null };
   }
 }
 
@@ -73,7 +74,7 @@ const useAuthStore = create((set, get) => ({
           }
           const token = await firebaseUser.getIdToken();
           const existingMeta = get().user?.meta;
-          const { role, agencyRole, agencyId, flagged, flagReason } = await loadUserRole(firebaseUser.uid);
+          const { role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion } = await loadUserRole(firebaseUser.uid);
 
           // Proactively refresh the Firebase token every 15 minutes
           // to guarantee agents never hit the 1-hour expiration while online.
@@ -93,7 +94,7 @@ const useAuthStore = create((set, get) => ({
           Sentry.setUser({ id: firebaseUser.uid, email: firebaseUser.email });
 
           set({
-            user: { ...mapFirebaseUser(firebaseUser), meta: existingMeta || null, role, agencyRole, agencyId, flagged, flagReason },
+            user: { ...mapFirebaseUser(firebaseUser), meta: existingMeta || null, role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion },
             token,
             loading: false,
             _tokenRefreshInterval: intervalId,
@@ -120,6 +121,7 @@ const useAuthStore = create((set, get) => ({
       name: fullName,
       displayName: fullName,
       email: credential.user.email || email,
+      acceptedTermsVersion: formData.tosVersion,
       onboarding: {
         phone: formData.phone || '',
         weeklySpend: formData.weeklySpend || '',
@@ -144,7 +146,7 @@ const useAuthStore = create((set, get) => ({
     }
 
     set({
-      user: { ...mapFirebaseUser(credential.user), name: fullName, role },
+      user: { ...mapFirebaseUser(credential.user), name: fullName, role, acceptedTermsVersion: formData.tosVersion },
       token,
     });
   },
@@ -229,6 +231,7 @@ const useAuthStore = create((set, get) => ({
     await saveProfile(currentUser.uid, {
       ...(displayName ? { fullName: displayName, name: displayName, displayName } : {}),
       email: currentUser.email || '',
+      acceptedTermsVersion: formData.tosVersion,
       onboarding: {
         phone: formData.phone || '',
         weeklySpend: formData.weeklySpend || '',

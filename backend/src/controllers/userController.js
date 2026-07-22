@@ -1971,6 +1971,20 @@ async function getAvailableCampaigns(req, res) {
   }
 }
 
+async function acceptTerms(req, res) {
+  try {
+    const uid = req.user.uid;
+    const { version } = req.body;
+    if (!version) return res.status(400).json({ error: 'Missing version parameter' });
+    
+    await mergeUserDoc(uid, { acceptedTermsVersion: version });
+    res.json({ success: true, acceptedTermsVersion: version });
+  } catch (err) {
+    console.error('Error in acceptTerms:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 module.exports = {
   getMe,
   getMeBootstrap,
@@ -2008,4 +2022,5 @@ module.exports = {
   updateCustomScript,
   deleteCustomScript,
   getAvailableCampaigns,
+  acceptTerms,
 };

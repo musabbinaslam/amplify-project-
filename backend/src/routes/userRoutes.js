@@ -38,6 +38,7 @@ const {
   updateCustomScript,
   deleteCustomScript,
   getAvailableCampaigns,
+  acceptTerms,
 } = require('../controllers/userController');
 const multer = require('multer');
 const os = require('os');
@@ -85,5 +86,7 @@ router.post('/me/custom-scripts', createCustomScript);
 router.post('/me/custom-scripts/upload', upload.single('file'), uploadCustomScript);
 router.put('/me/custom-scripts/:scriptId', updateCustomScript);
 router.delete('/me/custom-scripts/:scriptId', deleteCustomScript);
+
+router.post('/accept-terms', acceptTerms);
 
 module.exports = router;
