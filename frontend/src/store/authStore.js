@@ -154,8 +154,8 @@ const useAuthStore = create((set, get) => ({
   login: async (email, password) => {
     const credential = await signInWithEmailAndPassword(auth, email, password);
     const token = await credential.user.getIdToken();
-    const { role, agencyRole, agencyId, flagged, flagReason } = await loadUserRole(credential.user.uid);
-    set({ user: { ...mapFirebaseUser(credential.user), role, agencyRole, agencyId, flagged, flagReason }, token });
+    const { role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion } = await loadUserRole(credential.user.uid);
+    set({ user: { ...mapFirebaseUser(credential.user), role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion }, token });
   },
 
   googleLogin: async () => {
@@ -165,8 +165,8 @@ const useAuthStore = create((set, get) => ({
     const existing = await getProfile(result.user.uid);
     const needsOnboarding = !existing?.onboarding?.completedAt;
 
-    const { role, agencyRole, agencyId, flagged, flagReason } = await loadUserRole(result.user.uid);
-    set({ user: { ...mapFirebaseUser(result.user), role, agencyRole, agencyId, flagged, flagReason }, token });
+    const { role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion } = await loadUserRole(result.user.uid);
+    set({ user: { ...mapFirebaseUser(result.user), role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion }, token });
     return { needsOnboarding, user: result.user };
   },
 
@@ -209,10 +209,9 @@ const useAuthStore = create((set, get) => ({
         // Login page should reject onboarding-incomplete Google users.
         await rejectGoogleLogin();
       }
-      const { role, agencyRole, agencyId, flagged, flagReason } = await loadUserRole(result.user.uid);
-
+      const { role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion } = await loadUserRole(result.user.uid);
       set({
-        user: { ...mapFirebaseUser(result.user), role, agencyRole, agencyId, flagged, flagReason },
+        user: { ...mapFirebaseUser(result.user), meta: existing?.meta || null, role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion },
         token,
         googleLoginValidationInProgress: false,
       });
