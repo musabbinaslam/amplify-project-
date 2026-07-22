@@ -762,7 +762,12 @@ async function getAnalyticsBundle(req, res) {
     const snaps = await db.getAll(...dayRefs);
     const existing = snaps.filter((s) => s.exists);
     let payload;
-    if (existing.length > 0) {
+    const durationMs = end.getTime() - from.getTime();
+    const isShortQuery = durationMs <= 2 * 24 * 3600 * 1000; // <= 48 hours
+
+    // Only use pre-aggregated daily docs if the query aligns with UTC or is a long multi-day trend
+    // For "Today" / "Yesterday" queries in local timezones, always read raw logs to prevent boundary leaks.
+    if (existing.length > 0 && (!tz || tz === 'UTC' || !isShortQuery)) {
       payload = aggregateFromDailyDocs(existing, from, end);
     } else {
       const rows = await readLogsInRange(from, end);
@@ -1395,7 +1400,10 @@ async function getAnalyticsDrilldown(req, res) {
     const dayRefs = dayKeys.map((k) => db.collection('adminMetrics').doc('daily').collection('days').doc(k));
     const daySnaps = await db.getAll(...dayRefs);
     const existing = daySnaps.filter((s) => s.exists);
-    if (existing.length) {
+    const durationMs = end.getTime() - from.getTime();
+    const isShortQuery = durationMs <= 2 * 24 * 3600 * 1000; // <= 48 hours
+
+    if (existing.length > 0 && (!tz || tz === 'UTC' || !isShortQuery)) {
       const rollup = buildDrilldownFromDailyDocs(type, id, existing);
       if (rollup.summary.calls > 0) {
         // Daily docs don't have individual logs, so we'll just return empty recentLogs here
