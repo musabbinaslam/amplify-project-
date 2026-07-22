@@ -149,16 +149,23 @@ export default function AdminAnalyticsPage() {
   }, [agentStats, agentSearch]);
 
   const filteredSortedDrilldownLogs = useMemo(() => {
-    const all = Array.isArray(drilldown?.recentLogs) ? [...drilldown.recentLogs] : [];
+    const allRaw = Array.isArray(drilldown?.recentLogs) ? [...drilldown.recentLogs] : [];
+    const all = allRaw.map(log => {
+      let mappedName = getAgentName(log);
+      if (mappedName === getAgentId(log)) {
+        mappedName = overview?.agents?.find(a => a.id === log.agentId)?.displayName || agentStats?.find(a => a.agentId === log.agentId)?.agentName || mappedName;
+      }
+      return { ...log, agentName: mappedName };
+    });
     const dayFiltered = drilldownDay
       ? all.filter((log) => {
-          const dt = new Date(log?.createdAt || 0);
-          if (Number.isNaN(dt.getTime())) return false;
-          const localY = dt.getFullYear();
-          const localM = String(dt.getMonth() + 1).padStart(2, '0');
-          const localD = String(dt.getDate()).padStart(2, '0');
-          return `${localY}-${localM}-${localD}` === drilldownDay;
-        })
+        const dt = new Date(log?.createdAt || 0);
+        if (Number.isNaN(dt.getTime())) return false;
+        const localY = dt.getFullYear();
+        const localM = String(dt.getMonth() + 1).padStart(2, '0');
+        const localD = String(dt.getDate()).padStart(2, '0');
+        return `${localY}-${localM}-${localD}` === drilldownDay;
+      })
       : all;
 
     dayFiltered.sort((a, b) => {
@@ -451,7 +458,7 @@ export default function AdminAnalyticsPage() {
                 ) : null}
                 <span className={classes.statusPill}>
                   {selectedCampaign
-                    ? `Campaign: ${selectedCampaign}`
+                    ? `Campaign: ${campaignStats?.find((c) => c.campaign === selectedCampaign)?.campaignLabel || selectedCampaign}`
                     : `Agent: ${overview?.agents?.find((a) => a.id === selectedAgent)?.displayName || agentStats?.find((a) => a.agentId === selectedAgent)?.agentName || selectedAgent}`}
                 </span>
                 <button
