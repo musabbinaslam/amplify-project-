@@ -11,6 +11,7 @@ import useAuthStore from './store/authStore';
 import { isAgencyAdminUser } from './utils/authRoles';
 import { auth } from './config/firebase';
 import UpdateBanner from './components/ui/UpdateBanner';
+import TermsGatewayModal from './components/TermsGatewayModal';
 
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -59,7 +60,12 @@ const ProtectedRoute = () => {
   const hasFirebaseSession = Boolean(auth?.currentUser);
   if (loading) return <PageLoader fullScreen />;
   if (!token || !hasFirebaseSession) return <Navigate to="/login" replace />;
-  return <AppShell />;
+  return (
+    <>
+      <TermsGatewayModal />
+      <AppShell />
+    </>
+  );
 };
 
 const GuestRoute = ({ children }) => {
