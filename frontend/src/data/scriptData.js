@@ -651,16 +651,222 @@ const aca = {
   ],
 };
 
+const feInbound = {
+  id: 'fe-inbound',
+  title: 'FE Script — Inbound',
+  subtitle: 'Final Expense Life Insurance Script (Inbound)',
+  sections: [
+    {
+      id: 'opening',
+      title: 'Opening',
+      icon: 'phone',
+      color: 'green',
+      prompts: [
+        { text: '"Thank you for calling Final Expense Services, this is', field: 'agentName', after: '. Are you calling to qualify for an affordable funeral coverage plan today?"' },
+        { label: 'Client Name', field: 'clientName', placeholder: "Client's name" },
+        { text: '"Nice to meet you. I\'m a licensed insurance benefits specialist. What state are you calling from?"' },
+        { text: '"My job is to explain these plans to you, answer any questions you have about the coverage, and help you find the most affordable coverage as well. May I please start with your first name?"' },
+      ],
+      fields: [
+        { id: 'clientState', label: 'State', type: 'text', placeholder: 'State' },
+      ],
+    },
+    {
+      id: 'budget-check',
+      title: 'Budget Pre-Qualification',
+      icon: 'dollar',
+      color: 'green',
+      prompts: [
+        { text: '"Now, [Client Name], you are aware that $2/day is $60/month and it\'s paid monthly. Is that something you\'re comfortable with?"' },
+        { text: '"Now, [Client Name], we can get you up to $25,000 in coverage for $2/day but the coverage amount can go down depending on your age and health. Is that something you\'re comfortable with?"' },
+        { text: '"Ok. [Client Name], now is $60/month your budget or is it more?"' },
+      ],
+      fields: [
+        { id: 'monthlyBudget', label: 'Monthly Budget', type: 'text', placeholder: '$' },
+      ],
+    },
+    {
+      id: 'qualifying-questions',
+      title: 'Qualifying Questions',
+      icon: 'clipboardList',
+      color: 'orange',
+      prompts: [
+        { text: '1. "Are you currently over the age of 50?"', badge: 'Must be YES' },
+        { text: '2. "Is this coverage for you or someone else?"', badge: 'If for someone else — schedule a time when they are with that person', badgeColor: 'orange' },
+        { text: '3. "Do you currently have coverage?"' },
+        { text: '4. "Are you married or single?"', badge: 'If married — verify spouse is home. If NOT, schedule appointment for when spouse IS home.', badgeColor: 'orange' },
+        { text: '5. "Are you receiving Social Security, Disability, or VA Benefits?"', badge: 'If no — ask: Are you currently working?' },
+        { text: '6. "Do you use a Traditional Bank, Credit Union, or Direct Express Card?"', badge: 'Must use Checking/Savings — No Direct Express', badgeColor: 'red' },
+      ],
+      fields: [
+        { id: 'overAge50', label: 'Over 50?', type: 'checkbox' },
+        { id: 'coverageForSelf', label: 'Coverage for Self', type: 'checkbox' },
+        { id: 'hasExistingCoverage', label: 'Has Existing Coverage', type: 'checkbox' },
+        { id: 'maritalStatus', label: 'Married or Single', type: 'text', placeholder: 'Married / Single' },
+        { id: 'incomeSource', label: 'Income Source', type: 'text', placeholder: 'SS / Disability / VA / Working' },
+        { id: 'bankType', label: 'Bank Type', type: 'text', placeholder: 'Bank / Credit Union' },
+      ],
+      fieldLayout: 'grid-2',
+    },
+    {
+      id: 'existing-coverage',
+      title: 'If They Have Coverage',
+      icon: 'shield',
+      color: 'orange',
+      prompts: [
+        { text: '"[Client Name], you said you currently have coverage. Are you looking to replace or add to your coverage?"' },
+        { text: '*IF THEY WANT TO REPLACE:*', italic: true },
+        { text: '"How much coverage do you currently have?"' },
+        { text: '"Who do you have the coverage with?"' },
+        { text: '"How much do you pay per month?"' },
+      ],
+      fields: [
+        { id: 'existingCoverageAmount', label: 'Current Coverage Amount', type: 'text', placeholder: '$' },
+        { id: 'existingCarrier', label: 'Current Carrier', type: 'text', placeholder: 'Carrier name' },
+        { id: 'existingMonthly', label: 'Current Monthly Payment', type: 'text', placeholder: '$' },
+      ],
+      fieldLayout: 'grid-3',
+    },
+    {
+      id: 'explaining-coverage',
+      title: 'Explaining the Coverage',
+      icon: 'file',
+      color: 'dark',
+      prompts: [
+        { text: '"Now, if this is the first time looking into these plans just so you are aware, these are State-Approved Whole Life plans that are designed to cover 100% of your burial, cremation, or any other final expenses that you may have."' },
+        { text: '"Most of these plans are from carriers you\'ve probably heard of before, like **Mutual of Omaha, Liberty, AIG, and Transamerica** just to name a few."' },
+        { text: '"They\'re also very easy to get approved since they do not make you go to a doctor or a nurse to get approved for these plans."' },
+      ],
+      additionalPrompts: [
+        { text: '"There are typically only a couple reasons why people purchase life insurance. The first is to cover a funeral or cremation."' },
+        { text: '"Which one are you leaning towards for your final arrangements? Do you know how much that costs in your area? Have you ever had to help set one up? You don\'t want family having to come out of pocket for your arrangements, right?"' },
+        { text: '"The other reason people get coverage is to leave money behind for loved ones. Is that important to you as well?"' },
+        { text: '"Did you have someone in mind you wanted to leave the money to?"' },
+      ],
+      fields: [
+        { id: 'burialOrCremation', label: 'Burial or Cremation', type: 'text', placeholder: 'Burial / Cremation' },
+        { id: 'beneficiaryName', label: 'Beneficiary Name', type: 'text', placeholder: 'Name' },
+      ],
+      fieldLayout: 'grid-2',
+    },
+    {
+      id: 'health-questions',
+      title: 'Health & Medications (Transition to Toolkits)',
+      icon: 'heart',
+      color: 'red',
+      prompts: [
+        { text: '"Now, these plans are based on 2 things. The first is your age and the second is your health, and even if your health isn\'t perfect, we may have a plan for you."' },
+        { text: '"Now as far as your age goes, what is your date of birth?"' },
+      ],
+      fields: [
+        { id: 'dob', label: 'Date of Birth', type: 'text', placeholder: 'MM/DD/YYYY' },
+      ],
+      additionalPrompts: [
+        { text: '"And then as far as your health goes... in the last ten years:"' },
+        { text: '1. "Have you had any heart, liver, or kidney issues?"' },
+        { text: '2. "Any heart attacks, strokes, or cancer?"' },
+        { text: '3. "Do you have diabetes or any diabetic complications, like neuropathy?"' },
+        { text: '4. "Any COPD, or do you use an inhaler like albuterol for lung disease?"' },
+        { text: '5. "Any other health concerns we should be aware of?"' },
+        { text: '6. "Do you use nicotine products?"' },
+      ],
+      conditionGroup: {
+        label: 'Health conditions (check all that apply)',
+        options: ['Heart/Liver/Kidney', 'Heart Attack', 'Stroke', 'Cancer', 'Diabetes', 'Neuropathy', 'COPD/Inhaler', 'Nicotine'],
+        id: 'healthConditions',
+      },
+      trailingPrompts: [
+        { text: '"Now, [prospect name], please do me a favor and grab any medications that you are prescribed. I want your quote to be accurate and to make sure we aren\'t missing any information for approval."' },
+      ],
+      trailingFields: [
+        { id: 'medications', label: 'Medications', type: 'text', placeholder: 'List medications' },
+        { id: 'otherHealthConcerns', label: 'Other Concerns', type: 'text', placeholder: 'Other health concerns' },
+      ],
+      trailingFieldLayout: 'grid-2',
+    },
+    {
+      id: 'quote-options',
+      title: '3x Close Options',
+      icon: 'circle',
+      color: 'orange',
+      prompts: [
+        { text: '"Now I\'ve got a few plans brought up here, and we can always adjust the amounts to fit your budget. Please grab a pen and paper so that we can discuss your options."' },
+        { text: '(Confirm they have pen and paper)', italic: true },
+        { text: '"Let\'s start with the first option:"' },
+      ],
+      quoteTiers: [
+        { label: 'OPTION 1', id: 'option1Price', placeholder: '$XX,XXX — $XX/mo', emoji: '🥇' },
+        { label: 'OPTION 2', id: 'option2Price', placeholder: '$YY,YYY — $YY/mo', emoji: '🥈' },
+        { label: 'OPTION 3', id: 'option3Price', placeholder: '$ZZ,ZZZ — $ZZ/mo', emoji: '🥉' },
+      ],
+      trailingPrompts: [
+        { text: '"Which of those do you feel like fits your budget the best?"' },
+        { text: '*If they object to the prices:*', italic: true },
+        { text: '"[Prospect name], I completely understand. However, our plans fit most budgets whether they are big or small. So, let me ask you what amount are you comfortable with per month for your plan? We need this amount to get you approved."' },
+      ],
+      trailingFields: [
+        { id: 'selectedOption', label: 'Selected Option', type: 'text', placeholder: 'Option 1 / 2 / 3' },
+        { id: 'comfortableAmount', label: 'Comfortable Monthly Amount', type: 'text', placeholder: '$' },
+      ],
+      trailingFieldLayout: 'grid-2',
+    },
+    {
+      id: 'application',
+      title: 'Begin Application',
+      icon: 'file',
+      color: 'dark',
+      prompts: [
+        { text: '"Perfect, I think that\'s a good choice. And just to confirm, this is a comfortable monthly amount for you? Ok perfect. We\'ll go ahead and submit the application to the carrier for that then."' },
+      ],
+      tip: 'Begin the carrier application process now.',
+    },
+    {
+      id: 'wrap-up',
+      title: 'Wrap-Up',
+      icon: 'checkCircle',
+      color: 'green',
+      prompts: [
+        { text: '"Now we\'re just about completed, if you still have the pen and paper I\'ll have you write down a few important pieces of information."' },
+      ],
+      fields: [
+        { id: 'policyNumber', label: 'Policy Number', type: 'text' },
+        { id: 'carrier', label: 'Carrier', type: 'text' },
+        { id: 'benefitAmount', label: 'Benefit Amount', type: 'text', placeholder: '$' },
+        { id: 'monthlyPremium', label: 'Monthly Premium', type: 'text', placeholder: '$' },
+        { id: 'startDate', label: 'Start Date', type: 'text' },
+        { id: 'beneficiary', label: 'Beneficiary', type: 'text' },
+      ],
+      fieldLayout: 'grid-3-2',
+      closingPrompts: [
+        { text: '"Now, [prospect name], do you know 3–5 people that I can help with their funeral planning as well? Friends, family, or coworkers who can benefit from a plan like this? We all need this service, and I would love to help them."' },
+      ],
+      additionalFields: [
+        { id: 'referral1', label: 'Referral 1', type: 'text', placeholder: 'Name & number' },
+        { id: 'referral2', label: 'Referral 2', type: 'text', placeholder: 'Name & number' },
+        { id: 'referral3', label: 'Referral 3', type: 'text', placeholder: 'Name & number' },
+      ],
+      additionalFieldLayout: 'grid-3',
+      trailingPrompts: [
+        { text: '"Now, you\'ll get a package in the mail in about 7–10 business days that will have all this information in it as well so you can review."' },
+        { text: '"When you get it, make sure to make a copy of it for yourself, and one for your beneficiary. If God forbid anything happens to you, they\'ll call the number on the policy once they have the death certificate to receive the benefit amount within 24–48 hours."' },
+        { text: '"Other than that, we are all set but if you have any questions, please don\'t hesitate to ask. Have a good one!"' },
+      ],
+    },
+  ],
+};
+
 export const SCRIPTS = {
   'final-expense-en': finalExpenseEn,
   'final-expense-es': finalExpenseEs,
   'medicare': medicare,
   'aca': aca,
+  'fe-inbound': feInbound,
 };
 
 export const SCRIPT_OPTIONS = [
   { value: 'final-expense-en', label: 'Final Expense (English)' },
   { value: 'final-expense-es', label: 'Final Expense (Español)' },
+  { value: 'fe-inbound', label: 'FE Script — Inbound' },
   { value: 'medicare', label: 'Medicare' },
   { value: 'aca', label: 'ACA / Health Insurance' },
 ];
