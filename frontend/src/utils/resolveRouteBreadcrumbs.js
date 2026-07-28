@@ -7,6 +7,7 @@ const TOP_LEVEL_ROUTES = {
   '/app': "Let's get started",
   '/app/take-calls': 'Take Calls',
   '/app/dashboard': 'Dashboard',
+  '/app/leaderboard': 'Leaderboard',
   '/app/call-logs': 'Call Logs',
   '/app/ai-training': 'AI Training',
   '/app/script': 'Script',

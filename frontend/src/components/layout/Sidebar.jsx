@@ -8,7 +8,7 @@ import {
   DollarSign, Box, User, HeadphonesIcon,
   MessageSquare, Gift, Settings, LogOut,
   ChevronLeft, ChevronRight, Shield, FileEdit, ShieldCheck, Users,
-  Building2, UserCog,
+  Building2, UserCog, Trophy,
 } from 'lucide-react';
 import { isAgencyAdminUser } from '../../utils/authRoles';
 import classes from './Sidebar.module.css';
@@ -35,6 +35,7 @@ const navItems = [
   { path: '/app', label: 'Welcome', icon: Play, end: true, group: 'work' },
   { path: '/app/take-calls', label: 'Take Calls', icon: Phone, group: 'work' },
   { path: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'work' },
+  { path: '/app/leaderboard', label: 'Leaderboard', icon: Trophy, group: 'work' },
   { path: '/app/call-logs', label: 'Call Logs', icon: List, group: 'work' },
   { path: '/app/script', label: 'Script', icon: FileText, group: 'work' },
   { path: '/app/notes', label: 'Notes', icon: FileEdit, group: 'work' },
