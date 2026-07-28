@@ -1,0 +1,950 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding-bottom: 40px;
+
+  /* Page-scoped medal palette (deliberate exception to the restrained system). */
+  --lb-gold: #ffd54a;
+  --lb-silver: #d7dbe4;
+  --lb-bronze: #e0975a;
+}
+
+/* Medal tokens; applied on each champion column so children inherit. */
+.gold { --medal: var(--lb-gold); --medal-strong: #ffbb1c; --medal-glow: rgba(255, 199, 51, 0.5); }
+.silver { --medal: var(--lb-silver); --medal-strong: #b7bdcb; --medal-glow: rgba(205, 211, 224, 0.4); }
+.bronze { --medal: var(--lb-bronze); --medal-strong: #c2703a; --medal-glow: rgba(224, 138, 76, 0.45); }
+
+/* ─── Header ─── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.headerLead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.headerIcon {
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  color: var(--lb-gold);
+  background: color-mix(in srgb, var(--lb-gold) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lb-gold) 26%, transparent);
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+  background: linear-gradient(100deg, var(--text-primary), var(--brand-text));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 2px 0 0;
+}
+
+.updatedAt {
+  color: var(--text-tertiary);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ─── Dropdown ─── */
+.customDropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdownTrigger {
+  background: color-mix(in srgb, var(--surface-container-highest) 70%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in srgb, #ffffff 10%, transparent);
+  color: var(--text-primary);
+  padding: 9px 16px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dropdownTrigger:hover {
+  border-color: var(--brand-text);
+}
+
+.dropdownIcon {
+  transition: transform 0.2s ease;
+  color: var(--text-secondary);
+}
+
+.dropdownIcon.open {
+  transform: rotate(180deg);
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: color-mix(in srgb, var(--surface-container-high) 85%, transparent);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid color-mix(in srgb, #ffffff 9%, transparent);
+  border-radius: var(--radius-lg);
+  padding: 8px;
+  min-width: 160px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dropdownItem {
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dropdownItem:hover {
+  background: var(--surface-container-highest);
+  color: var(--text-primary);
+}
+
+.activeItem {
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  color: var(--brand-text);
+}
+
+/* ─── Refresh button ─── */
+.refreshBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 24%, transparent);
+  color: var(--brand-text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.refreshBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--brand-text) 18%, transparent);
+}
+
+.refreshBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.spinning {
+  animation: lbSpin 0.8s linear infinite;
+}
+
+@keyframes lbSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Error banner ─── */
+.errorBanner {
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--accent-red) 10%, transparent);
+  color: var(--accent-red);
+  border: 1px solid color-mix(in srgb, var(--accent-red) 40%, transparent);
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ─── Champions stage — open, no box ─── */
+.stage {
+  position: relative;
+  overflow: hidden;
+  padding: 12px 8px 0;
+}
+
+.aurora {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  filter: blur(70px);
+  opacity: 0.35;
+  /* Fade the glow out toward the edges so there is no visible container. */
+  -webkit-mask-image: radial-gradient(75% 90% at 50% 55%, black 55%, transparent 100%);
+  mask-image: radial-gradient(75% 90% at 50% 55%, black 55%, transparent 100%);
+}
+
+.blob {
+  position: absolute;
+  width: 44%;
+  height: 70%;
+  border-radius: 50%;
+}
+
+.blobGold {
+  top: -14%;
+  left: 30%;
+  background: radial-gradient(circle, var(--lb-gold), transparent 68%);
+  animation: lbDriftA 22s ease-in-out infinite alternate;
+}
+
+.blobBrand {
+  top: 24%;
+  left: -6%;
+  background: radial-gradient(circle, var(--brand), transparent 68%);
+  animation: lbDriftB 26s ease-in-out infinite alternate;
+}
+
+.blobCyan {
+  bottom: -22%;
+  right: -4%;
+  background: radial-gradient(circle, var(--accent-cyan), transparent 68%);
+  animation: lbDriftC 30s ease-in-out infinite alternate;
+}
+
+@keyframes lbDriftA {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(-8%, 10%, 0) scale(1.15); }
+}
+
+@keyframes lbDriftB {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(12%, -8%, 0) scale(1.2); }
+}
+
+@keyframes lbDriftC {
+  from { transform: translate3d(0, 0, 0) scale(1.1); }
+  to { transform: translate3d(-10%, -6%, 0) scale(1); }
+}
+
+.stageHeader {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--lb-gold);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 26px;
+}
+
+/* ─── Podium ─── */
+.podium {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 20px;
+  padding: 0 12px;
+}
+
+/* Floor line the bars stand on */
+.podium::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, #ffffff 18%, transparent) 25%,
+    color-mix(in srgb, #ffffff 18%, transparent) 75%,
+    transparent
+  );
+}
+
+.champColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  width: clamp(180px, 26vw, 250px);
+}
+
+.champFigure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+
+.champIcon {
+  color: var(--medal);
+  filter: drop-shadow(0 3px 10px var(--medal-glow));
+  margin-bottom: 4px;
+}
+
+.avatarRing {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--medal);
+  box-shadow: 0 0 22px var(--medal-glow);
+  margin-bottom: 6px;
+}
+
+.champName {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  max-width: 100%;
+}
+
+.tier1 .champName {
+  font-size: 17px;
+}
+
+.youBadge {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-text) 16%, transparent);
+}
+
+.hotBadge {
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent-red);
+}
+
+.champValue {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--medal-strong);
+  margin: 4px 0 0;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 18px var(--medal-glow);
+  line-height: 1;
+}
+
+.tier1 .champValue {
+  font-size: 46px;
+}
+
+.champValueLabel {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin: 2px 0 0;
+}
+
+.champStats {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 8px 0 0;
+  white-space: nowrap;
+}
+
+.statDot {
+  color: var(--text-tertiary);
+}
+
+/* Podium bars */
+.pedestal {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--medal) 30%, transparent),
+      color-mix(in srgb, var(--medal) 4%, transparent));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--medal) 45%, transparent);
+  overflow: hidden;
+}
+
+.pedestalRank {
+  font-size: 46px;
+  font-weight: 800;
+  color: color-mix(in srgb, var(--medal) 85%, var(--text-primary));
+  opacity: 0.9;
+  text-shadow: 0 2px 20px var(--medal-glow);
+  line-height: 1;
+}
+
+/* Shimmer sweep across the gold bar */
+.shimmer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    color-mix(in srgb, var(--lb-gold) 35%, transparent) 48%,
+    transparent 66%
+  );
+  transform: translateX(-120%);
+  animation: lbShimmer 3.6s ease-in-out infinite;
+}
+
+@keyframes lbShimmer {
+  0% { transform: translateX(-120%); }
+  55%, 100% { transform: translateX(120%); }
+}
+
+/* ─── Motivational "you" strip (tint, not a box) ─── */
+.meBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 20px;
+  flex-wrap: wrap;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--brand-text) 7%, transparent);
+}
+
+.me_champ { background: color-mix(in srgb, var(--lb-gold) 9%, transparent); }
+.me_champ .meBannerRank { color: var(--lb-gold); }
+.me_podium .meBannerRank { color: var(--lb-silver); }
+
+.meBannerLead {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.meBannerRank {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--brand-text);
+  font-variant-numeric: tabular-nums;
+  min-width: 54px;
+}
+
+.meBannerTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.meBannerSub {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin: 3px 0 0;
+}
+
+.meProgressTrack {
+  margin-top: 10px;
+  height: 6px;
+  width: min(320px, 60vw);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--surface-container-highest) 80%, transparent);
+  overflow: hidden;
+}
+
+.meProgressFill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--brand-text), var(--accent-cyan));
+}
+
+.meBannerStats {
+  display: flex;
+  gap: 22px;
+}
+
+.meBannerStats > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.meStatValue {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.meStatLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+/* ─── Ranked rows — flat list, separators instead of cards ─── */
+.rankSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.rankSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  /* Align with the row gutter below. */
+  padding: 0 12px;
+}
+
+.rankSectionHeader h3 {
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.rankSectionHeader h3 svg { color: var(--brand-text); }
+
+.sortPills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sortPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.sortPill:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--brand-text) 30%, transparent);
+}
+
+.sortPillActive {
+  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  border-color: color-mix(in srgb, var(--brand-text) 30%, transparent);
+}
+
+.rankList {
+  display: flex;
+  flex-direction: column;
+}
+
+.rankRow {
+  display: grid;
+  grid-template-columns: 44px 38px minmax(150px, 1.3fr) minmax(300px, 2fr);
+  align-items: center;
+  gap: 14px;
+  padding: 16px 12px;
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease;
+}
+
+.rankRow:last-child {
+  border-bottom: none;
+}
+
+.rankRow:hover {
+  background: color-mix(in srgb, var(--surface-container-high) 40%, transparent);
+}
+
+.rankMetrics {
+  /* Equal fixed columns so values align vertically across every row. */
+  display: grid;
+  grid-template-columns: repeat(4, minmax(72px, 1fr));
+  align-items: center;
+  justify-items: end;
+  gap: 14px;
+}
+
+.rankNum {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.rankIdentity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rankName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+}
+
+.mePillSmall {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+}
+
+.rankBarTrack {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--surface-container-highest) 70%, transparent);
+  overflow: hidden;
+  max-width: 280px;
+}
+
+.rankBarFill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--brand-text) 55%, transparent), var(--brand-text));
+}
+
+.rowMetric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+}
+
+.rowMetricValue {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.rowMetricValue svg { color: var(--text-tertiary); }
+
+.rowMetricLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.rowMetricActive .rowMetricValue { color: var(--brand-text); }
+.rowMetricActive .rowMetricValue svg { color: var(--brand-text); }
+
+.meRow {
+  background: color-mix(in srgb, var(--brand-text) 8%, transparent);
+}
+
+.meRow:hover {
+  background: color-mix(in srgb, var(--brand-text) 11%, transparent);
+}
+
+.meRow .rankName { color: var(--brand-text); }
+
+/* ─── Pagination ─── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 14px 0 2px;
+  flex-wrap: wrap;
+}
+
+.pageBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.pageBtn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--brand-text) 10%, transparent);
+  border-color: color-mix(in srgb, var(--brand-text) 30%, transparent);
+  color: var(--brand-text);
+}
+
+.pageBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.pageInfo {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── In-place refresh (period switch / manual refresh) ─── */
+.boardRefreshing {
+  opacity: 0.6;
+  transition: opacity 0.35s ease;
+}
+
+/* ─── Avatar ─── */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--brand-text) 16%, transparent);
+  color: var(--brand-text);
+  font-weight: 700;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* ─── Empty state — open, no box ─── */
+.emptyCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 64px 24px;
+  text-align: center;
+}
+
+.emptyIcon {
+  color: var(--lb-gold);
+  display: inline-flex;
+  filter: drop-shadow(0 4px 16px rgba(255, 199, 51, 0.35));
+}
+
+.emptyTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.emptySub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 360px;
+}
+
+/* ─── Looping flourishes ─── */
+.bob { animation: lbBob 4.5s ease-in-out infinite; }
+.floaty { animation: lbFloat 5s ease-in-out infinite; }
+
+@keyframes lbBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes lbFloat {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-8px) rotate(4deg); }
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 1024px) {
+  .podium { gap: 14px; }
+  .champColumn { width: clamp(160px, 30vw, 220px); }
+
+  .rankRow {
+    grid-template-columns: 40px 34px minmax(120px, 1.2fr) minmax(240px, 2fr);
+    gap: 10px;
+  }
+  .rankMetrics { gap: 10px; grid-template-columns: repeat(4, minmax(60px, 1fr)); }
+}
+
+@media (max-width: 768px) {
+  .header { align-items: flex-start; }
+
+  /* Stack champions 1-2-3; bars shrink into slim strips under each figure. */
+  .podium {
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+    padding-bottom: 8px;
+  }
+  .podium::after { display: none; }
+
+  .champColumn { width: 100%; }
+  .tier1 { order: 1; }
+  .tier2 { order: 2; }
+  .tier3 { order: 3; }
+
+  .pedestal { display: none; }
+  .champFigure { margin-bottom: 0; }
+
+  .meBanner { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .meBannerStats { width: 100%; justify-content: space-between; gap: 12px; }
+  .meBannerStats > div { align-items: flex-start; }
+
+  /* Rows collapse metrics under the identity block. */
+  .rankRow {
+    grid-template-columns: 34px 40px 1fr;
+    grid-template-areas:
+      'rank avatar identity'
+      'metrics metrics metrics';
+    row-gap: 12px;
+    column-gap: 12px;
+  }
+  .rankNum { grid-area: rank; }
+  .rankRow > .avatar { grid-area: avatar; }
+  .rankIdentity { grid-area: identity; }
+  .rankMetrics {
+    grid-area: metrics;
+    grid-template-columns: repeat(4, 1fr);
+    justify-items: start;
+    gap: 10px;
+  }
+  .rowMetric { align-items: flex-start; text-align: left; }
+
+  .title { font-size: 21px; }
+}
+
+@media (max-width: 480px) {
+  .refreshLabel { display: none; }
+  .meStatValue { font-size: 16px; }
+  .champValue { font-size: 30px; }
+  .tier1 .champValue { font-size: 38px; }
+}
+
+/* ─── Reduced motion ─── */
+.stageStatic .blob { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinning,
+  .bob,
+  .floaty,
+  .shimmer,
+  .blob {
+    animation: none !important;
+  }
+
+  .dropdownTrigger,
+  .dropdownIcon,
+  .sortPill,
+  .rankRow {
+    transition: none;
+  }
+}
+
+/* ─── Light mode — darker medals, softer glows, visible lines ─── */
+[data-theme='light'] .page {
+  --lb-gold: #a97800;
+  --lb-silver: #667082;
+  --lb-bronze: #9c5a26;
+}
+
+[data-theme='light'] .gold { --medal-strong: #8a6200; --medal-glow: rgba(169, 120, 0, 0.26); }
+[data-theme='light'] .silver { --medal-strong: #525c6e; --medal-glow: rgba(102, 112, 130, 0.24); }
+[data-theme='light'] .bronze { --medal-strong: #7f461a; --medal-glow: rgba(156, 90, 38, 0.24); }
+
+/* Blurred color blobs read as haze on light backgrounds — keep them subtle. */
+[data-theme='light'] .aurora { opacity: 0.18; }
+
+/* The floor line was a white mix (invisible on light surfaces). */
+[data-theme='light'] .podium::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 0, 0, 0.22) 25%,
+    rgba(0, 0, 0, 0.22) 75%,
+    transparent
+  );
+}
+
+/* Glow text-shadows muddy the numerals on light surfaces. */
+[data-theme='light'] .champValue,
+[data-theme='light'] .pedestalRank { text-shadow: none; }
+
+[data-theme='light'] .pedestal {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--medal) 55%, transparent);
+}
+
+[data-theme='light'] .emptyIcon {
+  filter: drop-shadow(0 4px 12px rgba(169, 120, 0, 0.22));
+}
+
+/* ─── Fallback: browsers without backdrop-filter ─── */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .dropdownTrigger,
+  .dropdownMenu {
+    background: var(--surface-container-low);
+  }
+}

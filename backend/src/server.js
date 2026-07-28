@@ -16,6 +16,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const qaRoutes = require('./routes/qaRoutes');
 const managerRoutes = require('./routes/managerRoutes');
 const agencyRoutes = require('./routes/agencyRoutes');
+const leaderboardRoutes = require('./routes/leaderboardRoutes');
 const { setupCallSockets } = require('./sockets/callSockets');
 const socketRegistry = require('./sockets/socketRegistry');
 const { verifyFirebaseToken } = require('./middleware/auth');
@@ -186,6 +187,9 @@ const startEngine = async () => {
   // Manager dashboard (read-only team analytics scoped to managedAgents, role: 'manager' or 'admin')
   app.use('/api/manager', managerRoutes);
   app.use('/api/agency', agencyRoutes);
+
+  // Agent leaderboard (platform agents ranked by billable calls); any authenticated user can view
+  app.use('/api/leaderboard', leaderboardRoutes);
 
   // Mount all voice routes (/token, /incoming-call, /call-completed, /logs)
   app.use('/api/voice', voiceRoutes);

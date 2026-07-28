@@ -31,6 +31,7 @@ const NotesPage = lazy(() => import('./pages/NotesPage'));
 const LeadsPage = lazy(() => import('./pages/LeadsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ReferralProgramPage = lazy(() => import('./pages/ReferralProgramPage'));
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 const AdminHubPage = lazy(() => import('./pages/admin/AdminHubPage'));
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
 const AdminLiveOpsPage = lazy(() => import('./pages/admin/AdminLiveOpsPage'));
@@ -166,6 +167,9 @@ const AnimatedRoutes = () => {
           } />
           <Route path="dashboard" element={
             <Suspense fallback={<PageLoader />}><DashboardPage /></Suspense>
+          } />
+          <Route path="leaderboard" element={
+            <Suspense fallback={<PageLoader />}><LeaderboardPage /></Suspense>
           } />
           <Route path="call-logs" element={
             <Suspense fallback={<PageLoader />}><CallLogsPage /></Suspense>
