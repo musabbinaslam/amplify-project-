@@ -499,6 +499,7 @@ const ProfilePage = () => {
           </section>
         </motion.div>
 
+        {/* === Integration & Links — hidden until Leads feature is live ===
         <motion.section className={`glass ${classes.integrationSection}`} variants={presets.child}>
           <div className={classes.cardHeader}>
             <div className={classes.cardHeaderText}>
@@ -545,6 +546,7 @@ const ProfilePage = () => {
             </div>
           </div>
         </motion.section>
+        === */}
 
         <motion.section className={`glass ${classes.auditSection}`} variants={presets.child}>
           <div className={classes.auditHeader}>
