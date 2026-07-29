@@ -141,7 +141,7 @@ router.get('/campaigns', async (req, res) => {
 async function handlePing(req, res) {
     try {
         const { campaignId, phone: pathPhone, token } = req.params;
-        const { state: queryState, phone: queryPhone } = req.query;
+        const { state: queryState, phone: queryPhone, agencyId } = req.query;
 
         const phone = pathPhone || queryPhone;
         let state = queryState || null;
@@ -165,9 +165,9 @@ async function handlePing(req, res) {
                 ...(phone && { derived_state: state })
             });
         }
-        const isAvailable = await agentManager.checkAvailableAgent(campaignId, state);
+        const isAvailable = await agentManager.checkAvailableAgent(campaignId, state, { agencyId });
 
-        console.log(`[Public API] 📡 Ping for '${campaignId}' | Phone: ${phone || 'N/A'} | State: ${state || 'ANY'} -> ${isAvailable ? 'AVAILABLE (1)' : 'BUSY (0)'}`);
+        console.log(`[Public API] 📡 Ping for '${campaignId}' | Agency: ${agencyId || 'platform'} | Phone: ${phone || 'N/A'} | State: ${state || 'ANY'} -> ${isAvailable ? 'AVAILABLE (1)' : 'BUSY (0)'}`);
 
         return res.json({
             status: isAvailable ? 1 : 0,
@@ -220,7 +220,7 @@ router.get('/ping/:campaignId/:token/:phone', handlePing);
 async function handleConfirm(req, res) {
    try {
       const { campaignId, phone: pathPhone } = req.params;
-      const { state: queryState, phone: queryPhone } = req.query;
+      const { state: queryState, phone: queryPhone, agencyId } = req.query;
 
       const phone = pathPhone || queryPhone || null;
       let state = queryState || null;
@@ -240,11 +240,11 @@ async function handleConfirm(req, res) {
       }
 
       // Attempt atomic reservation
-      const agent = await agentManager.reserveAgentForCall(campaignId, phone, state);
+      const agent = await agentManager.reserveAgentForCall(campaignId, phone, state, { agencyId });
 
       const accepted = Boolean(agent);
       console.log(
-         `[Confirm API] ${accepted ? '✅ ACCEPT' : '❌ REJECT'} campaign='${campaignId}' phone=${phone || 'N/A'} state=${state || 'ANY'}${accepted ? ` → agent=${agent.id}` : ''}`
+         `[Confirm API] ${accepted ? '✅ ACCEPT' : '❌ REJECT'} campaign='${campaignId}' agency=${agencyId || 'platform'} phone=${phone || 'N/A'} state=${state || 'ANY'}${accepted ? ` → agent=${agent.id}` : ''}`
       );
 
       return res.json({
