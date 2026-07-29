@@ -15,6 +15,9 @@ import {
   ChevronRight,
   Search,
   LayoutDashboard,
+  Copy,
+  Check,
+  Link2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -300,6 +303,17 @@ export default function AdminAgenciesPage() {
   const [didForm, setDidForm] = useState({ phoneE164: '', campaignId: '', label: '' });
   const [lockedDraft, setLockedDraft] = useState([]);
   const [savingCampaigns, setSavingCampaigns] = useState(false);
+  const [copiedPing, setCopiedPing] = useState('');
+
+  const handleCopyPing = useCallback((campaignId) => {
+    if (!selectedId) return;
+    const url = `https://api.callsflow.io/api/public/ping/${campaignId}?agencyId=${selectedId}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedPing(campaignId);
+      setTimeout(() => setCopiedPing(''), 2000);
+      toast.success('Ping URL copied to clipboard');
+    });
+  }, [selectedId]);
 
   const selected = agencies.find((a) => a.id === selectedId) || null;
 
@@ -829,22 +843,35 @@ export default function AdminAgenciesPage() {
                   {campaigns.map((c) => {
                     const checked = lockedDraft.includes(c.id);
                     return (
-                      <label
-                        key={c.id}
-                        className={`${classes.campaignChip} ${checked ? classes.campaignChipActive : ''}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleLockedCampaign(c.id)}
-                        />
-                        <span className={classes.campaignChipBody}>
-                          <span className={classes.campaignChipLabel}>{c.label || c.id}</span>
-                          <span className={classes.campaignChipMeta}>
-                            ${Number(c.price).toFixed(0)} · {c.buffer}s
+                      <div key={c.id} className={classes.campaignChipRow}>
+                        <label
+                          className={`${classes.campaignChip} ${checked ? classes.campaignChipActive : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleLockedCampaign(c.id)}
+                          />
+                          <span className={classes.campaignChipBody}>
+                            <span className={classes.campaignChipLabel}>{c.label || c.id}</span>
+                            <span className={classes.campaignChipMeta}>
+                              ${Number(c.price).toFixed(0)} · {c.buffer}s
+                            </span>
                           </span>
-                        </span>
-                      </label>
+                        </label>
+                        {checked && (
+                          <button
+                            type="button"
+                            className={shared.secondaryBtn}
+                            style={{ padding: '0 8px', minWidth: '40px', height: '100%' }}
+                            onClick={() => handleCopyPing(c.id)}
+                            title="Copy webhook ping URL for integrations"
+                            aria-label={`Copy ping URL for ${c.id}`}
+                          >
+                            {copiedPing === c.id ? <Check size={16} /> : <Link2 size={16} />}
+                          </button>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
