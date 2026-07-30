@@ -172,10 +172,63 @@
   color: var(--text-primary);
 }
 
-.discordBtn:hover {
-  background: color-mix(in srgb, #5865f2 12%, transparent);
-  border-color: color-mix(in srgb, #5865f2 40%, var(--glass-border));
-  color: #5865f2;
+.discordPill {
+  --discord: #5865f2;
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--discord) 45%, var(--glass-border));
+  background: color-mix(in srgb, var(--discord) 16%, var(--surface-container-high));
+  box-shadow: var(--glass-highlight), var(--glass-edge);
+  color: color-mix(in srgb, var(--discord) 55%, var(--text-primary));
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.discordPill:hover {
+  background: color-mix(in srgb, var(--discord) 26%, var(--surface-container-high));
+  border-color: color-mix(in srgb, var(--discord) 65%, var(--glass-border));
+  color: color-mix(in srgb, var(--discord) 30%, var(--text-primary));
+  transform: translateY(-1px);
+}
+
+.discordPill svg {
+  flex-shrink: 0;
+}
+
+/* Periodic light sweep to catch the eye */
+.discordPill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    color-mix(in srgb, #ffffff 55%, transparent) 48%,
+    transparent 66%
+  );
+  transform: translateX(-130%);
+  animation: discordShimmer 4s ease-in-out infinite;
+}
+
+@keyframes discordShimmer {
+  0%,
+  15% {
+    transform: translateX(-130%);
+  }
+  55%,
+  100% {
+    transform: translateX(130%);
+  }
 }
 
 .statusBadge {
@@ -575,6 +628,17 @@
     padding: 7px 10px;
     font-size: 12px;
   }
+
+  .discordPill {
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .discordLabel {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -589,6 +653,15 @@
   .bellAnimated .bellIcon,
   .badgeAnimated {
     animation: none;
+  }
+
+  .discordPill {
+    transition: none;
+  }
+
+  .discordPill::after {
+    animation: none;
+    display: none;
   }
 }
 

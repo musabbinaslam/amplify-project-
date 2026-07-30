@@ -1,4 +1,5 @@
 .loader {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6,6 +7,7 @@
   height: 100%;
   min-height: 280px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .fullScreen {
@@ -13,56 +15,118 @@
   inset: 0;
   z-index: 9999;
   min-height: 100vh;
-  background: var(--surface, #0e0e0e);
+  background: var(--surface);
 }
 
-.content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 28px;
-}
-
-/* Logo and pulse */
-.logoWrapper {
-  animation: logoPulse 2s ease-in-out infinite;
-}
-
-.logoImg {
-  width: 80px;
-  height: 150px;
-  border-radius: 0;
-  object-fit: contain;
-  object-position: center;
-  display: block;
-  filter: drop-shadow(0 0 14px var(--brand-glow));
-  margin-top: 0;
-}
-
-@keyframes logoPulse {
-  0%, 100% { opacity: 0.7; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.08); }
-}
-
-/* Progress bar */
-.barTrack {
-  width: 160px;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 4px;
+.ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
   overflow: hidden;
 }
 
-.barFill {
-  width: 40%;
-  height: 100%;
-  border-radius: 4px;
-  background: var(--brand-solid, #25f425);
-  box-shadow: 0 0 8px var(--brand-glow, rgba(37, 244, 37, 0.3));
-  animation: barSlide 1.4s ease-in-out infinite;
+.ambient::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(ellipse 55% 45% at 50% 38%, color-mix(in srgb, var(--brand-text) 22%, transparent), transparent 70%),
+    radial-gradient(ellipse 40% 35% at 18% 72%, color-mix(in srgb, var(--brand-text) 12%, transparent), transparent 68%),
+    radial-gradient(ellipse 38% 32% at 82% 68%, color-mix(in srgb, var(--brand-text) 10%, transparent), transparent 65%);
+  filter: blur(64px);
+  animation: loaderAmbientDrift 60s ease-in-out infinite alternate;
 }
 
-@keyframes barSlide {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(400%); }
+@keyframes loaderAmbientDrift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(0, -1.2%, 0) scale(1.03); }
+}
+
+.stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: min(100%, 320px);
+  padding: 0 24px;
+  animation: loaderEnter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes loaderEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mark {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+  box-shadow: var(--glass-highlight);
+  margin-bottom: 20px;
+}
+
+.markImg {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  display: block;
+}
+
+.wordmark {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.status {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.rail {
+  width: min(220px, 72vw);
+  height: 3px;
+  margin-top: 28px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--surface-container-highest) 70%, transparent);
+  overflow: hidden;
+}
+
+.railFill {
+  width: 38%;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--brand-text);
+  animation: loaderRail 1.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+@keyframes loaderRail {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+
+@media (max-width: 480px) {
+  .wordmark { font-size: 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient::before,
+  .stage,
+  .railFill {
+    animation: none !important;
+  }
 }

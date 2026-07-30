@@ -816,8 +816,15 @@ async function getAnalyticsBundle(req, res) {
 async function getOverviewLite(req, res) {
   try {
     const campaignControls = await getCampaignControlsState();
-    const overview = await agentManager.getOverview(null);
-    const activeCalls = await agentManager.listActiveCalls(null);
+    const db = getDb();
+    const usersCountPromise = db
+      ? db.collection('users').select().get().catch(() => ({ size: 0 }))
+      : Promise.resolve({ size: 0 });
+    const [overview, activeCalls, usersCountSnap] = await Promise.all([
+      agentManager.getOverview(null),
+      agentManager.listActiveCalls(null),
+      usersCountPromise,
+    ]);
     const routingDiagnostics = agentManager.getRoutingDiagnostics
       ? agentManager.getRoutingDiagnostics()
       : null;
@@ -827,6 +834,7 @@ async function getOverviewLite(req, res) {
     ]);
     res.json({
       totalAgents: overview.totalAgents || 0,
+      totalSignups: usersCountSnap?.size ?? 0,
       agents: (overview.agents || []).map((a) => ({
         ...a,
         displayName: metaMap.get(a.id)?.name || a.id,

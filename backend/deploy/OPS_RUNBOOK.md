@@ -10,6 +10,7 @@ Related files:
 - [`provision-vps.sh.example`](./provision-vps.sh.example) — Ubuntu bootstrap (ufw, Node, PM2, nginx, certbot)
 - [`../ecosystem.config.cjs.example`](../ecosystem.config.cjs.example) — PM2 cluster (`instances: 2`)
 - [`../scripts/hostinger-deploy.sh`](../scripts/hostinger-deploy.sh)
+- [`../scripts/update-backend.sh`](../scripts/update-backend.sh) — manual VPS update from `staging` or `main`
 
 **Phase 3 cutover path:** dry-run on `api-new.callsflow.io` → load-test → flip `api.callsflow.io` DNS. See [§11 Phase 3 — Provisioning](#11-phase-3--provisioning).
 
@@ -77,6 +78,23 @@ pm2 startup   # follow printed instructions
 ```
 
 ### Subsequent deploys
+
+**Manual update from VPS (recommended after pushing to GitHub):**
+
+```bash
+cd /path/to/backend
+./scripts/update-backend.sh
+# Menu: 1) staging  2) main (production)
+# Or non-interactive:
+./scripts/update-backend.sh staging
+./scripts/update-backend.sh main
+# → git fetch / checkout / pull --ff-only
+# → hostinger-deploy.sh (npm install, record-release, pm2 reload)
+```
+
+Use the branch that matches this host's `.env` (staging credentials on staging, production on main). The script updates code only — it does not change `.env` or Firebase keys.
+
+**If you already pulled manually:**
 
 ```bash
 # On server after git pull, or over SSH:
