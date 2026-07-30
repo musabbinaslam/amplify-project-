@@ -2,7 +2,7 @@ import {
   Building2, Users, Phone, Radio, CircleDollarSign, RefreshCw, Search,
   ChevronLeft, ChevronRight, AlertTriangle,
 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import PageLoader from '../ui/PageLoader';
@@ -10,6 +10,7 @@ import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
 import { RecordingModal } from '../../pages/CallLogsPage';
 import { useOpsDashboard } from '../../hooks/useOpsDashboard';
 import OpsScopedNav, { OpsSettingsLink } from './OpsScopedNav';
+import FundAgentModal from './FundAgentModal';
 import {
   OpsOnlineGauge,
   OpsEarningsTrendChart,
@@ -43,6 +44,9 @@ export default function AgencyDashboardLayout({
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const ops = useOpsDashboard('agency', scope);
+  
+  const [fundingAgentId, setFundingAgentId] = useState(null);
+  const [fundingAgentName, setFundingAgentName] = useState(null);
 
   useEffect(() => {
     if (!ops.scopeError || !backHref) return;
@@ -229,13 +233,15 @@ export default function AgencyDashboardLayout({
                 <th>Billable</th>
                 <th>Rate</th>
                 <th>Earnings</th>
+                <th>Balance</th>
+                {(!adminView && ops.agencyInfo?.settings?.allowAdminFunding) && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
               {ops.analyticsLoading ? (
-                <tr><td colSpan={6} className={shared.muted}>Loading…</td></tr>
+                <tr><td colSpan={8} className={shared.muted}>Loading…</td></tr>
               ) : ops.sortedAgentStats.length === 0 ? (
-                <tr><td colSpan={6} className={shared.empty}>No data in this period.</td></tr>
+                <tr><td colSpan={8} className={shared.empty}>No data in this period.</td></tr>
               ) : (
                 ops.pagedAgentStats.map((row, idx) => {
                   const rank = (ops.perfPageSafe - 1) * 10 + idx + 1;
@@ -264,6 +270,30 @@ export default function AgencyDashboardLayout({
                         </span>
                       </td>
                       <td>${(row.totalCost || 0).toFixed(2)}</td>
+                      <td>
+                        <span style={{ 
+                          color: (row.walletBalance / 100) < 10 ? 'var(--accent-red)' : 'var(--text-secondary)',
+                          fontWeight: (row.walletBalance / 100) < 10 ? '600' : 'normal'
+                        }}>
+                          ${(row.walletBalance / 100).toFixed(2)}
+                        </span>
+                      </td>
+                      {(!adminView && ops.agencyInfo?.settings?.allowAdminFunding) && (
+                        <td>
+                          <button
+                            type="button"
+                            className={shared.ghostBtn}
+                            style={{ padding: '4px 8px', fontSize: '0.85rem' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFundingAgentId(row.agentId);
+                              setFundingAgentName(row.agentName || row.agentId);
+                            }}
+                          >
+                            Add Funds
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -295,6 +325,13 @@ export default function AgencyDashboardLayout({
       {ops.activeRecording && (
         <RecordingModal log={ops.activeRecording} onClose={() => ops.setActiveRecording(null)} />
       )}
+      <FundAgentModal
+        open={!!fundingAgentId}
+        onClose={() => setFundingAgentId(null)}
+        agentId={fundingAgentId}
+        agentName={fundingAgentName}
+        agencyId={ops.agencyInfo?.id}
+      />
     </Wrapper>
   );
 }

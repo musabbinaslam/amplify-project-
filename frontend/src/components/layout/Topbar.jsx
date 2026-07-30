@@ -8,6 +8,7 @@ import useDialerStore from '../../store/useDialerStore';
 import { dropdownPanelMotion } from '../../motion/appMotion';
 import NotificationDetailModal from '../modals/NotificationDetailModal';
 import { resolveRouteBreadcrumbs } from '../../utils/resolveRouteBreadcrumbs';
+import { isAgencyAdminUser, getAgencySetting } from '../../utils/authRoles';
 import classes from './Topbar.module.css';
 
 /* eslint-disable react/prop-types -- topbar props wired from AppShell */
@@ -307,18 +308,20 @@ const Topbar = ({
           </AnimatePresence>
         </div>
 
-        <button
-          type="button"
-          className={classes.walletBox}
-          onClick={() => navigate('/app/billing')}
-          title="View billing"
-        >
-          <Wallet size={16} className={classes.walletIcon} />
-          <span className={classes.balance}>{formatBalance(balanceCents)}</span>
-          {balanceCents !== null && balanceCents < 5000 && (
-            <span className={classes.noCreditsBadge}>Low Credits</span>
-          )}
-        </button>
+        {!getAgencySetting(user, 'hideWallet') && (
+          <button
+            type="button"
+            className={classes.walletBox}
+            onClick={() => navigate('/app/billing')}
+            title="View billing"
+          >
+            <Wallet size={16} className={classes.walletIcon} />
+            <span className={classes.balance}>{formatBalance(balanceCents)}</span>
+            {balanceCents !== null && balanceCents < 5000 && (
+              <span className={classes.noCreditsBadge}>Low Credits</span>
+            )}
+          </button>
+        )}
 
         <button
           type="button"

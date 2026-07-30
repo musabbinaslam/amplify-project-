@@ -44,6 +44,7 @@ const SETTINGS_TABS = [
   { id: 'members', label: 'Members' },
   { id: 'campaigns', label: 'Campaigns' },
   { id: 'dids', label: 'DIDs' },
+  { id: 'settings', label: 'Settings' },
 ];
 
 function dedupeUsers(list) {
@@ -297,6 +298,7 @@ export default function AdminAgenciesPage() {
   const [membersPage, setMembersPage] = useState(1);
   const [assigningMembers, setAssigningMembers] = useState(false);
   const [roleUpdatingUid, setRoleUpdatingUid] = useState('');
+  const [savingSettingKey, setSavingSettingKey] = useState(null);
   const [didForm, setDidForm] = useState({ phoneE164: '', campaignId: '', label: '' });
   const [lockedDraft, setLockedDraft] = useState([]);
   const [savingCampaigns, setSavingCampaigns] = useState(false);
@@ -592,6 +594,35 @@ export default function AdminAgenciesPage() {
       await loadAgencies();
     } catch (err) {
       toast.error(err.message || 'Failed to update agency');
+    }
+  };
+
+  const handleToggleSetting = async (agency, key) => {
+    if (savingSettingKey) return; // prevent double-tap
+    const currentVal = agency.settings?.[key] || false;
+    const newVal = !currentVal;
+    const newSettings = { ...(agency.settings || {}), [key]: newVal };
+
+    // Optimistic update — flip state immediately so the toggle feels instant
+    setAgencies((prev) =>
+      prev.map((a) =>
+        a.id === agency.id ? { ...a, settings: newSettings } : a,
+      ),
+    );
+    setSavingSettingKey(key);
+
+    try {
+      await updateAdminAgency(agency.id, { settings: newSettings });
+    } catch (err) {
+      // Roll back on failure
+      setAgencies((prev) =>
+        prev.map((a) =>
+          a.id === agency.id ? { ...a, settings: agency.settings || {} } : a,
+        ),
+      );
+      toast.error(err.message || 'Failed to update settings');
+    } finally {
+      setSavingSettingKey(null);
     }
   };
 
@@ -937,6 +968,40 @@ export default function AdminAgenciesPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        ) : settingsTab === 'settings' ? (
+          <div className={shared.tabPanel}>
+            <div className={shared.panelHeader}>
+              <h3 className={shared.panelTitle}>Agency Settings</h3>
+              <p className={shared.panelSubtitle}>Configure white-label behavior and access for this agency.</p>
+            </div>
+            <div className={classes.settingsGrid}>
+              {[
+                { key: 'hideWallet', label: 'Hide Wallet Balance', desc: 'Agents in this agency will not see their wallet balance in the top bar.' },
+                { key: 'hideBilling', label: 'Hide Billing Section', desc: 'Agents in this agency will not see the Billing link in the sidebar.' },
+                { key: 'hidePricing', label: 'Hide Campaign Pricing', desc: 'Agents in this agency will not see the payout rates for campaigns.' },
+                { key: 'allowAdminFunding', label: 'Allow Agency Admin to Fund Agents', desc: 'The Agency Admin can transfer funds from their own wallet to their agents.' },
+              ].map(({ key, label, desc }) => (
+                <div
+                  key={key}
+                  className={`${classes.settingRow} ${savingSettingKey === key ? classes.settingRowSaving : ''}`}
+                >
+                  <div className={classes.settingInfo}>
+                    <h4>{label}</h4>
+                    <p>{desc}</p>
+                  </div>
+                  <label className={shared.switch} aria-label={label}>
+                    <input
+                      type="checkbox"
+                      checked={selected.settings?.[key] || false}
+                      onChange={() => handleToggleSetting(selected, key)}
+                      disabled={!!savingSettingKey}
+                    />
+                    <span className={shared.slider} />
+                  </label>
+                </div>
+              ))}
             </div>
           </div>
         ) : null}

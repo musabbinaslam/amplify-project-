@@ -48,9 +48,10 @@ async function loadUserRole(uid) {
       flagged: profile?.flagged === true,
       flagReason: profile?.flagReason || null,
       acceptedTermsVersion: profile?.acceptedTermsVersion || null,
+      agencySettings: profile?.agencySettings || null,
     };
   } catch {
-    return { role: 'agent', agencyRole: null, agencyId: null, flagged: false, flagReason: null, acceptedTermsVersion: null };
+    return { role: 'agent', agencyRole: null, agencyId: null, flagged: false, flagReason: null, acceptedTermsVersion: null, agencySettings: null };
   }
 }
 
@@ -74,7 +75,7 @@ const useAuthStore = create((set, get) => ({
           }
           const token = await firebaseUser.getIdToken();
           const existingMeta = get().user?.meta;
-          const { role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion } = await loadUserRole(firebaseUser.uid);
+          const { role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion, agencySettings } = await loadUserRole(firebaseUser.uid);
 
           // Proactively refresh the Firebase token every 15 minutes
           // to guarantee agents never hit the 1-hour expiration while online.
@@ -94,7 +95,7 @@ const useAuthStore = create((set, get) => ({
           Sentry.setUser({ id: firebaseUser.uid, email: firebaseUser.email });
 
           set({
-            user: { ...mapFirebaseUser(firebaseUser), meta: existingMeta || null, role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion },
+            user: { ...mapFirebaseUser(firebaseUser), meta: existingMeta || null, role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion, agencySettings },
             token,
             loading: false,
             _tokenRefreshInterval: intervalId,
@@ -268,9 +269,9 @@ const useAuthStore = create((set, get) => ({
   refreshUserRole: async () => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
-    const { role, agencyRole, agencyId, flagged, flagReason } = await loadUserRole(currentUser.uid);
+    const { role, agencyRole, agencyId, flagged, flagReason, agencySettings } = await loadUserRole(currentUser.uid);
     set((state) => ({
-      user: state.user ? { ...state.user, role, agencyRole, agencyId, flagged, flagReason } : null,
+      user: state.user ? { ...state.user, role, agencyRole, agencyId, flagged, flagReason, agencySettings } : null,
     }));
   },
 

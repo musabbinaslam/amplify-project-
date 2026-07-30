@@ -17,6 +17,7 @@ import { apiFetch } from '../services/apiClient';
 import { stripeService } from '../services/stripeService';
 import { getProfile, saveProfile } from '../services/profileService';
 import { fetchCampaignPricing } from '../services/dashboardService';
+import { isAgencyAdminUser, getAgencySetting } from '../utils/authRoles';
 
 // All 50 US States
 const US_STATES = [
@@ -309,7 +310,7 @@ const CAMPAIGN_ICON_MAP = {
 };
 
 // ─── Step 2: Campaign Selection ──────────────────────────────────────────────
-const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {}, liveCampaigns = [] }) => {
+const StepTwo = ({ user, onNext, onBack, selected = '', pausedCampaigns = {}, liveCampaigns = [] }) => {
   const [selectedCampaign, setSelectedCampaign] = useState(selected);
   // Use agency-filtered campaigns from /api/users/me/campaigns — never the hardcoded catalog.
   const campaigns = (liveCampaigns || []).map((c) => ({
@@ -347,7 +348,9 @@ const StepTwo = ({ onNext, onBack, selected = '', pausedCampaigns = {}, liveCamp
                   <h3>{c.title}</h3>
                   <p className={classes.campaignDesc}>{c.subtitle}</p>
                   <div className={classes.campaignMetrics}>
-                    <span className={classes.campaignPrice}>{c.price}</span>
+                    {!getAgencySetting(user, 'hidePricing') && (
+                      <span className={classes.campaignPrice}>{c.price}</span>
+                    )}
                     <span className={classes.campaignBuffer}>{c.buffer}</span>
                   </div>
                   {isPaused && (
@@ -658,12 +661,15 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
 };
 
 // ─── Step 4: Review Rules & Go Live ─────────────────────────────────────────
-const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, walletBalance, liveCampaigns = [] }) => {
+const StepFour = ({ user, onBack, onGoLive, isConnecting, campaign, licensedStates, walletBalance, liveCampaigns = [] }) => {
   const selected = liveCampaigns.find((c) => c.id === campaign);
   const requiredBalance = Number(selected?.price) || 0;
   const hasBalance = walletBalance >= requiredBalance;
+  const hidePricing = getAgencySetting(user, 'hidePricing');
   const campaignLabel = selected
-    ? `${selected.label} ($${Number(selected.price).toFixed(0)} / ${selected.buffer}s)`
+    ? (hidePricing 
+        ? `${selected.label} (${selected.buffer}s buffer)` 
+        : `${selected.label} ($${Number(selected.price).toFixed(0)} / ${selected.buffer}s)`)
     : campaign;
 
   return (
@@ -1257,10 +1263,10 @@ const TakeCallsPage = () => {
                   exit="exit"
                 >
                   {step === 1 && <StepOne onNext={() => goStep(2)} />}
-                  {step === 2 && <StepTwo selected={campaign} pausedCampaigns={pausedCampaigns} liveCampaigns={liveCampaigns} onNext={(sel) => { setCampaign(sel); goStep(3); }} onBack={() => goStep(1)} />}
+                  {step === 2 && <StepTwo user={user} selected={campaign} pausedCampaigns={pausedCampaigns} liveCampaigns={liveCampaigns} onNext={(sel) => { setCampaign(sel); goStep(3); }} onBack={() => goStep(1)} />}
 
                   {step === 3 && <StepThree onNext={(states, presetId) => { setWizardStates(states); setWizardPresetId(presetId ?? null); goStep(4); }} onBack={() => goStep(2)} statePresets={statePresets} onSavePresets={persistPresets} selectedPresetId={wizardPresetId} />}
-                  {step === 4 && <StepFour onBack={() => goStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} liveCampaigns={liveCampaigns} />}
+                  {step === 4 && <StepFour user={user} onBack={() => goStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} liveCampaigns={liveCampaigns} />}
                 </motion.div>
               </AnimatePresence>
             </div>

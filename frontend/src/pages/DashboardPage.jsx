@@ -12,6 +12,7 @@ import { fetchDashboardLogs, fetchCampaignPricing } from '../services/dashboardS
 import PageLoader from '../components/ui/PageLoader';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { dropdownPanelMotion, EASE_SMOOTH } from '../motion/appMotion';
+import { isAgencyAdminUser, getAgencySetting } from '../utils/authRoles';
 import classes from './DashboardPage.module.css';
 
 /* eslint-disable react/prop-types -- presentational helpers are local to this page */
@@ -289,7 +290,7 @@ const StatTile = ({ title, value, icon: Icon, sub }) => (
   </div>
 );
 
-const CampaignCard = ({ title, desc, price, buffer, variants }) => {
+const CampaignCard = ({ title, desc, price, buffer, hidePricing, variants }) => {
   const reduceMotion = useReducedMotion();
   return (
     <motion.div
@@ -303,10 +304,12 @@ const CampaignCard = ({ title, desc, price, buffer, variants }) => {
         <span className={classes.campaignTitle}>{title}</span>
       </div>
       <div className={classes.campaignDesc}>{desc}</div>
-      <div className={classes.campaignPrice}>
-        <span className={classes.priceLarge}>${Number(price).toFixed(0)}</span>
-        <span className={classes.priceSub}>/call</span>
-      </div>
+      {!hidePricing && (
+        <div className={classes.campaignPrice}>
+          <span className={classes.priceLarge}>${Number(price).toFixed(0)}</span>
+          <span className={classes.priceSub}>/call</span>
+        </div>
+      )}
       <div className={classes.campaignBuffer}>
         <Clock size={12} />
         <span>{buffer}s buffer</span>
@@ -731,6 +734,7 @@ const DashboardPage = () => {
                 desc={CAMPAIGN_DESCRIPTIONS[c.id] || ''}
                 price={c.price}
                 buffer={c.buffer}
+                hidePricing={getAgencySetting(user, 'hidePricing')}
                 variants={presets.child}
               />
             ))}

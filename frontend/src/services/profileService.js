@@ -3,7 +3,7 @@ import { apiFetch } from './apiClient';
 /** Document is resolved from the ID token; `uid` kept for call-site compatibility. */
 export async function getProfile(uid) {
   void uid;
-  return apiFetch('/api/users/me', { method: 'GET' });
+  return apiFetch(`/api/users/me?_t=${Date.now()}`, { method: 'GET' });
 }
 
 export async function getProfileBootstrap(uid) {

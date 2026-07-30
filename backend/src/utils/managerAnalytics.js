@@ -289,7 +289,8 @@ async function buildUserMetaMap(agentIds = []) {
     const data = snap.data() || {};
     const name = displayNameFromUserData(data);
     const phone = data.phoneNumber || data.phone || data.onboarding?.phone || null;
-    map.set(snap.id, { name, phone, email: data.email || null, role: data.role || 'agent' });
+    const walletBalance = data.wallet?.balance || 0;
+    map.set(snap.id, { name, phone, email: data.email || null, role: data.role || 'agent', walletBalance });
   });
 
   const missing = ids.filter((id) => {

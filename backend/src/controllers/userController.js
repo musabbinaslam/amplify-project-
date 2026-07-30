@@ -16,6 +16,7 @@ const {
   markAllNotificationsRead,
   getMaintenanceState,
 } = require('../services/notificationService');
+const agencyService = require('../services/agencyService');
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const AI_TRAINING_CACHE_TTL_MS = 30 * 1000;
@@ -752,6 +753,12 @@ async function getMe(req, res) {
     payload.memberSince = payload.createdAt || null;
     payload.lastUpdated = payload.updatedAt || null;
     if (!payload.role) payload.role = 'agent';
+
+    if (payload.agencyId) {
+      const agencyDoc = await agencyService.getAgencyById(payload.agencyId);
+      payload.agencySettings = agencyDoc?.settings || {};
+    }
+
     res.json(payload);
   } catch (err) {
     console.error('[Users] getMe:', err.message);
@@ -771,6 +778,12 @@ async function getMeBootstrap(req, res) {
     payload.memberSince = payload.createdAt || null;
     payload.lastUpdated = payload.updatedAt || null;
     if (!payload.role) payload.role = 'agent';
+
+    if (payload.agencyId) {
+      const agencyDoc = await agencyService.getAgencyById(payload.agencyId);
+      payload.agencySettings = agencyDoc?.settings || {};
+    }
+
     res.json({
       profile: payload,
       apiKey,

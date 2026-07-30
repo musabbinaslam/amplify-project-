@@ -88,3 +88,11 @@ export function listAgencyDids(agencyId) {
 export function assignAgencyDid(agencyId, body) {
   return apiFetch(`/api/admin/agencies/${agencyId}/dids`, { method: 'POST', body });
 }
+
+export function fundAgencyAgent(agencyId, uid, amountCents) {
+  const qs = agencyQueryParams({ agencyId });
+  return apiFetch(`/api/agency/members/${uid}/fund${qs.toString() ? `?${qs.toString()}` : ''}`, {
+    method: 'POST',
+    body: { amountCents },
+  });
+}

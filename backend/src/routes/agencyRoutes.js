@@ -15,5 +15,6 @@ router.get('/agents', agencyController.getMyAgents);
 router.get('/analytics', agencyController.getAnalytics);
 router.get('/analytics-drilldown', agencyController.getAnalyticsDrilldown);
 router.get('/call-logs', agencyController.getCallLogs);
+router.post('/members/:uid/fund', agencyController.fundAgent);
 
 module.exports = router;

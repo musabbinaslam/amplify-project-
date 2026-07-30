@@ -26,6 +26,7 @@ const AppShell = () => {
   const reduceMotion = useReducedMotion();
   const outletMotion = useMemo(() => routeOutletMotion(reduceMotion), [reduceMotion]);
   const user = useAuthStore((s) => s.user);
+  const refreshUserRole = useAuthStore((s) => s.refreshUserRole);
   const [notifications, setNotifications] = useState([]);
   const [adminNotifications, setAdminNotifications] = useState([]);
   const [maintenance, setMaintenance] = useState(null);
@@ -106,6 +107,19 @@ const AppShell = () => {
     loadInbox();
     loadMaintenance();
   }, [user?.uid, loadInbox, loadMaintenance]);
+
+  // Refresh agency settings when user switches back to this tab
+  // so settings changes made by the admin apply without requiring a re-login.
+  useEffect(() => {
+    if (!user?.uid || !user?.agencyId) return undefined;
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refreshUserRole().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [user?.uid, user?.agencyId, refreshUserRole]);
 
   useEffect(() => {
     if (!user?.uid) return undefined;

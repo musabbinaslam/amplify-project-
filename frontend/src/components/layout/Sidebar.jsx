@@ -10,7 +10,7 @@ import {
   ChevronLeft, ChevronRight, Shield, FileEdit, ShieldCheck, Users,
   Building2, UserCog, Trophy,
 } from 'lucide-react';
-import { isAgencyAdminUser } from '../../utils/authRoles';
+import { isAgencyAdminUser, getAgencySetting } from '../../utils/authRoles';
 import classes from './Sidebar.module.css';
 
 const NAV_GROUP_LABELS = {
@@ -92,6 +92,11 @@ const Sidebar = () => {
         { path: '/app/team-dashboard', label: 'Team Dashboard', icon: Users, end: true, group: 'manager' },
       );
     }
+    
+    if (getAgencySetting(user, 'hideBilling')) {
+      return base.filter((item) => item.path !== '/app/billing');
+    }
+    
     return base;
   }, [role, user]);
 

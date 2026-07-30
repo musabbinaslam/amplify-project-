@@ -1,6 +1,7 @@
 const agencyService = require('../services/agencyService');
 const agencyCampaignService = require('../services/agencyCampaignService');
 const phoneRouteService = require('../services/phoneRouteService');
+const walletService = require('../services/walletService');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
@@ -310,6 +311,47 @@ async function assignAgencyDid(req, res) {
   }
 }
 
+async function fundAgent(req, res) {
+  try {
+    const { uid: agentId } = req.params;
+    const { amountCents } = req.body;
+
+    if (!amountCents || typeof amountCents !== 'number' || amountCents <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+
+    const agencyId = req.agencyId;
+    const adminId = req.user.uid;
+
+    const agency = await agencyService.getAgencyById(agencyId);
+    if (!agency?.settings?.allowAdminFunding) {
+      return res.status(403).json({ error: 'Agency admin funding is not enabled for this agency.' });
+    }
+
+    const db = getDb();
+    const agentSnap = await db.collection('users').doc(agentId).get();
+    if (!agentSnap.exists || normalizeAgencyId(agentSnap.data()?.agencyId) !== agencyId) {
+      return res.status(403).json({ error: 'Agent not found in your agency.' });
+    }
+
+    const adminWallet = await walletService.getWallet(adminId);
+    if (!adminWallet || adminWallet.balance < amountCents) {
+      return res.status(400).json({ error: 'Insufficient balance in your wallet. Please top up via the Billing tab.' });
+    }
+
+    await walletService.deductCredits(adminId, amountCents, `Transfer to agent ${agentSnap.data()?.email || agentId}`);
+    
+    await walletService.addCredits(agentId, amountCents, 'manual', {
+      note: `Transfer from Agency Admin ${req.user.email || adminId}`
+    });
+
+    res.json({ success: true, transferredCents: amountCents });
+  } catch (err) {
+    console.error('[Agency] fundAgent:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to fund agent' });
+  }
+}
+
 module.exports = {
   listAgencies,
   getAgency,
@@ -328,4 +370,5 @@ module.exports = {
   getAnalyticsDrilldown: managerController.getAnalyticsDrilldown,
   getCallLogs: managerController.getCallLogs,
   getAgencyMe,
+  fundAgent,
 };

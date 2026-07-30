@@ -136,6 +136,7 @@ async function getAnalytics(req, res) {
         ...a,
         agentName: metaMap.get(a.agentId)?.name || a.agentId,
         phone: metaMap.get(a.agentId)?.phone || null,
+        walletBalance: metaMap.get(a.agentId)?.walletBalance || 0,
       })),
       byDay,
       campaigns,
