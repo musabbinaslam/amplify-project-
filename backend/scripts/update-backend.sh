@@ -1,15 +1,17 @@
 #!/bin/sh
 # Update backend on the VPS from staging or main.
 #
+# Staging runs off the TEST branch; production runs off main.
+#
 # Interactive (menu):
-#   cd /path/to/backend && ./scripts/update-backend.sh
+#   cd <backend app dir> && ./scripts/update-backend.sh
 #
 # Non-interactive:
-#   ./scripts/update-backend.sh staging
+#   ./scripts/update-backend.sh TEST
 #   ./scripts/update-backend.sh main
 #
 # Skip confirmation prompt:
-#   ./scripts/update-backend.sh staging --yes
+#   ./scripts/update-backend.sh TEST --yes
 #   ./scripts/update-backend.sh --yes main
 set -eu
 
@@ -24,12 +26,12 @@ for arg in "$@"; do
     --yes|-y)
       AUTO_YES=1
       ;;
-    staging|main)
+    TEST|staging|main)
       BRANCH="$arg"
       ;;
     *)
       echo "Unknown argument: $arg" >&2
-      echo "Usage: $0 [staging|main] [--yes]" >&2
+      echo "Usage: $0 [TEST|main] [--yes]" >&2
       exit 1
       ;;
   esac
@@ -53,14 +55,14 @@ git_current_sha() {
 
 pick_branch() {
   echo "Update backend from which branch?"
-  echo "  1) staging"
+  echo "  1) TEST (staging)"
   echo "  2) main (production)"
   echo "  q) quit"
   printf "Choice: "
   read -r choice
   case "$choice" in
-    1|staging)
-      BRANCH="staging"
+    1|TEST|staging)
+      BRANCH="TEST"
       ;;
     2|main)
       BRANCH="main"
@@ -80,8 +82,8 @@ if [ -z "$BRANCH" ]; then
   pick_branch
 fi
 
-if [ "$BRANCH" != "staging" ] && [ "$BRANCH" != "main" ]; then
-  echo "Only staging and main are allowed." >&2
+if [ "$BRANCH" != "TEST" ] && [ "$BRANCH" != "staging" ] && [ "$BRANCH" != "main" ]; then
+  echo "Only TEST (staging) and main are allowed." >&2
   exit 1
 fi
 

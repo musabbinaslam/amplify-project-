@@ -81,12 +81,14 @@ pm2 startup   # follow printed instructions
 
 **Manual update from VPS (recommended after pushing to GitHub):**
 
+Staging tracks the `TEST` branch; production tracks `main`.
+
 ```bash
-cd /path/to/backend
+cd <backend app dir>   # find it: ls -d /var/www/*/backend /home/*/*/backend 2>/dev/null
 ./scripts/update-backend.sh
-# Menu: 1) staging  2) main (production)
+# Menu: 1) TEST (staging)  2) main (production)
 # Or non-interactive:
-./scripts/update-backend.sh staging
+./scripts/update-backend.sh TEST
 ./scripts/update-backend.sh main
 # → git fetch / checkout / pull --ff-only
 # → hostinger-deploy.sh (npm install, record-release, pm2 reload)
