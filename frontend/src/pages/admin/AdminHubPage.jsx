@@ -32,6 +32,7 @@ export default function AdminHubPage() {
     callsToday: null,
     answerRate: null,
     billableRate: null,
+    totalSignups: null,
     costToday: null,
   });
 
@@ -56,6 +57,7 @@ export default function AdminHubPage() {
           callsToday: summary.totalCalls ?? 0,
           answerRate: Math.round((summary.answerRate || 0) * 100),
           billableRate: Math.round((summary.billableRate || 0) * 100),
+          totalSignups: overview?.totalSignups ?? 0,
           costToday: summary.totalCost ?? 0,
         });
       } catch {
@@ -68,6 +70,7 @@ export default function AdminHubPage() {
             callsToday: null,
             answerRate: null,
             billableRate: null,
+            totalSignups: null,
             costToday: null,
           });
         }
@@ -90,6 +93,7 @@ export default function AdminHubPage() {
     { label: 'Calls today', value: stats.callsToday },
     { label: 'Answer rate', value: stats.answerRate === null ? null : `${stats.answerRate}%` },
     { label: 'Billable rate', value: stats.billableRate === null ? null : `${stats.billableRate}%` },
+    { label: 'Total signups', value: stats.totalSignups },
     { label: 'Cost today', value: stats.costToday === null ? null : formatMoney(stats.costToday) },
   ];
 
