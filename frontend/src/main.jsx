@@ -29,14 +29,18 @@ useUIStore.getState().initTheme();
 useThemeStore.getState().initBrand();
 
 const queryClient = new QueryClient();
-const MIN_SPLASH_MS = 1200;
+const MIN_SPLASH_MS = 1800;
+/** Extra time after auth so the first route can mount under the splash. */
+const POST_READY_BUFFER_MS = 500;
+/** Must match #splash transition duration in index.html (420ms). */
+const SPLASH_EXIT_MS = 420;
 
 const AuthInit = ({ children }) => {
   const [ready, setReady] = useState(false);
-  const [splashDone, setSplashDone] = useState(false);
   const initAuth = useAuthStore((s) => s.initAuth);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
         await initFirebase();
@@ -44,36 +48,38 @@ const AuthInit = ({ children }) => {
       } catch (e) {
         console.error('[Firebase]', e);
       } finally {
-        setReady(true);
+        if (!cancelled) setReady(true);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [initAuth]);
 
+  // Keep the HTML splash on top while the app mounts, routes load, and auth settles.
   useEffect(() => {
     if (!ready) return;
     const splash = document.getElementById('splash');
-    if (!splash) {
-      setSplashDone(true);
-      return;
-    }
+    if (!splash) return;
 
     const splashStartedAt = window.__SPLASH_START__ || Date.now();
     const elapsed = Date.now() - splashStartedAt;
-    const waitMs = Math.max(0, MIN_SPLASH_MS - elapsed);
+    const waitMs = Math.max(
+      Math.max(0, MIN_SPLASH_MS - elapsed),
+      POST_READY_BUFFER_MS,
+    );
 
     const hideTimer = window.setTimeout(() => {
       splash.classList.add('hidden');
       window.setTimeout(() => {
         splash.remove();
-        setSplashDone(true);
-      }, 400);
+      }, SPLASH_EXIT_MS);
     }, waitMs);
 
     return () => window.clearTimeout(hideTimer);
   }, [ready]);
 
-  if (!ready || !splashDone) return null;
-
+  // Mount the app immediately under the splash so chunks/data load in the background.
   return children;
 };
 

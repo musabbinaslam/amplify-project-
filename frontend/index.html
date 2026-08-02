@@ -10,7 +10,7 @@
     <meta property="og:title" content="CallsFlow — Inbound Lead Platform" />
     <meta property="og:description" content="CallsFlow routes exclusive inbound insurance calls to licensed agents in real time." />
     <meta property="og:site_name" content="CallsFlow" />
-<script>
+    <script>
       (function() {
         window.__SPLASH_START__ = Date.now();
         var theme = localStorage.getItem('theme') || 'dark';
@@ -20,121 +20,166 @@
     <style>
       :root {
         --sp-bg: #0e0e0e;
-        --sp-surface: rgba(22, 24, 28, 0.72);
-        --sp-border: rgba(255, 255, 255, 0.08);
-        --sp-logo: #25f425;
-        --sp-shadow: rgba(37, 244, 37, 0.3);
-        --sp-track: rgba(255,255,255,0.06);
-        --sp-text: rgba(255, 255, 255, 0.88);
-        --sp-sub: rgba(255, 255, 255, 0.52);
+        --sp-brand: #25f425;
+        --sp-brand-dim: rgba(37, 244, 37, 0.14);
+        --sp-brand-border: rgba(37, 244, 37, 0.22);
+        --sp-track: rgba(255, 255, 255, 0.06);
+        --sp-text: #ffffff;
+        --sp-sub: #adaaaa;
+        --sp-muted: #6b6b6b;
+        --sp-glass-border: rgba(255, 255, 255, 0.14);
       }
       [data-theme="light"] {
-        --sp-bg: #fafafa;
-        --sp-surface: rgba(255, 255, 255, 0.76);
-        --sp-border: rgba(0, 0, 0, 0.08);
-        --sp-logo: #18a818;
-        --sp-shadow: rgba(24, 168, 24, 0.25);
-        --sp-track: rgba(0,0,0,0.08);
-        --sp-text: rgba(0, 0, 0, 0.86);
-        --sp-sub: rgba(0, 0, 0, 0.56);
+        --sp-bg: #f0f0f2;
+        --sp-brand: #0f7a16;
+        --sp-brand-dim: rgba(15, 122, 22, 0.12);
+        --sp-brand-border: rgba(15, 122, 22, 0.22);
+        --sp-track: rgba(0, 0, 0, 0.08);
+        --sp-text: #111111;
+        --sp-sub: #555555;
+        --sp-muted: #6a6a6a;
+        --sp-glass-border: rgba(0, 0, 0, 0.08);
       }
 
-      /* Instant splash — renders before React JS even loads */
-      body { margin: 0; background: var(--sp-bg); }
+      body { margin: 0; background: var(--sp-bg); font-family: system-ui, -apple-system, sans-serif; }
+
       #splash {
-        position: fixed; inset: 0; z-index: 99999;
-        display: flex; align-items: center; justify-content: center;
-        background: var(--sp-bg);
-        transition: opacity 0.35s ease-out;
-      }
-      #splash.hidden { opacity: 0; pointer-events: none; }
-
-      .splash-shell {
-        width: min(360px, calc(100vw - 40px));
-        border-radius: 20px;
-        padding: 26px 22px 20px;
-        background: var(--sp-surface);
-        border: 1px solid var(--sp-border);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        box-shadow: 0 16px 44px rgba(0, 0, 0, 0.28);
-      }
-      .splash-brand {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
         display: flex;
         align-items: center;
-        gap: 14px;
-        margin-bottom: 18px;
+        justify-content: center;
+        background: var(--sp-bg);
+        overflow: hidden;
+        transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+          transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+          filter 0.42s cubic-bezier(0.22, 1, 0.36, 1);
       }
-      .splash-logo-wrap {
-        width: 52px;
-        height: 98px;
-        animation: sp-pulse 2s ease-in-out infinite;
-        transform-origin: center center;
-        will-change: transform, opacity;
+      #splash.hidden {
+        opacity: 0;
+        transform: scale(0.985);
+        filter: blur(6px);
+        pointer-events: none;
       }
-      .splash-logo-img {
-        width: 52px;
-        height: 98px;
+
+      .splash-ambient {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+      }
+      .splash-ambient::before {
+        content: '';
+        position: absolute;
+        inset: -20%;
+        background:
+          radial-gradient(ellipse 55% 45% at 50% 38%, color-mix(in srgb, var(--sp-brand) 22%, transparent), transparent 70%),
+          radial-gradient(ellipse 40% 35% at 18% 72%, color-mix(in srgb, var(--sp-brand) 12%, transparent), transparent 68%),
+          radial-gradient(ellipse 38% 32% at 82% 68%, color-mix(in srgb, var(--sp-brand) 10%, transparent), transparent 65%);
+        filter: blur(64px);
+        animation: sp-ambient-drift 60s ease-in-out infinite alternate;
+      }
+      @keyframes sp-ambient-drift {
+        from { transform: translate3d(0, 0, 0) scale(1); }
+        to { transform: translate3d(0, -1.2%, 0) scale(1.03); }
+      }
+
+      .splash-stage {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        width: min(100%, 320px);
+        padding: 0 24px;
+        animation: sp-enter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+      @keyframes sp-enter {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .splash-mark {
+        width: 56px;
+        height: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        background: var(--sp-brand-dim);
+        border: 1px solid var(--sp-brand-border);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        margin-bottom: 20px;
+      }
+      .splash-mark img {
+        width: 32px;
+        height: 32px;
         object-fit: contain;
-        object-position: center;
         display: block;
       }
-      .splash-copy {
-        transform: translateZ(0);
-        backface-visibility: hidden;
-      }
-      .splash-title {
+
+      .splash-wordmark {
         margin: 0;
-        font-size: 24px;
+        font-size: 22px;
         font-weight: 800;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.12em;
         color: var(--sp-text);
         line-height: 1.1;
       }
-      .splash-subtitle {
-        margin: 2px 0 0;
+      .splash-status {
+        margin: 8px 0 0;
         font-size: 12px;
-        letter-spacing: 0.08em;
+        font-weight: 600;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
         color: var(--sp-sub);
       }
 
-      @keyframes sp-pulse {
-        0%,100% { opacity:.7; transform:scale(1); }
-        50% { opacity:1; transform:scale(1.08); }
-      }
-      
-      #splash .bar-track {
-        width: 100%; height: 4px;
+      .splash-rail {
+        width: min(220px, 72vw);
+        height: 3px;
+        margin-top: 28px;
+        border-radius: 999px;
         background: var(--sp-track);
-        border-radius: 999px; overflow: hidden;
+        overflow: hidden;
       }
-      #splash .bar-fill {
-        width: 36%; height: 100%; border-radius: 999px;
-        background: var(--sp-logo);
-        box-shadow: 0 0 8px var(--sp-shadow);
-        animation: sp-slide 1.4s ease-in-out infinite;
+      .splash-rail-fill {
+        width: 38%;
+        height: 100%;
+        border-radius: 999px;
+        background: var(--sp-brand);
+        animation: sp-rail 1.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
       }
-      @keyframes sp-slide {
-        0% { transform: translateX(-100%); }
-        100% { transform: translateX(400%); }
+      @keyframes sp-rail {
+        0% { transform: translateX(-120%); }
+        100% { transform: translateX(320%); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .splash-ambient::before,
+        .splash-stage,
+        .splash-rail-fill {
+          animation: none !important;
+        }
+        #splash { transition: opacity 0.2s ease; }
+        #splash.hidden { transform: none; filter: none; }
       }
     </style>
   </head>
   <body>
-    <!-- Instant splash shown before any JS loads -->
-    <div id="splash">
-      <div class="splash-shell">
-        <div class="splash-brand">
-          <div class="splash-logo-wrap">
-            <img class="splash-logo-img" src="/logo.png" alt="Callsflow logo" />
-          </div>
-          <div class="splash-copy">
-            <p class="splash-title">CALLSFLOW</p>
-            <p class="splash-subtitle">Connecting your workspace...</p>
-          </div>
+    <div id="splash" role="status" aria-live="polite" aria-label="Loading CallsFlow">
+      <div class="splash-ambient" aria-hidden="true"></div>
+      <div class="splash-stage">
+        <div class="splash-mark">
+          <img src="/logo.png" alt="" width="32" height="32" />
         </div>
-        <div class="bar-track"><div class="bar-fill"></div></div>
+        <p class="splash-wordmark">CALLSFLOW</p>
+        <p class="splash-status">Preparing your workspace</p>
+        <div class="splash-rail" aria-hidden="true">
+          <div class="splash-rail-fill"></div>
+        </div>
       </div>
     </div>
     <div id="root"></div>
