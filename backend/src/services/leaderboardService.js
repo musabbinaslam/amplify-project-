@@ -293,7 +293,7 @@ async function getLeaderboard({ period, tz, viewerUid } = {}) {
   entries.forEach((e) => {
     e.policiesClosed = policiesClosedMap.get(e.agentId) || 0;
     e.policyClosedRate = e.billableCalls
-      ? Number(((e.policiesClosed / e.billableCalls) * 100).toFixed(1))
+      ? Math.min(100, Number(((e.policiesClosed / e.billableCalls) * 100).toFixed(1)))
       : 0;
   });
 
@@ -316,7 +316,7 @@ async function getLeaderboard({ period, tz, viewerUid } = {}) {
       me = { ...buildEntry(viewerUid, platformAgents.get(viewerUid), null), rank: null };
       me.policiesClosed = policiesClosedMap.get(viewerUid) || 0;
       me.policyClosedRate = me.billableCalls
-        ? Number(((me.policiesClosed / me.billableCalls) * 100).toFixed(1))
+        ? Math.min(100, Number(((me.policiesClosed / me.billableCalls) * 100).toFixed(1)))
         : 0;
     }
   }
