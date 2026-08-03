@@ -47,7 +47,6 @@ function periodToRange(period, tz) {
   const today = todayStr(tz);
   if (period === 'today') return { from: today, to: today };
   if (period === 'week') {
-    // getUTCDay on the date-only value is tz-agnostic (0=Sun..6=Sat).
     const dow = new Date(`${today}T00:00:00.000Z`).getUTCDay();
     const offsetToMonday = (dow + 6) % 7;
     return { from: addDays(today, -offsetToMonday), to: today };
@@ -108,6 +107,58 @@ async function readAgentTotals(period, fromStr, toStr) {
   return byAgent;
 }
 
+const POLICIES_CONCURRENCY = 10;
+
+/**
+ * Count policy_closed dispositions per agent by reading directly from each
+ * agent's callLogs subcollection. This is the source of truth — no caching
+ * layer, works for all historical and future data automatically.
+ */
+async function countPoliciesClosedFromLogs(agentIds, fromStr, toStr) {
+  if (!agentIds.length) return new Map();
+  const db = getDb();
+
+  const fromMs = new Date(`${fromStr}T00:00:00.000Z`).getTime();
+  const toMs   = new Date(`${toStr}T23:59:59.999Z`).getTime();
+
+  const byAgent = new Map();
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < agentIds.length) {
+      const agentId = agentIds[cursor++]; // eslint-disable-line no-plusplus
+      // eslint-disable-next-line no-await-in-loop
+      const snap = await db
+        .collection('users')
+        .doc(agentId)
+        .collection('callLogs')
+        .orderBy('createdAt', 'desc')
+        .limit(500)
+        .get();
+
+      let count = 0;
+      snap.docs.forEach((doc) => {
+        const data = doc.data() || {};
+        if (data.disposition !== 'policy_closed') return;
+        const createdAt = data.createdAt?.toDate
+          ? data.createdAt.toDate()
+          : new Date(data.createdAt || 0);
+        const t = createdAt.getTime();
+        if (!Number.isNaN(t) && t >= fromMs && t <= toMs) count += 1;
+      });
+
+      if (count > 0) byAgent.set(agentId, count);
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(POLICIES_CONCURRENCY, Math.max(1, agentIds.length)) },
+    () => worker(),
+  );
+  await Promise.all(workers);
+  return byAgent;
+}
+
 function displayNameFromUserData(data = {}) {
   const firstLast = [data.firstName, data.lastName].filter(Boolean).join(' ').trim();
   return (
@@ -124,10 +175,6 @@ function displayNameFromUserData(data = {}) {
 /**
  * Fetch the set of platform agents: no agency AND role == 'agent'
  * (missing role defaults to 'agent'). Returns Map<uid, { name, photoURL }>.
- *
- * NOTE: most production user docs have no `agencyId` field at all, and
- * Firestore's `where('agencyId', '==', null)` only matches explicit nulls —
- * so we read the collection (projected fields only) and filter in memory.
  */
 async function loadPlatformAgents() {
   const db = getDb();
@@ -151,11 +198,10 @@ async function loadPlatformAgents() {
   const map = new Map();
   snap.docs.forEach((doc) => {
     const data = doc.data() || {};
-    if (data.agencyId) return; // agency member — excluded from platform board
+    if (data.agencyId) return;
     const role = data.role || 'agent';
     if (role !== 'agent') return;
     map.set(doc.id, {
-      // May be null — many prod user docs carry no name; Auth fills it in later.
       name: displayNameFromUserData(data),
       photoURL: data.photoURL || data.avatarUrl || data.photoUrl || null,
     });
@@ -199,8 +245,8 @@ function buildEntry(agentId, meta, totals) {
     photoURL: meta?.photoURL || null,
     calls,
     billableCalls,
-    // Percentage 0–100, one decimal.
-    billableRatio: calls ? Number(((billableCalls / calls) * 100).toFixed(1)) : 0,
+    policiesClosed: 0, // patched below after callLog scan
+    policyClosedRate: 0, // patched below after callLog scan
     revenue: Number(totalCost.toFixed(2)),
     avgDuration: calls ? Math.round(totalDuration / calls) : 0,
     totalDuration,
@@ -209,7 +255,9 @@ function buildEntry(agentId, meta, totals) {
 
 /**
  * Build the platform-agent leaderboard for a period.
- * Ranks by Total Billable Calls (desc), tie-broken by revenue then calls.
+ * Ranks by Policies Closed (disposition === 'policy_closed'), counted directly
+ * from each agent's callLogs — no adminMetrics dependency, no backfill needed,
+ * accurate for all historical and future dispositions.
  *
  * @param {object} opts
  * @param {string} opts.period  today | week | month | all (default month)
@@ -222,6 +270,7 @@ async function getLeaderboard({ period, tz, viewerUid } = {}) {
   const resolvedTz = validateTz(tz);
   const { from, to } = periodToRange(resolvedPeriod, resolvedTz);
 
+  // Run adminMetrics read (calls/revenue) and platform agent load in parallel
   const [totalsByAgent, platformAgents] = await Promise.all([
     readAgentTotals(resolvedPeriod, from, to),
     loadPlatformAgents(),
@@ -229,15 +278,28 @@ async function getLeaderboard({ period, tz, viewerUid } = {}) {
 
   const entries = [];
   totalsByAgent.forEach((totals, agentId) => {
-    // Inner-join: only platform agents, and only those with at least one billable call.
     if (!platformAgents.has(agentId)) return;
     if (!totals.calls || !totals.billableCalls) return;
     entries.push(buildEntry(agentId, platformAgents.get(agentId), totals));
   });
 
+  // Count policies closed directly from callLogs — source of truth.
+  // This covers every historical disposition already submitted, plus all future
+  // ones, without any caching, backfills, or adminMetrics writes.
+  const platformAgentIds = [...platformAgents.keys()];
+  const policiesClosedMap = await countPoliciesClosedFromLogs(platformAgentIds, from, to);
+
+  // Patch entries with real policiesClosed counts
+  entries.forEach((e) => {
+    e.policiesClosed = policiesClosedMap.get(e.agentId) || 0;
+    e.policyClosedRate = e.calls
+      ? Number(((e.policiesClosed / e.calls) * 100).toFixed(1))
+      : 0;
+  });
+
   entries.sort(
     (a, b) =>
-      b.billableCalls - a.billableCalls ||
+      b.policiesClosed - a.policiesClosed ||
       b.revenue - a.revenue ||
       b.calls - a.calls,
   );
@@ -251,8 +313,9 @@ async function getLeaderboard({ period, tz, viewerUid } = {}) {
     if (found) {
       me = found;
     } else if (platformAgents.has(viewerUid)) {
-      // Platform agent with no activity in this period — show a zeroed entry.
       me = { ...buildEntry(viewerUid, platformAgents.get(viewerUid), null), rank: null };
+      me.policiesClosed = policiesClosedMap.get(viewerUid) || 0;
+      me.policyClosedRate = 0;
     }
   }
 
