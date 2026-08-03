@@ -17,7 +17,6 @@ import {
   ChevronUp,
   Phone,
   Percent,
-  DollarSign,
   Clock,
   Flame,
   Sparkles,
@@ -39,16 +38,15 @@ const PERIOD_OPTIONS = [
 
 const SORT_OPTIONS = [
   { key: 'rank', label: 'Rank', defaultDir: 'asc' },
-  { key: 'billableCalls', label: 'Billable', defaultDir: 'desc' },
-  { key: 'billableRatio', label: 'Ratio', defaultDir: 'desc' },
-  { key: 'revenue', label: 'Revenue', defaultDir: 'desc' },
+  { key: 'policiesClosed', label: 'Policies', defaultDir: 'desc' },
+  { key: 'policyClosedRate', label: 'Close Rate', defaultDir: 'desc' },
   { key: 'avgDuration', label: 'Avg Time', defaultDir: 'desc' },
 ];
 
 const VISIBLE_MS = 60000;
 const HIDDEN_MS = 180000;
 const ROWS_PER_PAGE = 10;
-const HOT_RATIO = 70; // billable ratio (%) that earns an "on fire" badge
+const HOT_RATIO = 20; // policy closed rate (%) that earns an "on fire" badge
 
 const CONFETTI_COLORS = ['#25f425', '#ffd54a', '#00e3fd', '#ffffff', '#e08a4c'];
 
@@ -59,12 +57,6 @@ function formatDuration(secs) {
   return `${m}:${String(r).padStart(2, '0')}`;
 }
 
-function formatRevenue(value) {
-  return `$${(Number(value) || 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
 
 function initialsFrom(name = '') {
   const parts = String(name).trim().split(/\s+/).filter(Boolean);
@@ -114,7 +106,7 @@ const ChampionColumn = ({ entry, reduceMotion, isMe, delay }) => {
   const meta = RANK_META[entry.rank] || RANK_META[3];
   const { Icon } = meta;
   const isFirst = entry.rank === 1;
-  const hot = entry.billableRatio >= HOT_RATIO && entry.billableCalls > 0;
+  const hot = entry.policyClosedRate >= HOT_RATIO && entry.policiesClosed > 0;
 
   return (
     <div className={`${classes.champColumn} ${meta.tier} ${meta.cls}`}>
@@ -146,21 +138,19 @@ const ChampionColumn = ({ entry, reduceMotion, isMe, delay }) => {
           {entry.name}
           {isMe && <span className={classes.youBadge}>You</span>}
           {hot && (
-            <span className={classes.hotBadge} title="Billable ratio over 70%">
+            <span className={classes.hotBadge} title="Policy close rate over 20%">
               <Flame size={12} />
             </span>
           )}
         </p>
 
         <p className={classes.champValue}>
-          <CountUp value={entry.billableCalls} />
+          <CountUp value={entry.policiesClosed} />
         </p>
-        <p className={classes.champValueLabel}>Billable Calls</p>
+        <p className={classes.champValueLabel}>Policies Closed</p>
 
         <p className={classes.champStats}>
-          {entry.billableRatio}% ratio
-          <span className={classes.statDot}>·</span>
-          {formatRevenue(entry.revenue)}
+          {entry.policyClosedRate}% rate
           <span className={classes.statDot}>·</span>
           {formatDuration(entry.avgDuration)} avg
         </p>
@@ -282,7 +272,7 @@ const LeaderboardPage = () => {
 
   const entries = useMemo(() => data.entries || [], [data.entries]);
   const me = data.me || null;
-  const leaderCalls = entries[0]?.billableCalls || 0;
+  const leaderCalls = entries[0]?.policiesClosed || 0;
 
   const fireConfetti = useCallback(() => {
     if (reduceMotion) return;
@@ -376,7 +366,7 @@ const LeaderboardPage = () => {
   const meMessage = useMemo(() => {
     if (!me) return null;
     if (!me.rank) {
-      return { tone: 'start', title: 'Get on the board', sub: 'Make your first billable call to claim a spot.' };
+      return { tone: 'start', title: 'Get on the board', sub: 'Close your first policy to claim a spot.' };
     }
     if (me.rank === 1) {
       return { tone: 'champ', title: "You're the champion", sub: 'Top of the leaderboard. Keep the crown!' };
@@ -386,14 +376,14 @@ const LeaderboardPage = () => {
     }
     const nextUp = entries.find((e) => e.rank === me.rank - 1);
     if (nextUp) {
-      const gap = Math.max(0, nextUp.billableCalls - me.billableCalls);
+      const gap = Math.max(0, nextUp.policiesClosed - me.policiesClosed);
       return {
         tone: 'climb',
         title: `Ranked #${me.rank} of ${data.totalAgents}`,
         sub: gap === 0
-          ? `Neck-and-neck with #${nextUp.rank} — one more billable call to break ahead!`
-          : `${gap} billable ${gap === 1 ? 'call' : 'calls'} to overtake #${nextUp.rank}.`,
-        progress: nextUp.billableCalls ? Math.min(100, Math.round((me.billableCalls / nextUp.billableCalls) * 100)) : 0,
+          ? `Neck-and-neck with #${nextUp.rank} — close one more policy to break ahead!`
+          : `${gap} polic${gap === 1 ? 'y' : 'ies'} to overtake #${nextUp.rank}.`,
+        progress: nextUp.policiesClosed ? Math.min(100, Math.round((me.policiesClosed / nextUp.policiesClosed) * 100)) : 0,
       };
     }
     return { tone: 'climb', title: `Ranked #${me.rank} of ${data.totalAgents}`, sub: 'Keep climbing!' };
@@ -421,7 +411,7 @@ const LeaderboardPage = () => {
           <div>
             <h1 className={classes.title}>Leaderboard</h1>
             <p className={classes.subtitle}>
-              Top agents by billable calls
+              Top agents by policies closed
               {updatedLabel ? <span className={classes.updatedAt}> · Updated {updatedLabel}</span> : null}
             </p>
           </div>
@@ -484,7 +474,7 @@ const LeaderboardPage = () => {
             <Trophy size={36} />
           </span>
           <p className={classes.emptyTitle}>The stage is set</p>
-          <p className={classes.emptySub}>No billable calls this period yet — be the first to claim the crown.</p>
+          <p className={classes.emptySub}>No policies closed this period yet — be the first to claim the crown.</p>
         </motion.div>
       ) : (
         <>
@@ -541,16 +531,12 @@ const LeaderboardPage = () => {
               </div>
               <div className={classes.meBannerStats}>
                 <div>
-                  <span className={classes.meStatValue}>{me.billableCalls}</span>
-                  <span className={classes.meStatLabel}>Billable</span>
+                  <span className={classes.meStatValue}>{me.policiesClosed}</span>
+                  <span className={classes.meStatLabel}>Policies</span>
                 </div>
                 <div>
-                  <span className={classes.meStatValue}>{me.billableRatio}%</span>
-                  <span className={classes.meStatLabel}>Ratio</span>
-                </div>
-                <div>
-                  <span className={classes.meStatValue}>{formatRevenue(me.revenue)}</span>
-                  <span className={classes.meStatLabel}>Revenue</span>
+                  <span className={classes.meStatValue}>{me.policyClosedRate}%</span>
+                  <span className={classes.meStatLabel}>Rate</span>
                 </div>
                 <div>
                   <span className={classes.meStatValue}>{formatDuration(me.avgDuration)}</span>
@@ -617,9 +603,8 @@ const LeaderboardPage = () => {
                         </div>
                       </div>
                       <div className={classes.rankMetrics}>
-                        <MetricPill icon={Phone} value={entry.billableCalls} label="Billable" active={sort.key === 'billableCalls'} />
-                        <MetricPill icon={Percent} value={`${entry.billableRatio}%`} label="Ratio" active={sort.key === 'billableRatio'} />
-                        <MetricPill icon={DollarSign} value={formatRevenue(entry.revenue)} label="Revenue" active={sort.key === 'revenue'} />
+                        <MetricPill icon={Phone} value={entry.policiesClosed} label="Policies" active={sort.key === 'policiesClosed'} />
+                        <MetricPill icon={Percent} value={`${entry.policyClosedRate}%`} label="Rate" active={sort.key === 'policyClosedRate'} />
                         <MetricPill icon={Clock} value={formatDuration(entry.avgDuration)} label="Avg" active={sort.key === 'avgDuration'} />
                       </div>
                     </motion.div>
