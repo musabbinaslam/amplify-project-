@@ -65,7 +65,75 @@
   line-height: 1.45;
 }
 
+/* ─── Shift hours card ─── */
+.hoursCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-radius: var(--radius-lg);
+  border-left: 3px solid color-mix(in srgb, var(--brand-text) 60%, transparent);
+}
+
+.hoursIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  color: var(--brand-text);
+  flex-shrink: 0;
+}
+
+.hoursText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.hoursLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.hoursValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.hoursBadge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  color: var(--brand-text);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 28%, transparent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .hoursValue {
+    font-size: 13px;
+    white-space: normal;
+  }
+  .hoursBadge {
+    display: none;
+  }
+}
+
 /* ─── Video card ─── */
+
 .videoCard {
   padding: 22px 24px;
 }

@@ -292,8 +292,8 @@ async function getLeaderboard({ period, tz, viewerUid } = {}) {
   // Patch entries with real policiesClosed counts
   entries.forEach((e) => {
     e.policiesClosed = policiesClosedMap.get(e.agentId) || 0;
-    e.policyClosedRate = e.calls
-      ? Number(((e.policiesClosed / e.calls) * 100).toFixed(1))
+    e.policyClosedRate = e.billableCalls
+      ? Math.min(100, Number(((e.policiesClosed / e.billableCalls) * 100).toFixed(1)))
       : 0;
   });
 
@@ -315,7 +315,9 @@ async function getLeaderboard({ period, tz, viewerUid } = {}) {
     } else if (platformAgents.has(viewerUid)) {
       me = { ...buildEntry(viewerUid, platformAgents.get(viewerUid), null), rank: null };
       me.policiesClosed = policiesClosedMap.get(viewerUid) || 0;
-      me.policyClosedRate = 0;
+      me.policyClosedRate = me.billableCalls
+        ? Math.min(100, Number(((me.policiesClosed / me.billableCalls) * 100).toFixed(1)))
+        : 0;
     }
   }
 
