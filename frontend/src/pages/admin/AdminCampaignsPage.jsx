@@ -61,7 +61,7 @@ export default function AdminCampaignsPage() {
   const handleCopyPing = (campaignId) => {
     let baseUrl = import.meta.env.VITE_API_URL || window.location.origin;
     baseUrl = baseUrl.replace(/\/+$/, ''); // trim trailing slash
-    const pingUrl = `${baseUrl}/api/public/ping/${campaignId}?phone=[lead_phone]`;
+    const pingUrl = `${baseUrl}/api/public/ping/${campaignId}/TOKEN/[lead_phone]`;
     navigator.clipboard.writeText(pingUrl).then(() => {
       toast.success('Ping URL copied to clipboard');
     }).catch(() => {
