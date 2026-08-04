@@ -13,14 +13,14 @@ const HEARTBEAT_TTL_SECONDS = 35;
 async function broadcastAgentCount(io) {
     if (typeof io.__lastAgentCount === 'undefined') io.__lastAgentCount = null;
     try {
-       const count = await agentManager.getTotalAvailableCount();
-       if (io.__lastAgentCount === count) return;
-       io.__lastAgentCount = count;
-       io.emit('stats:agent_count', count || 0);
+        const count = await agentManager.getTotalAvailableCount();
+        if (io.__lastAgentCount === count) return;
+        io.__lastAgentCount = count;
+        io.emit('stats:agent_count', count || 0);
     } catch {
-       if (io.__lastAgentCount === 0) return;
-       io.__lastAgentCount = 0;
-       io.emit('stats:agent_count', 0);
+        if (io.__lastAgentCount === 0) return;
+        io.__lastAgentCount = 0;
+        io.emit('stats:agent_count', 0);
     }
 }
 
@@ -76,7 +76,7 @@ exports.setupCallSockets = (io) => {
             try {
                 const balanceCents = await getBalance(identity);
                 const campaignPriceCents = CAMPAIGN_CONFIG[campaign] ? CAMPAIGN_CONFIG[campaign].price * 100 : 0;
-                
+
                 if (balanceCents < campaignPriceCents) {
                     console.log(`[Wallet] 🚫 Agent ${identity} blocked from going live — insufficient balance (has $${(balanceCents / 100).toFixed(2)}, needs $${(campaignPriceCents / 100).toFixed(2)})`);
                     socket.emit('agent:go_live_error', {

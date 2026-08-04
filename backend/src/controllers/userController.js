@@ -880,7 +880,17 @@ async function patchMe(req, res) {
       }
       body.statePresets = cleaned;
     }
+    // Server-side phone validation: enforce phone on onboarding saves.
+    // This blocks all bypass routes — devtools, Postman, direct API calls, etc.
+    if (body.onboarding !== undefined) {
+      const rawPhone = String(body.onboarding?.phone || '');
+      const digits = rawPhone.replace(/\D/g, '');
+      if (!digits || digits.length < 10) {
+        return res.status(400).json({ error: 'A valid phone number is required (at least 10 digits).' });
+      }
+    }
     await mergeUserDoc(req.user.uid, body);
+
     const data = await getUserDoc(req.user.uid);
     const changed = Object.keys(body || {});
     if (changed.length > 0) {

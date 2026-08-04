@@ -131,8 +131,8 @@ const SignupPage = () => {
 
   const validateOnboarding = () => {
     const digits = form.phone.replace(/\D/g, '');
-    if (!digits || digits.length < 6) {
-      toast.error('Enter a valid phone number (country + local digits)');
+    if (!digits || digits.length < 10) {
+      toast.error('Enter a valid phone number (at least 10 digits)');
       return false;
     }
     if (!form.weeklySpend) { toast.error('Select your weekly lead spend'); return false; }
@@ -256,7 +256,10 @@ const SignupPage = () => {
   const renderOnboardingFields = () => (
     <>
       <div className={`${classes.fieldGroup} ${classes.spanFull}`}>
-        <label className={classes.label} htmlFor="signup-phone-local">Phone</label>
+        <label className={classes.label} htmlFor="signup-phone-local">
+          Phone
+          <span className={classes.required}>*</span>
+        </label>
         <div className={classes.phoneRow}>
           <select
             className={classes.countrySelect}
