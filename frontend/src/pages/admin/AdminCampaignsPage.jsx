@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Settings2, Plus, Trash2 } from 'lucide-react';
+import { Settings2, Plus, Trash2, Link } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -56,6 +56,17 @@ export default function AdminCampaignsPage() {
     } catch (err) {
       toast.error(err.message || 'Failed to update campaign state');
     }
+  };
+
+  const handleCopyPing = (campaignId) => {
+    let baseUrl = import.meta.env.VITE_API_URL || window.location.origin;
+    baseUrl = baseUrl.replace(/\/+$/, ''); // trim trailing slash
+    const pingUrl = `${baseUrl}/api/public/ping/${campaignId}?phone=[lead_phone]`;
+    navigator.clipboard.writeText(pingUrl).then(() => {
+      toast.success('Ping URL copied to clipboard');
+    }).catch(() => {
+      toast.error('Failed to copy Ping URL');
+    });
   };
 
   const handleDeleteCampaign = async (campaignId, label) => {
@@ -159,6 +170,14 @@ export default function AdminCampaignsPage() {
                               onClick={() => toggleCampaignPause(c.id, !paused)}
                             >
                               {paused ? 'Resume' : 'Pause'}
+                            </button>
+                            <button
+                              type="button"
+                              className={classes.rowBtn}
+                              title={`Copy Ping URL for ${c.id}`}
+                              onClick={() => handleCopyPing(c.id)}
+                            >
+                              <Link size={14} />
                             </button>
                             <button
                               type="button"
