@@ -28,6 +28,13 @@ router.get('/ai-training/coaching-overview', adminController.getAiCoachingOvervi
 router.get('/ai-training/agent-plans', adminController.getAiCoachingAgentPlans);
 router.get('/dids', adminController.listDids);
 router.post('/dids', adminController.createDid);
+// router.patch('/users/:uid/notes/:noteId', adminController.patchUserNote);
+// router.delete('/users/:uid/notes/:noteId', adminController.deleteUserNote);
+
+router.patch('/users/:uid/call-logs/:callLogId/disposition', adminController.patchAdminCallLogDisposition);
+
+// Settings & Config
+// router.get('/settings', adminController.getAdminSettings);
 router.patch('/dids/:id', adminController.patchDid);
 router.delete('/dids/:id', adminController.deleteDid);
 

@@ -10,6 +10,7 @@ import {
   getAdminAnalyticsDrilldown,
   refundAdminCall,
   listAdminCallContests,
+  updateAdminCallLogDisposition,
 } from '../../services/adminService';
 import useAuthStore from '../../store/authStore';
 import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
@@ -21,6 +22,7 @@ import { AdminActionModal } from '../../components/admin/ContestReviewCard';
 import { getAgentName, getAgentId } from '../../components/admin/adminUtils';
 import PageLoader from '../../components/ui/PageLoader';
 import { RecordingModal } from '../CallLogsPage';
+import { CallLogDispositionBadge } from '../../components/callLogs/CallLogStatusCells';
 import classes from '../../components/admin/adminShared.module.css';
 
 export default function AdminAnalyticsPage() {
@@ -45,6 +47,7 @@ export default function AdminAnalyticsPage() {
   const [agentSearch, setAgentSearch] = useState('');
   const [activeRecording, setActiveRecording] = useState(null);
   const [refundingLogId, setRefundingLogId] = useState(null);
+  const [updatingDispositionId, setUpdatingDispositionId] = useState(null);
   const [actionModal, setActionModal] = useState(null);
   const [actionNote, setActionNote] = useState('');
   const [actionSubmitting, setActionSubmitting] = useState(false);
@@ -182,6 +185,24 @@ export default function AdminAnalyticsPage() {
     });
     return dayFiltered;
   }, [drilldown?.recentLogs, drilldownDay, drilldownSortOrder, drilldownSortField]);
+
+  const handleDispositionUpdate = async (logId, val) => {
+    const log = drilldown?.recentLogs?.find((l) => l.id === logId);
+    if (!log) return;
+    setUpdatingDispositionId(logId);
+    try {
+      await updateAdminCallLogDisposition(log.agentId || log.uid, logId, val);
+      setDrilldown(prev => ({
+        ...prev,
+        recentLogs: prev.recentLogs.map(l => l.id === logId ? { ...l, disposition: val } : l),
+      }));
+      toast.success('Disposition updated');
+    } catch (err) {
+      toast.error('Failed to update disposition');
+    } finally {
+      setUpdatingDispositionId(null);
+    }
+  };
 
   const openRefundCallModal = (log) => {
     if (log.contestStatus === 'pending') {
@@ -572,21 +593,12 @@ export default function AdminAnalyticsPage() {
                               )}
                             </td>
                             <td className={`${classes.pillCell} ${classes.pillCellWrap}`}>
-                              {log.disposition === 'sold' ? (
-                                <span className={`${classes.drillPill} ${classes.dispSold}`}>Sold</span>
-                              ) : log.disposition === 'callback' ? (
-                                <span className={`${classes.drillPill} ${classes.dispAnswered}`}>Call back</span>
-                              ) : log.disposition === 'not_interested' ? (
-                                <span className={`${classes.drillPill} ${classes.dispMissed}`}>Not Interested</span>
-                              ) : log.disposition === 'busy' ? (
-                                <span className={`${classes.drillPill} ${classes.dispMissed}`}>Busy</span>
-                              ) : log.disposition === 'dead_air' ? (
-                                <span className={`${classes.drillPill} ${classes.dispMissed}`}>Dead Air</span>
-                              ) : log.disposition === 'policy_closed' ? (
-                                <span className={`${classes.drillPill} ${classes.dispAnswered}`} style={{ borderColor: 'var(--brand-text)' }}>Policy Closed</span>
-                              ) : (
-                                <span className={classes.muted}>—</span>
-                              )}
+                              <CallLogDispositionBadge 
+                                log={log} 
+                                editable={true} 
+                                loading={updatingDispositionId === log.id}
+                                onUpdate={handleDispositionUpdate}
+                              />
                             </td>
                             <td className={classes.compactCell}>{log.cost > 0 ? `$${log.cost.toFixed(2)}` : '—'}</td>
                             <td className={classes.pillCell}>

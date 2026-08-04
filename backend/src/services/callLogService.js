@@ -411,6 +411,26 @@ class CallLogService {
             return false;
         }
     }
+
+    async updateCallLogById(uid, callLogId, updates) {
+        if (!admin || !uid || !callLogId || !updates) return false;
+        try {
+            const db = getDb();
+            const docRef = db.collection('users').doc(uid).collection('callLogs').doc(callLogId);
+            const docSnap = await docRef.get();
+            if (!docSnap.exists) {
+                return false;
+            }
+            await docRef.update({
+                ...updates,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            return true;
+        } catch (err) {
+            console.error(`[Firestore] Failed to update call log ${callLogId} for user ${uid}:`, err.message);
+            return false;
+        }
+    }
 }
 
 module.exports = new CallLogService();

@@ -18,6 +18,7 @@ const {
 } = require('../services/notificationService');
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
+const callLogService = require('../services/callLogService');
 const AI_TRAINING_CACHE_TTL_MS = 30 * 1000;
 const aiTrainingCache = new Map();
 
@@ -908,6 +909,27 @@ async function patchMe(req, res) {
     res.status(500).json({ error: err.message || 'Failed to save profile' });
   }
 }
+
+async function patchMyCallLogDisposition(req, res) {
+  if (!ensureAdmin(req, res)) return;
+  const { callLogId } = req.params;
+  const { disposition } = req.body;
+  if (!callLogId || typeof disposition !== 'string') {
+    return res.status(400).json({ error: 'callLogId and disposition are required' });
+  }
+
+  try {
+    const success = await callLogService.updateCallLogById(req.user.uid, callLogId, { disposition });
+    if (!success) {
+      return res.status(404).json({ error: 'Call log not found or failed to update' });
+    }
+    res.json({ success: true, message: 'Disposition updated' });
+  } catch (err) {
+    console.error('[Users] patchMyCallLogDisposition:', err.message);
+    res.status(500).json({ error: 'Failed to update disposition' });
+  }
+}
+
 
 async function postWelcomeEmail(req, res) {
   if (!ensureAdmin(req, res)) return;
@@ -2033,4 +2055,5 @@ module.exports = {
   deleteCustomScript,
   getAvailableCampaigns,
   acceptTerms,
+  patchMyCallLogDisposition,
 };

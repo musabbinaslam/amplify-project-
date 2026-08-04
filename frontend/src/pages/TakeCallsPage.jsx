@@ -15,8 +15,9 @@ import useAuthStore from '../store/authStore';
 import { useAudioSettingsStore } from '../store/audioSettingsStore';
 import { apiFetch } from '../services/apiClient';
 import { stripeService } from '../services/stripeService';
-import { getProfile, saveProfile } from '../services/profileService';
+import { getProfile, saveProfile, updateMyCallLogDisposition } from '../services/profileService';
 import { fetchCampaignPricing } from '../services/dashboardService';
+import { CallLogDispositionBadge } from '../components/callLogs/CallLogStatusCells';
 
 // All 50 US States
 const US_STATES = [
@@ -787,7 +788,15 @@ const DispositionModal = ({ callSid, onComplete }) => {
 };
 
 // ─── Call History Table ──────────────────────────────────────────────────────
-const CallHistory = ({ logs }) => {
+const CallHistory = ({ logs, onDispositionUpdate }) => {
+  const [updatingId, setUpdatingId] = useState(null);
+
+  const handleUpdate = async (logId, val) => {
+    setUpdatingId(logId);
+    await onDispositionUpdate(logId, val);
+    setUpdatingId(null);
+  };
+
   if (!logs || logs.length === 0) {
     return <div className={classes.emptyLogs}><p>No recent calls yet. Go live to start taking calls!</p></div>;
   }
@@ -819,21 +828,12 @@ const CallHistory = ({ logs }) => {
               )}
             </div>
             <div className={classes.colStatus}>
-              {log.isBillable ? (
-                <span className={classes.badgeSale}>Sold</span>
-              ) : log.disposition === 'callback' ? (
-                <span className={classes.badgeCallback}>Call back</span>
-              ) : log.disposition === 'not_interested' ? (
-                <span className={classes.badgeNeutral}>Not Interested</span>
-              ) : log.disposition === 'busy' ? (
-                <span className={classes.badgeNeutral}>Busy</span>
-              ) : log.disposition === 'dead_air' ? (
-                <span className={classes.badgeNeutral}>Dead Air</span>
-              ) : log.disposition === 'policy_closed' ? (
-                <span className={classes.badgeSale}>Policy Closed</span>
-              ) : (
-                <span className={classes.badgeEmpty}>—</span>
-              )}
+              <CallLogDispositionBadge 
+                log={log} 
+                editable={true} 
+                loading={updatingId === log.id}
+                onUpdate={handleUpdate} 
+              />
             </div>
           </div>
         ))}
@@ -1139,7 +1139,18 @@ const TakeCallsPage = () => {
           )}
 
           <motion.div className={`glass ${classes.activeLogsSection}`} variants={presets.child}>
-            <CallHistory logs={history} />
+            <CallHistory 
+              logs={history} 
+              onDispositionUpdate={async (logId, val) => {
+                try {
+                  await updateMyCallLogDisposition(logId, val);
+                  setHistory(prev => prev.map(l => l.id === logId ? { ...l, disposition: val } : l));
+                  toast.success('Disposition updated');
+                } catch(err) {
+                  toast.error('Failed to update disposition');
+                }
+              }} 
+            />
           </motion.div>
 
           {pendingDispositionCall && (

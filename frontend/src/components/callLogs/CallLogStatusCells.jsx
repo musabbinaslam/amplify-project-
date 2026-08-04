@@ -1,4 +1,4 @@
-import { DollarSign } from 'lucide-react';
+import { DollarSign, ChevronDown } from 'lucide-react';
 import classes from '../../pages/CallLogsPage.module.css';
 
 function dispositionLabel(log) {
@@ -40,10 +40,55 @@ export function CallLogStatusBadge({ log }) {
   return <span className={`${statusBase} ${classes.dispAnswered}`}>Answered</span>;
 }
 
-export function CallLogDispositionBadge({ log }) {
+export const DISPOSITION_OPTIONS = [
+  { value: 'sold', label: 'Sold', tone: 'sold' },
+  { value: 'callback', label: 'Call back', tone: 'callback' },
+  { value: 'not_interested', label: 'Not Interested', tone: 'negative' },
+  { value: 'busy', label: 'Busy', tone: 'negative' },
+  { value: 'dead_air', label: 'Dead Air', tone: 'negative' },
+  { value: 'policy_closed', label: 'Policy Closed', tone: 'policy' },
+];
+
+export function CallLogDispositionBadge({ log, editable, onUpdate, loading }) {
   const mapped = dispositionLabel(log);
   if (!mapped) {
     return <span className={classes.scoreDash}>—</span>;
+  }
+
+  if (editable) {
+    const currentVal = log?.disposition || '';
+    const baseClass = mapped ? dispositionClass(mapped.tone) : classes.dispMissed;
+    
+    return (
+      <div style={{ position: 'relative', display: 'inline-flex' }}>
+        <span 
+          className={`${classes.dispBadge} ${baseClass}`}
+          style={{ paddingRight: '0.4rem' }}
+        >
+          {mapped ? mapped.label : 'Select...'}
+          <ChevronDown size={12} style={{ opacity: 0.5, marginLeft: '2px' }} />
+        </span>
+        <select
+          value={currentVal}
+          disabled={loading}
+          onChange={(e) => onUpdate && onUpdate(log.id, e.target.value)}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            opacity: 0,
+            cursor: loading ? 'wait' : 'pointer'
+          }}
+        >
+          <option value="" disabled>Select disposition...</option>
+          {DISPOSITION_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+    );
   }
 
   return (
