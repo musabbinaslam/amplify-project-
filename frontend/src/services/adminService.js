@@ -33,6 +33,13 @@ export function getAdminAnalyticsDrilldown({ type, id, from, to } = {}) {
   return apiFetch(`/api/admin/analytics-drilldown${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
 }
 
+export async function updateAdminCallLogDisposition(uid, callLogId, disposition) {
+  return apiFetch(`/api/admin/users/${uid}/call-logs/${callLogId}/disposition`, {
+    method: 'PATCH',
+    body: { disposition },
+  });
+}
+
 export function getAdminLiveCalls() {
   return apiFetch('/api/admin/live-calls', { method: 'GET' });
 }

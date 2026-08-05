@@ -14,6 +14,7 @@ import {
   getManagerCallLogs,
   getManagerAnalyticsDrilldown,
 } from '../services/managerService';
+import { updateAdminCallLogDisposition } from '../services/adminService';
 import { PERF_PAGE_SIZE, LOG_PAGE_SIZE } from '../components/ops/opsUtils';
 
 export function useOpsDashboard(mode, scope = {}) {
@@ -137,6 +138,33 @@ export function useOpsDashboard(mode, scope = {}) {
       setDrilldownLoading(false);
     }
   }, [getRange, useAgencyApi, agencyId, managerUid]);
+
+  const [updatingDispositionId, setUpdatingDispositionId] = useState(null);
+
+  const handleDispositionUpdate = useCallback(async (logId, val) => {
+    const log = drilldown?.recentLogs?.find((l) => l.id === logId) 
+             || rawLogs.find((l) => l.id === logId);
+    if (!log) return;
+    setUpdatingDispositionId(logId);
+    try {
+      await updateAdminCallLogDisposition(log.agentId || log.uid, logId, val);
+      
+      // Optimistic update for drilldown logs
+      setDrilldown(prev => prev ? {
+        ...prev,
+        recentLogs: prev.recentLogs.map(l => l.id === logId ? { ...l, disposition: val } : l)
+      } : prev);
+
+      // Optimistic update for main call logs
+      setRawLogs(prev => prev.map(l => l.id === logId ? { ...l, disposition: val } : l));
+
+      toast.success('Disposition updated');
+    } catch (err) {
+      toast.error('Failed to update disposition');
+    } finally {
+      setUpdatingDispositionId(null);
+    }
+  }, [drilldown, rawLogs]);
 
   const selectAgent = useCallback((agentId) => {
     setSelectedAgent(agentId);
@@ -365,6 +393,8 @@ export function useOpsDashboard(mode, scope = {}) {
     logTotalPages,
     activeRecording,
     setActiveRecording,
+    handleDispositionUpdate,
+    updatingDispositionId,
     onlineCount,
     initialLoading,
     loadAll,

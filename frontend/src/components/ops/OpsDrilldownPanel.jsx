@@ -110,7 +110,12 @@ export default function OpsDrilldownPanel({
                         <CallLogStatusBadge log={log} />
                       </td>
                       <td>
-                        <CallLogDispositionBadge log={log} />
+                        <CallLogDispositionBadge 
+                          log={log} 
+                          editable={true}
+                          loading={ops.updatingDispositionId === log.id}
+                          onUpdate={ops.handleDispositionUpdate}
+                        />
                       </td>
                       <td>{log.cost > 0 ? `$${log.cost.toFixed(2)}` : '—'}</td>
                       <td>

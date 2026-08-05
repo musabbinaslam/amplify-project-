@@ -4,6 +4,7 @@ import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, Dollar
 import toast from 'react-hot-toast';
 import { motion, useReducedMotion } from 'framer-motion';
 import { apiFetch } from '../services/apiClient';
+import { updateMyCallLogDisposition } from '../services/profileService';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { EASE_SMOOTH } from '../motion/appMotion';
 import { auth } from '../config/firebase';
@@ -834,6 +835,7 @@ const CallLogsPage = () => {
   const [error, setError] = useState(null);
   const [activeRecording, setActiveRecording] = useState(null);
   const [contestLog, setContestLog] = useState(null);
+  const [updatingDisposition, setUpdatingDisposition] = useState(null);
   
   // Date Filters
   const [dateFilter, setDateFilter] = useState('all_time');
@@ -901,6 +903,19 @@ const CallLogsPage = () => {
     window.addEventListener('contest:resolved', onContestResolved);
     return () => window.removeEventListener('contest:resolved', onContestResolved);
   }, [dateFilter, startDate, endDate]);
+
+  const handleDispositionUpdate = async (logId, newDisposition) => {
+    setUpdatingDisposition(logId);
+    try {
+      await updateMyCallLogDisposition(logId, newDisposition);
+      setCallLogs(prev => prev.map(log => log.id === logId ? { ...log, disposition: newDisposition } : log));
+      toast.success('Disposition updated');
+    } catch (err) {
+      toast.error('Failed to update disposition');
+    } finally {
+      setUpdatingDisposition(null);
+    }
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -1117,7 +1132,12 @@ const CallLogsPage = () => {
                       </td>
                       <td className={classes.colDisposition}>
                         <div className={classes.statusCell}>
-                          <CallLogDispositionBadge log={log} />
+                          <CallLogDispositionBadge 
+                            log={log} 
+                            editable={true} 
+                            loading={updatingDisposition === log.id}
+                            onUpdate={handleDispositionUpdate}
+                          />
                         </div>
                       </td>
                       <td className={classes.colCost}>

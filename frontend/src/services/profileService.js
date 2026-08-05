@@ -42,3 +42,9 @@ export async function getProfileActivity(limit = 20) {
   const qs = new URLSearchParams({ limit: String(limit) });
   return apiFetch(`/api/users/me/activity?${qs.toString()}`, { method: 'GET' });
 }
+export async function updateMyCallLogDisposition(callLogId, disposition) {
+  return apiFetch(`/api/users/me/call-logs/${callLogId}/disposition`, {
+    method: 'PATCH',
+    body: { disposition },
+  });
+}
