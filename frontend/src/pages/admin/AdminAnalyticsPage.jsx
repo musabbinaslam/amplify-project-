@@ -30,6 +30,12 @@ export default function AdminAnalyticsPage() {
   const reduceMotion = useReducedMotion();
   const refreshUserRole = useAuthStore((s) => s.refreshUserRole);
   const [rangePreset, setRangePreset] = useState('7d');
+  const [timezone, setTimezone] = useState(() => {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; }
+    catch { return 'UTC'; }
+  });
+  const [customStart, setCustomStart] = useState(() => new Date().toISOString().slice(0, 10));
+  const [customEnd, setCustomEnd] = useState(() => new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [overview, setOverview] = useState(null);
@@ -54,14 +60,23 @@ export default function AdminAnalyticsPage() {
   const [contestFilter] = useState('pending');
 
   const getRange = useCallback(() => {
+    if (rangePreset === 'custom') {
+      return { from: customStart, to: customEnd };
+    }
     const now = new Date();
+    if (rangePreset === 'yesterday') {
+      const y = new Date(now);
+      y.setDate(now.getDate() - 1);
+      const yStr = y.toISOString().slice(0, 10);
+      return { from: yStr, to: yStr };
+    }
     const end = now.toISOString().slice(0, 10);
     const days = rangePreset === 'today' ? 0 : rangePreset === '30d' ? 29 : 6;
     const fromDate = new Date(now);
     fromDate.setDate(now.getDate() - days);
     const from = fromDate.toISOString().slice(0, 10);
     return { from, to: end };
-  }, [rangePreset]);
+  }, [rangePreset, customStart, customEnd]);
 
   const loadShell = useCallback(async () => {
     setLoading(true);
@@ -79,7 +94,7 @@ export default function AdminAnalyticsPage() {
     setAnalyticsLoading(true);
     try {
       const range = getRange();
-      const bundle = await getAdminAnalyticsBundle(range);
+      const bundle = await getAdminAnalyticsBundle({ ...range, tz: timezone });
       setCallStats({
         from: bundle.from,
         to: bundle.to,
@@ -104,7 +119,7 @@ export default function AdminAnalyticsPage() {
     setDrilldownLoading(true);
     try {
       const range = getRange();
-      const out = await getAdminAnalyticsDrilldown({ type, id, ...range });
+      const out = await getAdminAnalyticsDrilldown({ type, id, ...range, tz: timezone });
       setDrilldown(out);
     } catch (e) {
       toast.error(e.message || 'Failed to load drilldown');
@@ -132,7 +147,7 @@ export default function AdminAnalyticsPage() {
 
   useEffect(() => {
     loadAnalytics();
-  }, [loadAnalytics]);
+  }, [loadAnalytics, timezone]);
 
   const statsSummary = callStats?.summary || {
     totalCalls: 0,
@@ -279,12 +294,41 @@ export default function AdminAnalyticsPage() {
       >
         <motion.section className={`glass ${classes.sectionCard} ${classes.summarySection}`} variants={presets.child}>
           <div className={classes.cardTopRow}>
-            <h2 className={classes.cardTitle}>Summary ({rangePreset === 'today' ? 'Today' : rangePreset === '30d' ? 'Last 30 days' : 'Last 7 days'})</h2>
+            <h2 className={classes.cardTitle}>Summary ({
+              rangePreset === 'today' ? 'Today' : 
+              rangePreset === 'yesterday' ? 'Yesterday' :
+              rangePreset === 'custom' ? 'Custom Range' :
+              rangePreset === '30d' ? 'Last 30 days' : 'Last 7 days'
+            })</h2>
             <div className={`glass ${classes.toolbar}`}>
-              <div className={classes.filterRow}>
+              <div className={classes.filterRow} style={{ flexWrap: 'wrap' }}>
                 <button type="button" className={`${classes.filterBtn} ${rangePreset === 'today' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('today')}>Today</button>
+                <button type="button" className={`${classes.filterBtn} ${rangePreset === 'yesterday' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('yesterday')}>Yesterday</button>
                 <button type="button" className={`${classes.filterBtn} ${rangePreset === '7d' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('7d')}>Last 7 days</button>
                 <button type="button" className={`${classes.filterBtn} ${rangePreset === '30d' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('30d')}>Last 30 days</button>
+                <button type="button" className={`${classes.filterBtn} ${rangePreset === 'custom' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('custom')}>Custom</button>
+                
+                {rangePreset === 'custom' && (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input type="date" className={classes.select} value={customStart} onChange={(e) => setCustomStart(e.target.value)} />
+                    <span className={classes.muted}>to</span>
+                    <input type="date" className={classes.select} value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} />
+                  </div>
+                )}
+
+                <select 
+                  className={classes.select} 
+                  value={timezone} 
+                  onChange={(e) => setTimezone(e.target.value)}
+                  style={{ marginLeft: 'auto' }}
+                >
+                  <option value="America/New_York">Eastern Time</option>
+                  <option value="America/Chicago">Central Time</option>
+                  <option value="America/Denver">Mountain Time</option>
+                  <option value="America/Los_Angeles">Pacific Time</option>
+                  <option value="UTC">UTC</option>
+                </select>
+
                 <button
                   type="button"
                   className={classes.refreshBtn}

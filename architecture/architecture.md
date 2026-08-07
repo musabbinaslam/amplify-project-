@@ -102,6 +102,7 @@ Single process, single port (`process.env.PORT`, default `3001`).
 | `PATCH /api/users/me` | `userRoutes` | Firebase token |
 | `GET /api/users/me/bootstrap` | `userRoutes` | Firebase token |
 | `GET /api/users/me/activity` | `userRoutes` | Firebase token |
+| `PATCH /api/users/me/call-logs/:callLogId/disposition` | `userRoutes` | Firebase token |
 | `GET /api/users/qa/summary` | `userRoutes` | Firebase token |
 | `GET /api/users/ai-training/*` | `userRoutes` | Firebase token |
 | `GET /api/stripe/wallet` | `stripeRoutes` | Firebase token |
@@ -261,7 +262,7 @@ users/{uid}
   │
   ├── callLogs/{callLogId}
   │   ├── callSid, from, to, duration, campaign, campaignLabel
-  │   ├── agentId, status, isBillable, cost, type, recordingUrl
+  │   ├── agentId, status, isBillable, cost, type, recordingUrl, disposition
   │   ├── qaInsight: { score, confidence, flags, summary, signals, source, version }
   │   └── createdAt, updatedAt
   │
