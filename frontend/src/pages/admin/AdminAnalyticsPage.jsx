@@ -21,9 +21,26 @@ import { AdminCallTrendChart, AdminDrilldownTrendChart } from '../../components/
 import { AdminActionModal } from '../../components/admin/ContestReviewCard';
 import { getAgentName, getAgentId } from '../../components/admin/adminUtils';
 import PageLoader from '../../components/ui/PageLoader';
+import CustomSelect from '../../components/ui/CustomSelect';
 import { RecordingModal } from '../CallLogsPage';
 import { CallLogDispositionBadge } from '../../components/callLogs/CallLogStatusCells';
 import classes from '../../components/admin/adminShared.module.css';
+
+const TIMEZONE_OPTIONS = [
+  { value: 'America/New_York', label: 'Eastern Time' },
+  { value: 'America/Chicago', label: 'Central Time' },
+  { value: 'America/Denver', label: 'Mountain Time' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time' },
+  { value: 'UTC', label: 'UTC' },
+];
+
+const RANGE_PRESETS = [
+  { key: 'today', label: 'Today' },
+  { key: 'yesterday', label: 'Yesterday' },
+  { key: '7d', label: 'Last 7 days' },
+  { key: '30d', label: 'Last 30 days' },
+  { key: 'custom', label: 'Custom' },
+];
 
 export default function AdminAnalyticsPage() {
   const presets = useSubtlePageMotion();
@@ -31,8 +48,12 @@ export default function AdminAnalyticsPage() {
   const refreshUserRole = useAuthStore((s) => s.refreshUserRole);
   const [rangePreset, setRangePreset] = useState('7d');
   const [timezone, setTimezone] = useState(() => {
-    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; }
-    catch { return 'UTC'; }
+    try {
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      return TIMEZONE_OPTIONS.some((o) => o.value === detected) ? detected : 'America/New_York';
+    } catch {
+      return 'America/New_York';
+    }
   });
   const [customStart, setCustomStart] = useState(() => new Date().toISOString().slice(0, 10));
   const [customEnd, setCustomEnd] = useState(() => new Date().toISOString().slice(0, 10));
@@ -109,7 +130,7 @@ export default function AdminAnalyticsPage() {
     } finally {
       setAnalyticsLoading(false);
     }
-  }, [getRange]);
+  }, [getRange, timezone]);
 
   const loadDrilldown = useCallback(async (type, id) => {
     if (!type || !id) {
@@ -126,7 +147,7 @@ export default function AdminAnalyticsPage() {
     } finally {
       setDrilldownLoading(false);
     }
-  }, [getRange]);
+  }, [getRange, timezone]);
 
   useEffect(() => {
     if (selectedCampaign) {
@@ -300,35 +321,49 @@ export default function AdminAnalyticsPage() {
               rangePreset === 'custom' ? 'Custom Range' :
               rangePreset === '30d' ? 'Last 30 days' : 'Last 7 days'
             })</h2>
-            <div className={`glass ${classes.toolbar}`}>
-              <div className={classes.filterRow} style={{ flexWrap: 'wrap' }}>
-                <button type="button" className={`${classes.filterBtn} ${rangePreset === 'today' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('today')}>Today</button>
-                <button type="button" className={`${classes.filterBtn} ${rangePreset === 'yesterday' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('yesterday')}>Yesterday</button>
-                <button type="button" className={`${classes.filterBtn} ${rangePreset === '7d' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('7d')}>Last 7 days</button>
-                <button type="button" className={`${classes.filterBtn} ${rangePreset === '30d' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('30d')}>Last 30 days</button>
-                <button type="button" className={`${classes.filterBtn} ${rangePreset === 'custom' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('custom')}>Custom</button>
-                
-                {rangePreset === 'custom' && (
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input type="date" className={classes.select} value={customStart} onChange={(e) => setCustomStart(e.target.value)} />
-                    <span className={classes.muted}>to</span>
-                    <input type="date" className={classes.select} value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} />
-                  </div>
-                )}
+            <div className={`glass ${classes.toolbar} ${classes.summaryToolbar}`}>
+              <div className={classes.filterRow} role="tablist" aria-label="Date range">
+                {RANGE_PRESETS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={rangePreset === key}
+                    className={`${classes.filterBtn} ${rangePreset === key ? classes.filterBtnActive : ''}`}
+                    onClick={() => setRangePreset(key)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
 
-                <select 
-                  className={classes.select} 
-                  value={timezone} 
-                  onChange={(e) => setTimezone(e.target.value)}
-                  style={{ marginLeft: 'auto' }}
-                >
-                  <option value="America/New_York">Eastern Time</option>
-                  <option value="America/Chicago">Central Time</option>
-                  <option value="America/Denver">Mountain Time</option>
-                  <option value="America/Los_Angeles">Pacific Time</option>
-                  <option value="UTC">UTC</option>
-                </select>
+              {rangePreset === 'custom' ? (
+                <div className={classes.customRangeRow}>
+                  <input
+                    type="date"
+                    className={classes.dateInput}
+                    value={customStart}
+                    onChange={(e) => setCustomStart(e.target.value)}
+                    aria-label="Custom range start"
+                  />
+                  <span className={classes.muted}>to</span>
+                  <input
+                    type="date"
+                    className={classes.dateInput}
+                    value={customEnd}
+                    onChange={(e) => setCustomEnd(e.target.value)}
+                    aria-label="Custom range end"
+                  />
+                </div>
+              ) : null}
 
+              <div className={classes.toolbarActions}>
+                <CustomSelect
+                  options={TIMEZONE_OPTIONS}
+                  value={timezone}
+                  onChange={setTimezone}
+                  menuAlign="right"
+                />
                 <button
                   type="button"
                   className={classes.refreshBtn}

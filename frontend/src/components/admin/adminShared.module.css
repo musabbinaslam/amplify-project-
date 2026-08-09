@@ -202,6 +202,55 @@
   z-index: 1;
 }
 
+.summaryToolbar {
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.summaryToolbar .filterRow {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 100%;
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
+  border: 1px solid var(--glass-border);
+}
+
+.toolbarActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.customRangeRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dateInput {
+  width: auto;
+  min-width: 148px;
+  padding: 8px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dateInput:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--brand-text) 35%, var(--glass-border));
+  background: color-mix(in srgb, var(--surface-container-highest) 90%, transparent);
+}
+
 .contestSection .filterRow {
   flex-wrap: nowrap;
   gap: 8px;
@@ -231,14 +280,15 @@
 
 .filterBtn {
   padding: 8px 14px;
-  border: none;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .filterBtn:hover {
@@ -248,6 +298,7 @@
 
 .filterBtnActive {
   background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  border-color: color-mix(in srgb, var(--brand-text) 28%, transparent);
   color: var(--brand-text);
 }
 
@@ -2114,6 +2165,17 @@
     width: 100%;
   }
 
+  .summaryToolbar .filterRow {
+    width: 100%;
+  }
+
+  .toolbarActions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .contestSection .filterRow {
     width: auto;
     align-self: flex-end;
@@ -2185,8 +2247,16 @@
   .summarySection .refreshBtn,
   .cardTopRow .refreshBtn,
   .toolbar .refreshBtn {
-    width: 100%;
+    width: auto;
     justify-content: center;
+  }
+
+  .toolbarActions {
+    justify-content: stretch;
+  }
+
+  .toolbarActions > * {
+    flex: 1 1 auto;
   }
 
   .contestSection .filterRow .refreshBtn {
