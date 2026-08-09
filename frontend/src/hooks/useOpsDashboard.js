@@ -143,7 +143,7 @@ export function useOpsDashboard(mode, scope = {}) {
 
   const handleDispositionUpdate = useCallback(async (logId, val) => {
     const log = drilldown?.recentLogs?.find((l) => l.id === logId) 
-             || rawLogs.find((l) => l.id === logId);
+             || logs.find((l) => l.id === logId);
     if (!log) return;
     setUpdatingDispositionId(logId);
     try {
@@ -156,7 +156,7 @@ export function useOpsDashboard(mode, scope = {}) {
       } : prev);
 
       // Optimistic update for main call logs
-      setRawLogs(prev => prev.map(l => l.id === logId ? { ...l, disposition: val } : l));
+      setLogs(prev => prev.map(l => l.id === logId ? { ...l, disposition: val } : l));
 
       toast.success('Disposition updated');
     } catch (err) {
@@ -164,7 +164,7 @@ export function useOpsDashboard(mode, scope = {}) {
     } finally {
       setUpdatingDispositionId(null);
     }
-  }, [drilldown, rawLogs]);
+  }, [drilldown, logs]);
 
   const selectAgent = useCallback((agentId) => {
     setSelectedAgent(agentId);
