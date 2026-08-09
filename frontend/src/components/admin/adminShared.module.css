@@ -124,6 +124,16 @@
   margin-bottom: 16px;
 }
 
+/* Keep filter/dropdown chrome above sibling KPI glass cards in the same section */
+.summarySection > .cardTopRow {
+  z-index: 4;
+}
+
+.summarySection > .statsRow,
+.summarySection > .metaRow {
+  z-index: 1;
+}
+
 /* ─── Summary section controls ─── */
 .summarySection .refreshBtn,
 .summarySection .filterBtn,
