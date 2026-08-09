@@ -48,6 +48,16 @@ exports.setupCallSockets = (io) => {
 
             try {
                 const userDoc = await getUserDoc(identity);
+                const { isAgencySignupGated } = require('../services/agencyApplicationService');
+                if (isAgencySignupGated(userDoc)) {
+                    socket.emit('agent:go_live_error', {
+                        code: 'AGENCY_SIGNUP_PENDING',
+                        message: userDoc.agencySignupStatus === 'rejected'
+                          ? 'Your agency application was not approved. Please contact support.'
+                          : 'Your agency application is still under review. Campaigns are unavailable until approved.',
+                    });
+                    return;
+                }
                 const accessError = await validateAgentCampaignAccess(userDoc?.agencyId, campaign);
                 if (accessError) {
                     socket.emit('agent:go_live_error', {

@@ -1,4 +1,5 @@
 const agencyService = require('../services/agencyService');
+const agencyApplicationService = require('../services/agencyApplicationService');
 const agencyCampaignService = require('../services/agencyCampaignService');
 const phoneRouteService = require('../services/phoneRouteService');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
@@ -310,6 +311,44 @@ async function assignAgencyDid(req, res) {
   }
 }
 
+async function listAgencyApplications(req, res) {
+  try {
+    const status = req.query.status ? String(req.query.status) : undefined;
+    const applications = await agencyApplicationService.listApplications({ status });
+    res.json({ applications });
+  } catch (err) {
+    console.error('[Agency] listAgencyApplications:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to list agency applications' });
+  }
+}
+
+async function approveAgencyApplication(req, res) {
+  try {
+    const result = await agencyApplicationService.approveApplication(req.params.id, {
+      reviewedBy: req.user?.uid || null,
+    });
+    res.json(result);
+  } catch (err) {
+    console.error('[Agency] approveAgencyApplication:', err.message);
+    const status = err.message === 'Application not found' ? 404 : 400;
+    res.status(status).json({ error: err.message || 'Failed to approve application' });
+  }
+}
+
+async function rejectAgencyApplication(req, res) {
+  try {
+    const result = await agencyApplicationService.rejectApplication(req.params.id, {
+      reviewedBy: req.user?.uid || null,
+      reason: req.body?.reason,
+    });
+    res.json(result);
+  } catch (err) {
+    console.error('[Agency] rejectAgencyApplication:', err.message);
+    const status = err.message === 'Application not found' ? 404 : 400;
+    res.status(status).json({ error: err.message || 'Failed to reject application' });
+  }
+}
+
 module.exports = {
   listAgencies,
   getAgency,
@@ -323,6 +362,9 @@ module.exports = {
   lockCampaignsForAgency,
   listAgencyDids,
   assignAgencyDid,
+  listAgencyApplications,
+  approveAgencyApplication,
+  rejectAgencyApplication,
   getMyAgents: managerController.getMyAgents,
   getAnalytics: managerController.getAnalytics,
   getAnalyticsDrilldown: managerController.getAnalyticsDrilldown,

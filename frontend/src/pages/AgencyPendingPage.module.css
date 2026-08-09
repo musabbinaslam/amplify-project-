@@ -1,0 +1,121 @@
+.page {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+.card {
+  width: min(520px, 100%);
+  padding: 32px 28px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 72%, transparent);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+}
+
+.iconWrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+  margin-bottom: 16px;
+}
+
+.iconRejected {
+  color: var(--accent-red, #ef4444);
+  background: color-mix(in srgb, var(--accent-red, #ef4444) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent-red, #ef4444) 24%, transparent);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.title {
+  margin: 0 0 10px;
+  font-size: clamp(24px, 3vw, 30px);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.body {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.detailBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container) 70%, transparent);
+  color: var(--text-secondary);
+}
+
+.detailBox strong,
+.detailBox span {
+  display: block;
+}
+
+.detailBox strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.detailBox span {
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.contactBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--brand-text) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 28%, transparent);
+  color: var(--brand-text);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.contactBtn:hover {
+  background: color-mix(in srgb, var(--brand-text) 24%, transparent);
+}
+
+.hint {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.hintLink {
+  color: var(--brand-text);
+  text-decoration: none;
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0.7;
+}

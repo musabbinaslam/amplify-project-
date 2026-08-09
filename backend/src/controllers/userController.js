@@ -257,7 +257,13 @@ function buildAdminSignupAlertHtml({
   usedInbound,
   verticals,
   hearAbout,
+  signupType,
+  agencyName,
+  agencySize,
+  website,
+  message,
 }) {
+  const isAgency = signupType === 'agency';
   const BRAND = '#25f425';
   const BRAND_DARK = '#18a818';
   const BG = '#f4f6f5';
@@ -273,11 +279,11 @@ function buildAdminSignupAlertHtml({
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>New CallsFlow Signup</title>
+<title>${isAgency ? 'New CallsFlow Agency Application' : 'New CallsFlow Signup'}</title>
 </head>
 <body style="margin:0; padding:0; background:${BG}; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:${INK}; -webkit-font-smoothing:antialiased;">
   <div style="display:none; font-size:0; line-height:0; max-height:0; max-width:0; opacity:0; overflow:hidden;">
-    New CallsFlow signup: ${escapeHtml(name)} (${escapeHtml(email)}).
+    ${isAgency ? 'New CallsFlow agency application' : 'New CallsFlow signup'}: ${escapeHtml(name)} (${escapeHtml(email)}).
   </div>
 
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${BG}; padding:32px 16px;">
@@ -310,13 +316,15 @@ function buildAdminSignupAlertHtml({
                 <tr>
                   <td style="padding:36px 40px 28px 40px; color:#ffffff;">
                     <div style="font-size:12px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:${BRAND}; margin-bottom:12px;">
-                      Signup notification
+                      ${isAgency ? 'Agency application' : 'Signup notification'}
                     </div>
                     <div style="font-size:26px; line-height:1.25; font-weight:700; color:#ffffff; margin-bottom:6px;">
-                      New user just signed up
+                      ${isAgency ? 'New agency application' : 'New user just signed up'}
                     </div>
                     <div style="font-size:14px; line-height:1.55; color:#adaaaa;">
-                      A new account was created on CallsFlow.
+                      ${isAgency
+                        ? 'A new agency signup is waiting for review in Admin → Agencies.'
+                        : 'A new account was created on CallsFlow.'}
                     </div>
                   </td>
                 </tr>
@@ -325,7 +333,7 @@ function buildAdminSignupAlertHtml({
                 <tr>
                   <td style="padding:30px 40px 0 40px;">
                     <p style="margin:0 0 18px 0; font-size:15px; color:${INK_SOFT};">
-                      Signup details:
+                      ${isAgency ? 'Application details:' : 'Signup details:'}
                     </p>
                   </td>
                 </tr>
@@ -375,6 +383,48 @@ function buildAdminSignupAlertHtml({
                                 ${escapeHtml(phone || 'N/A')}
                               </td>
                             </tr>
+                            ${isAgency ? `
+                            <tr>
+                              <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
+                                Agency Name
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:14px; font-size:14px; font-weight:600; color:${INK};">
+                                ${escapeHtml(agencyName || 'N/A')}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
+                                Agency Size
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:14px; font-size:14px; font-weight:600; color:${INK};">
+                                ${escapeHtml(agencySize || 'N/A')}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
+                                Website
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:14px; font-size:14px; font-weight:600; color:${INK};">
+                                ${escapeHtml(website || 'N/A')}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
+                                Message
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:14px; font-size:14px; font-weight:600; color:${INK};">
+                                ${escapeHtml(message || 'N/A')}
+                              </td>
+                            </tr>
+                            ` : `
                             <tr>
                               <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
                                 Selected Campaign
@@ -415,6 +465,7 @@ function buildAdminSignupAlertHtml({
                                 ${escapeHtml(hearAbout || 'N/A')}
                               </td>
                             </tr>
+                            `}
                             <tr>
                               <td style="padding-bottom:10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED}; border-top:1px solid ${BORDER}; padding-top:14px;">
                                 UID
@@ -474,21 +525,39 @@ function buildAdminSignupAlertText({
   usedInbound,
   verticals,
   hearAbout,
+  signupType,
+  agencyName,
+  agencySize,
+  website,
+  message,
 }) {
-  return [
-    'New CallsFlow signup',
+  const lines = [
+    signupType === 'agency' ? 'New CallsFlow agency signup' : 'New CallsFlow signup',
     '',
     `Name: ${name}`,
     `Email: ${email}`,
     `UID: ${uid}`,
     `Provider: ${provider}`,
     `Phone: ${phone || 'N/A'}`,
-    `Selected Vertical: ${verticals || 'N/A'}`,
-    `Weekly Spend: ${weeklySpend || 'N/A'}`,
-    `Used Inbound: ${usedInbound || 'N/A'}`,
-    `Hear About: ${hearAbout || 'N/A'}`,
-    `Completed: ${completedAt}`,
-  ].join('\n');
+  ];
+  if (signupType === 'agency') {
+    lines.push(
+      `Signup type: Agency`,
+      `Agency name: ${agencyName || 'N/A'}`,
+      `Agency size: ${agencySize || 'N/A'}`,
+      `Website: ${website || 'N/A'}`,
+      `Message: ${message || 'N/A'}`,
+    );
+  } else {
+    lines.push(
+      `Selected Vertical: ${verticals || 'N/A'}`,
+      `Weekly Spend: ${weeklySpend || 'N/A'}`,
+      `Used Inbound: ${usedInbound || 'N/A'}`,
+      `Hear About: ${hearAbout || 'N/A'}`,
+    );
+  }
+  lines.push(`Completed: ${completedAt}`);
+  return lines.join('\n');
 }
 
 function parseRange(query) {
@@ -790,11 +859,56 @@ async function patchMe(req, res) {
   }
   try {
     const body = { ...req.body };
+    const signupType = String(body.signupType || '').trim().toLowerCase();
+    const agencyApplicationInput = body.agencyApplication && typeof body.agencyApplication === 'object'
+      ? body.agencyApplication
+      : null;
     delete body.role;
+    delete body.signupType;
+    delete body.agencyApplication;
+    delete body.agencySignupStatus;
+    delete body.agencyApplicationId;
+    delete body.agencyId;
+    delete body.agencyRole;
+
     const existingProfile = await getUserDoc(req.user.uid);
     if (!existingProfile) {
       body.role = 'agent';
     }
+
+    if (!existingProfile && signupType === 'agency') {
+      const agencyApplicationService = require('../services/agencyApplicationService');
+      const contactName = String(
+        agencyApplicationInput?.contactName || body.fullName || body.displayName || body.name || '',
+      ).trim();
+      const application = await agencyApplicationService.createApplication({
+        applicantUid: req.user.uid,
+        applicantEmail: req.user.email || body.email || '',
+        contactName,
+        phone: agencyApplicationInput?.phone || body.onboarding?.phone || '',
+        agencyName: agencyApplicationInput?.agencyName,
+        agencySize: agencyApplicationInput?.agencySize,
+        website: agencyApplicationInput?.website,
+        message: agencyApplicationInput?.message,
+      });
+      body.agencySignupStatus = 'pending';
+      body.agencyApplicationId = application.id;
+      body.onboarding = {
+        phone: application.phone,
+        weeklySpend: '',
+        usedInbound: '',
+        verticals: '',
+        hearAbout: '',
+        signupType: 'agency',
+        completedAt: new Date().toISOString(),
+      };
+      if (!body.fullName && contactName) {
+        body.fullName = contactName;
+        body.name = contactName;
+        body.displayName = contactName;
+      }
+    }
+
     const identitySync = {};
     const authEmail = String(req.user?.email || '').trim();
     if (authEmail && !existingProfile?.email) identitySync.email = authEmail;
@@ -906,7 +1020,8 @@ async function patchMe(req, res) {
     res.json(payload);
   } catch (err) {
     console.error('[Users] patchMe:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to save profile' });
+    const clientError = /required|must be|already have|Agency size/i.test(String(err.message || ''));
+    res.status(clientError ? 400 : 500).json({ error: err.message || 'Failed to save profile' });
   }
 }
 
@@ -961,6 +1076,26 @@ async function postWelcomeEmail(req, res) {
 
     const onboarding = existingProfile?.onboarding || {};
     const adminRecipient = resolveAdminSignupNotifyEmail();
+    let agencyMeta = {};
+    if (existingProfile?.agencySignupStatus === 'pending' && existingProfile?.agencyApplicationId) {
+      try {
+        const agencyApplicationService = require('../services/agencyApplicationService');
+        const application = await agencyApplicationService.getApplicationById(
+          existingProfile.agencyApplicationId,
+        );
+        if (application) {
+          agencyMeta = {
+            signupType: 'agency',
+            agencyName: application.agencyName || '',
+            agencySize: application.agencySize || '',
+            website: application.website || '',
+            message: application.message || '',
+          };
+        }
+      } catch (appErr) {
+        console.warn('[Users] Failed to load agency application for admin alert:', appErr?.message || appErr);
+      }
+    }
     const signupMeta = {
       name,
       email: recipient,
@@ -973,19 +1108,23 @@ async function postWelcomeEmail(req, res) {
         existingProfile?.authProvider
       ),
       completedAt: new Date().toISOString(),
-      phone: onboarding.phone || '',
+      phone: onboarding.phone || agencyMeta.phone || '',
       weeklySpend: onboarding.weeklySpend || '',
       usedInbound: onboarding.usedInbound || '',
       verticals: onboarding.verticals || '',
       hearAbout: onboarding.hearAbout || '',
+      ...agencyMeta,
     };
     let adminSignupNotified = false;
     if (adminRecipient) {
       try {
+        const isAgency = signupMeta.signupType === 'agency';
         await sendMail({
           to: adminRecipient,
           from: SMTP_USER ? `"CallsFlow" <${SMTP_USER}>` : undefined,
-          subject: `New signup: ${recipient}`,
+          subject: isAgency
+            ? `New agency application: ${signupMeta.agencyName || recipient}`
+            : `New signup: ${recipient}`,
           text: buildAdminSignupAlertText(signupMeta),
           html: buildAdminSignupAlertHtml(signupMeta),
         });
@@ -1982,7 +2121,11 @@ async function getAvailableCampaigns(req, res) {
     const { getUserDoc } = require('../services/userDataService');
     const { listCampaignsForAgentAsync } = require('../services/campaignAccessService');
     const { getCampaignControls } = require('../services/notificationService');
+    const { isAgencySignupGated } = require('../services/agencyApplicationService');
     const doc = await getUserDoc(req.user.uid);
+    if (isAgencySignupGated(doc)) {
+      return res.json({ campaigns: [], agencyId: null, agencySignupStatus: doc.agencySignupStatus });
+    }
     const controls = await getCampaignControls();
     const pausedMap = controls?.campaigns || {};
     const metas = await listCampaignsForAgentAsync(doc?.agencyId);

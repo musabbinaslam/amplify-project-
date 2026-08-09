@@ -88,3 +88,21 @@ export function listAgencyDids(agencyId) {
 export function assignAgencyDid(agencyId, body) {
   return apiFetch(`/api/admin/agencies/${agencyId}/dids`, { method: 'POST', body });
 }
+
+export function listAgencyApplications({ status } = {}) {
+  const qs = new URLSearchParams();
+  if (status) qs.set('status', status);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch(`/api/admin/agency-applications${suffix}`, { method: 'GET' });
+}
+
+export function approveAgencyApplication(id) {
+  return apiFetch(`/api/admin/agency-applications/${id}/approve`, { method: 'POST', body: {} });
+}
+
+export function rejectAgencyApplication(id, body = {}) {
+  return apiFetch(`/api/admin/agency-applications/${id}/reject`, {
+    method: 'POST',
+    body,
+  });
+}

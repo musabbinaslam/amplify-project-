@@ -10,7 +10,7 @@ import {
   ChevronLeft, ChevronRight, Shield, FileEdit, ShieldCheck, Users,
   Building2, UserCog, Trophy,
 } from 'lucide-react';
-import { isAgencyAdminUser } from '../../utils/authRoles';
+import { isAgencyAdminUser, isAgencySignupGated } from '../../utils/authRoles';
 import classes from './Sidebar.module.css';
 
 const NAV_GROUP_LABELS = {
@@ -59,6 +59,7 @@ const Sidebar = () => {
   const activeItemRef = useRef(null);
 
   const items = React.useMemo(() => {
+    if (isAgencySignupGated(user)) return [];
     const base = [...navItems];
     if (role === 'admin') {
       base.push(

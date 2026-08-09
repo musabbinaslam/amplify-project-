@@ -69,6 +69,9 @@ router.post('/call-logs/refund', adminController.refundCall);
 
 // Agency management
 const agencyController = require('../controllers/agencyController');
+router.get('/agency-applications', agencyController.listAgencyApplications);
+router.post('/agency-applications/:id/approve', agencyController.approveAgencyApplication);
+router.post('/agency-applications/:id/reject', agencyController.rejectAgencyApplication);
 router.get('/agencies', agencyController.listAgencies);
 router.post('/agencies', agencyController.createAgency);
 router.get('/agencies/:id', agencyController.getAgency);

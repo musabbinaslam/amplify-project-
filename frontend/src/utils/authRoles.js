@@ -15,3 +15,16 @@ export function isAgencyAdminUser(user) {
   if (!user) return false;
   return user.role === 'agency_admin' || user.agencyRole === 'agency_admin';
 }
+
+export function isAgencySignupPending(user) {
+  return user?.agencySignupStatus === 'pending';
+}
+
+export function isAgencySignupRejected(user) {
+  return user?.agencySignupStatus === 'rejected';
+}
+
+/** Pending or rejected agency applicants are gated from the normal app. */
+export function isAgencySignupGated(user) {
+  return isAgencySignupPending(user) || isAgencySignupRejected(user);
+}

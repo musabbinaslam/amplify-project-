@@ -18,6 +18,9 @@ import {
   Copy,
   Check,
   Link2,
+  ClipboardList,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -32,6 +35,9 @@ import {
   lockAgencyCampaigns,
   listAgencyDids,
   assignAgencyDid,
+  listAgencyApplications,
+  approveAgencyApplication,
+  rejectAgencyApplication,
 } from '../../services/agencyService';
 import { getAdminOverviewLite, listAdminUsers } from '../../services/adminService';
 import AdminAgencySettingsShell from '../../components/admin/AdminAgencySettingsShell';
@@ -42,6 +48,12 @@ import classes from './AdminAgenciesPage.module.css';
 
 const MEMBERS_PAGE_SIZE = 25;
 const PICKER_PAGE_SIZE = 12;
+const AGENCY_SIZE_LABELS = {
+  '1-5': '1–5 agents',
+  '6-20': '6–20 agents',
+  '21-50': '21–50 agents',
+  '51+': '51+ agents',
+};
 
 const SETTINGS_TABS = [
   { id: 'members', label: 'Members' },
@@ -283,7 +295,16 @@ function AssignMembersModal({
 export default function AdminAgenciesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState(() => (
+    searchParams.get('view') === 'pending' ? 'pending' : 'agencies'
+  ));
   const [agencies, setAgencies] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [applicationFilter, setApplicationFilter] = useState('pending');
+  const [selectedApplicationId, setSelectedApplicationId] = useState('');
+  const [reviewingId, setReviewingId] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
   const [campaigns, setCampaigns] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedId, setSelectedId] = useState(() => searchParams.get('selected') || '');
@@ -316,28 +337,46 @@ export default function AdminAgenciesPage() {
   }, [selectedId]);
 
   const selected = agencies.find((a) => a.id === selectedId) || null;
+  const selectedApplication = applications.find((a) => a.id === selectedApplicationId) || null;
 
   const breadcrumbs = useMemo(() => {
     const crumbs = [
       { label: 'Admin', href: '/app/admin' },
-      { label: 'Agencies', href: selectedId ? '/app/admin/agencies' : undefined },
+      { label: 'Agencies', href: (selectedId || viewMode === 'pending') ? '/app/admin/agencies' : undefined },
     ];
-    if (selectedId) {
+    if (viewMode === 'pending') {
+      crumbs.push({ label: 'Pending applications' });
+      if (selectedApplication) crumbs.push({ label: selectedApplication.agencyName || 'Application' });
+    } else if (selectedId) {
       crumbs.push({ label: selected?.name || 'Loading…' });
     }
     return crumbs;
-  }, [selectedId, selected?.name]);
-
-  usePageBreadcrumbs(breadcrumbs);
+  }, [selectedId, selected?.name, viewMode, selectedApplication]);
 
   const updateSelectedId = useCallback((id) => {
     setSelectedId(id);
-    if (id) {
-      setSearchParams({ selected: id }, { replace: true });
+    const next = new URLSearchParams(searchParams);
+    next.delete('view');
+    if (id) next.set('selected', id);
+    else next.delete('selected');
+    setSearchParams(next, { replace: true });
+    setViewMode('agencies');
+  }, [searchParams, setSearchParams]);
+
+  const switchView = useCallback((mode) => {
+    setViewMode(mode);
+    const next = new URLSearchParams(searchParams);
+    if (mode === 'pending') {
+      next.set('view', 'pending');
+      next.delete('selected');
+      setSelectedId('');
     } else {
-      setSearchParams({}, { replace: true });
+      next.delete('view');
     }
-  }, [setSearchParams]);
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  usePageBreadcrumbs(breadcrumbs);
 
   useEffect(() => {
     const param = searchParams.get('selected');
@@ -359,19 +398,34 @@ export default function AdminAgenciesPage() {
   const stats = useMemo(() => {
     const active = agencies.filter((a) => a.status !== 'suspended').length;
     const agents = agencies.reduce((sum, a) => sum + (a.agentCount ?? 0), 0);
-    return { total: agencies.length, active, agents };
-  }, [agencies]);
+    return { total: agencies.length, active, agents, pending: pendingCount };
+  }, [agencies, pendingCount]);
 
   const metrics = useMemo(() => [
     { label: 'agencies', value: stats.total },
     { label: 'active', value: stats.active },
     { label: 'agents', value: stats.agents },
+    { label: 'pending', value: stats.pending },
   ], [stats]);
 
   const loadAgencies = useCallback(async () => {
     const out = await listAdminAgencies();
     setAgencies(out.agencies || []);
   }, []);
+
+  const loadApplications = useCallback(async (status = applicationFilter) => {
+    const [out, pendingOut] = await Promise.all([
+      listAgencyApplications({ status: status === 'all' ? undefined : status }),
+      listAgencyApplications({ status: 'pending' }),
+    ]);
+    const rows = out.applications || [];
+    setApplications(rows);
+    setPendingCount((pendingOut.applications || []).length);
+    setSelectedApplicationId((prev) => {
+      if (prev && rows.some((r) => r.id === prev)) return prev;
+      return rows[0]?.id || '';
+    });
+  }, [applicationFilter]);
 
   const loadShell = useCallback(async () => {
     setLoading(true);
@@ -382,13 +436,13 @@ export default function AdminAgenciesPage() {
       ]);
       setCampaigns(ov?.campaigns || []);
       setUsers(dedupeUsers(userOut?.users || []).filter((u) => !u.agencyId));
-      await loadAgencies();
+      await Promise.all([loadAgencies(), loadApplications()]);
     } catch (e) {
       toast.error(e.message || 'Failed to load agencies');
     } finally {
       setLoading(false);
     }
-  }, [loadAgencies]);
+  }, [loadAgencies, loadApplications]);
 
   const loadAgencyDetail = useCallback(async (agencyId) => {
     if (!agencyId) {
@@ -457,6 +511,37 @@ export default function AdminAgenciesPage() {
       if (out?.agency?.id) updateSelectedId(out.agency.id);
     } catch (err) {
       toast.error(err.message || 'Failed to create agency');
+    }
+  };
+
+  const handleApproveApplication = async (applicationId) => {
+    if (!applicationId) return;
+    setReviewingId(applicationId);
+    try {
+      const out = await approveAgencyApplication(applicationId);
+      toast.success(`Approved — created ${out?.agency?.name || 'agency'}`);
+      setRejectReason('');
+      await Promise.all([loadApplications(), loadAgencies()]);
+      if (out?.agency?.id) updateSelectedId(out.agency.id);
+    } catch (err) {
+      toast.error(err.message || 'Failed to approve application');
+    } finally {
+      setReviewingId('');
+    }
+  };
+
+  const handleRejectApplication = async (applicationId) => {
+    if (!applicationId) return;
+    setReviewingId(applicationId);
+    try {
+      await rejectAgencyApplication(applicationId, { reason: rejectReason });
+      toast.success('Application rejected');
+      setRejectReason('');
+      await loadApplications();
+    } catch (err) {
+      toast.error(err.message || 'Failed to reject application');
+    } finally {
+      setReviewingId('');
     }
   };
 
@@ -609,7 +694,7 @@ export default function AdminAgenciesPage() {
     }
   };
 
-  if (loading && !agencies.length) return <PageLoader />;
+  if (loading) return <PageLoader />;
 
   const contextHeader = selected ? (
     <div className={classes.contextHeaderRow}>
@@ -692,8 +777,179 @@ export default function AdminAgenciesPage() {
     </form>
   );
 
+  if (viewMode === 'pending') {
+    return (
+      <div className={classes.pendingPage}>
+        <div className={classes.viewToggleRow}>
+          <div className={classes.viewToggle} role="tablist" aria-label="Agencies views">
+            <button
+              type="button"
+              className={classes.viewToggleBtn}
+              onClick={() => switchView('agencies')}
+            >
+              Agencies
+            </button>
+            <button
+              type="button"
+              className={`${classes.viewToggleBtn} ${classes.viewToggleBtnActive}`}
+              onClick={() => switchView('pending')}
+            >
+              Pending applications
+              {pendingCount > 0 ? <span className={classes.pendingBadge}>{pendingCount}</span> : null}
+            </button>
+          </div>
+          <div className={classes.filterRow}>
+            <label htmlFor="application-filter">Status</label>
+            <select
+              id="application-filter"
+              className={shared.select}
+              value={applicationFilter}
+              onChange={(e) => setApplicationFilter(e.target.value)}
+            >
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="all">All</option>
+            </select>
+          </div>
+        </div>
+
+        <div className={classes.pendingLayout}>
+          <aside className={classes.pendingList}>
+            {applications.length === 0 ? (
+              <div className={shared.emptyPanel}>
+                <ClipboardList size={24} className={shared.emptyPanelIcon} />
+                <h4>No applications</h4>
+                <p>Agency signup requests will show up here.</p>
+              </div>
+            ) : (
+              applications.map((app) => (
+                <button
+                  key={app.id}
+                  type="button"
+                  className={`${classes.pendingListItem} ${selectedApplicationId === app.id ? classes.pendingListItemActive : ''}`}
+                  onClick={() => setSelectedApplicationId(app.id)}
+                >
+                  <strong>{app.agencyName || 'Untitled agency'}</strong>
+                  <span>{app.contactName || app.applicantEmail}</span>
+                  <em className={classes.pendingStatus}>{app.status}</em>
+                </button>
+              ))
+            )}
+          </aside>
+
+          <section className={classes.pendingDetail}>
+            {!selectedApplication ? (
+              <div className={shared.emptyPanel}>
+                <ClipboardList size={24} className={shared.emptyPanelIcon} />
+                <h4>Select an application</h4>
+                <p>Review contact and agency details, then accept or reject.</p>
+              </div>
+            ) : (
+              <>
+                <div className={classes.pendingDetailHeader}>
+                  <div>
+                    <h2>{selectedApplication.agencyName}</h2>
+                    <p>
+                      Submitted {selectedApplication.createdAt
+                        ? new Date(selectedApplication.createdAt).toLocaleString()
+                        : '—'}
+                    </p>
+                  </div>
+                  <span className={`${shared.statusPill} ${
+                    selectedApplication.status === 'approved'
+                      ? shared.dispAnswered
+                      : selectedApplication.status === 'rejected'
+                        ? shared.dispMissed
+                        : ''
+                  }`}
+                  >
+                    {selectedApplication.status}
+                  </span>
+                </div>
+
+                <dl className={classes.pendingMeta}>
+                  <div><dt>Contact</dt><dd>{selectedApplication.contactName || '—'}</dd></div>
+                  <div><dt>Email</dt><dd>{selectedApplication.applicantEmail || '—'}</dd></div>
+                  <div><dt>Phone</dt><dd>{selectedApplication.phone || '—'}</dd></div>
+                  <div><dt>Agency size</dt><dd>{AGENCY_SIZE_LABELS[selectedApplication.agencySize] || selectedApplication.agencySize || '—'}</dd></div>
+                  <div><dt>Website</dt><dd>{selectedApplication.website || '—'}</dd></div>
+                  <div><dt>Applicant UID</dt><dd className={classes.mono}>{selectedApplication.applicantUid}</dd></div>
+                  <div className={classes.spanFull}>
+                    <dt>Message</dt>
+                    <dd>{selectedApplication.message || '—'}</dd>
+                  </div>
+                  {selectedApplication.rejectReason ? (
+                    <div className={classes.spanFull}>
+                      <dt>Reject reason</dt>
+                      <dd>{selectedApplication.rejectReason}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+
+                {selectedApplication.status === 'pending' ? (
+                  <div className={classes.pendingActions}>
+                    <div className={shared.formField}>
+                      <label htmlFor="reject-reason">Reject reason (optional)</label>
+                      <input
+                        id="reject-reason"
+                        className={shared.input}
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        placeholder="Not a fit / incomplete info / etc."
+                      />
+                    </div>
+                    <div className={classes.pendingActionBtns}>
+                      <button
+                        type="button"
+                        className={shared.primaryBtn}
+                        disabled={reviewingId === selectedApplication.id}
+                        onClick={() => handleApproveApplication(selectedApplication.id)}
+                      >
+                        <CheckCircle2 size={16} />
+                        {reviewingId === selectedApplication.id ? 'Working…' : 'Accept'}
+                      </button>
+                      <button
+                        type="button"
+                        className={shared.dangerBtn}
+                        disabled={reviewingId === selectedApplication.id}
+                        onClick={() => handleRejectApplication(selectedApplication.id)}
+                      >
+                        <XCircle size={16} />
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
+      <div className={classes.viewToggleRow}>
+        <div className={classes.viewToggle} role="tablist" aria-label="Agencies views">
+          <button
+            type="button"
+            className={`${classes.viewToggleBtn} ${classes.viewToggleBtnActive}`}
+            onClick={() => switchView('agencies')}
+          >
+            Agencies
+          </button>
+          <button
+            type="button"
+            className={classes.viewToggleBtn}
+            onClick={() => switchView('pending')}
+          >
+            Pending applications
+            {pendingCount > 0 ? <span className={classes.pendingBadge}>{pendingCount}</span> : null}
+          </button>
+        </div>
+      </div>
       <AdminAgencySettingsShell
         metrics={metrics}
         loading={loading}

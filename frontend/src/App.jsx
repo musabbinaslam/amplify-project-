@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -8,7 +8,7 @@ import PageLoader from './components/ui/PageLoader';
 import ErrorFallback from './components/ui/ErrorFallback';
 import LandingPage from './pages/LandingPage';
 import useAuthStore from './store/authStore';
-import { isAgencyAdminUser } from './utils/authRoles';
+import { isAgencyAdminUser, isAgencySignupGated } from './utils/authRoles';
 import { auth } from './config/firebase';
 import UpdateBanner from './components/ui/UpdateBanner';
 import TermsGatewayModal from './components/TermsGatewayModal';
@@ -16,6 +16,7 @@ import TermsGatewayModal from './components/TermsGatewayModal';
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 
+const AgencyPendingPage = lazy(() => import('./pages/AgencyPendingPage'));
 const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 const TakeCallsPage = lazy(() => import('./pages/TakeCallsPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
@@ -58,9 +59,20 @@ import DialerOverlay from './components/ui/DialerOverlay';
 const ProtectedRoute = () => {
   const token = useAuthStore((s) => s.token);
   const loading = useAuthStore((s) => s.loading);
+  const user = useAuthStore((s) => s.user);
+  const location = useLocation();
   const hasFirebaseSession = Boolean(auth?.currentUser);
   if (loading) return <PageLoader fullScreen />;
   if (!token || !hasFirebaseSession) return <Navigate to="/login" replace />;
+
+  const gated = isAgencySignupGated(user);
+  if (gated && location.pathname !== '/app/agency-pending') {
+    return <Navigate to="/app/agency-pending" replace />;
+  }
+  if (!gated && location.pathname === '/app/agency-pending') {
+    return <Navigate to="/app" replace />;
+  }
+
   return (
     <>
       <TermsGatewayModal />
@@ -161,6 +173,9 @@ const AnimatedRoutes = () => {
         <Route path="/app" element={<ProtectedRoute />}>
           <Route index element={
             <Suspense fallback={<PageLoader />}><WelcomePage /></Suspense>
+          } />
+          <Route path="agency-pending" element={
+            <Suspense fallback={<PageLoader />}><AgencyPendingPage /></Suspense>
           } />
           <Route path="take-calls" element={
             <Suspense fallback={<PageLoader />}><TakeCallsPage /></Suspense>

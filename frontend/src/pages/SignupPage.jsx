@@ -61,6 +61,13 @@ const VERTICALS = [
   'Leads',
 ];
 
+const AGENCY_SIZE_OPTIONS = [
+  { value: '1-5', label: '1–5 agents' },
+  { value: '6-20', label: '6–20 agents' },
+  { value: '21-50', label: '21–50 agents' },
+  { value: '51+', label: '51+ agents' },
+];
+
 const FIREBASE_ERROR_MAP = {
   'auth/email-already-in-use': 'An account with this email already exists',
   'auth/weak-password': 'Password must be at least 6 characters',
@@ -82,6 +89,7 @@ const SignupPage = () => {
   const saveGoogleOnboarding = useAuthStore((s) => s.saveGoogleOnboarding);
 
   const [step, setStep] = useState('credentials');
+  const [signupType, setSignupType] = useState('agent'); // 'agent' | 'agency'
   const googleFlowActive = useRef(false);
 
   const [form, setForm] = useState({
@@ -93,6 +101,10 @@ const SignupPage = () => {
     usedInbound: '',
     verticals: '',
     hearAbout: '',
+    agencyName: '',
+    agencySize: '',
+    website: '',
+    message: '',
     password: '',
     confirmPassword: '',
   });
@@ -142,12 +154,33 @@ const SignupPage = () => {
     return true;
   };
 
+  const validateAgencyFields = () => {
+    const digits = form.phone.replace(/\D/g, '');
+    if (!digits || digits.length < 10) {
+      toast.error('Enter a valid phone number (at least 10 digits)');
+      return false;
+    }
+    if (!form.agencyName.trim()) {
+      toast.error('Agency name is required');
+      return false;
+    }
+    if (!form.agencySize) {
+      toast.error('Select your agency size');
+      return false;
+    }
+    return true;
+  };
+
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
-    if (!form.fullName.trim()) return toast.error('Full name is required');
+    if (!form.fullName.trim()) return toast.error(signupType === 'agency' ? 'Contact name is required' : 'Full name is required');
     if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email))
       return toast.error('Enter a valid email address');
-    if (!validateOnboarding()) return;
+    if (signupType === 'agency') {
+      if (!validateAgencyFields()) return;
+    } else if (!validateOnboarding()) {
+      return;
+    }
     if (form.password.length < 6) return toast.error('Password must be at least 6 characters');
     if (form.password !== form.confirmPassword) return toast.error('Passwords do not match');
     if (!termsAccepted) {
@@ -160,6 +193,7 @@ const SignupPage = () => {
     try {
       await signup({
         ...form,
+        signupType,
         phone: buildInternationalPhone(form.phoneCountry, form.phone),
         tosAccepted: true,
         tosVersion: TOS_VERSION,
@@ -170,7 +204,7 @@ const SignupPage = () => {
         phone: buildInternationalPhone(form.phoneCountry, form.phone),
         fullName: form.fullName,
       });
-      if (refCode) {
+      if (refCode && signupType === 'agent') {
         try {
           await referralService.claimCode(refCode);
           toast.success('Referral code applied! You\'re helping your referrer earn a discount.');
@@ -178,7 +212,7 @@ const SignupPage = () => {
           console.warn('[Referral] Claim failed:', refErr.message);
         }
       }
-      toast.success('Account created!');
+      toast.success(signupType === 'agency' ? 'Application submitted!' : 'Account created!');
       navigate('/app');
     } catch (err) {
       toast.error(getFirebaseErrorMessage(err));
@@ -188,7 +222,7 @@ const SignupPage = () => {
   };
 
   const handleGoogleSignup = async () => {
-    if (submitting) return;
+    if (submitting || signupType === 'agency') return;
     setSubmitting(true);
     googleFlowActive.current = true;
     try {
@@ -455,11 +489,13 @@ const SignupPage = () => {
     <AuthShell
       brand={renderBrandPanel(
         'Join CallsFlow',
-        'Create your agent account',
-        'Sign up to receive qualified inbound calls in your verticals.',
+        signupType === 'agency' ? 'Apply as an agency' : 'Create your agent account',
+        signupType === 'agency'
+          ? 'Tell us about your agency. We’ll review your application before unlocking access.'
+          : 'Sign up to receive qualified inbound calls in your verticals.',
       )}
     >
-      {refCode && (
+      {refCode && signupType === 'agent' && (
         <div className={classes.referralBanner}>
           <span className={classes.referralIcon} aria-hidden>✦</span>
           <span>
@@ -471,23 +507,50 @@ const SignupPage = () => {
       )}
 
       <motion.div initial="hidden" animate="visible" variants={formStagger}>
-        <motion.div variants={fieldMotion}>
-          <button type="button" className={classes.googleBtn} onClick={handleGoogleSignup} disabled={submitting}>
-            <svg className={classes.googleIcon} viewBox="0 0 24 24" width="20" height="20" aria-hidden>
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-            </svg>
-            Sign up with Google
+        <motion.div className={classes.typeToggle} variants={fieldMotion} role="tablist" aria-label="Signup type">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={signupType === 'agent'}
+            className={`${classes.typeToggleBtn} ${signupType === 'agent' ? classes.typeToggleBtnActive : ''}`}
+            onClick={() => setSignupType('agent')}
+          >
+            Agent
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={signupType === 'agency'}
+            className={`${classes.typeToggleBtn} ${signupType === 'agency' ? classes.typeToggleBtnActive : ''}`}
+            onClick={() => setSignupType('agency')}
+          >
+            Agency
           </button>
         </motion.div>
 
-        <motion.div className={classes.divider} variants={fieldMotion}>
-          <span className={classes.dividerLine} />
-          <span className={classes.dividerText}>or</span>
-          <span className={classes.dividerLine} />
-        </motion.div>
+        {signupType === 'agent' ? (
+          <div className={classes.modeSection}>
+            <button type="button" className={classes.googleBtn} onClick={handleGoogleSignup} disabled={submitting}>
+              <svg className={classes.googleIcon} viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              Sign up with Google
+            </button>
+
+            <div className={classes.divider}>
+              <span className={classes.dividerLine} />
+              <span className={classes.dividerText}>or</span>
+              <span className={classes.dividerLine} />
+            </div>
+          </div>
+        ) : (
+          <p className={classes.agencyHint}>
+            Agency accounts are reviewed before access is unlocked.
+          </p>
+        )}
 
         <motion.form
           className={`${classes.form} ${classes.formGrid}`}
@@ -495,13 +558,15 @@ const SignupPage = () => {
           variants={fieldMotion}
         >
           <div className={classes.fieldGroup}>
-            <label className={classes.label} htmlFor="signup-full-name">Full Name</label>
+            <label className={classes.label} htmlFor="signup-full-name">
+              {signupType === 'agency' ? 'Contact name' : 'Full Name'}
+            </label>
             <input
               id="signup-full-name"
               className={classes.input}
               type="text"
               autoComplete="name"
-              placeholder="John Doe"
+              placeholder={signupType === 'agency' ? 'Jane Smith' : 'John Doe'}
               value={form.fullName}
               onChange={(e) => update('fullName', e.target.value)}
             />
@@ -520,7 +585,103 @@ const SignupPage = () => {
             />
           </div>
 
-          {renderOnboardingFields()}
+          <div className={`${classes.modeFields} ${classes.spanFull}`}>
+            {signupType === 'agent' ? (
+              <div className={classes.modeFieldsInner}>
+                {renderOnboardingFields()}
+              </div>
+            ) : (
+              <div className={classes.modeFieldsInner}>
+                <div className={`${classes.fieldGroup} ${classes.spanFull}`}>
+                  <label className={classes.label} htmlFor="signup-phone-agency">
+                    Phone
+                    <span className={classes.required}>*</span>
+                  </label>
+                  <div className={classes.phoneRow}>
+                    <select
+                      className={classes.countrySelect}
+                      value={form.phoneCountry}
+                      onChange={(e) => update('phoneCountry', e.target.value)}
+                      aria-label="Country"
+                    >
+                      {COUNTRY_DIAL_CODES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.name} ({c.dial})
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      id="signup-phone-agency"
+                      className={classes.phoneInput}
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel-national"
+                      placeholder="Mobile number (no country code)"
+                      value={form.phone}
+                      onChange={(e) => update('phone', e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className={classes.fieldGroup}>
+                  <label className={classes.label} htmlFor="signup-agency-name">
+                    Agency name
+                    <span className={classes.required}>*</span>
+                  </label>
+                  <input
+                    id="signup-agency-name"
+                    className={classes.input}
+                    type="text"
+                    placeholder="Acme Call Center"
+                    value={form.agencyName}
+                    onChange={(e) => update('agencyName', e.target.value)}
+                  />
+                </div>
+
+                <div className={classes.fieldGroup}>
+                  <label className={classes.label} htmlFor="signup-agency-size">
+                    Agency size
+                    <span className={classes.required}>*</span>
+                  </label>
+                  <select
+                    id="signup-agency-size"
+                    className={classes.select}
+                    value={form.agencySize}
+                    onChange={(e) => update('agencySize', e.target.value)}
+                  >
+                    <option value="">Select size</option>
+                    {AGENCY_SIZE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className={`${classes.fieldGroup} ${classes.spanFull}`}>
+                  <label className={classes.label} htmlFor="signup-website">Website (optional)</label>
+                  <input
+                    id="signup-website"
+                    className={classes.input}
+                    type="url"
+                    placeholder="https://example.com"
+                    value={form.website}
+                    onChange={(e) => update('website', e.target.value)}
+                  />
+                </div>
+
+                <div className={`${classes.fieldGroup} ${classes.spanFull}`}>
+                  <label className={classes.label} htmlFor="signup-message">Message (optional)</label>
+                  <textarea
+                    id="signup-message"
+                    className={classes.textarea}
+                    rows={3}
+                    placeholder="Tell us about your team and what you’re looking for"
+                    value={form.message}
+                    onChange={(e) => update('message', e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className={classes.fieldGroup}>
             <label className={classes.label} htmlFor="signup-password">Password</label>
@@ -548,7 +709,6 @@ const SignupPage = () => {
             />
           </div>
 
-          {/* Inline ToS Box */}
           <div className={`${classes.tosInlineWrap} ${classes.spanFull}`}>
             <div className={classes.tosInlineBox}>
               <strong className={classes.tosInlineHeader}>{TOS_HEADER}</strong>
@@ -573,7 +733,9 @@ const SignupPage = () => {
             type="submit"
             disabled={submitting || !termsAccepted}
           >
-            {submitting ? 'Creating Account...' : 'Continue'}
+            {submitting
+              ? (signupType === 'agency' ? 'Submitting…' : 'Creating Account...')
+              : (signupType === 'agency' ? 'Submit application' : 'Continue')}
           </button>
         </motion.form>
       </motion.div>
