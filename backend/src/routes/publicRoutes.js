@@ -139,47 +139,66 @@ router.get('/campaigns', async (req, res) => {
  * 4. GET /api/public/ping/:campaignId/:token/:phone (TLDCRM style)
  */
 async function handlePing(req, res) {
-    try {
-        const { campaignId, phone: pathPhone, token } = req.params;
-        const { state: queryState, phone: queryPhone, agencyId } = req.query;
+  try {
+    const { campaignId, phone: pathPhone, token } = req.params;
+    const { state: queryState, phone: queryPhone, agencyId } = req.query;
 
-        const phone = pathPhone || queryPhone;
-        let state = queryState || null;
+    const rawPhone = pathPhone || queryPhone;
 
-        // If state is not provided, derive it from the phone number area code
-        if (phone && !state) {
-            state = phoneUtils.getStateFromPhone(phone);
-            if (state) {
-                console.log(`[Public API] 📱 Derived state '${state}' from phone: ${phone}`);
-            }
-        }
+    // Sanitize: strip non-digits and require at least 10 digits.
+    // Catches empty Ringba placeholders like "phone_number=" or "phone_number=undefined".
+    const phoneDigits = String(rawPhone || '').replace(/\D/g, '');
+    const phone = phoneDigits.length >= 10 ? rawPhone : null;
 
-        // Execute the fast snapshot (Soft Ping)
-        if (await isCampaignPaused(campaignId)) {
-            console.log(`[Public API] 📡 Ping for '${campaignId}' blocked — campaign is paused`);
-            return res.json({
-                status: 0,
-                campaign: campaignId,
-                state: state || 'any',
-                paused: true,
-                ...(phone && { derived_state: state })
-            });
-        }
-        const isAvailable = await agentManager.checkAvailableAgent(campaignId, state, { agencyId });
+    let state = queryState || null;
 
-        console.log(`[Public API] 📡 Ping for '${campaignId}' | Agency: ${agencyId || 'platform'} | Phone: ${phone || 'N/A'} | State: ${state || 'ANY'} -> ${isAvailable ? 'AVAILABLE (1)' : 'BUSY (0)'}`);
-
-        return res.json({
-            status: isAvailable ? 1 : 0,
-            campaign: campaignId,
-            state: state || 'any',
-            // Optional metadata for the caller
-            ...(phone && { derived_state: state })
-        });
-    } catch (err) {
-        console.error('[Public API] 📡 Ping Error:', err.message);
-        return res.status(500).json({ status: 0, error: 'Internal Server Error' });
+    // If state is not provided, derive it from the phone number area code
+    if (phone && !state) {
+      state = phoneUtils.getStateFromPhone(phone);
+      if (state) {
+        console.log(`[Public API] 📱 Derived state '${state}' from phone: ${phone}`);
+      }
     }
+
+    // Block pings with no valid phone AND no explicit state.
+    // Without a state we cannot verify agent licensing, so returning AVAILABLE
+    // would cause Ringba to route callers that no agent is licensed to handle.
+    if (!phone && !state) {
+      console.log(`[Public API] 📡 Ping for '${campaignId}' blocked — no valid phone or state (raw: ${rawPhone || 'N/A'})`);
+      return res.json({
+        status: 0,
+        campaign: campaignId,
+        state: 'any',
+        reason: 'no_state',
+      });
+    }
+
+    // Execute the fast snapshot (Soft Ping)
+    if (await isCampaignPaused(campaignId)) {
+      console.log(`[Public API] 📡 Ping for '${campaignId}' blocked — campaign is paused`);
+      return res.json({
+        status: 0,
+        campaign: campaignId,
+        state: state || 'any',
+        paused: true,
+        ...(phone && { derived_state: state })
+      });
+    }
+    const isAvailable = await agentManager.checkAvailableAgent(campaignId, state, { agencyId });
+
+    console.log(`[Public API] 📡 Ping for '${campaignId}' | Agency: ${agencyId || 'platform'} | Phone: ${phone || 'N/A'} | State: ${state || 'ANY'} -> ${isAvailable ? 'AVAILABLE (1)' : 'BUSY (0)'}`);
+
+    return res.json({
+      status: isAvailable ? 1 : 0,
+      campaign: campaignId,
+      state: state || 'any',
+      // Optional metadata for the caller
+      ...(phone && { derived_state: state })
+    });
+  } catch (err) {
+    console.error('[Public API] 📡 Ping Error:', err.message);
+    return res.status(500).json({ status: 0, error: 'Internal Server Error' });
+  }
 }
 
 // 1. Regular ping with query params
