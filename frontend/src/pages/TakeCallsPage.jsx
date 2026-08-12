@@ -15,9 +15,9 @@ import useAuthStore from '../store/authStore';
 import { useAudioSettingsStore } from '../store/audioSettingsStore';
 import { apiFetch } from '../services/apiClient';
 import { stripeService } from '../services/stripeService';
-import { getProfile, saveProfile } from '../services/profileService';
+import { getProfile, saveProfile, updateMyCallLogDisposition } from '../services/profileService';
 import { fetchCampaignPricing } from '../services/dashboardService';
-import { isAgencyAdminUser, getAgencySetting } from '../utils/authRoles';
+import { CallLogDispositionBadge } from '../components/callLogs/CallLogStatusCells';
 
 // All 50 US States
 const US_STATES = [
@@ -79,7 +79,7 @@ const StepOne = ({ onNext }) => {
   const stopMic = useCallback(() => {
     if (mediaStreamRef.current) mediaStreamRef.current.getTracks().forEach((t) => t.stop());
     if (audioContextRef.current) {
-      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current.close().catch(() => { });
       audioContextRef.current = null;
     }
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
@@ -216,7 +216,7 @@ const StepOne = ({ onNext }) => {
       oscillator.connect(gainNode);
       gainNode.connect(audioCtx.destination);
       if (audioOutputDeviceId && typeof audioCtx.setSinkId === 'function') {
-        audioCtx.setSinkId(audioOutputDeviceId).catch(() => {});
+        audioCtx.setSinkId(audioOutputDeviceId).catch(() => { });
       }
       oscillator.start(audioCtx.currentTime);
       oscillator.stop(audioCtx.currentTime + 0.3);
@@ -335,39 +335,39 @@ const StepTwo = ({ user, onNext, onBack, selected = '', pausedCampaigns = {}, li
             <p className={classes.continueSub}>Contact your agency admin to get access to campaigns.</p>
           </div>
         ) : (
-        <div className={classes.campaignsList}>
-          {campaigns.map((c) => {
-            const isPaused = Boolean(pausedCampaigns[c.id]);
-            return (
-              <div key={c.id}
-                className={`glass ${classes.campaignSelectCard} ${selectedCampaign === c.id ? classes.campaignSelectActive : ''}`}
-                style={isPaused ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
-                onClick={() => { if (!isPaused) setSelectedCampaign(c.id); }}>
-                <div className={classes.campaignIconCol}><div className={classes.campIconWrapper}><c.icon size={24} /></div></div>
-                <div className={classes.campaignInfoCol}>
-                  <h3>{c.title}</h3>
-                  <p className={classes.campaignDesc}>{c.subtitle}</p>
-                  <div className={classes.campaignMetrics}>
-                    {!getAgencySetting(user, 'hidePricing') && (
-                      <span className={classes.campaignPrice}>{c.price}</span>
+          <div className={classes.campaignsList}>
+            {campaigns.map((c) => {
+              const isPaused = Boolean(pausedCampaigns[c.id]);
+              return (
+                <div key={c.id}
+                  className={`glass ${classes.campaignSelectCard} ${selectedCampaign === c.id ? classes.campaignSelectActive : ''}`}
+                  style={isPaused ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+                  onClick={() => { if (!isPaused) setSelectedCampaign(c.id); }}>
+                  <div className={classes.campaignIconCol}><div className={classes.campIconWrapper}><c.icon size={24} /></div></div>
+                  <div className={classes.campaignInfoCol}>
+                    <h3>{c.title}</h3>
+                    <p className={classes.campaignDesc}>{c.subtitle}</p>
+                    <div className={classes.campaignMetrics}>
+                      {!getAgencySetting(user, 'hidePricing') && (
+                        <span className={classes.campaignPrice}>{c.price}</span>
+                      )}
+                      <span className={classes.campaignBuffer}>{c.buffer}</span>
+                    </div>
+                    {isPaused && (
+                      <p className={classes.warningText} style={{ marginTop: 6 }}>
+                        Paused by admin
+                      </p>
                     )}
-                    <span className={classes.campaignBuffer}>{c.buffer}</span>
                   </div>
-                  {isPaused && (
-                    <p className={classes.warningText} style={{ marginTop: 6 }}>
-                      Paused by admin
-                    </p>
-                  )}
-                </div>
-                <div className={classes.campaignRadio}>
-                  <div className={`${classes.radioCircle} ${selectedCampaign === c.id ? classes.radioActive : ''}`}>
-                    {selectedCampaign === c.id && <div className={classes.radioInner} />}
+                  <div className={classes.campaignRadio}>
+                    <div className={`${classes.radioCircle} ${selectedCampaign === c.id ? classes.radioActive : ''}`}>
+                      {selectedCampaign === c.id && <div className={classes.radioInner} />}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
@@ -490,49 +490,49 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
                 {statePresets.map(preset => {
                   const isSelected = preset.id === selectedPresetId;
                   return (
-                  <motion.div
-                    key={preset.id}
-                    layout
-                    className={`glass ${classes.presetCard} ${isSelected ? classes.presetCardActive : ''}`}
-                    variants={cardVariants}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                    whileHover={reduceMotion ? undefined : { y: -3 }}
-                    transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                  >
-                    <button
-                      className={classes.presetCardMain}
-                      onClick={() => onNext(preset.states, preset.id)}
-                      title={`Apply ${preset.name} and continue`}
+                    <motion.div
+                      key={preset.id}
+                      layout
+                      className={`glass ${classes.presetCard} ${isSelected ? classes.presetCardActive : ''}`}
+                      variants={cardVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      whileHover={reduceMotion ? undefined : { y: -3 }}
+                      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
                     >
-                      <span className={classes.presetName}>{preset.name}</span>
-                      <span className={classes.presetMeta}>
-                        {isSelected && <CheckCircle2 size={12} />} {preset.states.length} state{preset.states.length !== 1 ? 's' : ''}{isSelected ? ' · Selected' : ''}
-                      </span>
-                      <span className={classes.presetCodes}>{preset.states.join(', ')}</span>
-                    </button>
-                    <div className={classes.presetActions}>
-                      <motion.button
-                        className={classes.presetIconBtn}
-                        onClick={() => openEditFor(preset)}
-                        title={`Edit ${preset.name}`}
-                        aria-label={`Edit ${preset.name}`}
-                        whileTap={reduceMotion ? undefined : { scale: 0.88 }}
+                      <button
+                        className={classes.presetCardMain}
+                        onClick={() => onNext(preset.states, preset.id)}
+                        title={`Apply ${preset.name} and continue`}
                       >
-                        <Pencil size={14} />
-                      </motion.button>
-                      <motion.button
-                        className={`${classes.presetIconBtn} ${classes.presetDeleteBtn}`}
-                        onClick={() => deletePreset(preset.id)}
-                        title={`Delete ${preset.name}`}
-                        aria-label={`Delete ${preset.name}`}
-                        whileTap={reduceMotion ? undefined : { scale: 0.88 }}
-                      >
-                        <Trash2 size={14} />
-                      </motion.button>
-                    </div>
-                  </motion.div>
+                        <span className={classes.presetName}>{preset.name}</span>
+                        <span className={classes.presetMeta}>
+                          {isSelected && <CheckCircle2 size={12} />} {preset.states.length} state{preset.states.length !== 1 ? 's' : ''}{isSelected ? ' · Selected' : ''}
+                        </span>
+                        <span className={classes.presetCodes}>{preset.states.join(', ')}</span>
+                      </button>
+                      <div className={classes.presetActions}>
+                        <motion.button
+                          className={classes.presetIconBtn}
+                          onClick={() => openEditFor(preset)}
+                          title={`Edit ${preset.name}`}
+                          aria-label={`Edit ${preset.name}`}
+                          whileTap={reduceMotion ? undefined : { scale: 0.88 }}
+                        >
+                          <Pencil size={14} />
+                        </motion.button>
+                        <motion.button
+                          className={`${classes.presetIconBtn} ${classes.presetDeleteBtn}`}
+                          onClick={() => deletePreset(preset.id)}
+                          title={`Delete ${preset.name}`}
+                          aria-label={`Delete ${preset.name}`}
+                          whileTap={reduceMotion ? undefined : { scale: 0.88 }}
+                        >
+                          <Trash2 size={14} />
+                        </motion.button>
+                      </div>
+                    </motion.div>
                   );
                 })}
               </AnimatePresence>
@@ -667,9 +667,9 @@ const StepFour = ({ user, onBack, onGoLive, isConnecting, campaign, licensedStat
   const hasBalance = walletBalance >= requiredBalance;
   const hidePricing = getAgencySetting(user, 'hidePricing');
   const campaignLabel = selected
-    ? (hidePricing 
-        ? `${selected.label} (${selected.buffer}s buffer)` 
-        : `${selected.label} ($${Number(selected.price).toFixed(0)} / ${selected.buffer}s)`)
+    ? (hidePricing
+      ? `${selected.label} (${selected.buffer}s buffer)`
+      : `${selected.label} ($${Number(selected.price).toFixed(0)} / ${selected.buffer}s)`)
     : campaign;
 
   return (
@@ -708,8 +708,8 @@ const StepFour = ({ user, onBack, onGoLive, isConnecting, campaign, licensedStat
           <div className={classes.errorBanner}>
             <AlertCircle size={24} />
             <div className={classes.errorBannerText}>
-               <p>Insufficient Credits</p>
-               <span>Your wallet balance is lower than the required campaign price. You must add credits before you can go live.</span>
+              <p>Insufficient Credits</p>
+              <span>Your wallet balance is lower than the required campaign price. You must add credits before you can go live.</span>
             </div>
           </div>
         )}
@@ -735,7 +735,7 @@ const StepFour = ({ user, onBack, onGoLive, isConnecting, campaign, licensedStat
 const DispositionModal = ({ callSid, onComplete }) => {
   const [selected, setSelected] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  
+
   const options = [
     { id: 'not_interested', label: 'Not interested' },
     { id: 'callback', label: 'Call back' },
@@ -780,7 +780,7 @@ const DispositionModal = ({ callSid, onComplete }) => {
             </button>
           ))}
         </div>
-        <button 
+        <button
           className={`${classes.primaryBtn} ${classes.dispositionSubmitBtn}`}
           onClick={handleSubmit}
           disabled={!selected || submitting}
@@ -793,7 +793,15 @@ const DispositionModal = ({ callSid, onComplete }) => {
 };
 
 // ─── Call History Table ──────────────────────────────────────────────────────
-const CallHistory = ({ logs }) => {
+const CallHistory = ({ logs, onDispositionUpdate }) => {
+  const [updatingId, setUpdatingId] = useState(null);
+
+  const handleUpdate = async (logId, val) => {
+    setUpdatingId(logId);
+    await onDispositionUpdate(logId, val);
+    setUpdatingId(null);
+  };
+
   if (!logs || logs.length === 0) {
     return <div className={classes.emptyLogs}><p>No recent calls yet. Go live to start taking calls!</p></div>;
   }
@@ -825,21 +833,12 @@ const CallHistory = ({ logs }) => {
               )}
             </div>
             <div className={classes.colStatus}>
-              {log.isBillable ? (
-                <span className={classes.badgeSale}>Sold</span>
-              ) : log.disposition === 'callback' ? (
-                <span className={classes.badgeCallback}>Call back</span>
-              ) : log.disposition === 'not_interested' ? (
-                <span className={classes.badgeNeutral}>Not Interested</span>
-              ) : log.disposition === 'busy' ? (
-                <span className={classes.badgeNeutral}>Busy</span>
-              ) : log.disposition === 'dead_air' ? (
-                <span className={classes.badgeNeutral}>Dead Air</span>
-              ) : log.disposition === 'policy_closed' ? (
-                <span className={classes.badgeSale}>Policy Closed</span>
-              ) : (
-                <span className={classes.badgeEmpty}>—</span>
-              )}
+              <CallLogDispositionBadge
+                log={log}
+                editable={true}
+                loading={updatingId === log.id}
+                onUpdate={handleUpdate}
+              />
             </div>
           </div>
         ))}
@@ -900,7 +899,7 @@ const AcaTransferPanel = () => {
         <span className={classes.liveDot} />
         {transferStatus === 'transferring' ? 'Dialing Broker...' : 'Broker in Call'}
       </div>
-      
+
       <div className={classes.dialpadContainer} style={{ opacity: transferStatus === 'transferred' ? 1 : 0.5, pointerEvents: transferStatus === 'transferred' ? 'auto' : 'none' }}>
         <p>Use the dialpad to respond to the broker IVR and enter your NPN.</p>
         <div className={classes.digitsDisplay}>{digits || '...'}</div>
@@ -950,7 +949,7 @@ const TakeCallsPage = () => {
     try {
       const logsData = await apiFetch('/api/voice/logs');
       setHistory(logsData || []);
-      
+
       const walletData = await stripeService.getWallet();
       if (walletData) setWalletBalance(walletData.balance);
 
@@ -998,7 +997,7 @@ const TakeCallsPage = () => {
       }
       stripeService.getWallet().then((walletData) => {
         if (walletData) setWalletBalance(walletData.balance);
-      }).catch(() => {});
+      }).catch(() => { });
     };
     window.addEventListener('wallet_updated', onWalletUpdated);
 
@@ -1052,111 +1051,122 @@ const TakeCallsPage = () => {
         initial="hidden"
         animate="visible"
       >
-          <motion.div className={classes.pageHeader} variants={presets.child}>
-            <div>
-              <h1>Take Calls</h1>
-              <p>Monitor live status and handle inbound calls in real time.</p>
+        <motion.div className={classes.pageHeader} variants={presets.child}>
+          <div>
+            <h1>Take Calls</h1>
+            <p>Monitor live status and handle inbound calls in real time.</p>
+          </div>
+        </motion.div>
+
+        <motion.div className={classes.topStatsRow} variants={presets.statsStrip}>
+          <motion.div className={`glass ${classes.statBox}`} variants={presets.child}>
+            <div className={classes.statLabel}>Agent Name</div>
+            <div className={classes.statValue}>{user?.name || agentIdentity || '---'}</div>
+          </motion.div>
+          <motion.div className={`glass ${classes.statBox}`} variants={presets.child}>
+            <div className={classes.statLabel}>Campaign</div>
+            <div className={classes.statValue}>{activeCampaign?.replace(/_/g, ' ').toUpperCase() || '---'}</div>
+          </motion.div>
+          <motion.div className={`glass ${classes.statBox}`} variants={presets.child}>
+            <div className={classes.statLabel}>Remaining Budget</div>
+            <div className={`${classes.statValue} ${classes.budgetGreen}`}>${remainingBudget.toFixed(2)}</div>
+          </motion.div>
+        </motion.div>
+
+        <motion.div className={`glass ${classes.liveStatusCard}`} variants={presets.child}>
+          <div className={classes.liveBadge}><div className={classes.liveDot} />Dialer Active</div>
+
+          <h2>
+            {callState === 'active'
+              ? 'Currently On Call'
+              : pendingDispositionCall
+                ? 'Complete Disposition'
+                : 'Listening for Calls'}
+          </h2>
+          <p>
+            {callState === 'active'
+              ? 'Stay focused on the prospect. Follow your script.'
+              : pendingDispositionCall
+                ? 'Submit a disposition for your last call before you can receive new calls.'
+                : 'You are connected to the CallsFlow engine. Stand by for inbound calls.'}
+          </p>
+
+          <div className={classes.actionButtons}>
+            {callState === 'active'
+              ? (
+                <>
+                  <button
+                    className={`${classes.dangerBtn} ${classes.hangUpBtn}`}
+                    onClick={async () => {
+                      console.log('[EndCall] activeCampaign:', activeCampaign, 'callState:', callState);
+                      try { await apiFetch('/api/voice/kill-call', { method: 'POST' }); } catch (e) { console.error('[EndCall] kill-call failed:', e); }
+                      hangUp();
+                    }}
+                  >
+                    <PhoneOff size={18} /> End Call
+                  </button>
+                </>
+              )
+              : <button className={classes.dangerBtn} onClick={goOffline}><PhoneOff size={18} /> Pause & Go Offline</button>
+            }
+          </div>
+        </motion.div>
+
+        {licensedStates && licensedStates.length > 0 && (
+          <motion.div className={`glass ${classes.liveStatesCard}`} variants={presets.child}>
+            <span className={classes.liveStatesLabel}><MapPin size={12} /> Licensed States</span>
+            <div className={classes.liveStateChips}>
+              {licensedStates.map(s => (
+                <span key={s} className={classes.liveStateChip}>{s}</span>
+              ))}
             </div>
           </motion.div>
+        )}
 
-          <motion.div className={classes.topStatsRow} variants={presets.statsStrip}>
-            <motion.div className={`glass ${classes.statBox}`} variants={presets.child}>
-              <div className={classes.statLabel}>Agent Name</div>
-              <div className={classes.statValue}>{user?.name || agentIdentity || '---'}</div>
-            </motion.div>
-            <motion.div className={`glass ${classes.statBox}`} variants={presets.child}>
-              <div className={classes.statLabel}>Campaign</div>
-              <div className={classes.statValue}>{activeCampaign?.replace(/_/g, ' ').toUpperCase() || '---'}</div>
-            </motion.div>
-            <motion.div className={`glass ${classes.statBox}`} variants={presets.child}>
-              <div className={classes.statLabel}>Remaining Budget</div>
-              <div className={`${classes.statValue} ${classes.budgetGreen}`}>${remainingBudget.toFixed(2)}</div>
-            </motion.div>
+        {activeCampaign && activeCampaign !== 'fe_tv_calls' && (
+          <motion.div className={`glass ${classes.warningBanner}`} variants={presets.child}>
+            <div className={classes.warningBannerIcon}>
+              <AlertCircle size={20} />
+            </div>
+            <div className={classes.warningBannerBody}>
+              <strong className={classes.warningBannerTitle}>Maintain Your Active Status</strong>
+              <p>
+                Warning: A billable rate below 30% will trigger an inactivity flag. This means out of every 10 calls you take, you should successfully convert at least 3 into over-buffer calls. To avoid a reduction in routed calls or removal from the active pool, please ensure you are actively handling calls.
+              </p>
+            </div>
           </motion.div>
+        )}
 
-          <motion.div className={`glass ${classes.liveStatusCard}`} variants={presets.child}>
-            <div className={classes.liveBadge}><div className={classes.liveDot} />Dialer Active</div>
+        {callState === 'active' && activeCampaign === 'aca_transfers' && (
+          <motion.div variants={presets.child}>
+            <AcaTransferPanel />
+          </motion.div>
+        )}
 
-            <h2>
-              {callState === 'active'
-                ? 'Currently On Call'
-                : pendingDispositionCall
-                  ? 'Complete Disposition'
-                  : 'Listening for Calls'}
-            </h2>
-            <p>
-              {callState === 'active'
-                ? 'Stay focused on the prospect. Follow your script.'
-                : pendingDispositionCall
-                  ? 'Submit a disposition for your last call before you can receive new calls.'
-                  : 'You are connected to the CallsFlow engine. Stand by for inbound calls.'}
-            </p>
-
-            <div className={classes.actionButtons}>
-              {callState === 'active'
-                ? (
-                  <>
-                    <button 
-                      className={`${classes.dangerBtn} ${classes.hangUpBtn}`} 
-                      onClick={async () => {
-                        console.log('[EndCall] activeCampaign:', activeCampaign, 'callState:', callState);
-                        try { await apiFetch('/api/voice/kill-call', { method: 'POST' }); } catch(e){ console.error('[EndCall] kill-call failed:', e); }
-                        hangUp();
-                      }}
-                    >
-                      <PhoneOff size={18} /> End Call
-                    </button>
-                  </>
-                )
-                : <button className={classes.dangerBtn} onClick={goOffline}><PhoneOff size={18} /> Pause & Go Offline</button>
+        <motion.div className={`glass ${classes.activeLogsSection}`} variants={presets.child}>
+          <CallHistory
+            logs={history}
+            onDispositionUpdate={async (logId, val) => {
+              try {
+                await updateMyCallLogDisposition(logId, val);
+                setHistory(prev => prev.map(l => l.id === logId ? { ...l, disposition: val } : l));
+                toast.success('Disposition updated');
+              } catch (err) {
+                toast.error('Failed to update disposition');
               }
-            </div>
-          </motion.div>
+            }}
+          />
+        </motion.div>
 
-          {licensedStates && licensedStates.length > 0 && (
-            <motion.div className={`glass ${classes.liveStatesCard}`} variants={presets.child}>
-              <span className={classes.liveStatesLabel}><MapPin size={12} /> Licensed States</span>
-              <div className={classes.liveStateChips}>
-                {licensedStates.map(s => (
-                  <span key={s} className={classes.liveStateChip}>{s}</span>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {activeCampaign && activeCampaign !== 'fe_tv_calls' && (
-            <motion.div className={`glass ${classes.warningBanner}`} variants={presets.child}>
-              <div className={classes.warningBannerIcon}>
-                <AlertCircle size={20} />
-              </div>
-              <div className={classes.warningBannerBody}>
-                <strong className={classes.warningBannerTitle}>Maintain Your Active Status</strong>
-                <p>
-                  Warning: A billable rate below 30% will trigger an inactivity flag. This means out of every 10 calls you take, you should successfully convert at least 3 into over-buffer calls. To avoid a reduction in routed calls or removal from the active pool, please ensure you are actively handling calls.
-                </p>
-              </div>
-            </motion.div>
-          )}
-
-          {callState === 'active' && activeCampaign === 'aca_transfers' && (
-            <motion.div variants={presets.child}>
-              <AcaTransferPanel />
-            </motion.div>
-          )}
-
-          <motion.div className={`glass ${classes.activeLogsSection}`} variants={presets.child}>
-            <CallHistory logs={history} />
-          </motion.div>
-
-          {pendingDispositionCall && (
-            <DispositionModal 
-              callSid={pendingDispositionCall} 
-              onComplete={() => {
-                clearPendingDisposition();
-                fetchData(); // refresh history to show disposition immediately
-              }} 
-            />
-          )}
+        {pendingDispositionCall && (
+          <DispositionModal
+            callSid={pendingDispositionCall}
+            onComplete={() => {
+              clearPendingDisposition();
+              fetchData(); // refresh history to show disposition immediately
+            }}
+          />
+        )}
       </motion.div>
     );
   }
@@ -1199,88 +1209,88 @@ const TakeCallsPage = () => {
       )}
 
       {!user?.flagged && (
-      <motion.div className={`glass ${classes.wizardShell}`} variants={presets.child}>
+        <motion.div className={`glass ${classes.wizardShell}`} variants={presets.child}>
 
-        <div className={classes.wizardGrid}>
-          <aside className={classes.wizardRail}>
-            <div className={classes.railHeader}>
-              <span className={classes.railEyebrow}>Go Live Setup</span>
-              <p className={classes.railSub}>Finish these steps to start receiving inbound calls.</p>
-            </div>
-            <div className={classes.railSteps}>
-              {titles.map((title, i) => {
-                const n = i + 1;
-                const Icon = STEP_ICONS[i];
-                const isActive = step === n;
-                const isDone = step > n;
-                const canJump = isDone;
-                return (
-                  <button
-                    key={title}
-                    type="button"
-                    className={`${classes.railStep} ${isActive ? classes.railStepActive : ''} ${isDone ? classes.railStepDone : ''}`}
-                    onClick={() => canJump && goStep(n)}
-                    disabled={!canJump}
+          <div className={classes.wizardGrid}>
+            <aside className={classes.wizardRail}>
+              <div className={classes.railHeader}>
+                <span className={classes.railEyebrow}>Go Live Setup</span>
+                <p className={classes.railSub}>Finish these steps to start receiving inbound calls.</p>
+              </div>
+              <div className={classes.railSteps}>
+                {titles.map((title, i) => {
+                  const n = i + 1;
+                  const Icon = STEP_ICONS[i];
+                  const isActive = step === n;
+                  const isDone = step > n;
+                  const canJump = isDone;
+                  return (
+                    <button
+                      key={title}
+                      type="button"
+                      className={`${classes.railStep} ${isActive ? classes.railStepActive : ''} ${isDone ? classes.railStepDone : ''}`}
+                      onClick={() => canJump && goStep(n)}
+                      disabled={!canJump}
+                    >
+                      <span className={classes.railIcon}>
+                        {isDone ? <CheckCircle2 size={18} /> : <Icon size={18} />}
+                      </span>
+                      <span className={classes.railText}>
+                        <span className={classes.railStepLabel}>Step {n}</span>
+                        <span className={classes.railTitle}>{title}</span>
+                      </span>
+                      <span className={classes.railStatus}>
+                        {isDone ? 'Done' : isActive ? 'In progress' : 'Up next'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </aside>
+
+            <div className={classes.wizardMain}>
+              <div className={classes.mainTopbar}>
+                <span className={classes.stepCount}>Step {step} of 4: {titles[step - 1]}</span>
+                <div className={classes.mainProgress}>
+                  <motion.div
+                    className={classes.mainProgressFill}
+                    initial={false}
+                    animate={{ width: `${(step / 4) * 100}%` }}
+                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                  />
+                </div>
+              </div>
+
+              <div className={classes.stepContent}>
+                <AnimatePresence mode="wait" custom={stepDirection} initial={false}>
+                  <motion.div
+                    key={step}
+                    className={classes.stepContentInner}
+                    custom={stepDirection}
+                    variants={stepVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
                   >
-                    <span className={classes.railIcon}>
-                      {isDone ? <CheckCircle2 size={18} /> : <Icon size={18} />}
-                    </span>
-                    <span className={classes.railText}>
-                      <span className={classes.railStepLabel}>Step {n}</span>
-                      <span className={classes.railTitle}>{title}</span>
-                    </span>
-                    <span className={classes.railStatus}>
-                      {isDone ? 'Done' : isActive ? 'In progress' : 'Up next'}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </aside>
+                    {step === 1 && <StepOne onNext={() => goStep(2)} />}
+                    {step === 2 && <StepTwo user={user} selected={campaign} pausedCampaigns={pausedCampaigns} liveCampaigns={liveCampaigns} onNext={(sel) => { setCampaign(sel); goStep(3); }} onBack={() => goStep(1)} />}
 
-          <div className={classes.wizardMain}>
-            <div className={classes.mainTopbar}>
-              <span className={classes.stepCount}>Step {step} of 4: {titles[step - 1]}</span>
-              <div className={classes.mainProgress}>
-                <motion.div
-                  className={classes.mainProgressFill}
-                  initial={false}
-                  animate={{ width: `${(step / 4) * 100}%` }}
-                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                />
+                    {step === 3 && <StepThree onNext={(states, presetId) => { setWizardStates(states); setWizardPresetId(presetId ?? null); goStep(4); }} onBack={() => goStep(2)} statePresets={statePresets} onSavePresets={persistPresets} selectedPresetId={wizardPresetId} />}
+                    {step === 4 && <StepFour user={user} onBack={() => goStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} liveCampaigns={liveCampaigns} />}
+                  </motion.div>
+                </AnimatePresence>
               </div>
             </div>
-
-            <div className={classes.stepContent}>
-              <AnimatePresence mode="wait" custom={stepDirection} initial={false}>
-                <motion.div
-                  key={step}
-                  className={classes.stepContentInner}
-                  custom={stepDirection}
-                  variants={stepVariants}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
-                >
-                  {step === 1 && <StepOne onNext={() => goStep(2)} />}
-                  {step === 2 && <StepTwo user={user} selected={campaign} pausedCampaigns={pausedCampaigns} liveCampaigns={liveCampaigns} onNext={(sel) => { setCampaign(sel); goStep(3); }} onBack={() => goStep(1)} />}
-
-                  {step === 3 && <StepThree onNext={(states, presetId) => { setWizardStates(states); setWizardPresetId(presetId ?? null); goStep(4); }} onBack={() => goStep(2)} statePresets={statePresets} onSavePresets={persistPresets} selectedPresetId={wizardPresetId} />}
-                  {step === 4 && <StepFour user={user} onBack={() => goStep(3)} onGoLive={handleGoLive} isConnecting={isConnecting} campaign={campaign} licensedStates={wizardStates} walletBalance={walletBalance} liveCampaigns={liveCampaigns} />}
-                </motion.div>
-              </AnimatePresence>
-            </div>
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
       )} {/* end !user?.flagged wizard guard */}
       {pendingDispositionCall && (
-        <DispositionModal 
-          callSid={pendingDispositionCall} 
+        <DispositionModal
+          callSid={pendingDispositionCall}
           onComplete={() => {
             clearPendingDisposition();
             fetchData();
-          }} 
+          }}
         />
       )}
     </motion.div>

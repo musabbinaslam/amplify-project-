@@ -8,11 +8,12 @@ export function listAdminUsersLite() {
   return apiFetch('/api/admin/users/all-lite', { method: 'GET' });
 }
 
-export function getAdminAnalyticsBundle({ from, to } = {}) {
+export function getAdminAnalyticsBundle({ from, to, tz } = {}) {
   const qs = new URLSearchParams();
   if (from) qs.set('from', from);
   if (to) qs.set('to', to);
-  try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; if (tz) qs.set('tz', tz); } catch { /* noop */ }
+  if (tz) qs.set('tz', tz);
+  else { try { const defaultTz = Intl.DateTimeFormat().resolvedOptions().timeZone; if (defaultTz) qs.set('tz', defaultTz); } catch { /* noop */ } }
   return apiFetch(`/api/admin/analytics-bundle${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
 }
 
@@ -23,14 +24,22 @@ export function listAdminAgentsDirectory({ from, to } = {}) {
   return apiFetch(`/api/admin/agents${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
 }
 
-export function getAdminAnalyticsDrilldown({ type, id, from, to } = {}) {
+export function getAdminAnalyticsDrilldown({ type, id, from, to, tz } = {}) {
   const qs = new URLSearchParams();
   if (type) qs.set('type', type);
   if (id) qs.set('id', id);
   if (from) qs.set('from', from);
   if (to) qs.set('to', to);
-  try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; if (tz) qs.set('tz', tz); } catch { /* noop */ }
+  if (tz) qs.set('tz', tz);
+  else { try { const defaultTz = Intl.DateTimeFormat().resolvedOptions().timeZone; if (defaultTz) qs.set('tz', defaultTz); } catch { /* noop */ } }
   return apiFetch(`/api/admin/analytics-drilldown${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
+}
+
+export async function updateAdminCallLogDisposition(uid, callLogId, disposition) {
+  return apiFetch(`/api/admin/users/${uid}/call-logs/${callLogId}/disposition`, {
+    method: 'PATCH',
+    body: { disposition },
+  });
 }
 
 export function getAdminLiveCalls() {

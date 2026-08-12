@@ -47,13 +47,13 @@ const HOW_IT_WORKS = [
 ];
 
 const VERTICAL_PRICING = [
-  { name: 'FE Inbounds Short',     price: '$25', buffer: '10s',  detail: 'FE Inbounds Short Duration — direct inbound callers billed at 10 seconds.' },
-  { name: 'FE Inbounds',           price: '$50', buffer: '90s',  detail: 'FE Inbounds — high-intent final expense inbound callers billed at 90 seconds.' },
-  { name: 'FE TV Calls',          price: '$65', buffer: '30s',  detail: 'High-intent Final Expense TV callers.' },
-  { name: 'Medicare Transfers',   price: '$25', buffer: '120s', detail: 'Live-transferred Medicare callers seeking plan guidance.' },
-  { name: 'Medicare Inbounds (1)',price: '$35', buffer: '90s',  detail: 'Inbound seniors actively requesting Medicare plan information.' },
-  { name: 'Medicare Inbounds (2)',price: '$15', buffer: '15s',  detail: 'Short-buffer Medicare inbounds — high volume, low friction.' },
-  { name: 'ACA Transfers',        price: '$30', buffer: '120s', detail: 'Live-transferred ACA shoppers comparing health plan options.' },
+  { name: 'FE Inbounds Short', price: '$25', buffer: '10s', detail: 'FE Inbounds Short Duration — direct inbound callers billed at 10 seconds.' },
+  { name: 'FE Inbounds', price: '$50', buffer: '90s', detail: 'FE Inbounds — high-intent final expense inbound callers billed at 90 seconds.' },
+  { name: 'FE TV Calls', price: '$65', buffer: '30s', detail: 'High-intent Final Expense TV callers.' },
+  { name: 'Medicare Transfers', price: '$25', buffer: '120s', detail: 'Live-transferred Medicare callers seeking plan guidance.' },
+  { name: 'Medicare Inbounds (1)', price: '$35', buffer: '90s', detail: 'Inbound seniors actively requesting Medicare plan information.' },
+  { name: 'Medicare Inbounds (2)', price: '$15', buffer: '15s', detail: 'Short-buffer Medicare inbounds — high volume, low friction.' },
+  { name: 'ACA Transfers', price: '$30', buffer: '120s', detail: 'Live-transferred ACA shoppers comparing health plan options.' },
 ];
 
 const COMPARE_ROWS = [

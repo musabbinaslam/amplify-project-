@@ -39,6 +39,7 @@ const {
   deleteCustomScript,
   getAvailableCampaigns,
   acceptTerms,
+  patchMyCallLogDisposition,
 } = require('../controllers/userController');
 const multer = require('multer');
 const os = require('os');
@@ -56,6 +57,7 @@ router.patch('/me', patchMe);
 router.post('/me/welcome-email', postWelcomeEmail);
 router.get('/me/slug-availability', getSlugAvailability);
 router.get('/me/activity', getActivity);
+router.patch('/me/call-logs/:callLogId/disposition', patchMyCallLogDisposition);
 router.get('/me/notifications', getNotifications);
 router.patch('/me/notifications/read-all', patchNotificationsReadAll);
 router.patch('/me/notifications/:id/read', patchNotificationRead);

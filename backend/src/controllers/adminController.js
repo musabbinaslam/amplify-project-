@@ -19,6 +19,7 @@ const {
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const { mergeUserDoc, getUserDoc } = require('../services/userDataService');
+const callLogService = require('../services/callLogService');
 const ANALYTICS_CACHE_TTL_MS = 30000;
 const READ_CONCURRENCY = 10;
 const analyticsCache = new Map();
@@ -137,7 +138,25 @@ const deleteCampaign = async (req, res) => {
   }
 };
 
-
+const patchAdminCallLogDisposition = async (req, res) => {
+  const { uid, callLogId } = req.params;
+  const { disposition } = req.body;
+  if (!uid || !callLogId || typeof disposition !== 'string') {
+    return res.status(400).json({ error: 'uid, callLogId, and disposition are required' });
+  }
+  
+  try {
+    const success = await callLogService.updateCallLogById(uid, callLogId, { disposition });
+    if (!success) {
+      return res.status(404).json({ error: 'Call log not found or failed to update' });
+    }
+    console.log(`[Admin] Call log ${callLogId} for user ${uid} disposition updated to ${disposition} by ${req.user?.uid || 'admin'}`);
+    res.json({ success: true, message: 'Disposition updated' });
+  } catch (err) {
+    console.error('[Admin] patchAdminCallLogDisposition:', err.message);
+    res.status(500).json({ error: 'Failed to update disposition' });
+  }
+};
 
 function validateTz(tz) {
   if (!tz || typeof tz !== 'string') return null;
@@ -984,7 +1003,7 @@ async function forceRemoveAgent(req, res) {
     res.json({ success: true, agentId: id, action: 'removed' });
   } catch (err) {
     console.error('[Admin] forceRemoveAgent:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to remove agent' });
+    res.status(500).json({ error: 'Failed to remove agent' });
   }
 }
 
@@ -1003,6 +1022,7 @@ async function getAllUsers(req, res) {
         data.displayName ||
         data.name ||
         data.agentName ||
+        firstLast ||
         firstLast ||
         data.email ||
         null;
@@ -1049,7 +1069,7 @@ async function getAllUsers(req, res) {
     res.json({ users });
   } catch (err) {
     console.error('[Admin] getAllUsers:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to list users' });
+    res.status(500).json({ error: 'Failed to list users' });
   }
 }
 
@@ -1356,7 +1376,7 @@ async function flagAgent(req, res) {
     res.json({ success: true, agentId: id, action: 'flagged' });
   } catch (err) {
     console.error('[Admin] flagAgent:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to flag agent' });
+    res.status(500).json({ error: 'Failed to flag agent' });
   }
 }
 
@@ -1389,7 +1409,7 @@ async function resumeAgent(req, res) {
     res.json({ success: true, agentId: id, action: 'resumed' });
   } catch (err) {
     console.error('[Admin] resumeAgent:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to resume agent' });
+    res.status(500).json({ error: 'Failed to resume agent' });
   }
 }
 
@@ -2097,6 +2117,7 @@ module.exports = {
   getAnalyticsBundle,
   getLiveCalls,
   forceRemoveAgent,
+  patchAdminCallLogDisposition,
   listAgentsDirectory,
   getAllUsers,
   listManagerTeams,

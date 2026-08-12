@@ -10,6 +10,7 @@ import {
   getAdminAnalyticsDrilldown,
   refundAdminCall,
   listAdminCallContests,
+  updateAdminCallLogDisposition,
 } from '../../services/adminService';
 import useAuthStore from '../../store/authStore';
 import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
@@ -20,14 +21,42 @@ import { AdminCallTrendChart, AdminDrilldownTrendChart } from '../../components/
 import { AdminActionModal } from '../../components/admin/ContestReviewCard';
 import { getAgentName, getAgentId } from '../../components/admin/adminUtils';
 import PageLoader from '../../components/ui/PageLoader';
+import CustomSelect from '../../components/ui/CustomSelect';
 import { RecordingModal } from '../CallLogsPage';
+import { CallLogDispositionBadge } from '../../components/callLogs/CallLogStatusCells';
 import classes from '../../components/admin/adminShared.module.css';
+
+const TIMEZONE_OPTIONS = [
+  { value: 'America/New_York', label: 'Eastern Time' },
+  { value: 'America/Chicago', label: 'Central Time' },
+  { value: 'America/Denver', label: 'Mountain Time' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time' },
+  { value: 'UTC', label: 'UTC' },
+];
+
+const RANGE_PRESETS = [
+  { key: 'today', label: 'Today' },
+  { key: 'yesterday', label: 'Yesterday' },
+  { key: '7d', label: 'Last 7 days' },
+  { key: '30d', label: 'Last 30 days' },
+  { key: 'custom', label: 'Custom' },
+];
 
 export default function AdminAnalyticsPage() {
   const presets = useSubtlePageMotion();
   const reduceMotion = useReducedMotion();
   const refreshUserRole = useAuthStore((s) => s.refreshUserRole);
   const [rangePreset, setRangePreset] = useState('7d');
+  const [timezone, setTimezone] = useState(() => {
+    try {
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      return TIMEZONE_OPTIONS.some((o) => o.value === detected) ? detected : 'America/New_York';
+    } catch {
+      return 'America/New_York';
+    }
+  });
+  const [customStart, setCustomStart] = useState(() => new Date().toISOString().slice(0, 10));
+  const [customEnd, setCustomEnd] = useState(() => new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [overview, setOverview] = useState(null);
@@ -45,20 +74,30 @@ export default function AdminAnalyticsPage() {
   const [agentSearch, setAgentSearch] = useState('');
   const [activeRecording, setActiveRecording] = useState(null);
   const [refundingLogId, setRefundingLogId] = useState(null);
+  const [updatingDispositionId, setUpdatingDispositionId] = useState(null);
   const [actionModal, setActionModal] = useState(null);
   const [actionNote, setActionNote] = useState('');
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [contestFilter] = useState('pending');
 
   const getRange = useCallback(() => {
+    if (rangePreset === 'custom') {
+      return { from: customStart, to: customEnd };
+    }
     const now = new Date();
+    if (rangePreset === 'yesterday') {
+      const y = new Date(now);
+      y.setDate(now.getDate() - 1);
+      const yStr = y.toISOString().slice(0, 10);
+      return { from: yStr, to: yStr };
+    }
     const end = now.toISOString().slice(0, 10);
     const days = rangePreset === 'today' ? 0 : rangePreset === '30d' ? 29 : 6;
     const fromDate = new Date(now);
     fromDate.setDate(now.getDate() - days);
     const from = fromDate.toISOString().slice(0, 10);
     return { from, to: end };
-  }, [rangePreset]);
+  }, [rangePreset, customStart, customEnd]);
 
   const loadShell = useCallback(async () => {
     setLoading(true);
@@ -76,7 +115,7 @@ export default function AdminAnalyticsPage() {
     setAnalyticsLoading(true);
     try {
       const range = getRange();
-      const bundle = await getAdminAnalyticsBundle(range);
+      const bundle = await getAdminAnalyticsBundle({ ...range, tz: timezone });
       setCallStats({
         from: bundle.from,
         to: bundle.to,
@@ -91,7 +130,7 @@ export default function AdminAnalyticsPage() {
     } finally {
       setAnalyticsLoading(false);
     }
-  }, [getRange]);
+  }, [getRange, timezone]);
 
   const loadDrilldown = useCallback(async (type, id) => {
     if (!type || !id) {
@@ -101,14 +140,14 @@ export default function AdminAnalyticsPage() {
     setDrilldownLoading(true);
     try {
       const range = getRange();
-      const out = await getAdminAnalyticsDrilldown({ type, id, ...range });
+      const out = await getAdminAnalyticsDrilldown({ type, id, ...range, tz: timezone });
       setDrilldown(out);
     } catch (e) {
       toast.error(e.message || 'Failed to load drilldown');
     } finally {
       setDrilldownLoading(false);
     }
-  }, [getRange]);
+  }, [getRange, timezone]);
 
   useEffect(() => {
     if (selectedCampaign) {
@@ -129,7 +168,7 @@ export default function AdminAnalyticsPage() {
 
   useEffect(() => {
     loadAnalytics();
-  }, [loadAnalytics]);
+  }, [loadAnalytics, timezone]);
 
   const statsSummary = callStats?.summary || {
     totalCalls: 0,
@@ -182,6 +221,24 @@ export default function AdminAnalyticsPage() {
     });
     return dayFiltered;
   }, [drilldown?.recentLogs, drilldownDay, drilldownSortOrder, drilldownSortField]);
+
+  const handleDispositionUpdate = async (logId, val) => {
+    const log = drilldown?.recentLogs?.find((l) => l.id === logId);
+    if (!log) return;
+    setUpdatingDispositionId(logId);
+    try {
+      await updateAdminCallLogDisposition(log.agentId || log.uid, logId, val);
+      setDrilldown(prev => ({
+        ...prev,
+        recentLogs: prev.recentLogs.map(l => l.id === logId ? { ...l, disposition: val } : l),
+      }));
+      toast.success('Disposition updated');
+    } catch (err) {
+      toast.error('Failed to update disposition');
+    } finally {
+      setUpdatingDispositionId(null);
+    }
+  };
 
   const openRefundCallModal = (log) => {
     if (log.contestStatus === 'pending') {
@@ -258,12 +315,55 @@ export default function AdminAnalyticsPage() {
       >
         <motion.section className={`glass ${classes.sectionCard} ${classes.summarySection}`} variants={presets.child}>
           <div className={classes.cardTopRow}>
-            <h2 className={classes.cardTitle}>Summary ({rangePreset === 'today' ? 'Today' : rangePreset === '30d' ? 'Last 30 days' : 'Last 7 days'})</h2>
-            <div className={`glass ${classes.toolbar}`}>
-              <div className={classes.filterRow}>
-                <button type="button" className={`${classes.filterBtn} ${rangePreset === 'today' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('today')}>Today</button>
-                <button type="button" className={`${classes.filterBtn} ${rangePreset === '7d' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('7d')}>Last 7 days</button>
-                <button type="button" className={`${classes.filterBtn} ${rangePreset === '30d' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('30d')}>Last 30 days</button>
+            <h2 className={classes.cardTitle}>Summary ({
+              rangePreset === 'today' ? 'Today' : 
+              rangePreset === 'yesterday' ? 'Yesterday' :
+              rangePreset === 'custom' ? 'Custom Range' :
+              rangePreset === '30d' ? 'Last 30 days' : 'Last 7 days'
+            })</h2>
+            <div className={`glass ${classes.toolbar} ${classes.summaryToolbar}`}>
+              <div className={classes.filterRow} role="tablist" aria-label="Date range">
+                {RANGE_PRESETS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={rangePreset === key}
+                    className={`${classes.filterBtn} ${rangePreset === key ? classes.filterBtnActive : ''}`}
+                    onClick={() => setRangePreset(key)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {rangePreset === 'custom' ? (
+                <div className={classes.customRangeRow}>
+                  <input
+                    type="date"
+                    className={classes.dateInput}
+                    value={customStart}
+                    onChange={(e) => setCustomStart(e.target.value)}
+                    aria-label="Custom range start"
+                  />
+                  <span className={classes.muted}>to</span>
+                  <input
+                    type="date"
+                    className={classes.dateInput}
+                    value={customEnd}
+                    onChange={(e) => setCustomEnd(e.target.value)}
+                    aria-label="Custom range end"
+                  />
+                </div>
+              ) : null}
+
+              <div className={classes.toolbarActions}>
+                <CustomSelect
+                  options={TIMEZONE_OPTIONS}
+                  value={timezone}
+                  onChange={setTimezone}
+                  menuAlign="right"
+                />
                 <button
                   type="button"
                   className={classes.refreshBtn}
@@ -572,21 +672,12 @@ export default function AdminAnalyticsPage() {
                               )}
                             </td>
                             <td className={`${classes.pillCell} ${classes.pillCellWrap}`}>
-                              {log.disposition === 'sold' ? (
-                                <span className={`${classes.drillPill} ${classes.dispSold}`}>Sold</span>
-                              ) : log.disposition === 'callback' ? (
-                                <span className={`${classes.drillPill} ${classes.dispAnswered}`}>Call back</span>
-                              ) : log.disposition === 'not_interested' ? (
-                                <span className={`${classes.drillPill} ${classes.dispMissed}`}>Not Interested</span>
-                              ) : log.disposition === 'busy' ? (
-                                <span className={`${classes.drillPill} ${classes.dispMissed}`}>Busy</span>
-                              ) : log.disposition === 'dead_air' ? (
-                                <span className={`${classes.drillPill} ${classes.dispMissed}`}>Dead Air</span>
-                              ) : log.disposition === 'policy_closed' ? (
-                                <span className={`${classes.drillPill} ${classes.dispAnswered}`} style={{ borderColor: 'var(--brand-text)' }}>Policy Closed</span>
-                              ) : (
-                                <span className={classes.muted}>—</span>
-                              )}
+                              <CallLogDispositionBadge 
+                                log={log} 
+                                editable={true} 
+                                loading={updatingDispositionId === log.id}
+                                onUpdate={handleDispositionUpdate}
+                              />
                             </td>
                             <td className={classes.compactCell}>{log.cost > 0 ? `$${log.cost.toFixed(2)}` : '—'}</td>
                             <td className={classes.pillCell}>

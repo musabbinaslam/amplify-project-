@@ -1,4 +1,4 @@
-import { Play } from 'lucide-react';
+import { Play, Clock } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
@@ -31,6 +31,16 @@ const WelcomePage = () => {
             </span>
           </h1>
           <p className={classes.subtitle}>Get started by watching our platform tutorial below.</p>
+        </motion.div>
+
+        {/* Shift hours banner */}
+        <motion.div className={`glass ${classes.hoursCard}`} variants={presets.child}>
+          <span className={classes.hoursIcon}><Clock size={16} /></span>
+          <div className={classes.hoursText}>
+            <span className={classes.hoursLabel}>Call Hours</span>
+            <span className={classes.hoursValue}>Monday – Saturday &nbsp;·&nbsp; 9:00 AM – 7:00 PM EST</span>
+          </div>
+          <span className={classes.hoursBadge}>Shift Hours</span>
         </motion.div>
 
         <motion.div variants={presets.child}>
