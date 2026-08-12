@@ -41,7 +41,6 @@ export function CallLogStatusBadge({ log }) {
 }
 
 export const DISPOSITION_OPTIONS = [
-  { value: 'sold', label: 'Sold', tone: 'sold' },
   { value: 'callback', label: 'Call back', tone: 'callback' },
   { value: 'not_interested', label: 'Not Interested', tone: 'negative' },
   { value: 'busy', label: 'Busy', tone: 'negative' },
