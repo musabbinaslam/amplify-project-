@@ -747,11 +747,24 @@ const QaDashboardPage = () => {
                     {filteredSortedDrilldownLogs.map((log) => (
                       <tr key={log.id}>
                         <td className={classes.agentCell}>
-                    <strong>{getAgentName(log)}</strong>
-                    {getAgentName(log) !== getAgentId(log) ? (
-                      <span className={classes.agentSubId}>{getAgentId(log)}</span>
-                    ) : null}
-                  </td>
+                          <details className={classes.agentDetails}>
+                            <summary title="Tap to view phone number">
+                              <strong>{getAgentName(log)}</strong>
+                              {getAgentName(log) !== getAgentId(log) ? (
+                                <span className={classes.agentSubId} title={getAgentId(log)}>{getAgentId(log)}</span>
+                              ) : null}
+                            </summary>
+                            <div className={classes.agentPhoneReveal}>
+                              {log.phone ? (
+                                <a href={`tel:${log.phone}`} className={classes.agentPhone}>
+                                  {log.phone}
+                                </a>
+                              ) : (
+                                <span className={classes.agentPhone} style={{ opacity: 0.5 }}>No phone</span>
+                              )}
+                            </div>
+                          </details>
+                        </td>
                         <td>{log.campaign}</td>
                         <td>{log.duration}s</td>
                         <td>
