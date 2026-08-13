@@ -96,6 +96,10 @@ const AddCreditsModal = ({ isOpen, onClose, discount, checkoutLoading, onTopup }
             );
           })}
         </div>
+
+        <div className={classes.disclaimerText} style={{ marginTop: '20px', fontSize: '13px', color: 'var(--brand-text-muted)', textAlign: 'center', backgroundColor: 'var(--brand-surface-raised)', padding: '12px', borderRadius: '8px', border: '1px solid var(--brand-border)' }}>
+          <strong>Note:</strong> All sales are final and no disputes are accepted as mentioned in our Privacy Policy.
+        </div>
       </motion.div>
     </div>
   );
