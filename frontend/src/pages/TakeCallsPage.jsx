@@ -1053,6 +1053,36 @@ const TakeCallsPage = () => {
             </div>
           </motion.div>
 
+          {activeCampaign && (
+            <motion.div variants={presets.child} style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', padding: '16px 20px', textAlign: 'left', marginBottom: '20px', color: '#ffffff' }}>
+              <strong style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <AlertCircle size={20} color="#ffffff" /> FE Inbounds 90s Qualifiers
+              </strong>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', fontSize: '15px' }}>
+                <div>
+                  <strong style={{ display: 'block', marginBottom: '8px' }}>What to ASK (Must answer YES/NO):</strong>
+                  <ul style={{ paddingLeft: '20px', margin: 0, listStyleType: 'disc', display: 'flex', flexDirection: 'column', gap: '6px', opacity: 0.9 }}>
+                    <li><strong>Not a free program; pay monthly premium?</strong> (YES)</li>
+                    <li><strong>Between ages 50-80?</strong> (YES)</li>
+                    <li><strong>Active checking or savings account?</strong> (YES)</li>
+                    <li><strong>In a nursing facility?</strong> (NO)</li>
+                  </ul>
+                </div>
+                <div>
+                  <strong style={{ display: 'block', marginBottom: '8px' }}>What NOT to SAY:</strong>
+                  <ul style={{ paddingLeft: '20px', margin: '0 0 10px 0', listStyleType: 'disc', display: 'flex', flexDirection: 'column', gap: '6px', opacity: 0.9 }}>
+                    <li>Don't mention price/ballpark within buffer.</li>
+                    <li>Don't quote within buffer.</li>
+                    <li>Don't ask for Bank details within buffer.</li>
+                  </ul>
+                  <div style={{ fontWeight: 'bold' }}>
+                    * Drops within buffer (other than qualifiers) result in a ban.
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           <motion.div className={classes.topStatsRow} variants={presets.statsStrip}>
             <motion.div className={`glass ${classes.statBox}`} variants={presets.child}>
               <div className={classes.statLabel}>Agent Name</div>
@@ -1069,41 +1099,48 @@ const TakeCallsPage = () => {
           </motion.div>
 
           <motion.div className={`glass ${classes.liveStatusCard}`} variants={presets.child}>
-            <div className={classes.liveBadge}><div className={classes.liveDot} />Dialer Active</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <div className={classes.liveBadge} style={{ margin: 0 }}>
+                  <div className={classes.liveDot} />Dialer Active
+                </div>
+                <div>
+                  <h2>
+                    {callState === 'active'
+                      ? 'Currently On Call'
+                      : pendingDispositionCall
+                        ? 'Complete Disposition'
+                        : 'Listening for Calls'}
+                  </h2>
+                  <p>
+                    {callState === 'active'
+                      ? 'Stay focused on the prospect. Follow your script.'
+                      : pendingDispositionCall
+                        ? 'Submit a disposition for your last call before you can receive new calls.'
+                        : 'You are connected to the CallsFlow engine. Stand by for inbound calls.'}
+                  </p>
+                </div>
+              </div>
 
-            <h2>
-              {callState === 'active'
-                ? 'Currently On Call'
-                : pendingDispositionCall
-                  ? 'Complete Disposition'
-                  : 'Listening for Calls'}
-            </h2>
-            <p>
-              {callState === 'active'
-                ? 'Stay focused on the prospect. Follow your script.'
-                : pendingDispositionCall
-                  ? 'Submit a disposition for your last call before you can receive new calls.'
-                  : 'You are connected to the CallsFlow engine. Stand by for inbound calls.'}
-            </p>
-
-            <div className={classes.actionButtons}>
-              {callState === 'active'
-                ? (
-                  <>
-                    <button 
-                      className={`${classes.dangerBtn} ${classes.hangUpBtn}`} 
-                      onClick={async () => {
-                        console.log('[EndCall] activeCampaign:', activeCampaign, 'callState:', callState);
-                        try { await apiFetch('/api/voice/kill-call', { method: 'POST' }); } catch(e){ console.error('[EndCall] kill-call failed:', e); }
-                        hangUp();
-                      }}
-                    >
-                      <PhoneOff size={18} /> End Call
-                    </button>
-                  </>
-                )
-                : <button className={classes.dangerBtn} onClick={goOffline}><PhoneOff size={18} /> Pause & Go Offline</button>
-              }
+              <div className={classes.actionButtons} style={{ marginTop: 0, justifyContent: 'flex-end' }}>
+                {callState === 'active'
+                  ? (
+                    <>
+                      <button 
+                        className={`${classes.dangerBtn} ${classes.hangUpBtn}`} 
+                        onClick={async () => {
+                          console.log('[EndCall] activeCampaign:', activeCampaign, 'callState:', callState);
+                          try { await apiFetch('/api/voice/kill-call', { method: 'POST' }); } catch(e){ console.error('[EndCall] kill-call failed:', e); }
+                          hangUp();
+                        }}
+                      >
+                        <PhoneOff size={18} /> End Call
+                      </button>
+                    </>
+                  )
+                  : <button className={classes.dangerBtn} onClick={goOffline}><PhoneOff size={18} /> Pause & Go Offline</button>
+                }
+              </div>
             </div>
           </motion.div>
 
@@ -1118,19 +1155,7 @@ const TakeCallsPage = () => {
             </motion.div>
           )}
 
-          {activeCampaign && activeCampaign !== 'fe_tv_calls' && (
-            <motion.div className={`glass ${classes.warningBanner}`} variants={presets.child}>
-              <div className={classes.warningBannerIcon}>
-                <AlertCircle size={20} />
-              </div>
-              <div className={classes.warningBannerBody}>
-                <strong className={classes.warningBannerTitle}>Maintain Your Active Status</strong>
-                <p>
-                  Warning: A billable rate below 30% will trigger an inactivity flag. This means out of every 10 calls you take, you should successfully convert at least 3 into over-buffer calls. To avoid a reduction in routed calls or removal from the active pool, please ensure you are actively handling calls.
-                </p>
-              </div>
-            </motion.div>
-          )}
+
 
           {callState === 'active' && activeCampaign === 'aca_transfers' && (
             <motion.div variants={presets.child}>

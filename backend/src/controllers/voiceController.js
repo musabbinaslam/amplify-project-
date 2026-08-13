@@ -653,7 +653,14 @@ exports.getLogs = async (req, res) => {
         if (req.query.endDate) endDate = new Date(req.query.endDate);
 
         const logs = await callLogService.getLogsByUser(req.user.uid, limit, startDate, endDate);
-        res.json(logs);
+        
+        const { CAMPAIGN_CONFIG } = require('../config/pricing');
+        const enrichedLogs = logs.map(log => ({
+            ...log,
+            allowRefunds: CAMPAIGN_CONFIG[log.campaign]?.allowRefunds !== false
+        }));
+
+        res.json(enrichedLogs);
     } catch (err) {
         console.error('[Voice] getLogs error:', err.message);
         res.status(500).json({ error: 'Failed to load call logs' });

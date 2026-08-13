@@ -101,6 +101,7 @@ function syncPricingConfig() {
                 price: Number(c.price) || 0,
                 agencyId: c.agencyId == null || c.agencyId === '' ? null : String(c.agencyId),
                 locked: Boolean(c.locked),
+                allowRefunds: c.allowRefunds !== false,
               };
             });
 

@@ -47,7 +47,7 @@ const upsertCampaign = async (req, res) => {
     const db = getDb();
     if (!db) return res.status(503).json({ error: 'Database unavailable' });
 
-    const { id, label, buffer, price } = req.body || {};
+    const { id, label, buffer, price, allowRefunds } = req.body || {};
 
     // ── Validation ────────────────────────────────────────────────────────────
     if (!id || typeof id !== 'string' || !/^[a-z0-9_]+$/.test(id.trim())) {
@@ -64,6 +64,8 @@ const upsertCampaign = async (req, res) => {
     if (!Number.isFinite(priceNum) || priceNum < 0) {
       return res.status(400).json({ error: 'Price must be a non-negative number.' });
     }
+    
+    const allowRefundsBool = typeof allowRefunds === 'boolean' ? allowRefunds : true;
 
     const campaignId = id.trim().toLowerCase();
     const isNew = !Object.prototype.hasOwnProperty.call(CAMPAIGN_CONFIG, campaignId);
@@ -76,6 +78,7 @@ const upsertCampaign = async (req, res) => {
             label: label.trim(),
             buffer: bufferNum,
             price: priceNum,
+            allowRefunds: allowRefundsBool,
           },
         },
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -85,7 +88,7 @@ const upsertCampaign = async (req, res) => {
     );
 
     console.log(`[Admin] Campaign "${campaignId}" ${isNew ? 'created' : 'updated'} by ${req.user?.uid}`);
-    res.json({ success: true, isNew, campaign: { id: campaignId, label: label.trim(), buffer: bufferNum, price: priceNum } });
+    res.json({ success: true, isNew, campaign: { id: campaignId, label: label.trim(), buffer: bufferNum, price: priceNum, allowRefunds: allowRefundsBool } });
   } catch (err) {
     console.error('[Admin] upsertCampaign error:', err.message);
     res.status(500).json({ error: 'Failed to save campaign' });
