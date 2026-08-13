@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Mic, Volume2, Shield, HeartPulse, Umbrella, AlertCircle,
-  ChevronLeft, PhoneOff, Activity, ShieldCheck, Users,
+  ChevronLeft, ChevronDown, PhoneOff, Activity, ShieldCheck, Users,
   PhoneIncoming, DollarSign, Clock, Phone, CheckCircle2, MapPin, PhoneOutgoing, Tv,
   Plus, Trash2, Save, Pencil
 } from 'lucide-react';
@@ -798,11 +798,18 @@ const CallHistory = ({ logs, onDispositionUpdate }) => {
   };
 
   if (!logs || logs.length === 0) {
-    return <div className={classes.emptyLogs}><p>No recent calls yet. Go live to start taking calls!</p></div>;
+    return (
+      <div className={classes.logsTableWrapper}>
+        <div className={classes.emptyLogs}>
+          <Activity size={22} />
+          <p>Listening — no calls yet</p>
+          <span>Inbound calls will show up here as they come in.</span>
+        </div>
+      </div>
+    );
   }
   return (
     <div className={classes.logsTableWrapper}>
-      <h3 className={classes.logsTitle}>Recent Activity</h3>
       <div className={classes.logsHeader}>
         <span className={classes.colCampaign}>Campaign</span>
         <span className={classes.colCaller}>Caller</span>
@@ -839,6 +846,38 @@ const CallHistory = ({ logs, onDispositionUpdate }) => {
         ))}
       </div>
     </div>
+  );
+};
+
+const LiveStatesPanel = ({ states }) => {
+  const [expanded, setExpanded] = useState(false);
+  if (!states?.length) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        className={classes.liveStatesToggle}
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+      >
+        <span className={classes.liveStatesLabel}><MapPin size={12} /> Licensed States</span>
+        <span className={classes.liveStatesCount}>{states.length}</span>
+        <ChevronDown size={16} className={`${classes.liveStatesChevron} ${expanded ? classes.liveStatesChevronOpen : ''}`} />
+      </button>
+      <div
+        className={`${classes.liveStateChipsWrap} ${expanded ? classes.liveStateChipsWrapOpen : ''}`}
+        aria-hidden={!expanded}
+      >
+        <div className={classes.liveStateChipsInner}>
+          <div className={classes.liveStateChips}>
+            {states.map((s) => (
+              <span key={s} className={classes.liveStateChip}>{s}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
   );
 };
 
@@ -911,7 +950,7 @@ const AcaTransferPanel = () => {
 // ─── Main Page Component ─────────────────────────────────────────────────────
 const TakeCallsPage = () => {
   const presets = useSubtlePageMotion();
-  const { callState, activeCampaign, agentIdentity, licensedStates, leadData, hangUp, goOffline, pendingDispositionCall, clearPendingDisposition, transferStatus } = useDialerStore();
+  const { callState, activeCampaign, licensedStates, leadData, hangUp, goOffline, pendingDispositionCall, clearPendingDisposition, transferStatus } = useDialerStore();
   const user = useAuthStore((s) => s.user);
   const [step, setStep] = useState(1);
   const [stepDirection, setStepDirection] = useState(1);
@@ -1049,14 +1088,13 @@ const TakeCallsPage = () => {
           <motion.div className={classes.pageHeader} variants={presets.child}>
             <div>
               <h1>Take Calls</h1>
-              <p>Monitor live status and handle inbound calls in real time.</p>
             </div>
           </motion.div>
 
           {activeCampaign && (
-            <motion.div variants={presets.child} style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', padding: '16px 20px', textAlign: 'left', marginBottom: '20px', color: '#ffffff' }}>
+            <motion.div variants={presets.child} className={classes.readBanner}>
               <strong style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <AlertCircle size={20} color="#ffffff" /> FE Inbounds 90s Qualifiers
+                <AlertCircle size={20} /> FE Inbounds 90s Qualifiers
               </strong>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', fontSize: '15px' }}>
                 <div>
@@ -1083,99 +1121,86 @@ const TakeCallsPage = () => {
             </motion.div>
           )}
 
-          <motion.div className={classes.topStatsRow} variants={presets.statsStrip}>
-            <motion.div className={`glass ${classes.statBox}`} variants={presets.child}>
-              <div className={classes.statLabel}>Agent Name</div>
-              <div className={classes.statValue}>{user?.name || agentIdentity || '---'}</div>
-            </motion.div>
-            <motion.div className={`glass ${classes.statBox}`} variants={presets.child}>
-              <div className={classes.statLabel}>Campaign</div>
-              <div className={classes.statValue}>{activeCampaign?.replace(/_/g, ' ').toUpperCase() || '---'}</div>
-            </motion.div>
-            <motion.div className={`glass ${classes.statBox}`} variants={presets.child}>
-              <div className={classes.statLabel}>Remaining Budget</div>
-              <div className={`${classes.statValue} ${classes.budgetGreen}`}>${remainingBudget.toFixed(2)}</div>
-            </motion.div>
-          </motion.div>
-
-          <motion.div className={`glass ${classes.liveStatusCard}`} variants={presets.child}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                <div className={classes.liveBadge} style={{ margin: 0 }}>
-                  <div className={classes.liveDot} />Dialer Active
-                </div>
-                <div>
-                  <h2>
-                    {callState === 'active'
-                      ? 'Currently On Call'
-                      : pendingDispositionCall
-                        ? 'Complete Disposition'
-                        : 'Listening for Calls'}
-                  </h2>
-                  <p>
-                    {callState === 'active'
-                      ? 'Stay focused on the prospect. Follow your script.'
-                      : pendingDispositionCall
-                        ? 'Submit a disposition for your last call before you can receive new calls.'
-                        : 'You are connected to the CallsFlow engine. Stand by for inbound calls.'}
-                  </p>
-                </div>
+          <motion.div
+            className={`glass ${classes.liveCommandBar} ${callState === 'active' ? classes.liveCommandBarOnCall : ''} ${pendingDispositionCall && callState !== 'active' ? classes.liveCommandBarDisposition : ''}`}
+            variants={presets.child}
+          >
+            <div className={classes.liveCommandStatus}>
+              <div className={`${classes.liveBadge} ${callState === 'active' ? classes.liveBadgeOnCall : ''}`}>
+                <div className={classes.liveDot} />
+                {callState === 'active' ? 'On Call' : pendingDispositionCall ? 'Disposition' : 'Dialer Active'}
               </div>
-
-              <div className={classes.actionButtons} style={{ marginTop: 0, justifyContent: 'flex-end' }}>
-                {callState === 'active'
-                  ? (
-                    <>
-                      <button 
-                        className={`${classes.dangerBtn} ${classes.hangUpBtn}`} 
-                        onClick={async () => {
-                          console.log('[EndCall] activeCampaign:', activeCampaign, 'callState:', callState);
-                          try { await apiFetch('/api/voice/kill-call', { method: 'POST' }); } catch(e){ console.error('[EndCall] kill-call failed:', e); }
-                          hangUp();
-                        }}
-                      >
-                        <PhoneOff size={18} /> End Call
-                      </button>
-                    </>
-                  )
-                  : <button className={classes.dangerBtn} onClick={goOffline}><PhoneOff size={18} /> Pause & Go Offline</button>
-                }
+              <div className={classes.liveCommandCopy}>
+                <h2>
+                  {callState === 'active'
+                    ? 'Currently On Call'
+                    : pendingDispositionCall
+                      ? 'Complete Disposition'
+                      : 'Listening for Calls'}
+                </h2>
+                <p>
+                  {callState === 'active'
+                    ? 'Stay focused on the prospect. Follow your script.'
+                    : pendingDispositionCall
+                      ? 'Submit a disposition for your last call before you can receive new calls.'
+                      : 'You are connected to the CallsFlow engine. Stand by for inbound calls.'}
+                </p>
               </div>
+            </div>
+
+            <div className={classes.liveCommandMeta}>
+              <div className={classes.liveMetaItem}>
+                <span className={classes.liveMetaLabel}>Campaign</span>
+                <span className={classes.liveMetaValue}>{activeCampaign?.replace(/_/g, ' ').toUpperCase() || '---'}</span>
+              </div>
+              <div className={classes.liveMetaItem}>
+                <span className={classes.liveMetaLabel}>Remaining Budget</span>
+                <span className={`${classes.liveMetaValue} ${classes.budgetGreen}`}>${remainingBudget.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className={classes.liveCommandActions}>
+              {callState === 'active' ? (
+                <button
+                  className={`${classes.dangerBtn} ${classes.hangUpBtn}`}
+                  onClick={async () => {
+                    console.log('[EndCall] activeCampaign:', activeCampaign, 'callState:', callState);
+                    try { await apiFetch('/api/voice/kill-call', { method: 'POST' }); } catch (e) { console.error('[EndCall] kill-call failed:', e); }
+                    hangUp();
+                  }}
+                >
+                  <PhoneOff size={18} /> End Call
+                </button>
+              ) : (
+                <button className={classes.dangerBtn} onClick={goOffline}>
+                  <PhoneOff size={18} /> Pause & Go Offline
+                </button>
+              )}
             </div>
           </motion.div>
 
-          {licensedStates && licensedStates.length > 0 && (
-            <motion.div className={`glass ${classes.liveStatesCard}`} variants={presets.child}>
-              <span className={classes.liveStatesLabel}><MapPin size={12} /> Licensed States</span>
-              <div className={classes.liveStateChips}>
-                {licensedStates.map(s => (
-                  <span key={s} className={classes.liveStateChip}>{s}</span>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-
-
-          {callState === 'active' && activeCampaign === 'aca_transfers' && (
-            <motion.div variants={presets.child}>
+          <motion.div className={classes.liveWorkspace} variants={presets.child}>
+            {callState === 'active' && activeCampaign === 'aca_transfers' && (
               <AcaTransferPanel />
-            </motion.div>
-          )}
-
-          <motion.div className={`glass ${classes.activeLogsSection}`} variants={presets.child}>
-            <CallHistory 
-              logs={history} 
-              onDispositionUpdate={async (logId, val) => {
-                try {
-                  await updateMyCallLogDisposition(logId, val);
-                  setHistory(prev => prev.map(l => l.id === logId ? { ...l, disposition: val } : l));
-                  toast.success('Disposition updated');
-                } catch(err) {
-                  toast.error('Failed to update disposition');
-                }
-              }} 
-            />
+            )}
+            <div className={`glass ${classes.liveHistoryCol}`}>
+              <div className={classes.liveHistoryHeader}>
+                <h3 className={classes.logsTitle}>Recent Activity</h3>
+                <LiveStatesPanel states={licensedStates} />
+              </div>
+              <CallHistory
+                logs={history}
+                onDispositionUpdate={async (logId, val) => {
+                  try {
+                    await updateMyCallLogDisposition(logId, val);
+                    setHistory((prev) => prev.map((l) => (l.id === logId ? { ...l, disposition: val } : l)));
+                    toast.success('Disposition updated');
+                  } catch (err) {
+                    toast.error('Failed to update disposition');
+                  }
+                }}
+              />
+            </div>
           </motion.div>
 
           {pendingDispositionCall && (
