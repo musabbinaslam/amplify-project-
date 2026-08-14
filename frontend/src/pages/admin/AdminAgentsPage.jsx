@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Users, Trash2, X, Flag, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, Trash2, X, Flag, ShieldCheck, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -7,6 +7,7 @@ import {
   forceRemoveAgent,
   flagAdminAgent,
   resumeAdminAgent,
+  patchAdminAgentPause,
 } from '../../services/adminService';
 import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
@@ -89,6 +90,21 @@ export default function AdminAgentsPage() {
     const from = fromDate.toISOString().slice(0, 10);
     return { from, to: end };
   }, [rangePreset]);
+
+
+
+  const handleTogglePause = async (agentId, agentName, isPaused) => {
+    setActionSubmitting(true);
+    try {
+      await patchAdminAgentPause(agentId, !isPaused);
+      toast.success(!isPaused ? `${agentName} paused` : `${agentName} resumed`);
+      loadAgents();
+    } catch (e) {
+      toast.error(e.message || 'Failed to toggle pause');
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
 
   const loadAgents = useCallback(async () => {
     setLoading(true);
@@ -382,6 +398,12 @@ export default function AdminAgentsPage() {
                                     Flagged
                                   </span>
                                 ) : null}
+                                {row.paused ? (
+                                  <span className={classes.agentFlagBadge} style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
+                                    <Pause size={10} aria-hidden="true" />
+                                    Paused
+                                  </span>
+                                ) : null}
                               </span>
                               {row.email ? (
                                 <span className={classes.agentSubId} title={row.email}>{row.email}</span>
@@ -415,25 +437,51 @@ export default function AdminAgentsPage() {
                             : '—'}
                         </td>
                         <td className={classes.agentActionsCell}>
-                          {row.flagged ? (
-                            <button
-                              type="button"
-                              className={`${classes.rowBtnPrimary} ${classes.agentActionBtn}`}
-                              onClick={() => handleResumeAgent(row.agentId, getAgentName(row))}
-                            >
-                              <ShieldCheck size={14} aria-hidden="true" />
-                              Resume
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              className={`${classes.rowBtnDanger} ${classes.agentActionBtn}`}
-                              onClick={() => setFlagModal({ agentId: row.agentId, agentName: getAgentName(row) })}
-                            >
-                              <Flag size={14} aria-hidden="true" />
-                              Flag
-                            </button>
-                          )}
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            {row.paused ? (
+                              <button
+                                type="button"
+                                className={`${classes.rowBtnPrimary} ${classes.agentActionBtn}`}
+                                onClick={() => handleTogglePause(row.agentId, getAgentName(row), true)}
+                                disabled={actionSubmitting}
+                              >
+                                <Play size={14} aria-hidden="true" />
+                                Resume
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className={`${classes.rowBtnWarn} ${classes.agentActionBtn}`}
+                                onClick={() => handleTogglePause(row.agentId, getAgentName(row), false)}
+                                disabled={actionSubmitting}
+                              >
+                                <Pause size={14} aria-hidden="true" />
+                                Pause
+                              </button>
+                            )}
+
+                            {row.flagged ? (
+                              <button
+                                type="button"
+                                className={`${classes.rowBtnPrimary} ${classes.agentActionBtn}`}
+                                onClick={() => handleResumeAgent(row.agentId, getAgentName(row))}
+                                disabled={actionSubmitting}
+                              >
+                                <ShieldCheck size={14} aria-hidden="true" />
+                                Unflag
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className={`${classes.rowBtnDanger} ${classes.agentActionBtn}`}
+                                onClick={() => setFlagModal({ agentId: row.agentId, agentName: getAgentName(row) })}
+                                disabled={actionSubmitting}
+                              >
+                                <Flag size={14} aria-hidden="true" />
+                                Flag
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))

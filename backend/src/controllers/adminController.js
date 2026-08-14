@@ -843,11 +843,13 @@ async function getOverviewLite(req, res) {
     const usersCountPromise = db
       ? db.collection('users').select().get().catch(() => ({ size: 0 }))
       : Promise.resolve({ size: 0 });
-    const [overview, activeCalls, usersCountSnap] = await Promise.all([
+    const [overview, activeCalls, usersCountSnap, pausedAgentsArr] = await Promise.all([
       agentManager.getOverview(null),
       agentManager.listActiveCalls(null),
       usersCountPromise,
+      agentManager.getPausedAgents(),
     ]);
+    const pausedSet = new Set(pausedAgentsArr || []);
     const routingDiagnostics = agentManager.getRoutingDiagnostics
       ? agentManager.getRoutingDiagnostics()
       : null;
@@ -864,6 +866,8 @@ async function getOverviewLite(req, res) {
         phone: metaMap.get(a.id)?.phone || null,
         flagged: metaMap.get(a.id)?.flagged || false,
         flagReason: metaMap.get(a.id)?.flagReason || null,
+        paused: pausedSet.has(a.id),
+        status: pausedSet.has(a.id) ? 'PAUSED' : a.status,
       })),
       pool: overview.pool || { available: [], ringing: [], busy: [] },
       byCampaign: overview.byCampaign || {},
@@ -1109,7 +1113,7 @@ async function listAgentsDirectory(req, res) {
     if (!db) return res.status(503).json({ error: 'Database unavailable' });
 
     const { from, end, tz } = parseRange(req.query || {});
-    const [usersSnap, statsPayload] = await Promise.all([
+    const [usersSnap, statsPayload, pausedAgentsArr] = await Promise.all([
       db.collection('users').get(),
       (async () => {
         const keys = enumerateDayKeys(from, end);
@@ -1125,7 +1129,10 @@ async function listAgentsDirectory(req, res) {
         const rows = await readLogsInRange(from, end);
         return aggregateAnalytics(rows, from, end, tz);
       })(),
+      agentManager.getPausedAgents(),
     ]);
+
+    const pausedAgentsSet = new Set(pausedAgentsArr || []);
 
     const statsById = new Map(
       (statsPayload.agents || []).map((row) => [row.agentId, row]),
@@ -1154,6 +1161,7 @@ async function listAgentsDirectory(req, res) {
         agencyId: data.agencyId ?? null,
         flagged: data.flagged === true,
         flagReason: data.flagReason || null,
+        paused: pausedAgentsSet.has(doc.id),
         walletBalanceCents: typeof data.wallet?.balance === 'number' ? data.wallet.balance : null,
         createdAt: toIsoMaybe(data.createdAt) || toIsoMaybe(data.createdAtIso) || null,
         isMock: Boolean(data.settings?.mock),
@@ -1335,6 +1343,26 @@ async function patchManagerSettings(req, res) {
   } catch (err) {
     console.error('[Admin] patchManagerSettings:', err.message);
     res.status(500).json({ error: err.message || 'Failed to update manager settings' });
+  }
+}
+
+async function toggleAgentPause(req, res) {
+  try {
+    const { agentId } = req.params;
+    const { paused } = req.body || {};
+    if (!agentId || !agentId.trim()) {
+      return res.status(400).json({ error: 'agentId is required' });
+    }
+    const id = agentId.trim();
+    const isPaused = Boolean(paused);
+
+    await agentManager.setAgentPaused(id, isPaused);
+
+    console.log(`[Admin] ⏯️ Agent ${id} pause toggled to: ${isPaused}`);
+    return res.json({ success: true, paused: isPaused });
+  } catch (err) {
+    console.error('[Admin] toggleAgentPause error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }
 
@@ -2127,6 +2155,7 @@ module.exports = {
   listManagerTeams,
   getManagerTeam,
   patchManagerSettings,
+  toggleAgentPause,
   flagAgent,
   resumeAgent,
   getAnalyticsDrilldown,

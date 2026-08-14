@@ -59,6 +59,40 @@ class AgentManager {
       return this.poolKey(data.campaignId, data.agencyId ?? null);
    }
 
+   // ─── Silent Pause Helpers ────────────────────────────────────────────────
+   async isAgentPaused(agentId) {
+      const val = await redisClient.get(`agent:paused:${agentId}`);
+      return val === 'true';
+   }
+
+   async getPausedAgents() {
+      const keys = await redisClient.keys('agent:paused:*');
+      if (!keys || keys.length === 0) return [];
+      return keys.map(k => k.split(':').pop());
+   }
+
+   async setAgentPaused(agentId, paused) {
+      if (paused) {
+         await redisClient.set(`agent:paused:${agentId}`, 'true');
+         // Yank from pool immediately
+         const dataStr = await redisClient.hGet('agents:data', agentId);
+         if (dataStr) {
+            const data = JSON.parse(dataStr);
+            await redisClient.zRem(this.poolKeyForAgentData(data) || this.poolKey(data.campaignId, data.agencyId), agentId);
+         }
+      } else {
+         await redisClient.del(`agent:paused:${agentId}`);
+         // Put them back in the pool immediately if they are still online and available
+         const dataStr = await redisClient.hGet('agents:data', agentId);
+         if (dataStr) {
+            const data = JSON.parse(dataStr);
+            if (data.campaignId && data.status === 'AVAILABLE') {
+               await redisClient.zAdd(this.poolKeyForAgentData(data) || this.poolKey(data.campaignId, data.agencyId), { score: Date.now(), value: agentId });
+            }
+         }
+      }
+   }
+
    agentMatchesAgencyFilter(agentAgencyId, filterAgencyId) {
       const agentSeg = poolSegment(agentAgencyId);
       const filterSeg = poolSegment(filterAgencyId);
@@ -214,7 +248,10 @@ class AgentManager {
       await redisClient.hSet('agents:data', agentId, JSON.stringify(newAgentData));
 
       // Score 0 = highest priority (longest wait). Score is updated to Date.now() on each release.
-      await redisClient.zAdd(this.poolKey(campaign, agencyId), { score: 0, value: agentId });
+      const isPaused = await this.isAgentPaused(agentId);
+      if (!isPaused) {
+         await redisClient.zAdd(this.poolKey(campaign, agencyId), { score: 0, value: agentId });
+      }
 
       // Add to global heartbeats tracker for efficient O(1) sweeper lookups
       await redisClient.zAdd('agents:heartbeats', { score: Date.now(), value: agentId });
@@ -599,10 +636,13 @@ class AgentManager {
 
       if (data?.campaignId) {
          // Score = current timestamp → this agent goes to back of LRU queue
-         await redisClient.zAdd(this.poolKey(data.campaignId, data.agencyId ?? null), {
-            score: Date.now(),
-            value: agentId,
-         });
+         const isPaused = await this.isAgentPaused(agentId);
+         if (!isPaused) {
+            await redisClient.zAdd(this.poolKey(data.campaignId, data.agencyId ?? null), {
+               score: Date.now(),
+               value: agentId,
+            });
+         }
       }
 
       if (data) {
@@ -956,9 +996,10 @@ class AgentManager {
    }
 
    async getOverview(agencyIdFilter = null) {
-      const [pool, allAgentsStr] = await Promise.all([
+      const [pool, allAgentsStr, pausedAgentsArr] = await Promise.all([
          this.getPoolSnapshot(agencyIdFilter),
-         redisClient.hGetAll('agents:data')
+         redisClient.hGetAll('agents:data'),
+         this.getPausedAgents()
       ]);
 
       const inTenant = (rawStr) => {
@@ -971,7 +1012,7 @@ class AgentManager {
          }
       };
 
-      const idSet = new Set([...pool.available, ...pool.ringing, ...pool.busy]);
+      const idSet = new Set([...pool.available, ...pool.ringing, ...pool.busy, ...(pausedAgentsArr || [])]);
 
       for (const [id, rawStr] of Object.entries(allAgentsStr || {})) {
          if (!inTenant(rawStr)) continue;
@@ -986,7 +1027,12 @@ class AgentManager {
 
       for (const id of idSet) {
          const rawStr = allAgentsStr[id];
-         if (!rawStr || !inTenant(rawStr)) continue;
+         if (!rawStr) continue;
+         
+         // If they aren't paused and they fail the tenant check, skip them
+         const isPausedAgent = pausedAgentsArr && pausedAgentsArr.includes(id);
+         if (!isPausedAgent && !inTenant(rawStr)) continue;
+
          const raw = JSON.parse(rawStr);
 
          let licensedStates = [];
@@ -1102,7 +1148,10 @@ class AgentManager {
                   redisClient.sRem('agents:ringing', agentId),
                ]);
                if (agent?.campaignId) {
-                  await redisClient.zAdd(this.poolKey(agent.campaignId, agent.agencyId ?? null), { score: Date.now(), value: agentId });
+                  const isPaused = await this.isAgentPaused(agentId);
+                  if (!isPaused) {
+                     await redisClient.zAdd(this.poolKey(agent.campaignId, agent.agencyId ?? null), { score: Date.now(), value: agentId });
+                  }
                }
                if (agent) {
                   agent.status = 'AVAILABLE';
@@ -1129,7 +1178,10 @@ class AgentManager {
                      redisClient.sRem('agents:ringing', agentId),
                   ]);
                   if (agent?.campaignId) {
-                     await redisClient.zAdd(this.poolKey(agent.campaignId, agent.agencyId ?? null), { score: Date.now(), value: agentId });
+                     const isPaused = await this.isAgentPaused(agentId);
+                     if (!isPaused) {
+                        await redisClient.zAdd(this.poolKey(agent.campaignId, agent.agencyId ?? null), { score: Date.now(), value: agentId });
+                     }
                   }
                   if (agent) {
                      agent.status = 'AVAILABLE';
@@ -1178,7 +1230,10 @@ class AgentManager {
          data.lastSeenAt = Date.now().toString();
          await redisClient.hSet('agents:data', agentId, JSON.stringify(data));
          if (data.campaignId) {
-            await redisClient.zAdd(this.poolKey(data.campaignId, data.agencyId ?? null), { score: Date.now(), value: agentId });
+            const isPaused = await this.isAgentPaused(agentId);
+            if (!isPaused) {
+               await redisClient.zAdd(this.poolKey(data.campaignId, data.agencyId ?? null), { score: Date.now(), value: agentId });
+            }
          }
          console.log(`[Admin] 🔓 Force-released agent ${agentId} → AVAILABLE`);
          return { action: 'released', agentId };
