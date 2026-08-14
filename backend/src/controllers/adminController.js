@@ -32,6 +32,7 @@ function getCampaigns(campaignControls = null) {
     label: cfg.label,
     buffer: cfg.buffer,
     price: cfg.price,
+    allowRefunds: cfg.allowRefunds,
     paused: Boolean(pausedMap[id]?.paused),
     pauseReason: pausedMap[id]?.reason || '',
   }));
