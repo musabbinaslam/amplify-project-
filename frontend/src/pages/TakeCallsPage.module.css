@@ -853,7 +853,56 @@
 .activeDialerLayout {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
+}
+
+.readBanner {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  text-align: left;
+  margin-bottom: 20px;
+  color: #ffffff;
+  padding: 16px 20px 16px 24px;
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 46%),
+    rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -10px 24px rgba(0, 0, 0, 0.18),
+    0 10px 28px rgba(0, 0, 0, 0.32),
+    0 0 28px rgba(239, 68, 68, 0.18);
+}
+.readBanner::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #ef4444;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.7);
+}
+.readBanner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 80% at 0% 0%, rgba(239, 68, 68, 0.22), transparent 55%);
+}
+
+[data-theme="light"] .readBanner {
+  color: #3f0d0d;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, transparent 50%),
+    rgba(239, 68, 68, 0.14);
+  border-color: rgba(185, 28, 28, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -8px 18px rgba(185, 28, 28, 0.08),
+    0 10px 24px rgba(185, 28, 28, 0.12);
 }
 .topStatsRow {
   display: grid;
@@ -861,42 +910,120 @@
   gap: 18px;
 }
 .statBox {
-  padding: 20px;
-  border-radius: var(--radius-xl);
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
 }
 .statLabel {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
 }
 .statValue {
-  font-size: 34px;
+  font-size: 22px;
   font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
   color: var(--text-primary);
 }
 .budgetGreen { color: var(--accent-green); }
 
+.liveCommandBar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content auto;
+  align-items: center;
+  gap: 20px 24px;
+  padding: 16px 20px;
+  border-radius: var(--radius-xl);
+}
+.liveCommandBarOnCall {
+  border-color: color-mix(in srgb, var(--accent-red) 42%, var(--glass-border));
+  background: color-mix(in srgb, var(--accent-red) 8%, var(--glass-bg));
+}
+.liveCommandBarDisposition {
+  border-color: color-mix(in srgb, var(--accent-yellow) 40%, var(--glass-border));
+}
+.liveCommandStatus {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.liveCommandCopy {
+  min-width: 0;
+}
+.liveCommandCopy h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+.liveCommandCopy p {
+  color: var(--text-secondary);
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.liveCommandMeta {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  width: max-content;
+  max-width: 100%;
+}
+.liveMetaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 1 auto;
+  width: max-content;
+  max-width: 100%;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
+  border: 1px solid var(--glass-border);
+}
+.liveMetaLabel {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.liveMetaValue {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.liveCommandActions {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
 .liveStatusCard {
   position: relative;
   overflow: hidden;
-  padding: 28px 24px;
-  text-align: center;
-  border-radius: var(--radius-xl);
+  padding: 16px 20px;
+  text-align: left;
+  border-radius: var(--radius-lg);
 }
 .liveStatusCard h2 {
-  margin: 8px 0;
-  font-size: 32px;
+  margin: 0;
+  font-size: 18px;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 .liveStatusCard p {
   color: var(--text-secondary);
   margin: 0;
+  font-size: 13px;
 }
 .liveBadge {
   display: inline-flex;
@@ -909,6 +1036,16 @@
   padding: 6px 12px;
   font-size: 12px;
   font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.liveBadgeOnCall {
+  color: var(--accent-red);
+  border-color: color-mix(in srgb, var(--accent-red) 40%, var(--glass-border));
+  background: color-mix(in srgb, var(--accent-red) 12%, transparent);
+}
+.liveBadgeOnCall .liveDot {
+  background: var(--accent-red);
 }
 .liveDot {
   width: 8px;
@@ -935,9 +1072,37 @@
   color: var(--text-primary);
 }
 
-.liveStatesCard {
-  padding: 14px 16px;
+.liveWorkspace {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.liveHistoryCol {
+  padding: 18px 20px;
   border-radius: var(--radius-xl);
+  min-width: 0;
+}
+.liveHistoryHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-bottom: 12px;
+}
+.liveStatesToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
+  color: inherit;
+  cursor: pointer;
+  padding: 6px 10px;
+  font: inherit;
+  text-align: left;
+  border-radius: var(--radius-full);
+  margin-left: auto;
 }
 .liveStatesLabel {
   color: var(--text-secondary);
@@ -949,11 +1114,46 @@
   align-items: center;
   gap: 6px;
 }
+.liveStatesCount {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+}
+.liveStatesChevron {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.liveStatesChevronOpen {
+  transform: rotate(180deg);
+}
+.liveStateChipsWrap {
+  flex: 1 0 100%;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.liveStateChipsWrapOpen {
+  grid-template-rows: 1fr;
+}
+.liveStateChipsInner {
+  min-height: 0;
+  overflow: hidden;
+}
 .liveStateChips {
-  margin-top: 8px;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  padding-top: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .liveStateChipsWrap {
+    transition: none;
+  }
 }
 .liveStateChip {
   border: 1px solid var(--glass-border);
@@ -974,16 +1174,16 @@
   border-radius: var(--radius-xl);
 }
 .logsTitle {
-  margin: 0 0 16px;
-  font-size: 20px;
+  margin: 0;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
 }
 .logsHeader,
 .logItem {
   display: grid;
-  grid-template-columns: 2fr 2fr 1.2fr 1fr 1.5fr;
-  gap: 10px;
+  grid-template-columns: minmax(120px, 1.2fr) minmax(110px, 1.1fr) minmax(72px, 0.7fr) minmax(110px, 1fr) minmax(130px, 1.1fr);
+  gap: 12px;
   align-items: center;
 }
 .logsHeader {
@@ -992,14 +1192,14 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 0.6rem 1rem 0.8rem;
+  padding: 0.5rem 0.85rem 0.6rem;
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface-container-high) 50%, transparent);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 .logsList { display: flex; flex-direction: column; }
 .logItem {
-  padding: 0.7rem 1rem;
+  padding: 0.6rem 0.85rem;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   font-size: 13px;
   transition: background 0.15s ease;
@@ -1018,7 +1218,7 @@
   align-items: center;
   gap: 5px;
 }
-.colStatus { justify-self: end; }
+.colStatus { min-width: 0; }
 .campaignTag {
   display: inline-flex;
   border-radius: var(--radius-full);
@@ -1077,8 +1277,22 @@
 }
 .emptyLogs {
   color: var(--text-tertiary);
-  padding: 20px 8px;
+  padding: 36px 16px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.emptyLogs p {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+}
+.emptyLogs span {
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .callOverlay {
@@ -1133,6 +1347,30 @@
 
 @media (max-width: 900px) {
   .topStatsRow { grid-template-columns: 1fr; }
+  .liveCommandBar {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .liveCommandMeta {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .liveMetaValue {
+    white-space: normal;
+  }
+  .liveCommandActions {
+    justify-content: stretch;
+  }
+  .liveCommandActions .dangerBtn,
+  .liveCommandActions .hangUpBtn {
+    width: 100%;
+  }
+  .liveHistoryHeader {
+    align-items: flex-start;
+  }
+  .liveStatesToggle {
+    margin-left: 0;
+  }
 }
 
 @media (max-width: 880px) {
