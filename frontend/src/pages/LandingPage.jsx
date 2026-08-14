@@ -463,6 +463,8 @@ const LandingPage = () => {
           <div className={classes.footerLinks}>
             <Link to="/login">Log In</Link>
             <Link to="/signup">Create Account</Link>
+            <Link to="/terms">Terms of Service</Link>
+            <Link to="/privacy">Privacy Policy</Link>
             <a href={bookingUrl} target="_blank" rel="noreferrer" className={classes.bookingPulseBorder}>Book Demo</a>
           </div>
         </div>
