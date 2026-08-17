@@ -165,6 +165,13 @@ export function resumeAdminAgent(agentId) {
   return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/resume`, { method: 'POST' });
 }
 
+export function patchAdminAgentPause(agentId, paused) {
+  return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/pause`, {
+    method: 'PATCH',
+    body: { paused },
+  });
+}
+
 export function listAdminCallContests(status = 'pending', limit = 50) {
   const qs = new URLSearchParams();
   if (status) qs.set('status', status);
