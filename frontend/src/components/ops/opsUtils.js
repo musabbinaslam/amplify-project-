@@ -25,14 +25,26 @@ export function formatAgentDisplayName(agent) {
 
 export function getAgentLiveSubtext(agent, liveCall) {
   if (!agent?.online) return null;
+  
+  let statesStr = '';
+  if (agent.licensedStates && agent.licensedStates.length > 0) {
+    let parsedStates = agent.licensedStates;
+    if (typeof parsedStates === 'string') {
+      try { parsedStates = JSON.parse(parsedStates); } catch (e) { parsedStates = []; }
+    }
+    if (Array.isArray(parsedStates) && parsedStates.length > 0) {
+      statesStr = ` [${parsedStates.join(', ')}]`;
+    }
+  }
+
   if (liveCall) {
     const secs = Number(liveCall.durationSec || 0);
-    return secs > 0 ? `On call · ${secs}s` : 'On call';
+    return secs > 0 ? `On call · ${secs}s${statesStr}` : `On call${statesStr}`;
   }
   if (agent.campaignId) {
-    return CAMPAIGN_SHORT[agent.campaignId] || agent.campaignId;
+    return `${CAMPAIGN_SHORT[agent.campaignId] || agent.campaignId}${statesStr}`;
   }
-  return 'Ready — no active call';
+  return `Ready — no active call${statesStr}`;
 }
 
 export function statusMeta(status, online, classes) {

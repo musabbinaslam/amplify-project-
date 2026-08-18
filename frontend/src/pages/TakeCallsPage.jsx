@@ -741,6 +741,10 @@ const DispositionModal = ({ callSid, onComplete }) => {
 
   const options = [
     { id: 'not_interested', label: 'Not interested' },
+    { id: 'does_not_qualify', label: 'Doesn\'t qualify' },
+    { id: 'over_age', label: 'Over Age' },
+    { id: 'thinks_its_free', label: 'Thinks it\'s free' },
+    { id: 'call_dropped', label: 'Call dropped' },
     { id: 'callback', label: 'Call back' },
     { id: 'busy', label: 'Busy' },
     { id: 'policy_closed', label: 'Policy Closed' },
