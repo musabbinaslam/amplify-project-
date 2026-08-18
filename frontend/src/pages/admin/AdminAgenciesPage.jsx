@@ -285,6 +285,7 @@ export default function AdminAgenciesPage() {
   const [loading, setLoading] = useState(true);
   const [agencies, setAgencies] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
+  const [liveCallsCount, setLiveCallsCount] = useState(0);
   const [users, setUsers] = useState([]);
   const [selectedId, setSelectedId] = useState(() => searchParams.get('selected') || '');
   const [settingsTab, setSettingsTab] = useState('members');
@@ -366,7 +367,8 @@ export default function AdminAgenciesPage() {
     { label: 'agencies', value: stats.total },
     { label: 'active', value: stats.active },
     { label: 'agents', value: stats.agents },
-  ], [stats]);
+    { label: 'live calls', value: liveCallsCount },
+  ], [stats, liveCallsCount]);
 
   const loadAgencies = useCallback(async () => {
     const out = await listAdminAgencies();
@@ -381,6 +383,7 @@ export default function AdminAgenciesPage() {
         listAdminUsers(),
       ]);
       setCampaigns(ov?.campaigns || []);
+      setLiveCallsCount(ov?.live?.activeCalls || 0);
       setUsers(dedupeUsers(userOut?.users || []).filter((u) => !u.agencyId));
       await loadAgencies();
     } catch (e) {
