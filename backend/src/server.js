@@ -197,6 +197,10 @@ const startEngine = async () => {
   // Mount webhook routes (/trackdrive)
   app.use('/api/webhooks', webhookRoutes);
 
+  // Mount Persona routes
+  const personaRoutes = require('./routes/personaRoutes');
+  app.use('/api/persona', personaRoutes);
+
   // Mount Stripe routes
   const stripeRoutes = require('./routes/stripeRoutes');
   app.use('/api/stripe', stripeRoutes);
