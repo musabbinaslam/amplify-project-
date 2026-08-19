@@ -232,6 +232,7 @@ function mapRecentLogRow(r, extra = {}) {
     refundReason: r.refundReason || null,
     contestId: r.contestId || null,
     contestStatus: r.contestStatus || null,
+    from: r.from || r.customerPhone || null,
     ...extra,
   };
 }
@@ -256,6 +257,7 @@ function normalizeCall(doc) {
     refundReason: data.refundReason || null,
     contestId: data.contestId || null,
     contestStatus: data.contestStatus || null,
+    from: data.from || null,
     createdAt,
   };
 }
