@@ -134,6 +134,20 @@ const ACTION_MODAL_CONFIG = {
     label: 'Refund reason',
     placeholder: 'Why is this call being credited? (visible on billing history)',
   },
+  confirm_qa_flag: {
+    title: 'Confirm AI flag',
+    confirmLabel: 'Confirm & flag agent',
+    confirmClass: 'dangerBtn',
+    label: 'Review note',
+    placeholder: 'Why is this violation confirmed? This will flag the agent account.',
+  },
+  dismiss_qa_flag: {
+    title: 'Dismiss AI flag',
+    confirmLabel: 'Dismiss flag',
+    confirmClass: 'primaryBtn',
+    label: 'Dismissal note',
+    placeholder: 'Why is this a false positive? The agent will stay live.',
+  },
 };
 
 /* eslint-disable react/prop-types */
@@ -149,6 +163,10 @@ export function AdminActionModal({ modal, note, onNoteChange, submitting, onClos
     subtitle = `The agent (${agentName}) will see this on their call log.`;
   } else if (modal.type === 'refund_call') {
     subtitle = `Credit $${amount} to ${agentName}. Minimum 10 characters.`;
+  } else if (modal.type === 'confirm_qa_flag') {
+    subtitle = `Confirming will flag ${agentName} and kick them from the pool. Minimum 10 characters.`;
+  } else if (modal.type === 'dismiss_qa_flag') {
+    subtitle = `Dismiss this as a false positive for ${agentName}. The agent stays live.`;
   }
 
   return (

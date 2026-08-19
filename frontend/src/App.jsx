@@ -44,10 +44,13 @@ const AdminManagersPage = lazy(() => import('./pages/admin/AdminManagersPage'));
 const AdminAgenciesOpsPage = lazy(() => import('./pages/admin/AdminAgenciesOpsPage'));
 const AdminTeamsOpsPage = lazy(() => import('./pages/admin/AdminTeamsOpsPage'));
 const AdminAITrainingPage = lazy(() => import('./pages/AdminAITrainingPage'));
+const AdminAiFlagsPage = lazy(() => import('./pages/admin/AdminAiFlagsPage'));
+const AdminQaRulesPage = lazy(() => import('./pages/admin/AdminQaRulesPage'));
 const AdminNotificationSettingsPage = lazy(() => import('./pages/AdminNotificationSettingsPage'));
 
 const QaDashboardPage = lazy(() => import('./pages/QaDashboardPage'));
 const QaAITrainingPage = lazy(() => import('./pages/QaAITrainingPage'));
+const QaReviewPage = lazy(() => import('./pages/QaReviewPage'));
 
 const TeamDashboardPage = lazy(() => import('./pages/TeamDashboardPage'));
 const AgencyDashboardPage = lazy(() => import('./pages/AgencyDashboardPage'));
@@ -290,6 +293,20 @@ const AnimatedRoutes = () => {
               </AdminOnly>
             </Suspense>
           } />
+          <Route path="admin/ai-flags" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminAiFlagsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/qa-rules" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminQaRulesPage />
+              </AdminOnly>
+            </Suspense>
+          } />
           <Route path="admin/notifications" element={
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
@@ -309,6 +326,13 @@ const AnimatedRoutes = () => {
             <Suspense fallback={<PageLoader />}>
               <QaOnly>
                 <QaAITrainingPage />
+              </QaOnly>
+            </Suspense>
+          } />
+          <Route path="qa/review" element={
+            <Suspense fallback={<PageLoader />}>
+              <QaOnly>
+                <QaReviewPage />
               </QaOnly>
             </Suspense>
           } />

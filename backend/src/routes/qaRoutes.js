@@ -2,6 +2,7 @@ const express = require('express');
 const { verifyFirebaseToken } = require('../middleware/auth');
 const { requireQaOrAdmin } = require('../middleware/requireQaOrAdmin');
 const adminController = require('../controllers/adminController');
+const qaReviewController = require('../controllers/qaReviewController');
 
 const router = express.Router();
 
@@ -21,5 +22,11 @@ router.get('/ai-training/agent-plans', adminController.getAiCoachingAgentPlans);
 
 // Agent emergency management (operational tool, QA-accessible)
 router.post('/agents/:agentId/force-remove', adminController.forceRemoveAgent);
+
+router.get('/reviews', qaReviewController.listQaReviews);
+router.get('/reviews/pending-count', qaReviewController.countPendingQaReviews);
+router.get('/reviews/status', qaReviewController.getQaPipelineStatus);
+router.post('/reviews/:agentId/:callLogId/confirm', qaReviewController.confirmQaReview);
+router.post('/reviews/:agentId/:callLogId/dismiss', qaReviewController.dismissQaReview);
 
 module.exports = router;

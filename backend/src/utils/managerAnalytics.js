@@ -97,6 +97,13 @@ function normalizeCall(doc, fallbackAgentId) {
     disposition: data.disposition || null,
     recordingUrl: data.recordingUrl || null,
     recordingSid: data.recordingSid || null,
+    qaAudioReview: data.qaAudioReview
+      ? {
+          status: data.qaAudioReview.status || null,
+          summary: data.qaAudioReview.summary || '',
+          violations: Array.isArray(data.qaAudioReview.violations) ? data.qaAudioReview.violations : [],
+        }
+      : null,
     refunded: Boolean(data.refunded),
     refundReason: data.refundReason || null,
     contestId: data.contestId || null,

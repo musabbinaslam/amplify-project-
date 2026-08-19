@@ -2,6 +2,7 @@ const express = require('express');
 const { verifyFirebaseToken } = require('../middleware/auth');
 const { requireAdmin } = require('../middleware/requireAdmin');
 const adminController = require('../controllers/adminController');
+const qaReviewController = require('../controllers/qaReviewController');
 
 const router = express.Router();
 
@@ -66,6 +67,19 @@ router.get('/call-contests/:contestId', adminController.getCallContest);
 router.post('/call-contests/:contestId/approve', adminController.approveCallContest);
 router.post('/call-contests/:contestId/deny', adminController.denyCallContest);
 router.post('/call-logs/refund', adminController.refundCall);
+
+router.get('/qa-rules', qaReviewController.listQaRules);
+router.post('/qa-rules', qaReviewController.createQaRule);
+router.patch('/qa-rules/:ruleId', qaReviewController.updateQaRule);
+router.delete('/qa-rules/:ruleId', qaReviewController.deleteQaRule);
+router.get('/qa-reviews', qaReviewController.listQaReviews);
+router.get('/qa-reviews/pending-count', qaReviewController.countPendingQaReviews);
+router.get('/qa-reviews/status', qaReviewController.getQaPipelineStatus);
+router.post('/qa-reviews/backfill', qaReviewController.backfillQaAudioReviews);
+router.post('/qa-reviews/reanalyze-batch', qaReviewController.reanalyzeQaAudioReviewBatch);
+router.post('/qa-reviews/:agentId/:callLogId/reanalyze', qaReviewController.reanalyzeQaAudioReview);
+router.post('/qa-reviews/:agentId/:callLogId/confirm', qaReviewController.confirmQaReview);
+router.post('/qa-reviews/:agentId/:callLogId/dismiss', qaReviewController.dismissQaReview);
 
 // Agency management
 const agencyController = require('../controllers/agencyController');

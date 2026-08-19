@@ -670,6 +670,15 @@ export default function AdminAnalyticsPage() {
                               ) : (
                                 <span className={`${classes.drillPill} ${classes.dispMissed}`}>Missed</span>
                               )}
+                              {log.qaAudioReview?.status ? (
+                                <span className={`${classes.drillPill} ${
+                                  log.qaAudioReview.status === 'pending_review' ? classes.dispAnswered
+                                    : log.qaAudioReview.status === 'confirmed' ? classes.dispMissed
+                                      : classes.dispSold
+                                }`} style={{ marginLeft: 6 }}>
+                                  AI {String(log.qaAudioReview.status).replace('_', ' ')}
+                                </span>
+                              ) : null}
                             </td>
                             <td className={`${classes.pillCell} ${classes.pillCellWrap}`}>
                               <CallLogDispositionBadge 

@@ -1,0 +1,11 @@
+---
+description: Never commit markdown files; keep *.md gitignored
+alwaysApply: true
+---
+
+# Markdown files stay out of git
+
+- All `*.md` files are gitignored in this repo.
+- When you create a new `.md` file, do not stage or commit it.
+- Do not remove `*.md` from `.gitignore` unless the user explicitly asks.
+- Prefer putting local docs under `docs/` (still ignored by `*.md`).

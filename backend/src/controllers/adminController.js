@@ -20,6 +20,7 @@ const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const { mergeUserDoc, getUserDoc } = require('../services/userDataService');
 const callLogService = require('../services/callLogService');
+const { flagAgentAccount } = require('../services/agentFlagService');
 const ANALYTICS_CACHE_TTL_MS = 30000;
 const READ_CONCURRENCY = 10;
 const analyticsCache = new Map();
@@ -251,6 +252,13 @@ function normalizeCall(doc) {
     disposition: data.disposition || null,
     recordingUrl: data.recordingUrl || null,
     recordingSid: data.recordingSid || null,
+    qaAudioReview: data.qaAudioReview
+      ? {
+          status: data.qaAudioReview.status || null,
+          summary: data.qaAudioReview.summary || '',
+          violations: Array.isArray(data.qaAudioReview.violations) ? data.qaAudioReview.violations : [],
+        }
+      : null,
     refunded: Boolean(data.refunded),
     refundReason: data.refundReason || null,
     contestId: data.contestId || null,
@@ -1346,32 +1354,13 @@ async function flagAgent(req, res) {
     const id = agentId.trim();
     const reason = String(req.body?.reason || 'Low billable rate — below 30% threshold').trim();
 
-    // 1. Write flagged:true to Firestore
-    await mergeUserDoc(id, {
-      flagged: true,
-      flaggedAt: new Date().toISOString(),
-      flaggedBy: req.user?.uid || 'admin',
-      flagReason: reason,
-    });
-
-    // 2. Kick them from Redis pool immediately
-    await agentManager.removeAgent(id);
-
-    // 3. Notify their browser via socket if they are online
-    await socketRegistry.emitToAgent(id, 'agent:flagged', {
+    await flagAgentAccount(id, {
       reason,
+      flaggedBy: req.user?.uid || 'admin',
       message: 'Your account has been flagged due to inactivity or a low billable rate. Please contact admin@callsflow.io to resume your activity.',
+      notificationBody: `Your account was flagged by an admin: ${reason}`,
     });
 
-    // 4. Send persistent notification to the agent's bell tray
-    await notifyAgent(id, {
-      type: 'personal',
-      title: 'Account Flagged',
-      body: `Your account was flagged by an admin: ${reason}`,
-      priority: 'high',
-    });
-
-    // 5. Invalidate analytics cache so the admin dashboard updates immediately
     analyticsCache.clear();
     coachingCache.clear();
 

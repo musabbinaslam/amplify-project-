@@ -44,3 +44,33 @@ export function getQaAiAgentPlans(params = {}) {
 export function qaForceRemoveAgent(agentId) {
   return apiFetch(`/api/qa/agents/${encodeURIComponent(agentId)}/force-remove`, { method: 'POST' });
 }
+
+export function listQaReviews(status = 'pending_review', limit = 20, page = 1) {
+  const qs = new URLSearchParams();
+  if (status) qs.set('status', status);
+  if (limit) qs.set('limit', String(limit));
+  if (page) qs.set('page', String(page));
+  return apiFetch(`/api/qa/reviews?${qs.toString()}`, { method: 'GET' });
+}
+
+export function countQaReviewsPending() {
+  return apiFetch('/api/qa/reviews/pending-count', { method: 'GET' });
+}
+
+export function getQaPipelineStatus() {
+  return apiFetch('/api/qa/reviews/status', { method: 'GET' });
+}
+
+export function confirmQaReview(agentId, callLogId, note) {
+  return apiFetch(`/api/qa/reviews/${encodeURIComponent(agentId)}/${encodeURIComponent(callLogId)}/confirm`, {
+    method: 'POST',
+    body: { note },
+  });
+}
+
+export function dismissQaReview(agentId, callLogId, note) {
+  return apiFetch(`/api/qa/reviews/${encodeURIComponent(agentId)}/${encodeURIComponent(callLogId)}/dismiss`, {
+    method: 'POST',
+    body: { note },
+  });
+}
