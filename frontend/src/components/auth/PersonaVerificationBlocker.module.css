@@ -1,0 +1,154 @@
+.blocker {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin-top: 2rem;
+  padding: clamp(2rem, 4vw, 3.25rem) clamp(1.25rem, 3vw, 2.5rem);
+  text-align: center;
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--brand-text) 14%, var(--glass-border));
+  background:
+    radial-gradient(120% 100% at 50% 0%, color-mix(in srgb, var(--brand) 8%, transparent), transparent 58%),
+    linear-gradient(165deg, color-mix(in srgb, var(--glass-bg) 85%, transparent), color-mix(in srgb, var(--surface-container) 72%, transparent));
+  box-shadow:
+    var(--glass-highlight),
+    var(--glass-edge),
+    0 20px 50px color-mix(in srgb, var(--brand-glow) 22%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
+  backdrop-filter: blur(18px) saturate(145%);
+}
+
+.bgGlow {
+  position: absolute;
+  top: -38%;
+  left: 50%;
+  width: clamp(220px, 28vw, 360px);
+  height: clamp(220px, 28vw, 360px);
+  transform: translateX(-50%);
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--brand) 22%, transparent) 0%, transparent 70%);
+  filter: blur(6px);
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  margin: 0 auto;
+  max-width: 620px;
+}
+
+.iconWrap {
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 1.4rem;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--brand-text) 24%, transparent);
+  background: color-mix(in srgb, var(--brand-dim) 72%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 42%, transparent),
+    0 10px 24px color-mix(in srgb, var(--brand-glow) 28%, transparent);
+  display: grid;
+  place-items: center;
+}
+
+.icon {
+  color: var(--brand-text);
+}
+
+.title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(1.8rem, 3vw, 2.45rem);
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.description {
+  margin: 1rem auto 0;
+  max-width: 560px;
+  color: var(--text-secondary);
+  font-size: clamp(1rem, 1.3vw, 1.18rem);
+  line-height: 1.65;
+}
+
+.ctaButton {
+  margin: 2.2rem auto 0;
+  min-height: 50px;
+  padding: 0.85rem 1.8rem;
+  border: 1px solid color-mix(in srgb, var(--brand-solid) 70%, transparent);
+  border-radius: 12px;
+  background: var(--brand-solid);
+  color: var(--brand-on);
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.22s ease, filter 0.22s ease, opacity 0.2s ease;
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--brand-glow) 50%, transparent);
+}
+
+.ctaButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--brand-glow) 62%, transparent);
+  filter: saturate(108%);
+}
+
+.ctaButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.ctaButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand-text) 65%, #ffffff);
+  outline-offset: 2px;
+}
+
+.ctaButton:disabled {
+  opacity: 0.78;
+  cursor: not-allowed;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--brand-on) 24%, transparent);
+  border-top-color: var(--brand-on);
+  animation: spinner-rotate 0.9s linear infinite;
+}
+
+@keyframes spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .blocker {
+    padding: 1.8rem 1rem 2.2rem;
+    border-radius: 18px;
+  }
+
+  .description {
+    max-width: 48ch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ctaButton,
+  .spinner {
+    transition: none;
+    animation: none;
+  }
+
+  .ctaButton:hover:not(:disabled),
+  .ctaButton:active:not(:disabled) {
+    transform: none;
+    filter: none;
+  }
+}

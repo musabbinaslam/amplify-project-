@@ -33,6 +33,7 @@ const Topbar = ({
   const [inboxTab, setInboxTab] = useState('general');
   const inboxRef = useRef(null);
   const { callState } = useDialerStore();
+  const showPersonaWarning = Boolean(user && user.personaStatus !== 'verified');
 
   const isOnline = callState !== 'offline' && callState !== 'error';
   const inboxMotion = dropdownPanelMotion(reduceMotion);
@@ -220,6 +221,19 @@ const Topbar = ({
           </svg>
           <span className={classes.discordLabel}>Join Discord</span>
         </a>
+
+        {showPersonaWarning ? (
+          <button
+            type="button"
+            className={classes.personaWarning}
+            onClick={() => navigate('/app/take-calls')}
+            aria-label="Verify identity to take calls"
+            title="Verify identity to take calls"
+          >
+            <span className={classes.personaWarningIcon} aria-hidden="true">⚠</span>
+            <span className={classes.personaWarningText}>Verify identity to take calls</span>
+          </button>
+        ) : null}
 
         <div className={classes.inboxWrap} ref={inboxRef}>
           <button
