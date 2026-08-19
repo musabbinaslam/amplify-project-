@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { listAdminAgencies } from '../../services/agencyService';
-import { getAdminOverviewLite } from '../../services/adminService';
 import AdminOpsCommandShell from '../../components/admin/AdminOpsCommandShell';
 import AgencyDashboardLayout from '../../components/ops/AgencyDashboardLayout';
 import PageLoader from '../../components/ui/PageLoader';
 import { usePageBreadcrumbs } from '../../hooks/usePageBreadcrumbs';
+import { getAdminOverviewLite, listAdminUsers } from '../../services/adminService';
 
 const BASE_PATH = '/app/admin/ops/agencies';
 
@@ -17,16 +17,19 @@ export default function AdminAgenciesOpsPage() {
   const [agencies, setAgencies] = useState([]);
   const [liveCallsRaw, setLiveCallsRaw] = useState([]);
   const [agentsRaw, setAgentsRaw] = useState([]);
+  const [usersRaw, setUsersRaw] = useState([]);
 
   const loadAgencies = useCallback(async () => {
     try {
-      const [out, ov] = await Promise.all([
+      const [out, ov, uv] = await Promise.all([
         listAdminAgencies(),
-        getAdminOverviewLite()
+        getAdminOverviewLite(),
+        listAdminUsers(),
       ]);
       setAgencies(Array.isArray(out?.agencies) ? out.agencies : []);
       setLiveCallsRaw(ov?.liveCalls || []);
       setAgentsRaw(ov?.agents || []);
+      setUsersRaw(uv?.users || []);
     } catch (e) {
       toast.error(e.message || 'Failed to load agencies');
     } finally {
@@ -39,10 +42,10 @@ export default function AdminAgenciesOpsPage() {
   const metrics = useMemo(() => {
     const active = agencies.filter((a) => a.status !== 'suspended').length;
     const agents = agencies.reduce((sum, a) => sum + (a.agentCount ?? 0), 0);
-    
+
     let callsCount = liveCallsRaw.length;
     if (selectedId) {
-      const agencyAgentIds = new Set(agentsRaw.filter((a) => a.agencyId === selectedId).map((a) => a.id));
+      const agencyAgentIds = new Set(usersRaw.filter((u) => u.agencyId === selectedId).map((u) => u.uid));
       callsCount = liveCallsRaw.filter((c) => agencyAgentIds.has(c.agentId)).length;
     }
 
