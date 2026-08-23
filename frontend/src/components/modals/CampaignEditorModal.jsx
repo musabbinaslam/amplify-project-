@@ -18,7 +18,7 @@ const BOX_VARIANTS = {
   exit: { opacity: 0, y: 16, scale: 0.97, transition: { duration: 0.15 } },
 };
 
-const EMPTY_FORM = { id: '', label: '', buffer: '', price: '' };
+const EMPTY_FORM = { id: '', label: '', buffer: '', price: '', allowRefunds: true };
 
 /**
  * CampaignEditorModal
@@ -40,6 +40,7 @@ export default function CampaignEditorModal({ campaign, onClose, onSaved }) {
         label: campaign.label || '',
         buffer: String(campaign.buffer ?? ''),
         price: String(campaign.price ?? ''),
+        allowRefunds: campaign.allowRefunds !== false,
       });
     } else {
       setForm(EMPTY_FORM);
@@ -57,6 +58,7 @@ export default function CampaignEditorModal({ campaign, onClose, onSaved }) {
         label: form.label.trim(),
         buffer: Number(form.buffer),
         price: Number(form.price),
+        allowRefunds: Boolean(form.allowRefunds),
       });
       toast.success(isEdit ? `"${result.campaign.label}" updated!` : `"${result.campaign.label}" created!`);
       onSaved?.(result.campaign);
@@ -179,6 +181,19 @@ export default function CampaignEditorModal({ campaign, onClose, onSaved }) {
                   required
                 />
               </div>
+            </div>
+
+            <div className={classes.modalField} style={{ flexDirection: 'row', alignItems: 'center', marginTop: '12px' }}>
+              <input
+                id="campaign-allow-refunds"
+                type="checkbox"
+                checked={form.allowRefunds}
+                onChange={(e) => setForm((prev) => ({ ...prev, allowRefunds: e.target.checked }))}
+                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+              />
+              <label htmlFor="campaign-allow-refunds" style={{ margin: 0, fontSize: '14px', cursor: 'pointer' }}>
+                Allow agents to contest calls (refunds)
+              </label>
             </div>
 
             <div className={classes.modalActions}>

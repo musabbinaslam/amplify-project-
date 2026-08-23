@@ -165,9 +165,12 @@ const startEngine = async () => {
     }
   }
 
-  // Run immediately on boot, then every 90 seconds
+  // Run immediately on boot, then every 5 seconds
   runGhostCleanup();
   const ghostCleanupInterval = setInterval(runGhostCleanup, 5 * 1000);
+
+  const { startQaShiftAutoReviewScheduler } = require('./services/qaShiftAutoReviewService');
+  const qaShiftInterval = startQaShiftAutoReviewScheduler();
 
   // Apply global rate limiting to all /api routes
   app.use('/api/', globalRateLimiter);
@@ -275,6 +278,7 @@ const startEngine = async () => {
   async function gracefulShutdown(signal) {
     console.log(`\n[Server] ${signal} received — starting graceful shutdown...`);
     clearInterval(ghostCleanupInterval);
+    if (qaShiftInterval) clearInterval(qaShiftInterval);
 
     // Tell all connected frontends the server is restarting
     io.emit('server:restarting', { message: 'Server restarting — you will reconnect automatically.' });

@@ -8,7 +8,8 @@ const contestProofStorage = require('../services/contestProofStorage');
 const { getUserDoc } = require('../services/userDataService');
 const phoneRouteService = require('../services/phoneRouteService');
 const { normalizeCallerState } = require('../utils/phoneUtils');
-const { dispatchQaInsightJob } = require('../queues/qaQueue');
+const { dispatchQaInsightJob, dispatchQaAudioReviewJob } = require('../queues/qaQueue');
+const { parseRecordingSid, recordingMp3Url } = require('../utils/recordingSid');
 const twilioClientObj = require('../config/twilio').twilioClient;
 const { redisClient } = require('../config/redis');
 const { isCampaignPaused, notifyAgent } = require('../services/notificationService');
@@ -157,6 +158,13 @@ exports.handleIncomingCall = async (req, res) => {
                 retryCount: String(retryCount),
             });
 
+            const recordingQs = new URLSearchParams({
+                campaign: String(campaign),
+                agentId: String(available.id),
+                parentCallSid: String(parentCallSid || ''),
+            });
+            const recordingCallbackUrl = voiceWebhookUrl(req, `/api/voice/recording-complete?${recordingQs.toString()}`);
+
             if (campaign === 'aca_transfers') {
                 // ── ACA Transfers: Conference-From-Start Routing ──
                 const confName = `aca_conf_${parentCallSid}`;
@@ -165,13 +173,19 @@ exports.handleIncomingCall = async (req, res) => {
                     action: voiceWebhookUrl(req, `/api/voice/call-completed?${completedQs.toString()}`),
                     method: 'POST',
                     record: 'record-from-start',
+                    recordingStatusCallback: recordingCallbackUrl,
+                    recordingStatusCallbackEvent: 'completed',
+                    recordingStatusCallbackMethod: 'POST',
                 });
                 dial.conference({
                     startConferenceOnEnter: false,
                     endConferenceOnExit: true, // Caller hangup ends the conference
                     waitUrl: 'http://twimlets.com/holdmusic?Bucket=com.twilio.music.classical',
                     beep: false,
-                    record: 'record-from-start'
+                    record: 'record-from-start',
+                    recordingStatusCallback: recordingCallbackUrl,
+                    recordingStatusCallbackEvent: 'completed',
+                    recordingStatusCallbackMethod: 'POST',
                 }, confName);
 
                 // Store conference mapping so transfer API can find it
@@ -198,6 +212,9 @@ exports.handleIncomingCall = async (req, res) => {
                     timeout: 20,
                     answerOnBridge: true,
                     record: 'record-from-answer',
+                    recordingStatusCallback: recordingCallbackUrl,
+                    recordingStatusCallbackEvent: 'completed',
+                    recordingStatusCallbackMethod: 'POST',
                 });
 
                 dial.client({
@@ -453,13 +470,7 @@ exports.handleCallCompleted = async (req, res) => {
     let savedLog = null;
     let resolvedAgentId = await agentManager.resolveCallOwner(CallSid, agentId);
 
-    // Extract the Recording SID from the RecordingUrl for clean frontend access.
-    // Twilio RecordingUrl format: https://api.twilio.com/.../Recordings/RExxxxxx[.json]
-    let recordingSid = null;
-    if (RecordingUrl) {
-        const sidMatch = String(RecordingUrl).match(/(RE[0-9a-fA-F]{32})/);
-        recordingSid = sidMatch ? sidMatch[1] : null;
-    }
+    const recordingSid = parseRecordingSid(RecordingUrl);
 
     try {
         if (!resolvedAgentId && CallSid) {
@@ -522,8 +533,20 @@ exports.handleCallCompleted = async (req, res) => {
                     try {
                         const recordings = await twilioClientObj.recordings.list({ callSid: CallSid, limit: 1 });
                         if (recordings && recordings.length > 0) {
-                            const recUrl = `https://api.twilio.com${recordings[0].uri.replace('.json', '.mp3')}`;
-                            await callLogService.updateCallLogBySid(resolvedAgentId, [CallSid], { recordingUrl: recUrl });
+                            const recSid = recordings[0].sid || parseRecordingSid(recordings[0].uri);
+                            const recUrl = recordingMp3Url(recSid) || `https://api.twilio.com${String(recordings[0].uri || '').replace('.json', '.mp3')}`;
+                            await callLogService.updateCallLogBySid(resolvedAgentId, [CallSid], {
+                                recordingUrl: recUrl,
+                                recordingSid: recSid || null,
+                            });
+                            const latestLog = await callLogService.findCallLogByCallSid(resolvedAgentId, CallSid);
+                            if (latestLog?.id && latestLog.status === 'completed') {
+                                dispatchQaAudioReviewJob({
+                                    savedLog: { ...latestLog, recordingUrl: recUrl, recordingSid: recSid },
+                                    agentId: resolvedAgentId,
+                                    FromState: FromState || null,
+                                });
+                            }
                         }
                     } catch (e) {
                         console.error('[Twilio] Failed to fetch conference recording in background:', e.message);
@@ -541,6 +564,7 @@ exports.handleCallCompleted = async (req, res) => {
                 duration: effectiveDuration,
                 status: effectiveStatus,
                 recordingUrl: finalRecordingUrl,
+                recordingSid,
                 disposition: '',
                 qaInsight: null,
                 isBillable: effectiveDuration >= (process.env.BILLING_DURATION_THRESHOLD || 60)
@@ -620,6 +644,14 @@ exports.handleCallCompleted = async (req, res) => {
             FromState: FromState || null,
         });
         console.log(`[Twilio] QA Insight dispatched (async) for Call ${savedLog.id}`);
+        if (recordingSid) {
+            dispatchQaAudioReviewJob({
+                savedLog,
+                agentId: resolvedAgentId,
+                FromState: FromState || null,
+            });
+            console.log(`[Twilio] QA audio review dispatched (async) for Call ${savedLog.id}`);
+        }
     }
 
     // ── Referral Stage 3: Check if this agent just "went live" ──────────────
@@ -642,6 +674,66 @@ exports.handleCallCompleted = async (req, res) => {
 };
 
 /**
+ * Twilio recordingStatusCallback — recording is ready for playback and audio QA.
+ */
+exports.handleRecordingComplete = async (req, res) => {
+    res.status(200).type('text/plain').send('OK');
+
+    const recordingStatus = String(req.body?.RecordingStatus || '').toLowerCase();
+    if (recordingStatus && recordingStatus !== 'completed') {
+        return;
+    }
+
+    const recordingSid = parseRecordingSid(req.body?.RecordingSid || req.body?.RecordingUrl);
+    const recordingUrl = recordingMp3Url(recordingSid) || req.body?.RecordingUrl || null;
+    const agentId = String(req.query.agentId || '').trim();
+    const parentCallSid = String(req.query.parentCallSid || '').trim();
+    const callbackCallSid = String(req.body?.CallSid || '').trim();
+
+    if (!recordingSid || !agentId) {
+        console.warn('[Twilio] recording-complete missing RecordingSid or agentId');
+        return;
+    }
+
+    try {
+        const candidateSids = [parentCallSid, callbackCallSid].filter(Boolean);
+        let log = null;
+        for (const sid of candidateSids) {
+            log = await callLogService.findCallLogByCallSid(agentId, sid);
+            if (log) break;
+        }
+        if (!log) {
+            log = await callLogService.findCallLogByRecordingSid(recordingSid);
+        }
+        if (!log?.id) {
+            console.warn(`[Twilio] recording-complete: no call log for agent ${agentId} rec=${recordingSid}`);
+            return;
+        }
+
+        await callLogService.updateCallLogById(agentId, log.id, {
+            recordingSid,
+            recordingUrl: recordingUrl || log.recordingUrl || null,
+        });
+
+        const latest = await callLogService.getCallLog(agentId, log.id);
+        if (!latest || latest.status !== 'completed') return;
+
+        dispatchQaAudioReviewJob({
+            savedLog: {
+                ...latest,
+                recordingSid,
+                recordingUrl: recordingUrl || latest.recordingUrl || null,
+            },
+            agentId,
+            FromState: req.body?.FromState || null,
+        });
+        console.log(`[Twilio] QA audio review dispatched from recording-complete for Call ${latest.id}`);
+    } catch (err) {
+        console.error('[Twilio] recording-complete handler failed:', err.message);
+    }
+};
+
+/**
  * Get call history logs for the authenticated user
  */
 exports.getLogs = async (req, res) => {
@@ -653,7 +745,14 @@ exports.getLogs = async (req, res) => {
         if (req.query.endDate) endDate = new Date(req.query.endDate);
 
         const logs = await callLogService.getLogsByUser(req.user.uid, limit, startDate, endDate);
-        res.json(logs);
+        
+        const { CAMPAIGN_CONFIG } = require('../config/pricing');
+        const enrichedLogs = logs.map(log => ({
+            ...log,
+            allowRefunds: CAMPAIGN_CONFIG[log.campaign]?.allowRefunds !== false
+        }));
+
+        res.json(enrichedLogs);
     } catch (err) {
         console.error('[Voice] getLogs error:', err.message);
         res.status(500).json({ error: 'Failed to load call logs' });
@@ -680,15 +779,17 @@ exports.proxyRecording = async (req, res) => {
         const requesterAgencyId = normalizeAgencyId(requesterDoc?.agencyId);
 
         const log = await callLogService.findCallLogByRecordingSid(recordingSid);
-        if (log) {
-            const ownsLog = log.agentId === requesterUid;
-            const isPlatformAdmin = requesterRole === 'admin';
-            const isAgencyAdminForLog = isAgencyAdminRole(requesterRole)
-                && requesterAgencyId
-                && normalizeAgencyId(log.agencyId) === requesterAgencyId;
-            if (!ownsLog && !isPlatformAdmin && !isAgencyAdminForLog) {
-                return res.status(403).json({ error: 'Forbidden' });
-            }
+        if (!log) {
+            return res.status(404).json({ error: 'Recording not found' });
+        }
+        const ownsLog = log.agentId === requesterUid;
+        const isPlatformAdmin = requesterRole === 'admin';
+        const isQa = requesterRole === 'qa';
+        const isAgencyAdminForLog = isAgencyAdminRole(requesterRole)
+            && requesterAgencyId
+            && normalizeAgencyId(log.agencyId) === requesterAgencyId;
+        if (!ownsLog && !isPlatformAdmin && !isQa && !isAgencyAdminForLog) {
+            return res.status(403).json({ error: 'Forbidden' });
         }
 
         console.log(`[Proxy] Streaming recording: ${recordingSid}`);

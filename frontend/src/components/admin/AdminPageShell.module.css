@@ -48,8 +48,27 @@
 .pageHeader {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+}
+
+.pageHeaderMain {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  flex: 1 1 280px;
+}
+
+.pageHeaderCopy {
+  min-width: 0;
+}
+
+.pageHeaderActions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .iconBox {

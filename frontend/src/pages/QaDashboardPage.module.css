@@ -14,6 +14,35 @@
   flex-wrap: wrap;
 }
 
+.pendingFlagBadge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--brand-solid) 18%, transparent);
+  color: var(--brand-text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.aiStatusOk {
+  background: color-mix(in srgb, #34d399 18%, transparent);
+  color: #34d399;
+}
+
+.aiStatusWarn {
+  background: color-mix(in srgb, #fbbf24 18%, transparent);
+  color: #fbbf24;
+}
+
+.aiStatusBad {
+  background: color-mix(in srgb, #f87171 18%, transparent);
+  color: #f87171;
+}
+
 .iconBox {
   width: 56px;
   height: 56px;

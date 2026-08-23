@@ -8,7 +8,7 @@ import {
   DollarSign, Box, User, HeadphonesIcon,
   MessageSquare, Gift, Settings, LogOut,
   ChevronLeft, ChevronRight, Shield, FileEdit, ShieldCheck, Users,
-  Building2, UserCog, Trophy,
+  Building2, UserCog, Trophy, Flag,
 } from 'lucide-react';
 import { isAgencyAdminUser } from '../../utils/authRoles';
 import classes from './Sidebar.module.css';
@@ -79,6 +79,7 @@ const Sidebar = () => {
     if (role === 'qa') {
       base.push(
         { path: '/app/qa', label: 'QA Dashboard', icon: ShieldCheck, end: true, group: 'qa' },
+        { path: '/app/qa/review', label: 'AI Flags', icon: Flag, group: 'qa' },
         { path: '/app/qa/ai-training', label: 'QA AI Training', icon: ShieldCheck, group: 'qa' },
       );
     }

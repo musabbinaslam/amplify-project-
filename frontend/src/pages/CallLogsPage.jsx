@@ -374,6 +374,11 @@ function BillingStatusCell({ log, onContest }) {
         </span>
       );
     }
+    
+    if (log.allowRefunds === false) {
+      return <span className={classes.scoreDash}>—</span>;
+    }
+
     return (
       <button type="button" className={classes.contestBtn} onClick={() => onContest(log)}>
         Contest charge

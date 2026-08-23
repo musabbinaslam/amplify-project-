@@ -20,6 +20,7 @@ const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const { mergeUserDoc, getUserDoc } = require('../services/userDataService');
 const callLogService = require('../services/callLogService');
+const { flagAgentAccount } = require('../services/agentFlagService');
 const ANALYTICS_CACHE_TTL_MS = 30000;
 const READ_CONCURRENCY = 10;
 const analyticsCache = new Map();
@@ -47,7 +48,7 @@ const upsertCampaign = async (req, res) => {
     const db = getDb();
     if (!db) return res.status(503).json({ error: 'Database unavailable' });
 
-    const { id, label, buffer, price } = req.body || {};
+    const { id, label, buffer, price, allowRefunds } = req.body || {};
 
     // ── Validation ────────────────────────────────────────────────────────────
     if (!id || typeof id !== 'string' || !/^[a-z0-9_]+$/.test(id.trim())) {
@@ -64,6 +65,8 @@ const upsertCampaign = async (req, res) => {
     if (!Number.isFinite(priceNum) || priceNum < 0) {
       return res.status(400).json({ error: 'Price must be a non-negative number.' });
     }
+    
+    const allowRefundsBool = typeof allowRefunds === 'boolean' ? allowRefunds : true;
 
     const campaignId = id.trim().toLowerCase();
     const isNew = !Object.prototype.hasOwnProperty.call(CAMPAIGN_CONFIG, campaignId);
@@ -76,6 +79,7 @@ const upsertCampaign = async (req, res) => {
             label: label.trim(),
             buffer: bufferNum,
             price: priceNum,
+            allowRefunds: allowRefundsBool,
           },
         },
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -85,7 +89,7 @@ const upsertCampaign = async (req, res) => {
     );
 
     console.log(`[Admin] Campaign "${campaignId}" ${isNew ? 'created' : 'updated'} by ${req.user?.uid}`);
-    res.json({ success: true, isNew, campaign: { id: campaignId, label: label.trim(), buffer: bufferNum, price: priceNum } });
+    res.json({ success: true, isNew, campaign: { id: campaignId, label: label.trim(), buffer: bufferNum, price: priceNum, allowRefunds: allowRefundsBool } });
   } catch (err) {
     console.error('[Admin] upsertCampaign error:', err.message);
     res.status(500).json({ error: 'Failed to save campaign' });
@@ -248,6 +252,13 @@ function normalizeCall(doc) {
     disposition: data.disposition || null,
     recordingUrl: data.recordingUrl || null,
     recordingSid: data.recordingSid || null,
+    qaAudioReview: data.qaAudioReview
+      ? {
+          status: data.qaAudioReview.status || null,
+          summary: data.qaAudioReview.summary || '',
+          violations: Array.isArray(data.qaAudioReview.violations) ? data.qaAudioReview.violations : [],
+        }
+      : null,
     refunded: Boolean(data.refunded),
     refundReason: data.refundReason || null,
     contestId: data.contestId || null,
@@ -1343,32 +1354,13 @@ async function flagAgent(req, res) {
     const id = agentId.trim();
     const reason = String(req.body?.reason || 'Low billable rate — below 30% threshold').trim();
 
-    // 1. Write flagged:true to Firestore
-    await mergeUserDoc(id, {
-      flagged: true,
-      flaggedAt: new Date().toISOString(),
-      flaggedBy: req.user?.uid || 'admin',
-      flagReason: reason,
-    });
-
-    // 2. Kick them from Redis pool immediately
-    await agentManager.removeAgent(id);
-
-    // 3. Notify their browser via socket if they are online
-    await socketRegistry.emitToAgent(id, 'agent:flagged', {
+    await flagAgentAccount(id, {
       reason,
+      flaggedBy: req.user?.uid || 'admin',
       message: 'Your account has been flagged due to inactivity or a low billable rate. Please contact admin@callsflow.io to resume your activity.',
+      notificationBody: `Your account was flagged by an admin: ${reason}`,
     });
 
-    // 4. Send persistent notification to the agent's bell tray
-    await notifyAgent(id, {
-      type: 'personal',
-      title: 'Account Flagged',
-      body: `Your account was flagged by an admin: ${reason}`,
-      priority: 'high',
-    });
-
-    // 5. Invalidate analytics cache so the admin dashboard updates immediately
     analyticsCache.clear();
     coachingCache.clear();
 

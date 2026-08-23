@@ -11,7 +11,10 @@ const formatTime = (value) => {
   return dt.toLocaleString();
 };
 
-const formatType = (type) => String(type || 'general').replace(/_/g, ' ');
+const formatType = (type) => {
+  if (type === 'ai_flag') return 'AI Flags';
+  return String(type || 'general').replace(/_/g, ' ');
+};
 
 /* eslint-disable react/prop-types -- modal props are simple and stable */
 const NotificationDetailModal = ({ notification, onClose }) => {
@@ -33,7 +36,9 @@ const NotificationDetailModal = ({ notification, onClose }) => {
 
   if (!notification) return null;
 
-  const isAdminType = notification.type === 'admin_alert' || notification.type === 'contest_credited';
+  const isAdminType = notification.type === 'admin_alert'
+    || notification.type === 'ai_flag'
+    || notification.type === 'contest_credited';
   const Icon = isAdminType ? Shield : Bell;
   const titleId = 'notificationDetailTitle';
 

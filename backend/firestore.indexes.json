@@ -6,6 +6,13 @@
       "fields": [
         { "fieldPath": "recordingSid", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "callLogs",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "qaAudioReview.status", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [
