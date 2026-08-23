@@ -90,15 +90,15 @@ async function getQaPipelineStatus(req, res) {
     ]);
     const activeRuleCount = Array.isArray(activeRules) ? activeRules.length : 0;
     const lastSource = pipeline.lastReview?.source || '';
+    // Do not pin the banner to billing/quota from a past review — that sticks after a new API key.
+    // LAST RUN still shows the historical source; banner reflects current readiness.
     let state = 'idle';
     if (!aiFlagsGeminiEnabled) state = 'disabled';
     else if (!geminiConfigured) state = 'missing_key';
     else if (!activeRuleCount) state = 'no_rules';
     else if ((pipeline.counts?.processing || 0) > 0) state = 'analyzing';
-    else if (lastSource === 'billing') state = 'billing';
-    else if (lastSource === 'quota') state = 'quota';
-    else if (lastSource === 'fallback') state = 'fallback';
-    else if (pipeline.lastGeminiAt) state = 'working';
+    else if (pipeline.lastGeminiAt || lastSource === 'gemini_audio') state = 'working';
+    else if (geminiConfigured && activeRuleCount) state = 'idle';
 
     res.json({
       state,
@@ -211,11 +211,6 @@ async function backfillQaAudioReviews(req, res) {
     const force = Boolean(req.body?.force);
     const fromClear = Boolean(req.body?.fromClear) || force;
     const uid = String(req.body?.uid || '').trim();
-    const preferShort = req.body?.preferShort === true;
-    let maxDurationSec = Number(req.body?.maxDurationSec);
-    let minDurationSec = Number(req.body?.minDurationSec);
-    if (!Number.isFinite(maxDurationSec) || maxDurationSec < 0) maxDurationSec = 0;
-    if (!Number.isFinite(minDurationSec) || minDurationSec < 0) minDurationSec = 0;
 
     const scan = fromClear
       ? await callLogService.collectClearQaAudioReanalyzeCandidates({ limit })
@@ -223,17 +218,11 @@ async function backfillQaAudioReviews(req, res) {
         limit,
         force,
         uid,
-        maxDurationSec,
-        minDurationSec,
-        preferShort,
+        useBufferWindow: true,
       });
     const queued = scan.candidates.length;
     if (!queued) {
       releaseQaAudioJob('manual-backfill');
-      const rangeHint = [
-        minDurationSec ? `≥${minDurationSec}s` : null,
-        maxDurationSec ? `≤${maxDurationSec}s` : null,
-      ].filter(Boolean).join(' and ');
       return res.json({
         started: false,
         queued: 0,
@@ -246,21 +235,14 @@ async function backfillQaAudioReviews(req, res) {
         skippedTooShort: scan.skippedTooShort,
         skippedMock: scan.skippedMock,
         skippedRecordingGone: scan.skippedRecordingGone,
-        maxDurationSec: scan.maxDurationSec,
-        minDurationSec: scan.minDurationSec,
+        useBufferWindow: true,
         message: fromClear
-          ? 'No Clear calls with a real Twilio recording to re-analyze. Open the Clear filter and confirm a real (non-mock) call is listed.'
-          : rangeHint
-            ? `No real Twilio recordings ${rangeHint} left to analyze. Place a longer live test call, then retry.`
-            : 'No older real recordings left to analyze. New calls are still reviewed automatically.',
+          ? 'No Clear calls in the buffer+10–15s window with a real recording. Eligible Clear calls will show after a matching analysis.'
+          : 'No eligible recordings left (duration must be campaign buffer +10s to +15s). New matching calls still analyze automatically.',
       });
     }
 
     const sample = scan.candidates[0];
-    const rangeLabel = [
-      minDurationSec ? `≥${minDurationSec}s` : null,
-      maxDurationSec ? `≤${maxDurationSec}s` : null,
-    ].filter(Boolean).join(', ');
     res.json({
       started: true,
       queued,
@@ -271,15 +253,12 @@ async function backfillQaAudioReviews(req, res) {
       skippedInFlight: scan.skippedInFlight,
       skippedTooLong: scan.skippedTooLong,
       skippedTooShort: scan.skippedTooShort,
-      maxDurationSec: scan.maxDurationSec,
-      minDurationSec: scan.minDurationSec,
+      useBufferWindow: true,
       sampleDurationSec: Number(sample?.duration || 0),
       fromClear: Boolean(scan.fromClear),
       message: scan.fromClear
-        ? `Re-analyzing ${queued} Clear call${queued === 1 ? '' : 's'} (≈${Number(sample?.duration || 0)}s).`
-        : rangeLabel
-          ? `Queued ${queued} recording${queued === 1 ? '' : 's'} (${rangeLabel}). First clip ≈${Number(sample?.duration || 0)}s.`
-          : `Queued ${queued} recording${queued === 1 ? '' : 's'} (longest first ≈${Number(sample?.duration || 0)}s).`,
+        ? `Re-analyzing ${queued} Clear call${queued === 1 ? '' : 's'} in the buffer window (≈${Number(sample?.duration || 0)}s).`
+        : `Queued ${queued} eligible recording${queued === 1 ? '' : 's'} (buffer+10–15s). First ≈${Number(sample?.duration || 0)}s.`,
     });
 
     setImmediate(async () => {

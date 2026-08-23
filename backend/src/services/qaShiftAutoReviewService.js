@@ -135,6 +135,7 @@ async function runShiftBatch() {
     if (pendingTotal > 0 || pendingCreated > 0) {
       const count = pendingTotal || pendingCreated;
       notifyAdminsInBackground({
+        type: 'ai_flag',
         title: 'AI QA flags need review',
         body: `${count} call${count === 1 ? '' : 's'} flagged after the shift went idle. Open AI Flags to confirm or dismiss.`,
         priority: 'high',

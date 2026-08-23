@@ -9,7 +9,6 @@ import {
   getQaPipelineStatus,
 } from '../services/qaService';
 import classes from './QaAITrainingPage.module.css';
-import adminClasses from '../components/admin/adminShared.module.css';
 
 export default function QaReviewPage() {
   const presets = useSubtlePageMotion();
@@ -25,18 +24,18 @@ export default function QaReviewPage() {
         <div className={classes.icon}><Flag size={22} /></div>
         <div>
           <h2>AI Flags</h2>
-          <p>Verify Gemini call flags. Confirming a violation flags the agent account.</p>
+          <p>Verify flags from eligible calls (buffer +10–15s). Confirming a violation flags the agent.</p>
         </div>
       </motion.header>
 
-      <motion.section className={`glass ${adminClasses.sectionCard} ${adminClasses.contestSection}`} variants={presets.child}>
+      <motion.div variants={presets.child}>
         <QaReviewQueuePanel
           listReviews={listQaReviews}
           confirmReview={confirmQaReview}
           dismissReview={dismissQaReview}
           fetchStatus={getQaPipelineStatus}
         />
-      </motion.section>
+      </motion.div>
     </motion.section>
   );
 }

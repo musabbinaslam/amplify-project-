@@ -6,13 +6,14 @@ import classes from './adminShared.module.css';
 const EXPAND_TRANSITION = { duration: 0.32, ease: EASE_SMOOTH };
 
 function statusClass(status) {
-  if (status === 'pending_review' || status === 'processing') return classes.dispAnswered;
-  if (status === 'confirmed') return classes.dispMissed;
-  return classes.dispSold;
+  if (status === 'pending_review' || status === 'processing') return classes.qaChipPending;
+  if (status === 'confirmed') return classes.qaChipConfirmed;
+  if (status === 'dismissed') return classes.qaChipDismissed;
+  return classes.qaChipClear;
 }
 
 function statusLabel(status) {
-  if (status === 'pending_review') return 'Pending';
+  if (status === 'pending_review') return 'Needs review';
   if (status === 'processing') return 'Analyzing';
   if (status === 'confirmed') return 'Confirmed';
   if (status === 'dismissed') return 'Dismissed';
@@ -20,10 +21,39 @@ function statusLabel(status) {
   return status || '—';
 }
 
+function formatDuration(sec) {
+  const n = Number(sec);
+  if (!Number.isFinite(n)) return '—';
+  if (n < 60) return `${Math.round(n)}s`;
+  const m = Math.floor(n / 60);
+  const s = Math.round(n % 60);
+  return s ? `${m}m ${s}s` : `${m}m`;
+}
+
+function formatWhen(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return '—';
+  return d.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function prettySource(source) {
+  if (source === 'gemini_audio') return 'Gemini';
+  if (source === 'billing') return 'Billing';
+  if (source === 'quota') return 'Rate limit';
+  if (!source) return '—';
+  return String(source).replace(/_/g, ' ');
+}
+
 function severityClass(severity) {
-  if (severity === 'high') return classes.dispMissed;
-  if (severity === 'medium') return classes.dispAnswered;
-  return classes.dispSold;
+  if (severity === 'high') return classes.qaChipConfirmed;
+  if (severity === 'medium') return classes.qaChipPending;
+  return classes.qaChipClear;
 }
 
 function parseTranscriptTurns(raw) {
@@ -131,8 +161,8 @@ export default function AiFlagReviewCard({
   const generatedAt = qa.generatedAt || r.createdAt;
 
   return (
-    <article className={`glass ${classes.contestCard} ${expanded ? classes.contestCardExpanded : ''} ${selected ? classes.qaCardSelected : ''}`}>
-      <div className={classes.contestCardSummaryRow}>
+    <article className={`${classes.qaCard} ${expanded ? classes.qaCardExpanded : ''} ${selected ? classes.qaCardSelected : ''}`}>
+      <div className={classes.qaCardRow}>
         {selectable ? (
           <label className={classes.qaCardSelect} onClick={(e) => e.stopPropagation()}>
             <input
@@ -143,33 +173,33 @@ export default function AiFlagReviewCard({
               aria-label={`Select call for ${r.agentName || r.agentId}`}
             />
           </label>
-        ) : null}
-        <button type="button" className={classes.contestCardSummary} onClick={onToggle}>
-          <div className={classes.contestCardSummaryMain}>
-            <div className={classes.contestCardIdentity}>
-              <span className={classes.contestCardName}>{r.agentName || r.agentId}</span>
-              <span className={classes.contestCardMeta}>
-                {r.campaignLabel || r.campaign}
-                <span className={classes.contestCardDot}>·</span>
-                {r.duration != null ? `${r.duration}s` : '—'}
-                <span className={classes.contestCardDot}>·</span>
-                {violations.length} violation{violations.length === 1 ? '' : 's'}
-                {r.agentFlagged ? (
-                  <>
-                    <span className={classes.contestCardDot}>·</span>
-                    Agent flagged
-                  </>
-                ) : null}
+        ) : (
+          <span className={classes.qaCardSelectSpacer} aria-hidden="true" />
+        )}
+        <button type="button" className={classes.qaCardSummary} onClick={onToggle}>
+          <div className={classes.qaCardIdentity}>
+            <span className={classes.qaCardName}>{r.agentName || r.agentId}</span>
+            <span className={classes.qaCardMeta}>
+              <span>{r.campaignLabel || r.campaign || '—'}</span>
+              <span className={classes.qaCardDot} aria-hidden="true">·</span>
+              <span>{r.duration != null ? formatDuration(r.duration) : '—'}</span>
+              <span className={classes.qaCardDot} aria-hidden="true">·</span>
+              <span>
+                {violations.length === 0
+                  ? 'No violations'
+                  : `${violations.length} violation${violations.length === 1 ? '' : 's'}`}
               </span>
-            </div>
-            <div className={classes.contestCardSummaryAside}>
-              <span className={classes.contestCardWhen}>
-                {generatedAt ? new Date(generatedAt).toLocaleString() : '—'}
-              </span>
-              <span className={`${classes.statusPill} ${statusClass(status)}`}>{statusLabel(status)}</span>
-              <ChevronDown size={18} className={classes.contestCardChevron} />
-            </div>
+              {r.agentFlagged ? (
+                <>
+                  <span className={classes.qaCardDot} aria-hidden="true">·</span>
+                  <span>Agent flagged</span>
+                </>
+              ) : null}
+            </span>
           </div>
+          <span className={classes.qaCardWhen}>{formatWhen(generatedAt)}</span>
+          <span className={`${classes.qaChip} ${statusClass(status)}`}>{statusLabel(status)}</span>
+          <ChevronDown size={16} className={classes.qaCardChevron} />
         </button>
       </div>
 
@@ -181,64 +211,70 @@ export default function AiFlagReviewCard({
             {...expandMotion}
             transition={expandTransition}
           >
-            <div className={classes.contestCardBody}>
-              <div className={classes.contestReviewGrid}>
-                <section className={classes.contestReviewMain}>
-                  <h4 className={classes.contestReviewHeading}>AI summary</h4>
-                  {status === 'processing' ? (
-                    <p className={classes.qaAnalyzingCopy}>
-                      <Loader size={14} className={classes.spin} />
-                      Gemini is downloading the recording and checking your compliance rules. This usually takes a few seconds for short calls.
-                    </p>
-                  ) : (
-                    <p className={classes.contestReviewReason}>{qa.summary || '—'}</p>
-                  )}
+            <div className={classes.qaDetail}>
+              <div className={classes.qaDetailGrid}>
+                <section className={classes.qaDetailMain}>
+                  <div className={classes.qaDetailBlock}>
+                    <h4 className={classes.qaDetailHeading}>Summary</h4>
+                    {status === 'processing' ? (
+                      <p className={classes.qaAnalyzingCopy}>
+                        <Loader size={14} className={classes.spin} />
+                        Gemini is downloading the recording and checking your compliance rules.
+                      </p>
+                    ) : (
+                      <p className={classes.qaDetailCopy}>{qa.summary || '—'}</p>
+                    )}
+                  </div>
 
-                  <h4 className={classes.contestReviewHeading}>Violations</h4>
-                  {status === 'processing' ? (
-                    <p className={classes.muted}>Waiting for Gemini…</p>
-                  ) : !violations.length ? (
-                    <p className={classes.muted}>No rule violations recorded.</p>
-                  ) : (
-                    <ul className={classes.qaViolationList}>
-                      {violations.map((v, idx) => (
-                        <li key={`${v.ruleId || 'rule'}-${idx}`} className={classes.qaViolationItem}>
-                          <div className={classes.qaViolationTop}>
-                            <strong>{v.ruleName || v.ruleId || 'Rule'}</strong>
-                            <span className={`${classes.statusPill} ${severityClass(v.severity)}`}>
-                              {v.severity || 'medium'}
+                  <div className={classes.qaDetailBlock}>
+                    <h4 className={classes.qaDetailHeading}>Violations</h4>
+                    {status === 'processing' ? (
+                      <p className={classes.qaDetailMuted}>Waiting for Gemini…</p>
+                    ) : !violations.length ? (
+                      <p className={classes.qaDetailMuted}>No rule violations recorded.</p>
+                    ) : (
+                      <ul className={classes.qaViolationList}>
+                        {violations.map((v, idx) => (
+                          <li key={`${v.ruleId || 'rule'}-${idx}`} className={classes.qaViolationItem}>
+                            <div className={classes.qaViolationTop}>
+                              <strong>{v.ruleName || v.ruleId || 'Rule'}</strong>
+                              <span className={`${classes.qaChip} ${severityClass(v.severity)}`}>
+                                {v.severity || 'medium'}
+                              </span>
+                            </div>
+                            {v.quote ? <p className={classes.qaQuote}>“{v.quote}”</p> : null}
+                            <span className={classes.qaDetailMuted}>
+                              {v.timestampSec != null ? `${v.timestampSec}s` : 'No timestamp'}
+                              {v.confidence != null ? ` · ${Math.round(Number(v.confidence) * 100)}% confidence` : ''}
                             </span>
-                          </div>
-                          {v.quote ? <p className={classes.qaQuote}>“{v.quote}”</p> : null}
-                          <span className={classes.muted}>
-                            {v.timestampSec != null ? `${v.timestampSec}s` : 'No timestamp'}
-                            {v.confidence != null ? ` · ${Math.round(Number(v.confidence) * 100)}% confidence` : ''}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
 
-                  <h4 className={classes.contestReviewHeading}>Transcript</h4>
-                  {status === 'processing' ? (
-                    <p className={classes.muted}>Transcript appears when analysis finishes.</p>
-                  ) : qa.transcript ? (
-                    <TranscriptBlock transcript={qa.transcript} />
-                  ) : (
-                    <p className={classes.muted}>No transcript available.</p>
-                  )}
+                  <div className={classes.qaDetailBlock}>
+                    <h4 className={classes.qaDetailHeading}>Transcript</h4>
+                    {status === 'processing' ? (
+                      <p className={classes.qaDetailMuted}>Transcript appears when analysis finishes.</p>
+                    ) : qa.transcript ? (
+                      <TranscriptBlock transcript={qa.transcript} />
+                    ) : (
+                      <p className={classes.qaDetailMuted}>No transcript available.</p>
+                    )}
+                  </div>
 
                   {qa.review?.note && !isPending ? (
-                    <>
-                      <h4 className={classes.contestReviewHeading}>Reviewer note</h4>
-                      <p className={classes.contestReviewReason}>{qa.review.note}</p>
-                    </>
+                    <div className={classes.qaDetailBlock}>
+                      <h4 className={classes.qaDetailHeading}>Reviewer note</h4>
+                      <p className={classes.qaDetailCopy}>{qa.review.note}</p>
+                    </div>
                   ) : null}
                 </section>
 
-                <aside className={classes.contestReviewSide}>
-                  <h4 className={classes.contestReviewHeading}>Call details</h4>
-                  <dl className={classes.contestFacts}>
+                <aside className={classes.qaDetailSide}>
+                  <h4 className={classes.qaDetailHeading}>Call details</h4>
+                  <dl className={classes.qaFacts}>
                     <div>
                       <dt>Agent</dt>
                       <dd>{r.agentName || r.agentId}</dd>
@@ -249,7 +285,7 @@ export default function AiFlagReviewCard({
                     </div>
                     <div>
                       <dt>Duration</dt>
-                      <dd>{r.duration}s</dd>
+                      <dd>{r.duration != null ? formatDuration(r.duration) : '—'}</dd>
                     </div>
                     <div>
                       <dt>Model</dt>
@@ -257,48 +293,41 @@ export default function AiFlagReviewCard({
                     </div>
                     <div>
                       <dt>Source</dt>
-                      <dd>{qa.source || '—'}</dd>
-                    </div>
-                    <div>
-                      <dt>Call log</dt>
-                      <dd className={classes.contestFactMono}>{String(r.callLogId || r.id || '').slice(0, 12)}…</dd>
+                      <dd>{prettySource(qa.source)}</dd>
                     </div>
                   </dl>
 
-                  <div className={classes.contestRecordingBlock}>
-                    <h4 className={classes.contestReviewHeading}>Recording</h4>
+                  <div className={classes.qaDetailActions}>
                     {(r.recordingSid || r.recordingUrl) ? (
-                      <button type="button" className={classes.contestRecordingBtn} onClick={onPlayRecording}>
+                      <button type="button" className={classes.qaSideBtn} onClick={onPlayRecording}>
                         <Play size={14} /> Play recording
                       </button>
                     ) : (
-                      <p className={classes.muted}>No recording available</p>
+                      <p className={classes.qaDetailMuted}>No recording available</p>
                     )}
-                  </div>
 
-                  {isPending ? (
-                    <div className={classes.contestActionStack}>
-                      <button type="button" className={classes.dangerBtn} onClick={onConfirm}>
-                        Confirm & flag agent
-                      </button>
-                      <button type="button" className={classes.primaryBtn} onClick={onDismiss}>
-                        Dismiss false positive
-                      </button>
-                    </div>
-                  ) : null}
+                    {isPending ? (
+                      <>
+                        <button type="button" className={classes.dangerBtn} onClick={onConfirm}>
+                          Confirm — flag agent
+                        </button>
+                        <button type="button" className={classes.qaSideBtn} onClick={onDismiss}>
+                          Dismiss
+                        </button>
+                      </>
+                    ) : null}
 
-                  {canReanalyze ? (
-                    <div className={classes.contestActionStack}>
+                    {canReanalyze ? (
                       <button
                         type="button"
-                        className={classes.primaryBtn}
+                        className={classes.qaSideBtn}
                         disabled={reanalyzeDisabled}
                         onClick={onReanalyze}
                       >
-                        Re-analyze this call
+                        Re-analyze
                       </button>
-                    </div>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </aside>
               </div>
             </div>

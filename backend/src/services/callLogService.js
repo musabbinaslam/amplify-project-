@@ -2,6 +2,7 @@ const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const { parseRecordingSid, isMockCallLog } = require('../utils/recordingSid');
+const { getAiFlagsEligibility } = require('../utils/aiFlagsEligibility');
 
 const QA_CLAIMED_STATUSES = ['pending_review', 'confirmed', 'dismissed', 'processing'];
 const QA_BACKFILL_SKIP_CALL_STATUSES = new Set([
@@ -485,17 +486,35 @@ class CallLogService {
         }
     }
 
-    qaAudioBackfillSkipReason(data, { force = false, maxDurationSec = 0, minDurationSec = 0 } = {}) {
+    qaAudioBackfillSkipReason(data, {
+        force = false,
+        maxDurationSec = 0,
+        minDurationSec = 0,
+        useBufferWindow = true,
+    } = {}) {
         if (isMockCallLog(data)) return 'mock_call';
         const callStatus = String(data?.status || '').toLowerCase();
         if (QA_BACKFILL_SKIP_CALL_STATUSES.has(callStatus)) return 'skipped_status';
         const recordingSid = parseRecordingSid(data?.recordingSid || data?.recordingUrl);
         if (!recordingSid) return 'no_recording';
         const duration = Number(data?.duration || 0);
-        const maxDur = Number(maxDurationSec) || 0;
-        const minDur = Number(minDurationSec) || 0;
-        if (minDur > 0 && !(duration >= minDur)) return 'too_short';
-        if (maxDur > 0 && !(duration > 0 && duration <= maxDur)) return 'too_long';
+
+        if (useBufferWindow) {
+            const { eligible, reason } = getAiFlagsEligibility({
+                campaign: data?.campaign,
+                duration,
+                force: false,
+            });
+            if (!eligible) {
+                return reason === 'below_buffer_window' ? 'too_short' : 'too_long';
+            }
+        } else {
+            const maxDur = Number(maxDurationSec) || 0;
+            const minDur = Number(minDurationSec) || 0;
+            if (minDur > 0 && !(duration >= minDur)) return 'too_short';
+            if (maxDur > 0 && !(duration > 0 && duration <= maxDur)) return 'too_long';
+        }
+
         // Don't keep retrying recordings Twilio already said are gone.
         if (!force && data?.qaAudioReview?.source === 'recording_fetch_failed') return 'recording_gone';
         if (force) return null;
@@ -536,6 +555,7 @@ class CallLogService {
             maxDurationSec: null,
             minDurationSec: null,
             preferShort: false,
+            useBufferWindow: true,
             fromClear: true,
             candidates: [],
         };
@@ -560,6 +580,16 @@ class CallLogService {
                 stats.skippedRecordingGone += 1;
                 continue;
             }
+            const { eligible, reason } = getAiFlagsEligibility({
+                campaign: row.campaign,
+                duration: row.duration,
+                force: false,
+            });
+            if (!eligible) {
+                if (reason === 'below_buffer_window') stats.skippedTooShort += 1;
+                else stats.skippedTooLong += 1;
+                continue;
+            }
 
             stats.candidates.push({
                 ...row,
@@ -580,12 +610,14 @@ class CallLogService {
         minDurationSec = 0,
         preferShort = false,
         sinceMs = 0,
+        useBufferWindow = true,
     } = {}) {
         const cap = Math.min(Math.max(Number(limit) || 25, 1), 100);
         const gatherCap = Math.min(Math.max(cap * 8, cap), 400);
         const maxDur = Math.max(0, Number(maxDurationSec) || 0);
         const minDur = Math.max(0, Number(minDurationSec) || 0);
         const since = Math.max(0, Number(sinceMs) || 0);
+        const bufferWindow = useBufferWindow !== false;
         const stats = {
             scannedUsers: 0,
             scannedLogs: 0,
@@ -598,9 +630,10 @@ class CallLogService {
             skippedMock: 0,
             skippedRecordingGone: 0,
             skippedTooOld: 0,
-            maxDurationSec: maxDur || null,
-            minDurationSec: minDur || null,
+            maxDurationSec: bufferWindow ? null : (maxDur || null),
+            minDurationSec: bufferWindow ? null : (minDur || null),
             preferShort: Boolean(preferShort),
+            useBufferWindow: bufferWindow,
             sinceMs: since || null,
             candidates: [],
         };
@@ -648,6 +681,7 @@ class CallLogService {
                     force,
                     maxDurationSec: maxDur,
                     minDurationSec: minDur,
+                    useBufferWindow: bufferWindow,
                 });
                 if (reason === 'no_recording') {
                     stats.skippedNoRecording += 1;
@@ -702,8 +736,7 @@ class CallLogService {
             const durDiff = Number(a.duration || 0) - Number(b.duration || 0);
             if (preferShort) {
                 if (durDiff !== 0) return durDiff;
-            } else if (minDur > 0 || maxDur === 0) {
-                // Longer-test modes: pick the longest eligible clip first.
+            } else if (!bufferWindow && (minDur > 0 || maxDur === 0)) {
                 if (durDiff !== 0) return -durDiff;
             }
             return toMillis(b.createdAt || b.timestamp) - toMillis(a.createdAt || a.timestamp);

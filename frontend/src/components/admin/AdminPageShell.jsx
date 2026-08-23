@@ -12,6 +12,7 @@ export default function AdminPageShell({
   category,
   backTo = '/app/admin',
   backLabel = 'Back to Admin',
+  actions = null,
   children,
 }) {
   const presets = useSubtlePageMotion();
@@ -32,15 +33,18 @@ export default function AdminPageShell({
       </motion.div>
 
       <motion.div className={classes.pageHeader} variants={presets.child}>
-        {Icon ? (
-          <div className={classes.iconBox} aria-hidden="true">
-            <Icon size={22} />
+        <div className={classes.pageHeaderMain}>
+          {Icon ? (
+            <div className={classes.iconBox} aria-hidden="true">
+              <Icon size={22} />
+            </div>
+          ) : null}
+          <div className={classes.pageHeaderCopy}>
+            <h2>{title}</h2>
+            {description ? <p>{description}</p> : null}
           </div>
-        ) : null}
-        <div>
-          <h2>{title}</h2>
-          {description ? <p>{description}</p> : null}
         </div>
+        {actions ? <div className={classes.pageHeaderActions}>{actions}</div> : null}
       </motion.div>
 
       {children}

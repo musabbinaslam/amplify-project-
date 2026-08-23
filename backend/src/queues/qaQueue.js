@@ -7,6 +7,8 @@ const {
 } = require('../services/qaInsightService');
 const callLogService = require('../services/callLogService');
 const qaComplianceRuleService = require('../services/qaComplianceRuleService');
+const { getAiFlagsEligibility } = require('../utils/aiFlagsEligibility');
+const { notifyAdminsInBackground } = require('../services/notificationService');
 
 async function runWithRetry(label, callId, fn, maxAttempts = 3) {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -71,6 +73,21 @@ async function runQaAudioReviewJob({ savedLog, agentId, FromState = null, force 
         return;
     }
 
+    const eligibility = getAiFlagsEligibility({
+        campaign: savedLog.campaign,
+        duration: savedLog.duration,
+        force,
+    });
+    if (!eligibility.eligible) {
+        const { window, durationSec, reason } = eligibility;
+        console.log(
+            `[AI Flags] Skip Call ${callId} — ${reason} `
+            + `(duration=${durationSec}s, window=${window.minSec}–${window.maxSec}s, `
+            + `buffer=${window.buffer}s, campaign=${savedLog.campaign || 'unknown'})`,
+        );
+        return { status: 'skipped', source: reason, window };
+    }
+
     try {
         const claimed = await callLogService.claimQaAudioReview(agentId, callId, { force });
         if (!claimed) {
@@ -91,6 +108,24 @@ async function runQaAudioReviewJob({ savedLog, agentId, FromState = null, force 
         if (qaAudioReview) {
             await callLogService.attachQaAudioReview(agentId, callId, qaAudioReview);
             console.log(`[AI Flags] ✅ Audio review attached to Call ${callId} status=${qaAudioReview.status} source=${qaAudioReview.source}`);
+            if (qaAudioReview.status === 'pending_review') {
+                const campaign = log.campaignLabel || log.campaign || 'call';
+                const violations = Array.isArray(qaAudioReview.violations) ? qaAudioReview.violations : [];
+                const firstRule = violations[0]?.ruleName || violations[0]?.ruleId || '';
+                const count = violations.length;
+                const agentLabel = log.agentName || agentId;
+                const durationSec = Number(log.duration);
+                const durationBit = Number.isFinite(durationSec) ? `${Math.round(durationSec)}s` : 'unknown duration';
+                notifyAdminsInBackground({
+                    type: 'ai_flag',
+                    title: `AI flag · ${campaign}`,
+                    body: count
+                        ? `${agentLabel} · ${durationBit} · ${firstRule || `${count} violation${count === 1 ? '' : 's'}`}`
+                        : `${agentLabel} · ${durationBit} · flagged for review`,
+                    priority: 'high',
+                    linkPath: '/app/admin/ai-flags',
+                }, 'qa-audio-review');
+            }
         }
         return qaAudioReview || null;
     } catch (err) {

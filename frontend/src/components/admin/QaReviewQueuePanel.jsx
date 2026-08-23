@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { RefreshCw, Flag, AudioLines, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  RefreshCw,
+  Flag,
+  AudioLines,
+  Loader,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminActionModal } from './ContestReviewCard';
 import AiFlagReviewCard from './AiFlagReviewCard';
@@ -9,12 +16,13 @@ import classes from './adminShared.module.css';
 
 const PAGE_SIZE = 20;
 
-const DURATION_MODES = {
-  short: { minDurationSec: 0, maxDurationSec: 45, preferShort: true },
-  medium: { minDurationSec: 45, maxDurationSec: 180, preferShort: false },
-  long: { minDurationSec: 120, maxDurationSec: 600, preferShort: false },
-  any: { minDurationSec: 0, maxDurationSec: 0, preferShort: false },
-};
+const STATUS_TABS = [
+  { id: 'pending_review', label: 'Needs review' },
+  { id: 'processing', label: 'Analyzing' },
+  { id: 'confirmed', label: 'Confirmed' },
+  { id: 'dismissed', label: 'Dismissed' },
+  { id: 'clear', label: 'Clear' },
+];
 
 function outcomeToast(lastReview) {
   const status = lastReview?.status;
@@ -27,7 +35,7 @@ function outcomeToast(lastReview) {
     return 'clear';
   }
   if (source === 'quota') {
-    toast.error(summary || 'Gemini rate limit hit. Wait a minute, then retry 1 short call.');
+    toast.error(summary || 'Gemini rate limit hit. Wait a minute, then retry.');
     return 'clear';
   }
   if (source === 'fallback' || source === 'no_recording' || source === 'recording_fetch_failed' || source === 'mock_call') {
@@ -51,7 +59,35 @@ function outcomeToast(lastReview) {
     return 'clear';
   }
   toast.success(`Gemini finished — ${status || 'done'}.`);
-  return status || 'all';
+  return status || 'pending_review';
+}
+
+function emptyCopy(statusFilter, { showLiveBar, emptyHint }) {
+  if (showLiveBar) {
+    return {
+      title: 'Analysis in progress',
+      body: 'Waiting for Gemini to finish. Results will appear here automatically.',
+    };
+  }
+  if (statusFilter === 'pending_review') {
+    return {
+      title: 'No flags waiting',
+      body: emptyHint || 'Eligible calls (buffer +10–15s) analyze automatically when they end.',
+    };
+  }
+  if (statusFilter === 'processing') {
+    return { title: 'Nothing analyzing', body: 'Live eligible calls show here while Gemini listens.' };
+  }
+  if (statusFilter === 'confirmed') {
+    return { title: 'No confirmed flags', body: 'Confirmed violations will list here.' };
+  }
+  if (statusFilter === 'dismissed') {
+    return { title: 'No dismissed flags', body: 'False positives you dismiss will list here.' };
+  }
+  if (statusFilter === 'clear') {
+    return { title: 'No clear results', body: 'Calls Gemini marked clear appear here.' };
+  }
+  return { title: 'No flags', body: emptyHint };
 }
 
 /* eslint-disable react/prop-types */
@@ -77,14 +113,15 @@ export default function QaReviewQueuePanel({
   const [actionNote, setActionNote] = useState('');
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [backfillLimit, setBackfillLimit] = useState(1);
-  const [backfillMode, setBackfillMode] = useState('long');
   const [forceReanalyze, setForceReanalyze] = useState(false);
+  const [catchUpOpen, setCatchUpOpen] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
   const [pipelineStatus, setPipelineStatus] = useState(null);
   const [watch, setWatch] = useState(null);
   const [nowTick, setNowTick] = useState(Date.now());
   const [selectedKeys, setSelectedKeys] = useState(() => new Set());
   const announcedRef = useRef(false);
+  const catchUpRef = useRef(null);
   const statusFilterRef = useRef(statusFilter);
   const pageRef = useRef(page);
   statusFilterRef.current = statusFilter;
@@ -136,12 +173,29 @@ export default function QaReviewQueuePanel({
   }, [statusFilter]);
 
   useEffect(() => {
+    if (!catchUpOpen) return undefined;
+    const onPointer = (event) => {
+      if (catchUpRef.current && !catchUpRef.current.contains(event.target)) {
+        setCatchUpOpen(false);
+      }
+    };
+    const onKey = (event) => {
+      if (event.key === 'Escape') setCatchUpOpen(false);
+    };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [catchUpOpen]);
+
+  useEffect(() => {
     if (!watch) return undefined;
     const id = window.setInterval(() => setNowTick(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [watch]);
 
-  // While a backfill is watched, poll until Gemini finishes, then toast + jump to result filter.
   useEffect(() => {
     if (!watch) return undefined;
     let cancelled = false;
@@ -166,7 +220,6 @@ export default function QaReviewQueuePanel({
       const analyzing = (st?.counts?.processing || 0) > 0;
       if (analyzing) return;
 
-      // Give the first claim a moment to appear before treating empty as "done".
       if (Date.now() - watch.startedAt < 2500) return;
 
       if (st?.lastReview) {
@@ -182,7 +235,7 @@ export default function QaReviewQueuePanel({
       setWatch(null);
       setStatusFilter('clear');
       await loadReviews('clear', 1, { quiet: true });
-      toast.success('Analysis finished. Check Clear or Pending for the result.');
+      toast.success('Analysis finished. Check Clear or Needs review for the result.');
     };
 
     void tick();
@@ -193,7 +246,6 @@ export default function QaReviewQueuePanel({
     };
   }, [watch, loadReviews, fetchStatus]);
 
-  // Also refresh the Analyzing list while items are mid-flight (live calls).
   useEffect(() => {
     if (watch) return undefined;
     if (statusFilter !== 'processing' && !(pipelineStatus?.counts?.processing > 0)) return undefined;
@@ -219,16 +271,17 @@ export default function QaReviewQueuePanel({
     });
   };
 
+  const selectTab = (id) => {
+    setStatusFilter(id);
+    void loadReviews(id, 1);
+  };
+
   const runBackfill = async () => {
     if (!startBackfill || backfilling) return;
     setBackfilling(true);
     try {
-      const mode = DURATION_MODES[backfillMode] || DURATION_MODES.long;
       const out = await startBackfill({
         limit: backfillLimit,
-        preferShort: mode.preferShort,
-        maxDurationSec: mode.maxDurationSec,
-        minDurationSec: mode.minDurationSec,
         force: forceReanalyze,
         fromClear: forceReanalyze,
       });
@@ -240,10 +293,11 @@ export default function QaReviewQueuePanel({
           sampleDurationSec: out.sampleDurationSec,
         });
         setStatusFilter('processing');
+        setCatchUpOpen(false);
         toast.success(out.message || `Queued ${out.queued} recording${out.queued === 1 ? '' : 's'}`);
         await loadReviews('processing', 1, { quiet: true });
       } else {
-        toast(out?.message || 'No older recordings left to analyze');
+        toast(out?.message || 'No eligible recordings left to analyze');
       }
     } catch (err) {
       toast.error(err.message || 'Failed to start analysis');
@@ -372,36 +426,22 @@ export default function QaReviewQueuePanel({
 
   const analyzingCount = pipelineStatus?.counts?.processing
     ?? reviews.filter((r) => r?.qaAudioReview?.status === 'processing').length;
+  const pendingCount = pipelineStatus?.counts?.pending ?? 0;
   const showLiveBar = Boolean(watch) || analyzingCount > 0;
   const elapsedSec = watch?.startedAt
     ? Math.max(0, Math.floor((nowTick - watch.startedAt) / 1000))
     : null;
+  const empty = emptyCopy(statusFilter, { showLiveBar, emptyHint });
+
+  const tabBadge = (id) => {
+    if (id === 'pending_review') return pendingCount;
+    if (id === 'processing') return analyzingCount;
+    if (id === statusFilter) return total;
+    return null;
+  };
 
   return (
-    <>
-      <div className={classes.cardTopRow}>
-        <h2 className={classes.cardTitle}>AI call flags</h2>
-        <div className={classes.filterRow}>
-          <select
-            className={classes.select}
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              loadReviews(e.target.value, 1);
-            }}
-          >
-            <option value="pending_review">Pending</option>
-            <option value="processing">Analyzing</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="dismissed">Dismissed</option>
-            <option value="clear">Clear</option>
-            <option value="all">All</option>
-          </select>
-          <button type="button" className={classes.refreshBtn} onClick={() => loadReviews(statusFilter, page)}>
-            <RefreshCw size={14} className={loading ? classes.spin : ''} /> Refresh
-          </button>
-        </div>
-      </div>
+    <div className={classes.qaPage}>
       {fetchStatus ? (
         <QaAiStatusBanner
           fetchStatus={fetchStatus}
@@ -409,183 +449,222 @@ export default function QaReviewQueuePanel({
           onStatus={setPipelineStatus}
         />
       ) : null}
-      {showLiveBar ? (
-        <div className={classes.qaLiveBar} role="status" aria-live="polite">
-          <Loader size={16} className={classes.spin} />
-          <div>
-            <strong>
-              {analyzingCount > 0
-                ? `Gemini is listening to ${analyzingCount} recording${analyzingCount === 1 ? '' : 's'}…`
-                : 'Finishing analysis…'}
-            </strong>
-            <p>
-              This page refreshes every few seconds.
-              {elapsedSec != null ? ` Running ${elapsedSec}s.` : ''}
-              {' '}When done, you’ll get a toast and jump to Clear or Pending automatically.
-            </p>
-          </div>
-        </div>
-      ) : null}
-      <p className={classes.hint}>
-        Gemini listens to recordings against your compliance rules. Confirming a flag automatically flags the agent.
-        For a longer test: choose <strong>Longer calls (2–10 min)</strong> + <strong>1 call</strong>. Expect ~30–90s for Gemini.
-      </p>
-      {startBackfill ? (
-        <div className={classes.qaBackfillRow}>
-          <label className={classes.qaBackfillLabel} htmlFor="qa-backfill-mode">
-            Duration
-          </label>
-          <select
-            id="qa-backfill-mode"
-            className={classes.select}
-            value={backfillMode}
-            disabled={backfilling || Boolean(watch)}
-            onChange={(e) => setBackfillMode(e.target.value)}
-          >
-            <option value="short">Short (≤45s)</option>
-            <option value="medium">Medium (45s–3 min)</option>
-            <option value="long">Longer (2–10 min)</option>
-            <option value="any">Any length (longest first)</option>
-          </select>
-          <select
-            id="qa-backfill-limit"
-            className={classes.select}
-            value={backfillLimit}
-            disabled={backfilling || Boolean(watch)}
-            onChange={(e) => setBackfillLimit(Number(e.target.value))}
-            aria-label="How many calls to analyze"
-          >
-            <option value={1}>1 call</option>
-            <option value={3}>3 calls</option>
-            <option value={10}>10 calls</option>
-          </select>
-          <label className={classes.qaForceLabel}>
-            <input
-              type="checkbox"
-              checked={forceReanalyze}
-              disabled={backfilling || Boolean(watch)}
-              onChange={(e) => setForceReanalyze(e.target.checked)}
-            />
-            Re-analyze from Clear
-          </label>
-          <button
-            type="button"
-            className={classes.primaryBtn}
-            disabled={backfilling || Boolean(watch)}
-            onClick={runBackfill}
-          >
-            <AudioLines size={16} className={backfilling || watch ? classes.spin : ''} />
-            {backfilling ? 'Scanning…' : watch ? 'Analyzing…' : 'Analyze older calls'}
-          </button>
-        </div>
-      ) : null}
-      {loading && !reviews.length ? (
-        <p className={classes.muted}>Loading AI flags…</p>
-      ) : !reviews.length ? (
-        <div className={classes.emptyPanel}>
-          <Flag size={28} className={classes.emptyPanelIcon} />
-          <h4>No {statusFilter === 'all' ? '' : statusLabel(statusFilter).toLowerCase()} flags</h4>
-          <p>
-            {showLiveBar
-              ? 'Waiting for Gemini to finish. Results will appear here automatically.'
-              : emptyHint}
-          </p>
-        </div>
-      ) : (
-        <>
-          {selectionEnabled ? (
-            <div className={classes.qaSelectBar}>
-              <label className={classes.qaForceLabel}>
-                <input
-                  type="checkbox"
-                  checked={allSelectableSelected}
-                  disabled={backfilling || Boolean(watch) || !selectableReviews.length}
-                  onChange={toggleSelectAll}
-                />
-                Select all on page ({selectableReviews.length})
-              </label>
-              <button
-                type="button"
-                className={classes.primaryBtn}
-                disabled={backfilling || Boolean(watch) || selectedCount < 1}
-                onClick={runReanalyzeSelected}
-              >
-                <AudioLines size={16} className={backfilling || watch ? classes.spin : ''} />
-                {selectedCount > 0
-                  ? `Re-analyze selected (${selectedCount})`
-                  : 'Re-analyze selected'}
-              </button>
-            </div>
-          ) : null}
-          <div className={classes.contestList}>
-            {reviews.map((row) => {
-              const key = reviewKey(row);
-              const canSelect = selectionEnabled
-                && (row?.qaAudioReview?.status || row?.status) === 'clear'
-                && Boolean(row.recordingSid || row.recordingUrl);
+
+      <section className={`glass ${classes.qaQueueCard}`}>
+        <div className={classes.qaToolbar}>
+          <div className={classes.qaTabs} role="tablist" aria-label="Flag status">
+            {STATUS_TABS.map((tab) => {
+              const badge = tabBadge(tab.id);
+              const active = statusFilter === tab.id;
               return (
-                <AiFlagReviewCard
-                  key={key}
-                  review={row}
-                  selectable={canSelect}
-                  selected={selectedKeys.has(key)}
-                  onSelectToggle={() => toggleSelected(row)}
-                  selectDisabled={backfilling || Boolean(watch)}
-                  expanded={expandedId === key || row?.qaAudioReview?.status === 'processing'}
-                  onToggle={() => {
-                    setExpandedId(expandedId === key ? null : key);
-                  }}
-                  onPlayRecording={() => setActiveRecording({
-                    recordingUrl: row.recordingUrl,
-                    recordingSid: row.recordingSid || null,
-                    campaign: row.campaignLabel || row.campaign,
-                    campaignLabel: row.campaignLabel || row.campaign,
-                    duration: row.duration,
-                    createdAt: row.createdAt,
-                    isBillable: row.isBillable,
-                  })}
-                  onConfirm={() => openConfirm(row)}
-                  onDismiss={() => openDismiss(row)}
-                  onReanalyze={reanalyzeReview ? () => runReanalyzeOne(row) : null}
-                  reanalyzeDisabled={backfilling || Boolean(watch)}
-                />
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  className={`${classes.qaTab} ${active ? classes.qaTabActive : ''}`}
+                  onClick={() => selectTab(tab.id)}
+                >
+                  {tab.label}
+                  {badge != null && badge > 0 ? (
+                    <span className={classes.qaTabBadge}>{badge > 99 ? '99+' : badge}</span>
+                  ) : null}
+                </button>
               );
             })}
           </div>
-          {total > 0 ? (
-            <div className={classes.pagination}>
-              <span className={classes.pageMeta}>
-                {total === 0
-                  ? '0 flags'
-                  : `Showing ${rangeStart}–${rangeEnd} of ${total}`}
-              </span>
-              <div className={classes.pageBtns}>
+          <div className={classes.qaToolbarActions}>
+            <button
+              type="button"
+              className={classes.qaIconBtn}
+              onClick={() => loadReviews(statusFilter, page)}
+              aria-label="Refresh flags"
+              title="Refresh"
+            >
+              <RefreshCw size={15} className={loading ? classes.spin : ''} />
+            </button>
+            {startBackfill ? (
+              <div className={classes.qaCatchUpWrap} ref={catchUpRef}>
                 <button
                   type="button"
-                  className={classes.pageBtn}
-                  disabled={safePage <= 1 || loading}
-                  onClick={() => goToPage(safePage - 1)}
-                  aria-label="Previous page"
+                  className={`${classes.qaCatchUpBtn} ${catchUpOpen ? classes.qaCatchUpBtnOpen : ''}`}
+                  aria-expanded={catchUpOpen}
+                  onClick={() => setCatchUpOpen((v) => !v)}
                 >
-                  <ChevronLeft size={16} />
+                  <AudioLines size={14} />
+                  Catch up
                 </button>
-                <span className={classes.pageIndicator}>
-                  Page {safePage} / {totalPages}
-                </span>
-                <button
-                  type="button"
-                  className={classes.pageBtn}
-                  disabled={safePage >= totalPages || loading}
-                  onClick={() => goToPage(safePage + 1)}
-                  aria-label="Next page"
-                >
-                  <ChevronRight size={16} />
-                </button>
+                {catchUpOpen ? (
+                  <div className={classes.qaCatchUpPanel}>
+                    <p className={classes.qaCatchUpHint}>
+                      Only calls in each campaign’s buffer +10–15s window. New matching calls still run automatically.
+                    </p>
+                    <div className={classes.qaBackfillRow}>
+                      <select
+                        id="qa-backfill-limit"
+                        className={classes.select}
+                        value={backfillLimit}
+                        disabled={backfilling || Boolean(watch)}
+                        onChange={(e) => setBackfillLimit(Number(e.target.value))}
+                        aria-label="How many calls to analyze"
+                      >
+                        <option value={1}>1 call</option>
+                        <option value={3}>3 calls</option>
+                        <option value={10}>10 calls</option>
+                      </select>
+                      <label className={classes.qaForceLabel}>
+                        <input
+                          type="checkbox"
+                          checked={forceReanalyze}
+                          disabled={backfilling || Boolean(watch)}
+                          onChange={(e) => setForceReanalyze(e.target.checked)}
+                        />
+                        Include previously Clear
+                      </label>
+                      <button
+                        type="button"
+                        className={classes.primaryBtn}
+                        disabled={backfilling || Boolean(watch)}
+                        onClick={runBackfill}
+                      >
+                        <AudioLines size={16} className={backfilling || watch ? classes.spin : ''} />
+                        {backfilling ? 'Scanning…' : watch ? 'Analyzing…' : 'Run'}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
+            ) : null}
+          </div>
+        </div>
+
+        {showLiveBar ? (
+          <div className={classes.qaLiveBar} role="status" aria-live="polite">
+            <Loader size={16} className={classes.spin} />
+            <div>
+              <strong>
+                {analyzingCount > 0
+                  ? `Listening to ${analyzingCount} recording${analyzingCount === 1 ? '' : 's'}…`
+                  : 'Finishing analysis…'}
+              </strong>
+              <p>
+                This page refreshes automatically.
+                {elapsedSec != null ? ` Running ${elapsedSec}s.` : ''}
+              </p>
             </div>
-          ) : null}
-        </>
-      )}
+          </div>
+        ) : null}
+
+        <div className={classes.qaQueueBody}>
+          {loading && !reviews.length ? (
+            <div className={classes.qaEmpty}>
+              <Loader size={22} className={classes.spin} />
+              <h4>Loading flags…</h4>
+            </div>
+          ) : !reviews.length ? (
+            <div className={classes.qaEmpty}>
+              <Flag size={26} className={classes.qaEmptyIcon} />
+              <h4>{empty.title}</h4>
+              <p>{empty.body}</p>
+            </div>
+          ) : (
+            <>
+              {selectionEnabled ? (
+                <div className={classes.qaSelectBar}>
+                  <label className={classes.qaForceLabel}>
+                    <input
+                      type="checkbox"
+                      checked={allSelectableSelected}
+                      disabled={backfilling || Boolean(watch) || !selectableReviews.length}
+                      onChange={toggleSelectAll}
+                    />
+                    {selectedCount > 0
+                      ? `${selectedCount} selected`
+                      : `Select all (${selectableReviews.length})`}
+                  </label>
+                  <button
+                    type="button"
+                    className={selectedCount > 0 ? classes.primaryBtn : classes.qaGhostBtn}
+                    disabled={backfilling || Boolean(watch) || selectedCount < 1}
+                    onClick={runReanalyzeSelected}
+                  >
+                    <AudioLines size={15} className={backfilling || watch ? classes.spin : ''} />
+                    Re-analyze
+                    {selectedCount > 0 ? ` (${selectedCount})` : ''}
+                  </button>
+                </div>
+              ) : null}
+              <div className={classes.contestList}>
+                {reviews.map((row) => {
+                  const key = reviewKey(row);
+                  const canSelect = selectionEnabled
+                    && (row?.qaAudioReview?.status || row?.status) === 'clear'
+                    && Boolean(row.recordingSid || row.recordingUrl);
+                  return (
+                    <AiFlagReviewCard
+                      key={key}
+                      review={row}
+                      selectable={canSelect}
+                      selected={selectedKeys.has(key)}
+                      onSelectToggle={() => toggleSelected(row)}
+                      selectDisabled={backfilling || Boolean(watch)}
+                      expanded={expandedId === key || row?.qaAudioReview?.status === 'processing'}
+                      onToggle={() => {
+                        setExpandedId(expandedId === key ? null : key);
+                      }}
+                      onPlayRecording={() => setActiveRecording({
+                        recordingUrl: row.recordingUrl,
+                        recordingSid: row.recordingSid || null,
+                        campaign: row.campaignLabel || row.campaign,
+                        campaignLabel: row.campaignLabel || row.campaign,
+                        duration: row.duration,
+                        createdAt: row.createdAt,
+                        isBillable: row.isBillable,
+                      })}
+                      onConfirm={() => openConfirm(row)}
+                      onDismiss={() => openDismiss(row)}
+                      onReanalyze={reanalyzeReview ? () => runReanalyzeOne(row) : null}
+                      reanalyzeDisabled={backfilling || Boolean(watch)}
+                    />
+                  );
+                })}
+              </div>
+              {total > 0 ? (
+                <div className={classes.pagination}>
+                  <span className={classes.pageMeta}>
+                    {total === 0
+                      ? '0 flags'
+                      : `Showing ${rangeStart}–${rangeEnd} of ${total}`}
+                  </span>
+                  <div className={classes.pageBtns}>
+                    <button
+                      type="button"
+                      className={classes.pageBtn}
+                      disabled={safePage <= 1 || loading}
+                      onClick={() => goToPage(safePage - 1)}
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <span className={classes.pageIndicator}>
+                      Page {safePage} / {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      className={classes.pageBtn}
+                      disabled={safePage >= totalPages || loading}
+                      onClick={() => goToPage(safePage + 1)}
+                      aria-label="Next page"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+      </section>
 
       {activeRecording && (
         <RecordingModal log={activeRecording} onClose={() => setActiveRecording(null)} />
@@ -603,15 +682,6 @@ export default function QaReviewQueuePanel({
         }}
         onSubmit={submitActionModal}
       />
-    </>
+    </div>
   );
-}
-
-function statusLabel(status) {
-  if (status === 'pending_review') return 'Pending';
-  if (status === 'processing') return 'Analyzing';
-  if (status === 'confirmed') return 'Confirmed';
-  if (status === 'dismissed') return 'Dismissed';
-  if (status === 'clear') return 'Clear';
-  return status || '';
 }

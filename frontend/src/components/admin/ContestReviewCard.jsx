@@ -135,18 +135,18 @@ const ACTION_MODAL_CONFIG = {
     placeholder: 'Why is this call being credited? (visible on billing history)',
   },
   confirm_qa_flag: {
-    title: 'Confirm AI flag',
-    confirmLabel: 'Confirm & flag agent',
+    title: 'Confirm violation',
+    confirmLabel: 'Confirm — flag agent',
     confirmClass: 'dangerBtn',
-    label: 'Review note',
-    placeholder: 'Why is this violation confirmed? This will flag the agent account.',
+    label: 'Why this is a real violation',
+    placeholder: 'This permanently flags the agent account. Note what you heard (min 10 characters).',
   },
   dismiss_qa_flag: {
-    title: 'Dismiss AI flag',
-    confirmLabel: 'Dismiss flag',
+    title: 'Dismiss as false positive',
+    confirmLabel: 'Dismiss — keep agent clear',
     confirmClass: 'primaryBtn',
-    label: 'Dismissal note',
-    placeholder: 'Why is this a false positive? The agent will stay live.',
+    label: 'Why this is not a violation',
+    placeholder: 'Agent stays clear. Briefly explain (min 10 characters).',
   },
 };
 

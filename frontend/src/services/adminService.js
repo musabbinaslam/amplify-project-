@@ -247,16 +247,10 @@ export function backfillAdminQaReviews({
   force = false,
   fromClear = false,
   uid = '',
-  maxDurationSec,
-  minDurationSec,
-  preferShort = false,
 } = {}) {
-  const body = { limit, force, fromClear, uid, preferShort };
-  if (maxDurationSec != null) body.maxDurationSec = maxDurationSec;
-  if (minDurationSec != null) body.minDurationSec = minDurationSec;
   return apiFetch('/api/admin/qa-reviews/backfill', {
     method: 'POST',
-    body,
+    body: { limit, force, fromClear, uid },
   });
 }
 

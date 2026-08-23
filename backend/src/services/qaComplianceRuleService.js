@@ -9,6 +9,7 @@ function serializeRule(doc) {
   return {
     id: doc.id,
     name: data.name || '',
+    description: data.description || '',
     instruction: data.instruction || '',
     severity: SEVERITIES.has(data.severity) ? data.severity : 'medium',
     active: data.active !== false,
@@ -27,6 +28,13 @@ function validateRulePayload(body, { partial = false } = {}) {
     if (!name) throw Object.assign(new Error('Rule name is required'), { code: 'INVALID_RULE' });
     if (name.length > 120) throw Object.assign(new Error('Rule name is too long'), { code: 'INVALID_RULE' });
     out.name = name;
+  }
+  if (!partial || body.description !== undefined) {
+    const description = String(body?.description || '').trim();
+    if (description.length > 180) {
+      throw Object.assign(new Error('Rule description is too long'), { code: 'INVALID_RULE' });
+    }
+    out.description = description;
   }
   if (!partial || body.instruction !== undefined) {
     const instruction = String(body?.instruction || '').trim();
