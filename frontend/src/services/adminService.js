@@ -217,3 +217,75 @@ export function deleteAdminCampaign(campaignId) {
   });
 }
 
+export function listAdminQaRules() {
+  return apiFetch('/api/admin/qa-rules', { method: 'GET' });
+}
+
+export function createAdminQaRule(payload) {
+  return apiFetch('/api/admin/qa-rules', { method: 'POST', body: payload });
+}
+
+export function updateAdminQaRule(ruleId, payload) {
+  return apiFetch(`/api/admin/qa-rules/${encodeURIComponent(ruleId)}`, { method: 'PATCH', body: payload });
+}
+
+export function deleteAdminQaRule(ruleId) {
+  return apiFetch(`/api/admin/qa-rules/${encodeURIComponent(ruleId)}`, { method: 'DELETE' });
+}
+
+export function listAdminQaReviews(status = 'pending_review', limit = 20, page = 1) {
+  const qs = new URLSearchParams();
+  if (status) qs.set('status', status);
+  if (limit) qs.set('limit', String(limit));
+  if (page) qs.set('page', String(page));
+  return apiFetch(`/api/admin/qa-reviews?${qs.toString()}`, { method: 'GET' });
+}
+
+export function countAdminQaReviewsPending() {
+  return apiFetch('/api/admin/qa-reviews/pending-count', { method: 'GET' });
+}
+
+export function getAdminQaPipelineStatus() {
+  return apiFetch('/api/admin/qa-reviews/status', { method: 'GET' });
+}
+
+export function backfillAdminQaReviews({
+  limit = 1,
+  force = false,
+  fromClear = false,
+  uid = '',
+} = {}) {
+  return apiFetch('/api/admin/qa-reviews/backfill', {
+    method: 'POST',
+    body: { limit, force, fromClear, uid },
+  });
+}
+
+export function reanalyzeAdminQaReview(agentId, callLogId) {
+  return apiFetch(`/api/admin/qa-reviews/${encodeURIComponent(agentId)}/${encodeURIComponent(callLogId)}/reanalyze`, {
+    method: 'POST',
+    body: {},
+  });
+}
+
+export function reanalyzeAdminQaReviewsBatch(items = []) {
+  return apiFetch('/api/admin/qa-reviews/reanalyze-batch', {
+    method: 'POST',
+    body: { items },
+  });
+}
+
+export function confirmAdminQaReview(agentId, callLogId, note) {
+  return apiFetch(`/api/admin/qa-reviews/${encodeURIComponent(agentId)}/${encodeURIComponent(callLogId)}/confirm`, {
+    method: 'POST',
+    body: { note },
+  });
+}
+
+export function dismissAdminQaReview(agentId, callLogId, note) {
+  return apiFetch(`/api/admin/qa-reviews/${encodeURIComponent(agentId)}/${encodeURIComponent(callLogId)}/dismiss`, {
+    method: 'POST',
+    body: { note },
+  });
+}
+

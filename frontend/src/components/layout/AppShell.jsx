@@ -15,6 +15,7 @@ import {
   getMaintenanceState,
   getMyNotifications,
   getMyAdminNotifications,
+  getMyAiFlagNotifications,
   markAllNotificationsRead,
   markNotificationRead,
 } from '../../services/notificationService';
@@ -28,6 +29,7 @@ const AppShell = () => {
   const user = useAuthStore((s) => s.user);
   const [notifications, setNotifications] = useState([]);
   const [adminNotifications, setAdminNotifications] = useState([]);
+  const [aiFlagNotifications, setAiFlagNotifications] = useState([]);
   const [maintenance, setMaintenance] = useState(null);
   const [notificationTick, setNotificationTick] = useState(0);
   const [latestNotificationId, setLatestNotificationId] = useState(null);
@@ -37,8 +39,9 @@ const AppShell = () => {
     () => (
       notifications.filter((row) => !row.read).length
       + (isAdmin ? adminNotifications.filter((row) => !row.read).length : 0)
+      + (isAdmin ? aiFlagNotifications.filter((row) => !row.read).length : 0)
     ),
-    [notifications, adminNotifications, isAdmin],
+    [notifications, adminNotifications, aiFlagNotifications, isAdmin],
   );
 
   const loadInbox = useCallback(async () => {
@@ -46,10 +49,15 @@ const AppShell = () => {
       const out = await getMyNotifications({ limit: 30, scope: 'general' });
       setNotifications(Array.isArray(out?.rows) ? out.rows : []);
       if (user?.role === 'admin') {
-        const adminOut = await getMyAdminNotifications({ limit: 20 });
+        const [adminOut, aiFlagsOut] = await Promise.all([
+          getMyAdminNotifications({ limit: 20 }),
+          getMyAiFlagNotifications({ limit: 20 }),
+        ]);
         setAdminNotifications(Array.isArray(adminOut?.rows) ? adminOut.rows : []);
+        setAiFlagNotifications(Array.isArray(aiFlagsOut?.rows) ? aiFlagsOut.rows : []);
       } else {
         setAdminNotifications([]);
+        setAiFlagNotifications([]);
       }
     } catch (err) {
       console.error('Failed to load notifications', err);
@@ -71,6 +79,7 @@ const AppShell = () => {
     );
     setNotifications((rows) => rows.map(patch));
     setAdminNotifications((rows) => rows.map(patch));
+    setAiFlagNotifications((rows) => rows.map(patch));
   }, []);
 
   const handleMarkRead = useCallback(async (id) => {
@@ -96,6 +105,10 @@ const AppShell = () => {
         await markAllNotificationsRead({ scope: 'admin' });
         setAdminNotifications((rows) => rows.map((item) => ({ ...item, read: true, readAtIso: new Date().toISOString() })));
       }
+      if (scope === 'ai_flags' && isAdmin) {
+        await markAllNotificationsRead({ scope: 'ai_flags' });
+        setAiFlagNotifications((rows) => rows.map((item) => ({ ...item, read: true, readAtIso: new Date().toISOString() })));
+      }
     } catch (err) {
       toast.error(err?.message || 'Could not mark all as read');
     }
@@ -120,6 +133,9 @@ const AppShell = () => {
       if (payload.type === 'admin_alert') {
         if (user?.role !== 'admin') return;
         setAdminNotifications((rows) => [{ ...payload, read: false }, ...rows].slice(0, 40));
+      } else if (payload.type === 'ai_flag') {
+        if (user?.role !== 'admin') return;
+        setAiFlagNotifications((rows) => [{ ...payload, read: false }, ...rows].slice(0, 40));
       } else {
         setNotifications((rows) => [{ ...payload, read: false }, ...rows].slice(0, 60));
       }
@@ -127,9 +143,11 @@ const AppShell = () => {
       setNotificationTick((n) => n + 1);
       const toastIcon = payload.type === 'admin_alert'
         ? '🛡️'
-        : payload.type === 'contest_credited'
-          ? '💰'
-          : '🔔';
+        : payload.type === 'ai_flag'
+          ? '🚩'
+          : payload.type === 'contest_credited'
+            ? '💰'
+            : '🔔';
       toast(payload.title || 'New notification', { icon: toastIcon });
       if (payload.type === 'contest_credited') {
         const balance = Number(payload.walletBalanceCents);
@@ -314,6 +332,7 @@ const AppShell = () => {
           <Topbar
             notifications={notifications}
             adminNotifications={adminNotifications}
+            aiFlagNotifications={aiFlagNotifications}
             isAdmin={isAdmin}
             unreadCount={unreadCount}
             onMarkRead={handleMarkRead}

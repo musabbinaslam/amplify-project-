@@ -106,7 +106,7 @@ async function sendMockMessage(messages) {
 
 async function sendGeminiMessage(messages) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
   const contents = toGeminiContents(messages);
   if (contents.length === 0) {
     return FALLBACK;

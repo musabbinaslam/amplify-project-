@@ -137,6 +137,20 @@ exports.setupCallSockets = (io) => {
             }
             socket.pendingGoLivePayload = null; // consume
 
+            try {
+                const userDoc = await getUserDoc(socket.agentId);
+                if (userDoc?.flagged) {
+                    socket.emit('agent:go_live_error', {
+                        code: 'ACCOUNT_FLAGGED',
+                        message: userDoc.flagReason
+                            || 'Your account has been flagged. Contact admin@callsflow.io.',
+                    });
+                    return;
+                }
+            } catch (err) {
+                console.warn(`[Socket] Flag check failed for ${socket.agentId}:`, err.message);
+            }
+
             // Use agencyId from the go_live payload (sent by frontend from authStore).
             // Fall back to a Firestore lookup only if the frontend didn't send it.
             let agencyId = normalizeAgencyId(payload.agencyId);

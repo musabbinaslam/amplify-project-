@@ -45,59 +45,234 @@
   font-weight: 500;
 }
 
-/* Compact metrics bar — distinct from module navigation cards */
+/* One glass strip. Groups sized by metric count (3 | 2 | 5) so every KPI is the same width. */
 .metricsBar {
   display: grid;
-  grid-template-columns: repeat(9, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 3fr) 1px minmax(0, 2fr) 1px minmax(0, 5fr);
+  align-items: stretch;
   width: 100%;
   flex-shrink: 0;
-  padding: 4px 0;
+  padding: 16px 8px 18px;
   overflow: hidden;
+  box-shadow:
+    var(--glass-highlight),
+    inset 0 -1px 0 color-mix(in srgb, #000000 38%, transparent),
+    0 12px 32px color-mix(in srgb, #000000 42%, transparent),
+    0 0 40px color-mix(in srgb, var(--brand-glow) 14%, transparent);
 }
 
-.metricItem {
+.metricsBar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--brand-text) 9%, transparent) 0%,
+    transparent 46%
+  );
+}
+
+.metricsBar > * {
+  position: relative;
+  z-index: 1;
+}
+
+.metricsBar:hover {
+  background: var(--glass-bg);
+  border-color: color-mix(in srgb, var(--brand-text) 16%, var(--glass-border));
+}
+
+.metricGroup {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 14px 16px;
+  gap: 12px;
   min-width: 0;
-  border-right: 1px solid var(--glass-border);
+  padding: 0 4px;
 }
 
-.metricItem:last-child {
-  border-right: none;
+.liveGroup,
+.attentionGroup,
+.todayGroup {
+  min-width: 0;
+}
+
+.groupHead {
+  margin: 0 10px;
+  padding: 0 4px 10px;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.groupLabel {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.groupCells {
+  display: grid;
+  min-width: 0;
+  align-items: stretch;
+}
+
+.liveGroup .groupCells {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.attentionGroup .groupCells {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.todayGroup .groupCells {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.groupDivider {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 0;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, #ffffff 20%, transparent) 14%,
+    color-mix(in srgb, #ffffff 20%, transparent) 86%,
+    transparent
+  );
+  box-shadow: 1px 0 0 color-mix(in srgb, #000000 35%, transparent);
+}
+
+.metricCell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 14px;
+  box-sizing: border-box;
+  position: relative;
+  container-type: inline-size;
+}
+
+.metricCell:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 0;
+  bottom: 6px;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, #ffffff 16%, transparent) 18%,
+    color-mix(in srgb, #ffffff 16%, transparent) 82%,
+    transparent
+  );
+  box-shadow: 1px 0 0 color-mix(in srgb, #000000 28%, transparent);
+  pointer-events: none;
+  border-radius: 0;
+}
+
+.metricLink {
+  text-decoration: none;
+  color: inherit;
+  border-radius: 12px;
+  padding: 0 14px;
+  margin: 0;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.metricLink:hover {
+  background: color-mix(in srgb, var(--brand-text) 7%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 8%, transparent);
 }
 
 .metricLabel {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-secondary);
-  white-space: normal;
-  line-height: 1.25;
-  /* Reserve two lines so wrapped labels don't misalign the values below. */
-  min-height: 2.5em;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  min-height: 2.5em;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  line-height: 1.25;
+}
+
+.metricLink .metricLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  min-height: 2.5em;
+}
+
+.linkIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--text-tertiary);
 }
 
 .metricValue {
-  font-size: 24px;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  padding: 6px 8px;
+  border-radius: 10px;
+  font-size: 22px;
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
   color: var(--text-primary);
-  line-height: 1.1;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, #000000 32%, transparent);
+  border: 1px solid color-mix(in srgb, #ffffff 7%, transparent);
+  box-shadow:
+    inset 0 1px 3px color-mix(in srgb, #000000 50%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #ffffff 7%, transparent);
+}
+
+.tone_warn .metricValue {
+  color: var(--accent-yellow);
+  background: color-mix(in srgb, var(--accent-yellow) 10%, color-mix(in srgb, #000000 28%, transparent));
+  border-color: color-mix(in srgb, var(--accent-yellow) 22%, transparent);
+  box-shadow:
+    inset 0 1px 3px color-mix(in srgb, #000000 40%, transparent),
+    0 0 16px color-mix(in srgb, var(--accent-yellow) 12%, transparent);
+}
+
+.tone_alert .metricValue {
+  color: var(--accent-red);
+  background: color-mix(in srgb, var(--accent-red) 10%, color-mix(in srgb, #000000 28%, transparent));
+  border-color: color-mix(in srgb, var(--accent-red) 22%, transparent);
+  box-shadow:
+    inset 0 1px 3px color-mix(in srgb, #000000 40%, transparent),
+    0 0 16px color-mix(in srgb, var(--accent-red) 12%, transparent);
+}
+
+.tone_warn .linkIcon {
+  color: var(--accent-yellow);
+}
+
+.tone_alert .linkIcon {
+  color: var(--accent-red);
 }
 
 .metricSkeleton {
-  display: inline-block;
-  width: 40px;
-  height: 22px;
-  border-radius: 8px;
+  display: block;
+  width: 100%;
+  height: 1.15em;
+  border-radius: 6px;
   background: linear-gradient(
     90deg,
     color-mix(in srgb, var(--surface-container) 82%, transparent),
@@ -120,48 +295,46 @@
   min-height: 0;
   gap: 18px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(200px, 1fr));
+  grid-auto-rows: minmax(180px, 1fr);
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1100px) {
   .metricsBar {
+    grid-template-columns: 1fr;
+    padding: 8px 10px;
+  }
+
+  .groupDivider {
+    display: none;
+  }
+
+  .metricGroup {
+    padding: 12px 6px;
+    border-bottom: 1px solid var(--glass-border);
+  }
+
+  .metricGroup:last-child {
+    border-bottom: none;
+  }
+
+  .todayGroup .groupCells {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .metricItem:nth-child(3n) {
-    border-right: none;
-  }
-
-  .metricItem:nth-child(n + 4) {
-    border-top: 1px solid var(--glass-border);
   }
 
   .moduleGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: repeat(3, minmax(180px, 1fr));
   }
 }
 
 @media (max-width: 900px) {
-  .metricsBar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .metricItem {
-    border-right: 1px solid var(--glass-border);
-  }
-
-  .metricItem:nth-child(2n) {
-    border-right: none;
-  }
-
-  .metricItem:nth-child(n + 3) {
-    border-top: 1px solid var(--glass-border);
+  .liveGroup .groupCells,
+  .attentionGroup .groupCells,
+  .todayGroup .groupCells {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .moduleGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(4, minmax(160px, 1fr));
   }
 }
 
@@ -171,17 +344,14 @@
     min-height: auto;
   }
 
-  .metricsBar {
+  .liveGroup .groupCells,
+  .attentionGroup .groupCells,
+  .todayGroup .groupCells {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .metricValue {
-    font-size: 20px;
   }
 
   .moduleGrid {
     grid-template-columns: 1fr;
-    grid-template-rows: none;
     grid-auto-rows: minmax(140px, auto);
     gap: 12px;
     flex: none;

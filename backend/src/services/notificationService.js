@@ -13,10 +13,12 @@ const ALLOWED_TYPES = new Set([
   'admin_broadcast',
   'maintenance',
   'admin_alert',
+  'ai_flag',
   'contest_credited',
   'contest_denied',
 ]);
 const ADMIN_NOTIFICATION_TYPES = new Set(['admin_alert']);
+const AI_FLAG_NOTIFICATION_TYPES = new Set(['ai_flag']);
 const ALLOWED_PRIORITIES = new Set(['low', 'normal', 'high']);
 // CAMPAIGN_IDS is intentionally NOT a frozen Set — we check the live
 // CAMPAIGN_CONFIG reference directly so newly added campaigns are valid
@@ -194,13 +196,20 @@ function buildNotificationPayload(input, source = 'system') {
   };
 }
 
+function isSpecialInboxType(type) {
+  return ADMIN_NOTIFICATION_TYPES.has(type) || AI_FLAG_NOTIFICATION_TYPES.has(type);
+}
+
 function filterRowsByScope(rows, scope = 'all') {
   const normalized = String(scope || 'all').toLowerCase();
   if (normalized === 'admin') {
     return rows.filter((row) => ADMIN_NOTIFICATION_TYPES.has(row.type));
   }
+  if (normalized === 'ai_flags') {
+    return rows.filter((row) => AI_FLAG_NOTIFICATION_TYPES.has(row.type));
+  }
   if (normalized === 'general') {
-    return rows.filter((row) => !ADMIN_NOTIFICATION_TYPES.has(row.type));
+    return rows.filter((row) => !isSpecialInboxType(row.type));
   }
   return rows;
 }
@@ -208,9 +217,10 @@ function filterRowsByScope(rows, scope = 'all') {
 function rowMatchesScope(data, scope = 'all') {
   const normalized = String(scope || 'all').toLowerCase();
   if (normalized === 'all') return true;
-  const isAdminType = ADMIN_NOTIFICATION_TYPES.has(data?.type);
-  if (normalized === 'admin') return isAdminType;
-  if (normalized === 'general') return !isAdminType;
+  const type = data?.type;
+  if (normalized === 'admin') return ADMIN_NOTIFICATION_TYPES.has(type);
+  if (normalized === 'ai_flags') return AI_FLAG_NOTIFICATION_TYPES.has(type);
+  if (normalized === 'general') return !isSpecialInboxType(type);
   return true;
 }
 
@@ -295,8 +305,10 @@ async function notifyAdmins(payload, source = 'system') {
   const adminIds = await listAdminUserIds();
   if (!adminIds.length) return { recipientCount: 0, created: [] };
 
+  const requestedType = String(payload?.type || '').trim().toLowerCase();
+  const type = ALLOWED_TYPES.has(requestedType) ? requestedType : 'admin_alert';
   const base = buildNotificationPayload(
-    { ...payload, type: 'admin_alert' },
+    { ...payload, type },
     source,
   );
   const created = [];
@@ -742,6 +754,7 @@ async function setMaintenanceState(input, updatedBy) {
 
 module.exports = {
   ADMIN_NOTIFICATION_TYPES,
+  AI_FLAG_NOTIFICATION_TYPES,
   listUserNotifications,
   markNotificationRead,
   markAllNotificationsRead,
