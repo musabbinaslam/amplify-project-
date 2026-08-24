@@ -66,7 +66,7 @@ const upsertCampaign = async (req, res) => {
     if (!Number.isFinite(priceNum) || priceNum < 0) {
       return res.status(400).json({ error: 'Price must be a non-negative number.' });
     }
-    
+
     const allowRefundsBool = typeof allowRefunds === 'boolean' ? allowRefunds : true;
 
     const campaignId = id.trim().toLowerCase();
@@ -149,7 +149,7 @@ const patchAdminCallLogDisposition = async (req, res) => {
   if (!uid || !callLogId || typeof disposition !== 'string') {
     return res.status(400).json({ error: 'uid, callLogId, and disposition are required' });
   }
-  
+
   try {
     const success = await callLogService.updateCallLogById(uid, callLogId, { disposition });
     if (!success) {
@@ -471,9 +471,9 @@ async function buildUserMetaMap(agentIds = []) {
     const balanceCents = typeof data.wallet?.balance === 'number' ? data.wallet.balance : null;
     const flagged = data.flagged === true;
     const flagReason = data.flagReason || null;
-    
+
     if (candidate || phone || balanceCents !== null || flagged) {
-      map.set(snap.id, { name: candidate, phone, balanceCents, flagged, flagReason });
+      map.set(snap.id, { name: candidate, phone, balanceCents, flagged, flagReason, agencyId: data.agencyId });
     }
   });
   const missing = ids.filter((id) => {
@@ -876,6 +876,7 @@ async function getOverviewLite(req, res) {
         phone: metaMap.get(a.id)?.phone || null,
         flagged: metaMap.get(a.id)?.flagged || false,
         flagReason: metaMap.get(a.id)?.flagReason || null,
+        agencyId: metaMap.get(a.id)?.agencyId || null,
         paused: pausedSet.has(a.id),
         status: pausedSet.has(a.id) ? 'PAUSED' : a.status,
       })),
@@ -1472,8 +1473,8 @@ async function getAnalyticsDrilldown(req, res) {
         const metaMap = await buildUserMetaMap(recentLogs.map((r) => r.agentId));
 
         const enrichedLogs = recentLogs.map((r) => mapRecentLogRow(r, {
-            agentName: metaMap.get(r.agentId)?.name || r.agentId,
-            phone: metaMap.get(r.agentId)?.phone || null,
+          agentName: metaMap.get(r.agentId)?.name || r.agentId,
+          phone: metaMap.get(r.agentId)?.phone || null,
         }));
 
         return res.json({
@@ -1840,13 +1841,13 @@ async function listAllUsersLite(req, res) {
     const snap = await db.collection('users').select().limit(5000).get();
     const ids = snap.docs.map((d) => d.id);
     const metaMap = await buildUserMetaMap(ids);
-    
+
     const users = ids.map((id) => {
       const entry = metaMap.get(id) || {};
       const name = entry.name || id;
       return { id, name, email: entry.email || null, phone: entry.phone || null };
     });
-    
+
     users.sort((a, b) => a.name.localeCompare(b.name));
     res.json({ users });
   } catch (err) {

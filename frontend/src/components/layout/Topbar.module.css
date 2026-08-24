@@ -204,6 +204,82 @@
   flex-shrink: 0;
 }
 
+.personaWarning {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--accent-red) 44%, var(--glass-border));
+  background: color-mix(in srgb, var(--accent-red) 18%, var(--surface-container-high));
+  box-shadow: var(--glass-highlight), var(--glass-edge);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.personaWarning::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    110deg,
+    transparent 28%,
+    color-mix(in srgb, #ffffff 58%, transparent) 48%,
+    transparent 66%
+  );
+  transform: translateX(-140%);
+  animation: personaWarningShimmer 3.2s ease-in-out infinite;
+}
+
+.personaWarning:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--accent-red) 24%, var(--surface-container-high));
+  border-color: color-mix(in srgb, var(--accent-red) 65%, var(--glass-border));
+}
+
+.personaWarning:active {
+  transform: translateY(0);
+}
+
+.personaWarning:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-red) 75%, transparent);
+  outline-offset: 2px;
+}
+
+.personaWarningIcon {
+  position: relative;
+  z-index: 1;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--accent-red);
+}
+
+.personaWarningText {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+}
+
+@keyframes personaWarningShimmer {
+  0%,
+  18% {
+    transform: translateX(-140%);
+  }
+  56%,
+  100% {
+    transform: translateX(140%);
+  }
+}
+
 /* Periodic light sweep to catch the eye */
 .discordPill::after {
   content: '';
@@ -639,6 +715,17 @@
   .discordLabel {
     display: none;
   }
+
+  .personaWarning {
+    padding: 0 11px;
+    font-size: 11px;
+  }
+
+  .personaWarningText {
+    max-width: 15ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -657,6 +744,15 @@
 
   .discordPill {
     transition: none;
+  }
+
+  .personaWarning {
+    transition: none;
+  }
+
+  .personaWarning::after {
+    animation: none;
+    display: none;
   }
 
   .discordPill::after {

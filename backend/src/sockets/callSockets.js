@@ -48,14 +48,14 @@ exports.setupCallSockets = (io) => {
 
             try {
                 const userDoc = await getUserDoc(identity);
-                if (userDoc?.flagged) {
+                if (userDoc?.personaStatus !== 'verified') {
                     socket.emit('agent:go_live_error', {
-                        code: 'ACCOUNT_FLAGGED',
-                        message: userDoc.flagReason
-                            || 'Your account has been flagged. Contact admin@callsflow.io.',
+                        code: 'PERSONA_UNVERIFIED',
+                        message: 'Identity verification is required before taking calls.',
                     });
                     return;
                 }
+
                 const accessError = await validateAgentCampaignAccess(userDoc?.agencyId, campaign);
                 if (accessError) {
                     socket.emit('agent:go_live_error', {
