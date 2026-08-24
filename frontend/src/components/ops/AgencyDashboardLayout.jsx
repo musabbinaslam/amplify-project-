@@ -242,6 +242,19 @@ export default function AgencyDashboardLayout({
                   const low = (row.billableRate || 0) < LOW_BILLABLE_THRESHOLD;
                   const isSelected = ops.selectedAgent === row.agentId;
                   const ratePct = Math.round((row.billableRate || 0) * 100);
+                  
+                  const agentObj = ops.agents.find(a => a.id === row.agentId);
+                  let statesStr = '';
+                  if (agentObj?.licensedStates) {
+                    let parsed = agentObj.licensedStates;
+                    if (typeof parsed === 'string') {
+                      try { parsed = JSON.parse(parsed); } catch (e) { parsed = []; }
+                    }
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                      statesStr = parsed.join(', ');
+                    }
+                  }
+
                   return (
                     <tr
                       key={row.agentId}
@@ -251,6 +264,11 @@ export default function AgencyDashboardLayout({
                       <td className={agency.rankCell}>{rank}</td>
                       <td className={shared.agentCell}>
                         <strong>{row.agentName || row.agentId}</strong>
+                        {statesStr && (
+                          <span style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)', marginTop: '2px', fontWeight: 500 }}>
+                            {statesStr}
+                          </span>
+                        )}
                         <div className={agency.rateBar}>
                           <div className={agency.rateBarFill} style={{ width: `${ratePct}%` }} />
                         </div>

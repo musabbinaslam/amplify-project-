@@ -6,6 +6,7 @@ import AdminOpsCommandShell from '../../components/admin/AdminOpsCommandShell';
 import AgencyDashboardLayout from '../../components/ops/AgencyDashboardLayout';
 import PageLoader from '../../components/ui/PageLoader';
 import { usePageBreadcrumbs } from '../../hooks/usePageBreadcrumbs';
+import { getAdminOverviewLite, listAdminUsers } from '../../services/adminService';
 
 const BASE_PATH = '/app/admin/ops/agencies';
 
@@ -14,11 +15,21 @@ export default function AdminAgenciesOpsPage() {
   const selectedId = searchParams.get('selected') || '';
   const [loading, setLoading] = useState(true);
   const [agencies, setAgencies] = useState([]);
+  const [liveCallsRaw, setLiveCallsRaw] = useState([]);
+  const [agentsRaw, setAgentsRaw] = useState([]);
+  const [usersRaw, setUsersRaw] = useState([]);
 
   const loadAgencies = useCallback(async () => {
     try {
-      const out = await listAdminAgencies();
+      const [out, ov, uv] = await Promise.all([
+        listAdminAgencies(),
+        getAdminOverviewLite(),
+        listAdminUsers(),
+      ]);
       setAgencies(Array.isArray(out?.agencies) ? out.agencies : []);
+      setLiveCallsRaw(ov?.liveCalls || []);
+      setAgentsRaw(ov?.agents || []);
+      setUsersRaw(uv?.users || []);
     } catch (e) {
       toast.error(e.message || 'Failed to load agencies');
     } finally {
@@ -31,12 +42,20 @@ export default function AdminAgenciesOpsPage() {
   const metrics = useMemo(() => {
     const active = agencies.filter((a) => a.status !== 'suspended').length;
     const agents = agencies.reduce((sum, a) => sum + (a.agentCount ?? 0), 0);
+
+    let callsCount = liveCallsRaw.length;
+    if (selectedId) {
+      const agencyAgentIds = new Set(usersRaw.filter((u) => u.agencyId === selectedId).map((u) => u.uid));
+      callsCount = liveCallsRaw.filter((c) => agencyAgentIds.has(c.agentId)).length;
+    }
+
     return [
       { label: 'agencies', value: agencies.length },
       { label: 'active', value: active },
       { label: 'agents', value: agents },
+      { label: 'live calls', value: callsCount },
     ];
-  }, [agencies]);
+  }, [agencies, liveCallsRaw, agentsRaw, selectedId]);
 
   const validAgency = useMemo(
     () => (selectedId ? agencies.find((a) => a.id === selectedId) : null),

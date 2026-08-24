@@ -613,6 +613,7 @@ export default function AdminAnalyticsPage() {
                     <colgroup>
                       <col className={classes.colAgent} />
                       <col className={classes.colCampaign} />
+                      <col className={classes.colCallerId} />
                       <col className={classes.colDuration} />
                       <col className={classes.colStatus} />
                       <col className={classes.colDisposition} />
@@ -626,6 +627,7 @@ export default function AdminAnalyticsPage() {
                       <tr>
                         <th>Agent</th>
                         <th>Campaign</th>
+                        <th>Caller ID</th>
                         <th>Duration</th>
                         <th>Status</th>
                         <th>Disposition</th>
@@ -661,6 +663,13 @@ export default function AdminAnalyticsPage() {
                               </details>
                             </td>
                             <td className={classes.campaignCell} title={log.campaign}>{log.campaign}</td>
+                            <td className={classes.compactCell}>
+                              {log.cost > 0 || log.isBillable ? (
+                                log.from || log.customerPhone || <span className={classes.muted}>Unknown</span>
+                              ) : (
+                                <span className={classes.muted}>Hidden</span>
+                              )}
+                            </td>
                             <td className={classes.compactCell}>{log.duration}s</td>
                             <td className={classes.pillCell}>
                               {log.isBillable ? (
@@ -740,7 +749,7 @@ export default function AdminAnalyticsPage() {
                       })}
                       {filteredSortedDrilldownLogs.length === 0 ? (
                         <tr>
-                          <td colSpan={10} className={classes.muted}>No calls found for selected day.</td>
+                          <td colSpan={11} className={classes.muted}>No calls found for selected day.</td>
                         </tr>
                       ) : null}
                     </tbody>

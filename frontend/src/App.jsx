@@ -28,6 +28,7 @@ const SupportPage = lazy(() => import('./pages/SupportPage'));
 
 const ScriptPage = lazy(() => import('./pages/ScriptPage'));
 const NotesPage = lazy(() => import('./pages/NotesPage'));
+const TermsPage = lazy(() => import('./pages/TermsPage'));
 const LeadsPage = lazy(() => import('./pages/LeadsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ReferralProgramPage = lazy(() => import('./pages/ReferralProgramPage'));
@@ -159,6 +160,10 @@ const AnimatedRoutes = () => {
 
         {/* Short referral redirect: /r/AGENT-XXXXXX → /signup?ref=AGENT-XXXXXX */}
         <Route path="/r/:code" element={<ReferralRedirect />} />
+
+        {/* Public Terms and Privacy */}
+        <Route path="/terms" element={<Suspense fallback={<PageLoader />}><TermsPage /></Suspense>} />
+        <Route path="/privacy" element={<Suspense fallback={<PageLoader />}><TermsPage /></Suspense>} />
 
         {/* Authenticated app under /app */}
         <Route path="/app" element={<ProtectedRoute />}>

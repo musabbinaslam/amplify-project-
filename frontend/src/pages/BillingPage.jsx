@@ -198,7 +198,7 @@ const BillingPage = () => {
         )}
 
         <motion.div className={classes.bannerStack} variants={presets.child} style={{ marginBottom: '32px' }}>
-          <div className={classes.errorBanner} style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '2px solid rgba(239, 68, 68, 0.4)', color: '#ef4444', padding: '24px 32px', borderRadius: '12px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <div className={classes.errorBanner} style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '2px solid rgba(239, 68, 68, 0.4)', color: '#ffffff', padding: '24px 32px', borderRadius: '12px', display: 'flex', gap: '16px', alignItems: 'center' }}>
             <AlertCircle size={32} />
             <span style={{ fontSize: '18px', fontWeight: '700', letterSpacing: '0.2px' }}>IMPORTANT: All sales are final and no disputes are accepted as mentioned in our Privacy Policy.</span>
           </div>

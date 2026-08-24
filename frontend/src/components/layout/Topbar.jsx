@@ -224,7 +224,7 @@ const Topbar = ({
 
       <div className={classes.actions}>
         <a
-          href="https://discord.gg/rCVFrj6AM"
+          href="https://discord.gg/uNstw74Tmk"
           target="_blank"
           rel="noopener noreferrer"
           className={classes.discordPill}
