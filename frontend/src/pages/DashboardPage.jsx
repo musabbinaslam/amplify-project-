@@ -764,9 +764,9 @@ const DashboardPage = () => {
                   const disp = getDisposition(log);
                   return (
                     <tr key={log.id || log.callSid}>
-                      <td className={classes.callName}>
+                      <td className={classes.colCaller}>
                         {log.isBillable
-                          ? (log.from || '—')
+                          ? formatPhone(log.from)
                           : (log.from ? <span className={classes.hiddenPhone}>Hidden</span> : '—')}
                       </td>
                       <td className={classes.callPhone}>{log.campaignLabel || log.campaign || '—'}</td>

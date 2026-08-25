@@ -177,6 +177,18 @@ const AppShell = () => {
       toast.error(data?.message || 'Your account has been flagged. Contact admin@callsflow.io.', { duration: 5000, id: 'account-flagged-toast' });
     });
 
+    // Suspicious drop pattern warning
+    socket.on('agent:suspicious_warning', (data) => {
+      useAuthStore.getState().setUserField('suspiciousWarningActive', true);
+      toast.error(data?.message || 'Suspicious call drop pattern detected. Warning issued.', { duration: 10000, id: 'suspicious-warning-toast' });
+    });
+
+    socket.on('agent:suspicious_warning_cleared', (data) => {
+      useAuthStore.getState().setUserField('suspiciousWarningActive', false);
+      toast.dismiss('suspicious-warning-toast');
+      toast.success(data?.message || 'Your warning has been cleared by an admin.', { duration: 5000 });
+    });
+
     // Fallback when dialer socket is disconnected but UI still shows live
     socket.on('agent:forced_offline', (data) => {
       const dialerStore = useDialerStore.getState();
