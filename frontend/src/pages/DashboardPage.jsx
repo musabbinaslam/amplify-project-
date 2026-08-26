@@ -766,7 +766,7 @@ const DashboardPage = () => {
                     <tr key={log.id || log.callSid}>
                       <td className={classes.colCaller}>
                         {log.isBillable
-                          ? formatPhone(log.from)
+                          ? (log.from || '—')
                           : (log.from ? <span className={classes.hiddenPhone}>Hidden</span> : '—')}
                       </td>
                       <td className={classes.callPhone}>{log.campaignLabel || log.campaign || '—'}</td>

@@ -173,6 +173,22 @@ async function forceChargeSuspiciousAgent(req, res) {
 
     const chargeCents = Math.round(chargeConfig.price * 100);
 
+    // Check if the agent has enough balance before deducting
+    const currentBalance = await walletService.getBalance(agentId);
+    if (currentBalance < chargeCents) {
+      const shortfallCents = chargeCents - currentBalance;
+      return res.json({
+        success: false,
+        insufficientBalance: true,
+        agentId,
+        chargeCents,
+        currentBalanceCents: currentBalance,
+        shortfallCents,
+        campaignId: effectiveCampaignId,
+        campaignLabel: chargeConfig.label || effectiveCampaignId,
+      });
+    }
+
     await walletService.deductCredits(agentId, chargeCents, {
       campaignId: effectiveCampaignId,
       campaignLabel: chargeConfig.label || effectiveCampaignId,
