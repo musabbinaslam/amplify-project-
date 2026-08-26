@@ -217,3 +217,18 @@ export function deleteAdminCampaign(campaignId) {
   });
 }
 
+// Suspicious drop pattern review
+export function listSuspiciousAgents() {
+  return apiFetch('/api/admin/suspicious-agents', { method: 'GET' });
+}
+
+export function dismissSuspiciousAgent(agentId) {
+  return apiFetch(`/api/admin/suspicious-agents/${encodeURIComponent(agentId)}/dismiss`, { method: 'POST' });
+}
+
+export function forceChargeSuspiciousAgent(agentId, campaignId) {
+  return apiFetch(`/api/admin/suspicious-agents/${encodeURIComponent(agentId)}/force-charge`, {
+    method: 'POST',
+    body: campaignId ? { campaignId } : {},
+  });
+}

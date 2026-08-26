@@ -159,6 +159,25 @@ class CallLogService {
                     console.log(`[Firestore] ✅ Call log saved for user ${agentId}: ${docRef.id}`);
                 }
                 await this.upsertAdminDailyMetrics(newLog);
+
+                // ── Suspicious Drop Pattern Detection ──────────────────────
+                const buffer = config.buffer || 0;
+                const isNearBufferDrop = (
+                    !isBillable &&
+                    buffer > 0 &&
+                    durationSec >= (buffer - 5) &&
+                    durationSec <= (buffer - 1)
+                );
+                console.log(`[SuspiciousDrop] 🔍 Check — agent:${agentId} campaign:${campaignId} duration:${durationSec}s buffer:${buffer}s isBillable:${isBillable} inWindow:${durationSec >= (buffer-5) && durationSec <= (buffer-1)} → flagging:${isNearBufferDrop}`);
+                if (isNearBufferDrop) {
+                    this.handleSuspiciousDrop(agentId, newLog).catch((err) =>
+                        console.error('[SuspiciousDrop] Non-fatal error:', err.message)
+                    );
+                }
+                // ─────────────────────────────────────────────────────────
+
+
+
             } catch (err) {
                 console.error(`[Firestore] ❌ Failed to save call log for user ${agentId}:`, err.message);
                 newLog.id = Date.now().toString();
@@ -431,6 +450,73 @@ class CallLogService {
             return false;
         }
     }
+
+    /**
+     * Handles strike logic for a near-buffer drop call.
+     * Increments the daily counter; on the 3rd strike, warns the agent and alerts admins.
+     */
+    async handleSuspiciousDrop(agentId, callLog) {
+        if (!admin || !agentId) return;
+        const db = getDb();
+        const userRef = db.collection('users').doc(agentId);
+        const snap = await userRef.get();
+        if (!snap.exists) return;
+
+        const data = snap.data() || {};
+        const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+        // Reset counter if a new day has started
+        const lastDate = data.suspiciousDropDate || null;
+        let dropCount = lastDate === today ? (Number(data.suspiciousDropCount) || 0) : 0;
+        const flaggedCalls = lastDate === today ? (data.suspiciousFlaggedCalls || []) : [];
+
+        dropCount += 1;
+        flaggedCalls.push(callLog.callSid || callLog.id);
+
+        const updates = {
+            suspiciousDropCount: dropCount,
+            suspiciousDropDate: today,
+            suspiciousFlaggedCalls: flaggedCalls.slice(-10), // keep last 10 at most
+        };
+
+        if (dropCount === 3) {
+            // Strike 3 — warn the agent and escalate to admin
+            updates.suspiciousReviewPending = true;
+            updates.suspiciousWarningActive = true;
+            await userRef.set(updates, { merge: true });
+
+            // Notify the agent via socket — persistent warning banner
+            const socketRegistry = require('../sockets/socketRegistry');
+            await socketRegistry.emitToAgent(agentId, 'agent:suspicious_warning', {
+                message: '⚠️ Warning: Our system has detected a suspicious pattern — you have dropped 3 calls just before the billing threshold today. If this behavior continues, you may be force-charged. Please contact admin@callsflow.io if you believe this is an error.',
+                strikeCount: dropCount,
+            });
+
+            // Persistent bell notification to the agent
+            const notificationService = require('./notificationService');
+            await notificationService.notifyAgent(agentId, {
+                type: 'personal',
+                title: '⚠️ Suspicious Call Pattern Warning',
+                body: 'You have dropped 3 calls just before the billing threshold today. Continued behavior may result in a penalty charge.',
+                priority: 'high',
+            });
+
+            // Alert all admins with a link to the review dashboard
+            const agentName = data.displayName || data.fullName || data.email || agentId;
+            await notificationService.notifyAdmins({
+                title: '🚨 Suspicious Drop Pattern Detected',
+                body: `Agent "${agentName}" has dropped 3 calls just before the billing threshold today and requires review.`,
+                priority: 'high',
+                linkPath: `/app/admin/suspicious`,
+            });
+
+            console.log(`[SuspiciousDrop] 🚨 Strike 3 for agent ${agentId} — admin alerted, agent warned.`);
+        } else {
+            await userRef.set(updates, { merge: true });
+            console.log(`[SuspiciousDrop] Strike ${dropCount} recorded for agent ${agentId} (callSid: ${callLog.callSid}).`);
+        }
+    }
 }
 
 module.exports = new CallLogService();
+
