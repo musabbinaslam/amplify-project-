@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
-import { AlertTriangle, RefreshCw, ShieldOff, DollarSign, Play, User } from 'lucide-react';
+import { AlertTriangle, RefreshCw, ShieldOff, DollarSign, Play, User, Flag, WalletCards } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { auth } from '../../config/firebase';
 import {
   listSuspiciousAgents,
   dismissSuspiciousAgent,
   forceChargeSuspiciousAgent,
+  flagAdminAgent,
 } from '../../services/adminService';
 import AdminPageShell from '../../components/admin/AdminPageShell';
 import classes from '../../components/admin/adminShared.module.css';
@@ -16,21 +18,62 @@ function formatDuration(s) {
   return m > 0 ? `${m}m ${rem}s` : `${rem}s`;
 }
 
+function extractRecordingSid(recordingUrl) {
+  const value = String(recordingUrl || '').trim();
+  if (!value) return '';
+  const match = value.match(/(RE[0-9a-fA-F]{32})/);
+  if (match?.[1]) return match[1];
+  return value.split('?')[0].split('/').pop()?.replace(/\.(json|mp3)$/i, '') || '';
+}
+
 function RecordingPlayer({ url }) {
   const [open, setOpen] = useState(false);
+  const [streamUrl, setStreamUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handlePlay = useCallback(async () => {
+    setOpen(true);
+    if (streamUrl) return; // already loaded
+    try {
+      setLoading(true);
+      const sid = extractRecordingSid(url);
+      if (!sid) throw new Error('Invalid recording SID');
+      const token = await auth?.currentUser?.getIdToken();
+      const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+      setStreamUrl(`${API_URL}/api/voice/recording/${sid}?token=${encodeURIComponent(token)}`);
+    } catch (err) {
+      toast.error('Could not load recording.');
+      console.error('[RecordingPlayer]', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [url, streamUrl]);
+
   if (!url) return <span className={classes.muted}>No recording</span>;
   return (
     <>
-      <button className={classes.btnSmall} onClick={() => setOpen(true)}>
+      <button className={classes.btnSmall} onClick={handlePlay}>
         <Play size={12} /> Play
       </button>
       {open && (
         <div className={classes.modalOverlay} onClick={() => setOpen(false)}>
-          <div className={classes.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
-            <h3 style={{ marginTop: 0 }}>Recording</h3>
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-            <audio controls src={url} style={{ width: '100%' }} autoPlay />
-            <button className={classes.btn} onClick={() => setOpen(false)} style={{ marginTop: 16 }}>Close</button>
+          <div className={classes.modalBox} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div className={classes.modalHeader}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Recording</h3>
+            </div>
+            <div style={{ padding: '16px 0' }}>
+              {loading ? (
+                <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Loading recording…</p>
+              ) : streamUrl ? (
+                // eslint-disable-next-line jsx-a11y/media-has-caption
+                <audio controls src={streamUrl} style={{ width: '100%' }} autoPlay />
+              ) : (
+                <p style={{ color: 'var(--accent-red)', fontSize: 14 }}>Could not load recording.</p>
+              )}
+            </div>
+            <div className={classes.modalActions}>
+              <button className={classes.modalCancelBtn} onClick={() => setOpen(false)}>Close</button>
+            </div>
           </div>
         </div>
       )}
@@ -159,6 +202,7 @@ export default function AdminSuspiciousPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [forceChargeModal, setForceChargeModal] = useState(null); // { agent }
+  const [flagModal, setFlagModal] = useState(null); // { agent, shortfallCents }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -194,12 +238,36 @@ export default function AdminSuspiciousPage() {
     setActionLoading(true);
     try {
       const res = await forceChargeSuspiciousAgent(agent.agentId, campaignId);
+      if (res.insufficientBalance) {
+        // Wallet too low — offer to flag instead
+        setForceChargeModal(null);
+        setFlagModal({ agent, shortfallCents: res.shortfallCents || 0 });
+        return;
+      }
       const amount = res.amountCents ? `$${(res.amountCents / 100).toFixed(2)}` : 'the penalty';
       toast.success(`Force charged ${agent.agentName} ${amount}.`);
       setAgents((prev) => prev.filter((a) => a.agentId !== agent.agentId));
       setForceChargeModal(null);
     } catch (e) {
       toast.error(e.message || 'Failed to force charge');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleFlagAgent = async () => {
+    if (!flagModal) return;
+    const { agent } = flagModal;
+    setActionLoading(true);
+    try {
+      await flagAdminAgent(agent.agentId, 'Insufficient wallet balance — suspicious drop penalty could not be charged.');
+      // Also reset their strike counter so they disappear from this dashboard
+      await dismissSuspiciousAgent(agent.agentId);
+      toast.success(`${agent.agentName} has been flagged and removed from the pool.`);
+      setAgents((prev) => prev.filter((a) => a.agentId !== agent.agentId));
+      setFlagModal(null);
+    } catch (e) {
+      toast.error(e.message || 'Failed to flag agent');
     } finally {
       setActionLoading(false);
     }
@@ -250,7 +318,7 @@ export default function AdminSuspiciousPage() {
                 <AlertTriangle size={18} /> Confirm Force Charge
               </h3>
             </div>
-            
+
             <div className={classes.modalSub} style={{ marginBottom: 24, fontSize: 14, color: 'var(--text-secondary)' }}>
               You are about to deduct <strong style={{ color: 'var(--text-primary)' }}>1 call charge</strong> from{' '}
               <strong style={{ color: 'var(--text-primary)' }}>{forceChargeModal.agent.agentName}</strong>'s wallet for the campaign{' '}
@@ -265,19 +333,67 @@ export default function AdminSuspiciousPage() {
                 Cancel
               </button>
               <button
-                style={{ 
-                  background: 'color-mix(in srgb, var(--accent-red) 15%, transparent)', 
-                  color: 'var(--accent-red)', 
+                style={{
+                  background: 'color-mix(in srgb, var(--accent-red) 15%, transparent)',
+                  color: 'var(--accent-red)',
                   border: '1px solid color-mix(in srgb, var(--accent-red) 30%, transparent)',
                   padding: '8px 16px',
                   borderRadius: 'var(--radius-md)',
                   cursor: 'pointer',
-                  fontWeight: 600
+                  fontWeight: 600,
                 }}
                 onClick={handleForceCharge}
                 disabled={actionLoading}
               >
                 {actionLoading ? 'Charging…' : 'Confirm Force Charge'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Insufficient balance → Flag Agent modal */}
+      {flagModal && (
+        <div className={classes.modalOverlay} onClick={() => setFlagModal(null)}>
+          <div className={`glass ${classes.modalBox}`} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className={classes.modalHeader}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--accent-yellow)' }}>
+                <WalletCards size={18} /> Insufficient Balance
+              </h3>
+            </div>
+
+            <div className={classes.modalSub} style={{ marginBottom: 24, fontSize: 14, color: 'var(--text-secondary)' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>{flagModal.agent.agentName}</strong> does not have enough balance to cover the penalty.
+              {flagModal.shortfallCents > 0 && (
+                <span> They are short by <strong style={{ color: 'var(--accent-red)' }}>${(flagModal.shortfallCents / 100).toFixed(2)}</strong>.</span>
+              )}
+              <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-tertiary)' }}>
+                You can flag their account to remove them from the agent pool immediately. They will need manual admin review before they can go live again.
+              </p>
+            </div>
+
+            <div className={classes.modalActions}>
+              <button className={classes.modalCancelBtn} onClick={() => setFlagModal(null)} disabled={actionLoading}>
+                Cancel
+              </button>
+              <button
+                style={{
+                  background: 'color-mix(in srgb, var(--accent-yellow) 15%, transparent)',
+                  color: 'var(--accent-yellow)',
+                  border: '1px solid color-mix(in srgb, var(--accent-yellow) 30%, transparent)',
+                  padding: '8px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+                onClick={handleFlagAgent}
+                disabled={actionLoading}
+              >
+                <Flag size={14} />
+                {actionLoading ? 'Flagging…' : 'Flag Agent'}
               </button>
             </div>
           </div>
