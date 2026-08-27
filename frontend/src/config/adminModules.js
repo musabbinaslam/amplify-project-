@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   Bell,
   CircleDollarSign,
   Flag,
@@ -46,6 +47,15 @@ export const ADMIN_MODULES = [
     icon: CircleDollarSign,
     category: 'agents',
     badgeKey: 'pendingContests',
+  },
+  {
+    id: 'suspicious',
+    title: 'Suspicious Drop Patterns',
+    description: 'Review agents who repeatedly dropped calls just before the billing threshold.',
+    route: '/app/admin/suspicious',
+    icon: AlertTriangle,
+    category: 'agents',
+    badgeKey: 'suspiciousAgents',
   },
   {
     id: 'agents',

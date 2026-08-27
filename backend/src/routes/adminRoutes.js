@@ -97,4 +97,11 @@ router.post('/agencies/:id/lock-campaigns', agencyController.lockCampaignsForAge
 router.get('/agencies/:id/dids', agencyController.listAgencyDids);
 router.post('/agencies/:id/dids', agencyController.assignAgencyDid);
 
+// Suspicious drop pattern review
+const suspiciousController = require('../controllers/suspiciousController');
+router.get('/suspicious-agents', suspiciousController.listSuspiciousAgents);
+router.post('/suspicious-agents/:agentId/dismiss', suspiciousController.dismissSuspiciousAgent);
+router.post('/suspicious-agents/:agentId/force-charge', suspiciousController.forceChargeSuspiciousAgent);
+
 module.exports = router;
+
