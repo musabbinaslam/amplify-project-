@@ -650,8 +650,8 @@ export const RecordingModal = ({ log, onClose }) => {
     return () => window.removeEventListener('keydown', onKey);
   }, [togglePlay, skip, toggleMute, onClose]);
 
-  const callerDisplay = log?.isBillable
-    ? (log?.from || 'Unknown caller')
+  const callerDisplay = (log?.revealCaller || log?.isBillable)
+    ? (log?.from || log?.callSid || 'Unknown caller')
     : (log?.from ? 'Hidden caller' : 'Unknown caller');
   const campaignDisplay = (() => {
     const label = getCampaignDisplayLabel(log);

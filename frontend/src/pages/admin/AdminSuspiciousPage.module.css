@@ -184,6 +184,11 @@
   width: 1%;
 }
 
+.sid {
+  white-space: nowrap;
+  font-size: 12px;
+}
+
 .duration {
   font-variant-numeric: tabular-nums;
   font-weight: 650;

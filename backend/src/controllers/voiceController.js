@@ -779,17 +779,21 @@ exports.proxyRecording = async (req, res) => {
         const requesterAgencyId = normalizeAgencyId(requesterDoc?.agencyId);
 
         const log = await callLogService.findCallLogByRecordingSid(recordingSid);
-        if (!log) {
-            return res.status(404).json({ error: 'Recording not found' });
-        }
-        const ownsLog = log.agentId === requesterUid;
         const isPlatformAdmin = requesterRole === 'admin';
         const isQa = requesterRole === 'qa';
-        const isAgencyAdminForLog = isAgencyAdminRole(requesterRole)
-            && requesterAgencyId
-            && normalizeAgencyId(log.agencyId) === requesterAgencyId;
-        if (!ownsLog && !isPlatformAdmin && !isQa && !isAgencyAdminForLog) {
-            return res.status(403).json({ error: 'Forbidden' });
+        if (!log) {
+            // Near-buffer drops often have a Twilio recording URL but no recordingSid field yet.
+            if (!isPlatformAdmin && !isQa) {
+                return res.status(404).json({ error: 'Recording not found' });
+            }
+        } else {
+            const ownsLog = log.agentId === requesterUid;
+            const isAgencyAdminForLog = isAgencyAdminRole(requesterRole)
+                && requesterAgencyId
+                && normalizeAgencyId(log.agencyId) === requesterAgencyId;
+            if (!ownsLog && !isPlatformAdmin && !isQa && !isAgencyAdminForLog) {
+                return res.status(403).json({ error: 'Forbidden' });
+            }
         }
 
         console.log(`[Proxy] Streaming recording: ${recordingSid}`);

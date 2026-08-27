@@ -142,6 +142,7 @@ function AgentCard({
                     <table className={shared.table}>
                       <thead>
                         <tr>
+                          <th>Call SID</th>
                           <th>Caller</th>
                           <th>Duration</th>
                           <th>Campaign</th>
@@ -152,6 +153,7 @@ function AgentCard({
                       <tbody>
                         {flagged.map((log) => (
                           <tr key={log.id || log.callSid}>
+                            <td className={`${shared.mono} ${classes.sid}`}>{log.callSid || '—'}</td>
                             <td>{log.from || 'Hidden'}</td>
                             <td className={classes.duration}>{formatDuration(log.duration)}</td>
                             <td>{log.campaignLabel || log.campaign || '—'}</td>
@@ -161,7 +163,7 @@ function AgentCard({
                                 : '—'}
                             </td>
                             <td className={classes.recordingCell}>
-                              {log.recordingUrl ? (
+                              {log.recordingUrl || log.recordingSid ? (
                                 <button
                                   type="button"
                                   className={`${shared.qaGhostBtn} ${classes.playBtn}`}
@@ -234,7 +236,9 @@ export default function AdminSuspiciousPage() {
 
   const dropTotal = agents.reduce((sum, agent) => sum + Number(agent.suspiciousDropCount || 0), 0);
   const recordingTotal = agents.reduce(
-    (sum, agent) => sum + (Array.isArray(agent.flaggedLogs) ? agent.flaggedLogs.filter((log) => log.recordingUrl).length : 0),
+    (sum, agent) => sum + (Array.isArray(agent.flaggedLogs)
+      ? agent.flaggedLogs.filter((log) => log.recordingUrl || log.recordingSid).length
+      : 0),
     0,
   );
   const rangeStart = agents.length ? (safePage - 1) * PAGE_SIZE + 1 : 0;
@@ -349,13 +353,9 @@ export default function AdminSuspiciousPage() {
                     onDismiss={handleDismiss}
                     onForceCharge={(a) => setForceChargeModal({ agent: a })}
                     onPlayRecording={(log) => setActiveRecording({
-                      recordingUrl: log.recordingUrl,
-                      recordingSid: null,
-                      campaign: log.campaignLabel || log.campaign,
+                      ...log,
+                      revealCaller: true,
                       campaignLabel: log.campaignLabel || log.campaign,
-                      duration: log.duration,
-                      createdAt: log.timestamp,
-                      from: log.from,
                     })}
                     loading={actionLoading}
                     reduceMotion={reduceMotion}
