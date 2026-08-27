@@ -1,0 +1,230 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  margin: 0;
+  padding: 18px 20px 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.cardHead:hover .name {
+  color: var(--brand-text);
+}
+
+.identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+.email {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 10px 20px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.metaHot {
+  color: color-mix(in srgb, #c0392b 80%, var(--text-primary));
+  font-weight: 650;
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px 16px;
+}
+
+.footSpacer {
+  flex: 1;
+}
+
+.dismissBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, #2f9e6b 28%, var(--glass-border));
+  background: color-mix(in srgb, #2f9e6b 10%, transparent);
+  color: color-mix(in srgb, #3dba80 92%, var(--text-primary));
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.dismissBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, #2f9e6b 16%, transparent);
+}
+
+.dismissBtn:disabled,
+.chargeBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.chargeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+}
+
+.chevron {
+  color: var(--text-secondary);
+  transition: transform 0.22s ease;
+  flex-shrink: 0;
+}
+
+.cardOpen .chevron {
+  transform: rotate(180deg);
+}
+
+.detail {
+  overflow: hidden;
+}
+
+.detailInner {
+  padding: 4px 20px 4px;
+  border-top: 1px solid var(--glass-border);
+  margin-top: 4px;
+}
+
+.detailLabel {
+  margin: 12px 0 10px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.reviewBtn {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.playBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  width: max-content;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.recordingCell {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.duration {
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.warnTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.warnTitleCharge {
+  color: color-mix(in srgb, #e07468 90%, var(--text-primary));
+}
+
+.warnTitleFlag {
+  color: var(--brand-text);
+}
+
+.flagBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 800px) {
+  .cardHead {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .chips {
+    justify-content: flex-start;
+  }
+
+  .foot {
+    flex-wrap: wrap;
+  }
+}

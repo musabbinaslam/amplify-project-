@@ -1,16 +1,38 @@
-import { useState, useCallback, useEffect } from 'react';
-import { AlertTriangle, RefreshCw, ShieldOff, DollarSign, Play, User, Flag, WalletCards } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  AlertTriangle,
+  RefreshCw,
+  ShieldOff,
+  DollarSign,
+  Play,
+  Flag,
+  WalletCards,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  X,
+} from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { auth } from '../../config/firebase';
 import {
   listSuspiciousAgents,
   dismissSuspiciousAgent,
   forceChargeSuspiciousAgent,
   flagAdminAgent,
 } from '../../services/adminService';
+import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
+import { EASE_SMOOTH } from '../../motion/appMotion';
+import { ADMIN_CATEGORIES } from '../../config/adminModules';
 import AdminPageShell from '../../components/admin/AdminPageShell';
-import classes from '../../components/admin/adminShared.module.css';
+import PageLoader from '../../components/ui/PageLoader';
+import { RecordingModal } from '../CallLogsPage';
+import shared from '../../components/admin/adminShared.module.css';
+import classes from './AdminSuspiciousPage.module.css';
 
+const PAGE_SIZE = 8;
+
+/* eslint-disable react/prop-types */
 function formatDuration(s) {
   const sec = Number(s || 0);
   const m = Math.floor(sec / 60);
@@ -18,191 +40,168 @@ function formatDuration(s) {
   return m > 0 ? `${m}m ${rem}s` : `${rem}s`;
 }
 
-function extractRecordingSid(recordingUrl) {
-  const value = String(recordingUrl || '').trim();
-  if (!value) return '';
-  const match = value.match(/(RE[0-9a-fA-F]{32})/);
-  if (match?.[1]) return match[1];
-  return value.split('?')[0].split('/').pop()?.replace(/\.(json|mp3)$/i, '') || '';
+function formatDate(value) {
+  if (!value) return 'Today';
+  const d = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function RecordingPlayer({ url }) {
-  const [open, setOpen] = useState(false);
-  const [streamUrl, setStreamUrl] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const handlePlay = useCallback(async () => {
-    setOpen(true);
-    if (streamUrl) return; // already loaded
-    try {
-      setLoading(true);
-      const sid = extractRecordingSid(url);
-      if (!sid) throw new Error('Invalid recording SID');
-      const token = await auth?.currentUser?.getIdToken();
-      const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-      setStreamUrl(`${API_URL}/api/voice/recording/${sid}?token=${encodeURIComponent(token)}`);
-    } catch (err) {
-      toast.error('Could not load recording.');
-      console.error('[RecordingPlayer]', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [url, streamUrl]);
-
-  if (!url) return <span className={classes.muted}>No recording</span>;
-  return (
-    <>
-      <button className={classes.btnSmall} onClick={handlePlay}>
-        <Play size={12} /> Play
-      </button>
-      {open && (
-        <div className={classes.modalOverlay} onClick={() => setOpen(false)}>
-          <div className={classes.modalBox} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
-            <div className={classes.modalHeader}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Recording</h3>
-            </div>
-            <div style={{ padding: '16px 0' }}>
-              {loading ? (
-                <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Loading recording…</p>
-              ) : streamUrl ? (
-                // eslint-disable-next-line jsx-a11y/media-has-caption
-                <audio controls src={streamUrl} style={{ width: '100%' }} autoPlay />
-              ) : (
-                <p style={{ color: 'var(--accent-red)', fontSize: 14 }}>Could not load recording.</p>
-              )}
-            </div>
-            <div className={classes.modalActions}>
-              <button className={classes.modalCancelBtn} onClick={() => setOpen(false)}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-function AgentCard({ agent, onDismiss, onForceCharge, loading }) {
-  const [expanded, setExpanded] = useState(false);
+function AgentCard({
+  agent,
+  expanded,
+  onToggle,
+  onDismiss,
+  onForceCharge,
+  onPlayRecording,
+  loading,
+  reduceMotion,
+}) {
+  const dropCount = Number(agent.suspiciousDropCount || 0);
+  const flagged = Array.isArray(agent.flaggedLogs) ? agent.flaggedLogs : [];
 
   return (
-    <div className={`glass ${classes.sectionCard}`} style={{ marginBottom: 16 }}>
-      <div 
-        className={classes.cardHead} 
-        style={{ marginBottom: 0, cursor: 'pointer', userSelect: 'none' }}
-        onClick={() => setExpanded(!expanded)}
+    <motion.article
+      className={`glass ${shared.qaCard} ${classes.card} ${expanded ? `${shared.qaCardExpanded} ${classes.cardOpen}` : ''}`}
+      layout={reduceMotion ? false : true}
+    >
+      <button
+        type="button"
+        className={classes.cardHead}
+        onClick={onToggle}
+        aria-expanded={expanded}
       >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <User size={18} style={{ color: 'var(--brand-text)' }} />
-            <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)' }}>{agent.agentName}</span>
-            {agent.email && <span style={{ color: 'var(--text-tertiary)' }}>— {agent.email}</span>}
-          </div>
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13, color: 'var(--text-secondary)' }}>
-            <span style={{ color: 'var(--accent-red)', fontWeight: 600 }}>
-              {agent.suspiciousDropCount} near-buffer drops today
-            </span>
-            <span>
-              {agent.todayCallTotal} total calls today
-            </span>
-            {agent.suspiciousDropDate && (
-              <span>Date: {agent.suspiciousDropDate}</span>
-            )}
-          </div>
+        <div className={classes.identity}>
+          <h3 className={classes.name}>{agent.agentName}</h3>
+          {agent.email ? <span className={classes.email}>{agent.email}</span> : null}
         </div>
-        <div style={{ display: 'flex', gap: 8 }} onClick={(e) => e.stopPropagation()}>
-          <button
-            style={{ 
-              background: 'color-mix(in srgb, var(--accent-green) 15%, transparent)', 
-              color: 'var(--accent-green)', 
-              border: '1px solid color-mix(in srgb, var(--accent-green) 30%, transparent)',
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-md)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontWeight: 600
-            }}
-            onClick={() => onDismiss(agent.agentId)}
-            disabled={loading}
-          >
-            <ShieldOff size={14} /> Dismiss
-          </button>
-          <button
-            style={{ 
-              background: 'color-mix(in srgb, var(--accent-red) 15%, transparent)', 
-              color: 'var(--accent-red)', 
-              border: '1px solid color-mix(in srgb, var(--accent-red) 30%, transparent)',
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-md)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontWeight: 600
-            }}
-            onClick={() => onForceCharge(agent)}
-            disabled={loading}
-          >
-            <DollarSign size={14} /> Force Charge
-          </button>
+        <div className={classes.chips}>
+          <span className={`${shared.qaChip} ${shared.qaChipConfirmed}`}>
+            {dropCount} drop{dropCount === 1 ? '' : 's'}
+          </span>
+          <span className={`${shared.qaChip} ${shared.qaChipPending}`}>
+            {agent.todayCallTotal || 0} calls
+          </span>
         </div>
+      </button>
+
+      <div className={classes.meta}>
+        <span className={classes.metaHot}>
+          {dropCount} near-buffer drop{dropCount === 1 ? '' : 's'}
+        </span>
+        <span>{agent.todayCallTotal || 0} total calls today</span>
+        <span>{formatDate(agent.suspiciousDropDate)}</span>
+        <span>{flagged.length} flagged recording{flagged.length === 1 ? '' : 's'}</span>
       </div>
 
-      {expanded && agent.flaggedLogs && agent.flaggedLogs.length > 0 && (
-        <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-          <p style={{ 
-            fontSize: 12, 
-            color: 'var(--text-secondary)', 
-            marginBottom: 12, 
-            fontWeight: 600, 
-            textTransform: 'uppercase', 
-            letterSpacing: '0.06em' 
-          }}>
-            Flagged Calls
-          </p>
-          <div className={classes.tableWrap}>
-            <div className={classes.tableScroll}>
-              <table className={classes.table}>
-                <thead>
-                  <tr>
-                    <th>Call SID</th>
-                    <th>Caller</th>
-                    <th>Duration</th>
-                    <th>Campaign</th>
-                    <th>Time</th>
-                    <th style={{ textAlign: 'right' }}>Recording</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {agent.flaggedLogs.map((log) => (
-                    <tr key={log.id || log.callSid}>
-                      <td style={{ color: 'var(--text-secondary)' }}>{log.callSid}</td>
-                      <td style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{log.from || 'Hidden'}</td>
-                      <td style={{ color: 'var(--accent-yellow)', fontWeight: 600 }}>{formatDuration(log.duration)}</td>
-                      <td style={{ color: 'var(--text-secondary)' }}>{log.campaignLabel || log.campaign || '—'}</td>
-                      <td style={{ color: 'var(--text-tertiary)' }}>{log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '—'}</td>
-                      <td style={{ textAlign: 'right' }}>
-                        <RecordingPlayer url={log.recordingUrl} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      <div className={classes.foot}>
+        <button
+          type="button"
+          className={classes.dismissBtn}
+          onClick={() => onDismiss(agent.agentId)}
+          disabled={loading}
+        >
+          <ShieldOff size={14} />
+          Dismiss
+        </button>
+        <button
+          type="button"
+          className={`${shared.dangerBtn} ${classes.chargeBtn}`}
+          onClick={() => onForceCharge(agent)}
+          disabled={loading}
+        >
+          <DollarSign size={14} />
+          Force charge
+        </button>
+        <span className={classes.footSpacer} />
+        <button
+          type="button"
+          className={`${shared.qaGhostBtn} ${classes.reviewBtn}`}
+          onClick={onToggle}
+          aria-label={expanded ? 'Hide flagged calls' : 'Show flagged calls'}
+        >
+          {expanded ? 'Hide calls' : 'Review calls'}
+          <ChevronDown size={14} className={classes.chevron} aria-hidden="true" />
+        </button>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            className={classes.detail}
+            initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={reduceMotion ? { height: 0, opacity: 0 } : { height: 0, opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.22, ease: EASE_SMOOTH }}
+          >
+            <div className={classes.detailInner}>
+              <p className={classes.detailLabel}>Flagged calls</p>
+              {flagged.length ? (
+                <div className={shared.tableWrap}>
+                  <div className={shared.tableScroll}>
+                    <table className={shared.table}>
+                      <thead>
+                        <tr>
+                          <th>Caller</th>
+                          <th>Duration</th>
+                          <th>Campaign</th>
+                          <th>Time</th>
+                          <th className={classes.recordingCell}>Recording</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {flagged.map((log) => (
+                          <tr key={log.id || log.callSid}>
+                            <td>{log.from || 'Hidden'}</td>
+                            <td className={classes.duration}>{formatDuration(log.duration)}</td>
+                            <td>{log.campaignLabel || log.campaign || '—'}</td>
+                            <td>
+                              {log.timestamp
+                                ? new Date(log.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+                                : '—'}
+                            </td>
+                            <td className={classes.recordingCell}>
+                              {log.recordingUrl ? (
+                                <button
+                                  type="button"
+                                  className={`${shared.qaGhostBtn} ${classes.playBtn}`}
+                                  onClick={() => onPlayRecording(log)}
+                                >
+                                  <Play size={12} />
+                                  Play
+                                </button>
+                              ) : (
+                                <span className={shared.muted}>None</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <p className={shared.muted}>No flagged call logs were found for this agent.</p>
+              )}
             </div>
-          </div>
-        </div>
-      )}
-    </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </motion.article>
   );
 }
 
 export default function AdminSuspiciousPage() {
+  const presets = useSubtlePageMotion();
+  const reduceMotion = useReducedMotion();
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [forceChargeModal, setForceChargeModal] = useState(null); // { agent }
-  const [flagModal, setFlagModal] = useState(null); // { agent, shortfallCents }
+  const [page, setPage] = useState(1);
+  const [expandedId, setExpandedId] = useState(null);
+  const [activeRecording, setActiveRecording] = useState(null);
+  const [forceChargeModal, setForceChargeModal] = useState(null);
+  const [flagModal, setFlagModal] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -211,12 +210,35 @@ export default function AdminSuspiciousPage() {
       setAgents(res.agents || []);
     } catch (e) {
       toast.error(e.message || 'Failed to load suspicious agents');
+      setAgents([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const totalPages = Math.max(1, Math.ceil(agents.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+
+  useEffect(() => {
+    if (page !== safePage) setPage(safePage);
+  }, [page, safePage]);
+
+  const pageAgents = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return agents.slice(start, start + PAGE_SIZE);
+  }, [agents, safePage]);
+
+  const dropTotal = agents.reduce((sum, agent) => sum + Number(agent.suspiciousDropCount || 0), 0);
+  const recordingTotal = agents.reduce(
+    (sum, agent) => sum + (Array.isArray(agent.flaggedLogs) ? agent.flaggedLogs.filter((log) => log.recordingUrl).length : 0),
+    0,
+  );
+  const rangeStart = agents.length ? (safePage - 1) * PAGE_SIZE + 1 : 0;
+  const rangeEnd = Math.min(safePage * PAGE_SIZE, agents.length);
 
   const handleDismiss = async (agentId) => {
     setActionLoading(true);
@@ -224,6 +246,7 @@ export default function AdminSuspiciousPage() {
       await dismissSuspiciousAgent(agentId);
       toast.success('Warning dismissed — agent notified.');
       setAgents((prev) => prev.filter((a) => a.agentId !== agentId));
+      if (expandedId === agentId) setExpandedId(null);
     } catch (e) {
       toast.error(e.message || 'Failed to dismiss');
     } finally {
@@ -239,7 +262,6 @@ export default function AdminSuspiciousPage() {
     try {
       const res = await forceChargeSuspiciousAgent(agent.agentId, campaignId);
       if (res.insufficientBalance) {
-        // Wallet too low — offer to flag instead
         setForceChargeModal(null);
         setFlagModal({ agent, shortfallCents: res.shortfallCents || 0 });
         return;
@@ -248,6 +270,7 @@ export default function AdminSuspiciousPage() {
       toast.success(`Force charged ${agent.agentName} ${amount}.`);
       setAgents((prev) => prev.filter((a) => a.agentId !== agent.agentId));
       setForceChargeModal(null);
+      if (expandedId === agent.agentId) setExpandedId(null);
     } catch (e) {
       toast.error(e.message || 'Failed to force charge');
     } finally {
@@ -261,11 +284,11 @@ export default function AdminSuspiciousPage() {
     setActionLoading(true);
     try {
       await flagAdminAgent(agent.agentId, 'Insufficient wallet balance — suspicious drop penalty could not be charged.');
-      // Also reset their strike counter so they disappear from this dashboard
       await dismissSuspiciousAgent(agent.agentId);
       toast.success(`${agent.agentName} has been flagged and removed from the pool.`);
       setAgents((prev) => prev.filter((a) => a.agentId !== agent.agentId));
       setFlagModal(null);
+      if (expandedId === agent.agentId) setExpandedId(null);
     } catch (e) {
       toast.error(e.message || 'Failed to flag agent');
     } finally {
@@ -273,132 +296,212 @@ export default function AdminSuspiciousPage() {
     }
   };
 
+  if (loading && !agents.length) return <PageLoader />;
+
   return (
-    <AdminPageShell
-      icon={AlertTriangle}
-      title="Suspicious Drop Patterns"
-      description="Agents who dropped 3+ calls within 5 seconds of the billing buffer today. Review the call recordings and take action."
-    >
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-        <button className={classes.btn} onClick={load} disabled={loading}>
-          <RefreshCw size={14} className={loading ? classes.spin : ''} />
-          Refresh
-        </button>
-      </div>
-      {loading ? (
-        <div className={classes.emptyState}>Loading…</div>
-      ) : agents.length === 0 ? (
-        <div className={classes.emptyState}>
-          <AlertTriangle size={32} style={{ marginBottom: 8, opacity: 0.4 }} />
-          <p>No suspicious patterns detected today.</p>
-        </div>
-      ) : (
-        <div>
-          <p className={classes.muted} style={{ marginBottom: 16 }}>
-            {agents.length} agent{agents.length !== 1 ? 's' : ''} pending review
-          </p>
-          {agents.map((agent) => (
-            <AgentCard
-              key={agent.agentId}
-              agent={agent}
-              loading={actionLoading}
-              onDismiss={handleDismiss}
-              onForceCharge={(a) => setForceChargeModal({ agent: a })}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Force charge confirmation modal */}
-      {forceChargeModal && (
-        <div className={classes.modalOverlay} onClick={() => setForceChargeModal(null)}>
-          <div className={`glass ${classes.modalBox}`} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
-            <div className={classes.modalHeader}>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--accent-red)' }}>
-                <AlertTriangle size={18} /> Confirm Force Charge
-              </h3>
+    <>
+      <AdminPageShell
+        icon={AlertTriangle}
+        title="Suspicious Drop Patterns"
+        description="Agents who dropped 3+ calls within 5 seconds of the billing buffer today. Review recordings, then dismiss or charge."
+        category={ADMIN_CATEGORIES.agents}
+        actions={(
+          <button type="button" className={shared.refreshBtn} onClick={load} disabled={loading}>
+            <RefreshCw size={14} className={loading ? shared.spin : ''} />
+            Refresh
+          </button>
+        )}
+      >
+        <motion.section className={classes.page} variants={presets.child}>
+          <div className={`glass ${shared.qaStrip} ${shared.qaRulesStrip}`}>
+            <div className={`${shared.qaStripCell} ${agents.length ? shared.qaStripCellHot : ''}`}>
+              <span className={shared.qaStripLabel}>Pending</span>
+              <span className={shared.qaStripValue}>{agents.length}</span>
+              <span className={shared.qaStripSub}>Agents waiting for review</span>
             </div>
-
-            <div className={classes.modalSub} style={{ marginBottom: 24, fontSize: 14, color: 'var(--text-secondary)' }}>
-              You are about to deduct <strong style={{ color: 'var(--text-primary)' }}>1 call charge</strong> from{' '}
-              <strong style={{ color: 'var(--text-primary)' }}>{forceChargeModal.agent.agentName}</strong>'s wallet for the campaign{' '}
-              <strong style={{ color: 'var(--text-primary)' }}>{forceChargeModal.agent.flaggedLogs?.[0]?.campaignLabel || 'detected from their call'}</strong>.
-              <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-tertiary)' }}>
-                The agent will be notified, their warning will be cleared, and their strike counter will reset.
-              </p>
+            <div className={shared.qaStripCell}>
+              <span className={shared.qaStripLabel}>Near-buffer drops</span>
+              <span className={shared.qaStripValue}>{dropTotal}</span>
+              <span className={shared.qaStripSub}>Across agents on this list</span>
             </div>
-
-            <div className={classes.modalActions}>
-              <button className={classes.modalCancelBtn} onClick={() => setForceChargeModal(null)} disabled={actionLoading}>
-                Cancel
-              </button>
-              <button
-                style={{
-                  background: 'color-mix(in srgb, var(--accent-red) 15%, transparent)',
-                  color: 'var(--accent-red)',
-                  border: '1px solid color-mix(in srgb, var(--accent-red) 30%, transparent)',
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                }}
-                onClick={handleForceCharge}
-                disabled={actionLoading}
-              >
-                {actionLoading ? 'Charging…' : 'Confirm Force Charge'}
-              </button>
+            <div className={shared.qaStripCell}>
+              <span className={shared.qaStripLabel}>Recordings</span>
+              <span className={shared.qaStripValue}>{recordingTotal}</span>
+              <span className={shared.qaStripSub}>Ready to play from flagged calls</span>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Insufficient balance → Flag Agent modal */}
-      {flagModal && (
-        <div className={classes.modalOverlay} onClick={() => setFlagModal(null)}>
-          <div className={`glass ${classes.modalBox}`} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
-            <div className={classes.modalHeader}>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--accent-yellow)' }}>
-                <WalletCards size={18} /> Insufficient Balance
-              </h3>
+          {!agents.length ? (
+            <div className={shared.qaEmpty}>
+              <AlertTriangle size={26} className={shared.qaEmptyIcon} />
+              <h4>No suspicious patterns today</h4>
+              <p>Agents only appear here after 3 near-buffer drops in a day. Refresh after the next eligible call.</p>
             </div>
+          ) : (
+            <>
+              <motion.div className={classes.list} variants={presets.grid}>
+                {pageAgents.map((agent) => (
+                  <AgentCard
+                    key={agent.agentId}
+                    agent={agent}
+                    expanded={expandedId === agent.agentId}
+                    onToggle={() => setExpandedId(expandedId === agent.agentId ? null : agent.agentId)}
+                    onDismiss={handleDismiss}
+                    onForceCharge={(a) => setForceChargeModal({ agent: a })}
+                    onPlayRecording={(log) => setActiveRecording({
+                      recordingUrl: log.recordingUrl,
+                      recordingSid: null,
+                      campaign: log.campaignLabel || log.campaign,
+                      campaignLabel: log.campaignLabel || log.campaign,
+                      duration: log.duration,
+                      createdAt: log.timestamp,
+                      from: log.from,
+                    })}
+                    loading={actionLoading}
+                    reduceMotion={reduceMotion}
+                  />
+                ))}
+              </motion.div>
 
-            <div className={classes.modalSub} style={{ marginBottom: 24, fontSize: 14, color: 'var(--text-secondary)' }}>
-              <strong style={{ color: 'var(--text-primary)' }}>{flagModal.agent.agentName}</strong> does not have enough balance to cover the penalty.
-              {flagModal.shortfallCents > 0 && (
-                <span> They are short by <strong style={{ color: 'var(--accent-red)' }}>${(flagModal.shortfallCents / 100).toFixed(2)}</strong>.</span>
-              )}
-              <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-tertiary)' }}>
-                You can flag their account to remove them from the agent pool immediately. They will need manual admin review before they can go live again.
+              <div className={shared.pagination}>
+                <span className={shared.pageMeta}>
+                  {rangeStart}–{rangeEnd} of {agents.length} agent{agents.length === 1 ? '' : 's'}
+                </span>
+                <div className={shared.pageBtns}>
+                  <button
+                    type="button"
+                    className={shared.pageBtn}
+                    onClick={() => {
+                      setPage((p) => Math.max(1, p - 1));
+                      setExpandedId(null);
+                    }}
+                    disabled={safePage <= 1}
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span className={shared.pageIndicator}>
+                    {safePage} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className={shared.pageBtn}
+                    onClick={() => {
+                      setPage((p) => Math.min(totalPages, p + 1));
+                      setExpandedId(null);
+                    }}
+                    disabled={safePage >= totalPages}
+                    aria-label="Next page"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </motion.section>
+      </AdminPageShell>
+
+      {activeRecording ? (
+        <RecordingModal log={activeRecording} onClose={() => setActiveRecording(null)} />
+      ) : null}
+
+      {forceChargeModal
+        ? createPortal(
+          <div className={shared.modalOverlay} onClick={() => !actionLoading && setForceChargeModal(null)}>
+            <div className={`glass ${shared.modalBox}`} onClick={(e) => e.stopPropagation()}>
+              <div className={shared.modalHeader}>
+                <h3 className={`${classes.warnTitle} ${classes.warnTitleCharge}`}>
+                  <AlertTriangle size={18} />
+                  Confirm force charge
+                </h3>
+                <button
+                  type="button"
+                  className={shared.modalCloseBtn}
+                  onClick={() => setForceChargeModal(null)}
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <p className={shared.modalSub}>
+                Deduct one call charge from {forceChargeModal.agent.agentName} for{' '}
+                {forceChargeModal.agent.flaggedLogs?.[0]?.campaignLabel || 'their flagged campaign'}.
+                They will be notified and their warning will clear.
               </p>
+              <div className={shared.modalActions}>
+                <button
+                  type="button"
+                  className={shared.modalCancelBtn}
+                  onClick={() => setForceChargeModal(null)}
+                  disabled={actionLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={shared.dangerBtn}
+                  onClick={handleForceCharge}
+                  disabled={actionLoading}
+                >
+                  {actionLoading ? 'Charging…' : 'Confirm charge'}
+                </button>
+              </div>
             </div>
+          </div>,
+          document.body,
+        )
+        : null}
 
-            <div className={classes.modalActions}>
-              <button className={classes.modalCancelBtn} onClick={() => setFlagModal(null)} disabled={actionLoading}>
-                Cancel
-              </button>
-              <button
-                style={{
-                  background: 'color-mix(in srgb, var(--accent-yellow) 15%, transparent)',
-                  color: 'var(--accent-yellow)',
-                  border: '1px solid color-mix(in srgb, var(--accent-yellow) 30%, transparent)',
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-                onClick={handleFlagAgent}
-                disabled={actionLoading}
-              >
-                <Flag size={14} />
-                {actionLoading ? 'Flagging…' : 'Flag Agent'}
-              </button>
+      {flagModal
+        ? createPortal(
+          <div className={shared.modalOverlay} onClick={() => !actionLoading && setFlagModal(null)}>
+            <div className={`glass ${shared.modalBox}`} onClick={(e) => e.stopPropagation()}>
+              <div className={shared.modalHeader}>
+                <h3 className={`${classes.warnTitle} ${classes.warnTitleFlag}`}>
+                  <WalletCards size={18} />
+                  Insufficient balance
+                </h3>
+                <button
+                  type="button"
+                  className={shared.modalCloseBtn}
+                  onClick={() => setFlagModal(null)}
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <p className={shared.modalSub}>
+                {flagModal.agent.agentName} cannot cover the penalty
+                {flagModal.shortfallCents > 0
+                  ? ` — short by $${(flagModal.shortfallCents / 100).toFixed(2)}`
+                  : ''}
+                . Flag them to pull them from the pool until an admin reviews.
+              </p>
+              <div className={shared.modalActions}>
+                <button
+                  type="button"
+                  className={shared.modalCancelBtn}
+                  onClick={() => setFlagModal(null)}
+                  disabled={actionLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={`${shared.primaryBtn} ${classes.flagBtn}`}
+                  onClick={handleFlagAgent}
+                  disabled={actionLoading}
+                >
+                  <Flag size={14} />
+                  {actionLoading ? 'Flagging…' : 'Flag agent'}
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
-    </AdminPageShell>
+          </div>,
+          document.body,
+        )
+        : null}
+    </>
   );
 }
