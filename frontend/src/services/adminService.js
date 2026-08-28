@@ -249,6 +249,13 @@ export function getAdminQaPipelineStatus() {
   return apiFetch('/api/admin/qa-reviews/status', { method: 'GET' });
 }
 
+export function setAdminAiFlagsEnabled(enabled) {
+  return apiFetch('/api/admin/qa-reviews/enabled', {
+    method: 'PATCH',
+    body: { enabled: Boolean(enabled) },
+  });
+}
+
 export function backfillAdminQaReviews({
   limit = 1,
   force = false,

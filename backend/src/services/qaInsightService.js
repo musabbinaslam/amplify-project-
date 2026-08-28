@@ -1,5 +1,6 @@
 const { fetchRecordingMp3Buffer } = require('./twilioRecordingService');
 const { parseRecordingSid, isMockCallLog } = require('../utils/recordingSid');
+const { isAiFlagsGeminiEnabled, aiFlagsDisabledError } = require('./aiFlagsSettings');
 
 const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 const MAX_INLINE_BYTES = 18 * 1024 * 1024;
@@ -16,14 +17,6 @@ function envFlagEnabled(name, defaultEnabled) {
  */
 function isQaInsightGeminiEnabled() {
   return envFlagEnabled('QA_INSIGHT_GEMINI_ENABLED', false);
-}
-
-/**
- * AI Flags (recording compliance audio review) Gemini path.
- * On by default. Independent from QA insight.
- */
-function isAiFlagsGeminiEnabled() {
-  return envFlagEnabled('AI_FLAGS_GEMINI_ENABLED', true);
 }
 
 class QaRetryableError extends Error {
@@ -249,7 +242,7 @@ function skippedAudioReview(source, summary) {
 
 async function generateQaAudioReview(callMeta, rules = []) {
   if (!isAiFlagsGeminiEnabled()) {
-    return skippedAudioReview('disabled', 'AI Flags Gemini is disabled (set AI_FLAGS_GEMINI_ENABLED=true to re-enable).');
+    return skippedAudioReview('disabled', aiFlagsDisabledError());
   }
   const recordingSid = parseRecordingSid(callMeta.recordingSid || callMeta.recordingUrl);
   const duration = Number(callMeta.duration || 0);

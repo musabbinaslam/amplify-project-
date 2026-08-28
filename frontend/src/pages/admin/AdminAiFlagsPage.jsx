@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Flag, Link2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
 import AdminPageShell from '../../components/admin/AdminPageShell';
 import QaReviewQueuePanel from '../../components/admin/QaReviewQueuePanel';
+import AiFlagsMasterToggle from '../../components/admin/AiFlagsMasterToggle';
 import {
   listAdminQaReviews,
   confirmAdminQaReview,
@@ -15,6 +17,8 @@ import {
 import classes from '../../components/admin/adminShared.module.css';
 
 export default function AdminAiFlagsPage() {
+  const [aiFlagsEnabled, setAiFlagsEnabled] = useState(true);
+
   return (
     <AdminPageShell
       title="AI Flags"
@@ -22,10 +26,13 @@ export default function AdminAiFlagsPage() {
       icon={Flag}
       category={ADMIN_CATEGORIES.quality}
       actions={(
-        <Link to="/app/admin/qa-rules" className={classes.qaHeaderLink}>
-          <Link2 size={14} aria-hidden="true" />
-          Compliance rules
-        </Link>
+        <div className={classes.qaHeaderActions}>
+          <AiFlagsMasterToggle onChange={(snap) => setAiFlagsEnabled(snap.enabled)} />
+          <Link to="/app/admin/qa-rules" className={classes.qaHeaderLink}>
+            <Link2 size={14} aria-hidden="true" />
+            Compliance rules
+          </Link>
+        </div>
       )}
     >
       <QaReviewQueuePanel
@@ -37,6 +44,7 @@ export default function AdminAiFlagsPage() {
         reanalyzeReview={reanalyzeAdminQaReview}
         reanalyzeBatch={reanalyzeAdminQaReviewsBatch}
         emptyHint="Eligible calls analyze automatically when they end."
+        aiFlagsEnabled={aiFlagsEnabled}
       />
     </AdminPageShell>
   );

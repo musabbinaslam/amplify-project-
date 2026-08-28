@@ -14,6 +14,7 @@ import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
 import { EASE_SMOOTH } from '../../motion/appMotion';
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
 import AdminPageShell from '../../components/admin/AdminPageShell';
+import AiFlagsMasterToggle from '../../components/admin/AiFlagsMasterToggle';
 import PageLoader from '../../components/ui/PageLoader';
 import classes from '../../components/admin/adminShared.module.css';
 
@@ -57,6 +58,7 @@ export default function AdminQaRulesPage() {
   const [editor, setEditor] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [aiFlagsEnabled, setAiFlagsEnabled] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,12 +80,18 @@ export default function AdminQaRulesPage() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!aiFlagsEnabled) setEditor(null);
+  }, [aiFlagsEnabled]);
+
   const openCreate = () => {
+    if (!aiFlagsEnabled) return;
     setForm(EMPTY_FORM);
     setEditor({ mode: 'create' });
   };
 
   const openEdit = (rule) => {
+    if (!aiFlagsEnabled) return;
     setForm({
       name: rule.name || '',
       description: rule.description || '',
@@ -113,6 +121,7 @@ export default function AdminQaRulesPage() {
 
   const saveRule = async (e) => {
     e.preventDefault();
+    if (!aiFlagsEnabled) return;
     if (!form.name.trim() || !form.instruction.trim()) {
       toast.error('Name and instruction are required');
       return;
@@ -136,6 +145,7 @@ export default function AdminQaRulesPage() {
   };
 
   const handleDelete = async (rule) => {
+    if (!aiFlagsEnabled) return;
     if (!window.confirm(`Delete compliance rule “${rule.name}”?`)) return;
     try {
       await deleteAdminQaRule(rule.id);
@@ -147,6 +157,7 @@ export default function AdminQaRulesPage() {
   };
 
   const toggleActive = async (rule) => {
+    if (!aiFlagsEnabled) return;
     try {
       await updateAdminQaRule(rule.id, { active: !rule.active });
       toast.success(rule.active ? 'Rule paused' : 'Rule activated');
@@ -178,14 +189,17 @@ export default function AdminQaRulesPage() {
         category={ADMIN_CATEGORIES.quality}
         actions={(
           <div className={classes.qaHeaderActions}>
+            <AiFlagsMasterToggle onChange={(snap) => setAiFlagsEnabled(snap.enabled)} />
             <Link to="/app/admin/ai-flags" className={classes.qaHeaderLink}>
               <Flag size={14} aria-hidden="true" />
               AI Flags
             </Link>
-            <button type="button" className={classes.primaryBtn} onClick={openCreate}>
-              <Plus size={15} />
-              Add rule
-            </button>
+            {aiFlagsEnabled ? (
+              <button type="button" className={classes.primaryBtn} onClick={openCreate}>
+                <Plus size={15} />
+                Add rule
+              </button>
+            ) : null}
           </div>
         )}
       >
@@ -217,7 +231,11 @@ export default function AdminQaRulesPage() {
             <motion.div className={classes.qaEmpty} variants={presets.child}>
               <ShieldAlert size={26} className={classes.qaEmptyIcon} />
               <h4>No rules yet</h4>
-              <p>Add a rule so Gemini knows what to flag on eligible recordings.</p>
+              <p>
+                {aiFlagsEnabled
+                  ? 'Add a rule so Gemini knows what to flag on eligible recordings.'
+                  : 'Turn on AI Flags to add compliance rules.'}
+              </p>
             </motion.div>
           ) : (
             <motion.div className={classes.qaRulesList} variants={presets.grid}>
@@ -264,22 +282,24 @@ export default function AdminQaRulesPage() {
                       )}
                     </div>
 
-                    <div className={classes.qaRuleCardFoot}>
-                      <button type="button" className={classes.qaGhostBtn} onClick={() => openEdit(rule)}>
-                        Edit
-                      </button>
-                      <button type="button" className={classes.qaGhostBtn} onClick={() => toggleActive(rule)}>
-                        {paused ? 'Activate' : 'Pause'}
-                      </button>
-                      <button
-                        type="button"
-                        className={classes.qaIconBtn}
-                        onClick={() => handleDelete(rule)}
-                        aria-label={`Delete ${rule.name}`}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+                    {aiFlagsEnabled ? (
+                      <div className={classes.qaRuleCardFoot}>
+                        <button type="button" className={classes.qaGhostBtn} onClick={() => openEdit(rule)}>
+                          Edit
+                        </button>
+                        <button type="button" className={classes.qaGhostBtn} onClick={() => toggleActive(rule)}>
+                          {paused ? 'Activate' : 'Pause'}
+                        </button>
+                        <button
+                          type="button"
+                          className={classes.qaIconBtn}
+                          onClick={() => handleDelete(rule)}
+                          aria-label={`Delete ${rule.name}`}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ) : null}
                   </motion.article>
                 );
               })}

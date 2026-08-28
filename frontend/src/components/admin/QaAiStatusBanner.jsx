@@ -53,7 +53,7 @@ function readinessCopy(status) {
 }
 
 /* eslint-disable react/prop-types */
-export default function QaAiStatusBanner({ fetchStatus, pollMs = 8000, onStatus }) {
+export default function QaAiStatusBanner({ fetchStatus, pollMs = 8000, onStatus, reloadToken }) {
   const [status, setStatus] = useState(null);
 
   const load = useCallback(async () => {
@@ -77,7 +77,7 @@ export default function QaAiStatusBanner({ fetchStatus, pollMs = 8000, onStatus 
     const interval = Math.max(1500, Number(pollMs) || 8000);
     const id = window.setInterval(load, interval);
     return () => window.clearInterval(id);
-  }, [load, pollMs]);
+  }, [load, pollMs, reloadToken]);
 
   const copy = readinessCopy(status);
   const Icon = copy.Icon;

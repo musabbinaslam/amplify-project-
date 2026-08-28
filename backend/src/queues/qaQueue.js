@@ -56,7 +56,7 @@ async function runQaInsightJob({ savedLog, agentId, FromState = null }, maxAttem
 async function runQaAudioReviewJob({ savedLog, agentId, FromState = null, force = false }, maxAttempts = 3) {
     const callId = savedLog?.id || 'unknown';
     if (!isAiFlagsGeminiEnabled()) {
-        console.log(`[AI Flags] Skip audio review for Call ${callId} — AI_FLAGS_GEMINI_ENABLED is off`);
+        console.log(`[AI Flags] Skip audio review for Call ${callId} — AI Flags is off`);
         return { status: 'clear', source: 'disabled' };
     }
     if (!savedLog?.id || !agentId) return;
@@ -161,7 +161,7 @@ function dispatchQaInsightJob(jobData) {
 
 function dispatchQaAudioReviewJob(jobData) {
     if (!isAiFlagsGeminiEnabled()) {
-        console.log('[AI Flags] Skip audio dispatch — AI_FLAGS_GEMINI_ENABLED is off');
+        console.log('[AI Flags] Skip audio dispatch — AI Flags is off');
         return;
     }
     runQaAudioReviewJob(jobData).catch((err) => {

@@ -100,6 +100,7 @@ export default function QaReviewQueuePanel({
   reanalyzeReview = null,
   reanalyzeBatch = null,
   emptyHint = 'Pending AI flags will appear here.',
+  aiFlagsEnabled = true,
 }) {
   const [reviews, setReviews] = useState([]);
   const [statusFilter, setStatusFilter] = useState('pending_review');
@@ -126,6 +127,11 @@ export default function QaReviewQueuePanel({
   const pageRef = useRef(page);
   statusFilterRef.current = statusFilter;
   pageRef.current = page;
+
+  const aiOff = aiFlagsEnabled === false
+    || pipelineStatus?.aiFlagsGeminiEnabled === false
+    || pipelineStatus?.state === 'disabled';
+  const analysisLocked = backfilling || Boolean(watch) || aiOff;
 
   const reviewKey = (row) => `${row.agentId}|${row.callLogId || row.id}`;
 
@@ -189,6 +195,10 @@ export default function QaReviewQueuePanel({
       document.removeEventListener('keydown', onKey);
     };
   }, [catchUpOpen]);
+
+  useEffect(() => {
+    if (aiOff) setCatchUpOpen(false);
+  }, [aiOff]);
 
   useEffect(() => {
     if (!watch) return undefined;
@@ -277,7 +287,7 @@ export default function QaReviewQueuePanel({
   };
 
   const runBackfill = async () => {
-    if (!startBackfill || backfilling) return;
+    if (!startBackfill || analysisLocked) return;
     setBackfilling(true);
     try {
       const out = await startBackfill({
@@ -307,7 +317,7 @@ export default function QaReviewQueuePanel({
   };
 
   const runReanalyzeOne = async (review) => {
-    if (!reanalyzeReview || backfilling || watch) return;
+    if (!reanalyzeReview || analysisLocked) return;
     setBackfilling(true);
     try {
       const out = await reanalyzeReview(review.agentId, review.callLogId || review.id);
@@ -351,7 +361,7 @@ export default function QaReviewQueuePanel({
   };
 
   const runReanalyzeSelected = async () => {
-    if (!reanalyzeBatch || backfilling || watch || selectedCount < 1) return;
+    if (!reanalyzeBatch || analysisLocked || selectedCount < 1) return;
     const items = reviews
       .filter((row) => selectedKeys.has(reviewKey(row)))
       .map((row) => ({
@@ -447,6 +457,7 @@ export default function QaReviewQueuePanel({
           fetchStatus={fetchStatus}
           pollMs={showLiveBar ? 2000 : 8000}
           onStatus={setPipelineStatus}
+          reloadToken={aiFlagsEnabled ? 'on' : 'off'}
         />
       ) : null}
 
@@ -489,7 +500,9 @@ export default function QaReviewQueuePanel({
                   type="button"
                   className={`${classes.qaCatchUpBtn} ${catchUpOpen ? classes.qaCatchUpBtnOpen : ''}`}
                   aria-expanded={catchUpOpen}
-                  onClick={() => setCatchUpOpen((v) => !v)}
+                  disabled={aiOff}
+                  title={aiOff ? 'Turn on AI Flags to analyze calls' : 'Analyze missed eligible recordings'}
+                  onClick={() => { if (!aiOff) setCatchUpOpen((v) => !v); }}
                 >
                   <AudioLines size={14} />
                   Catch up
@@ -504,7 +517,7 @@ export default function QaReviewQueuePanel({
                         id="qa-backfill-limit"
                         className={classes.select}
                         value={backfillLimit}
-                        disabled={backfilling || Boolean(watch)}
+                        disabled={analysisLocked}
                         onChange={(e) => setBackfillLimit(Number(e.target.value))}
                         aria-label="How many calls to analyze"
                       >
@@ -516,7 +529,7 @@ export default function QaReviewQueuePanel({
                         <input
                           type="checkbox"
                           checked={forceReanalyze}
-                          disabled={backfilling || Boolean(watch)}
+                          disabled={analysisLocked}
                           onChange={(e) => setForceReanalyze(e.target.checked)}
                         />
                         Include previously Clear
@@ -524,7 +537,7 @@ export default function QaReviewQueuePanel({
                       <button
                         type="button"
                         className={classes.primaryBtn}
-                        disabled={backfilling || Boolean(watch)}
+                        disabled={analysisLocked}
                         onClick={runBackfill}
                       >
                         <AudioLines size={16} className={backfilling || watch ? classes.spin : ''} />
@@ -575,7 +588,7 @@ export default function QaReviewQueuePanel({
                     <input
                       type="checkbox"
                       checked={allSelectableSelected}
-                      disabled={backfilling || Boolean(watch) || !selectableReviews.length}
+                      disabled={analysisLocked || !selectableReviews.length}
                       onChange={toggleSelectAll}
                     />
                     {selectedCount > 0
@@ -585,7 +598,7 @@ export default function QaReviewQueuePanel({
                   <button
                     type="button"
                     className={selectedCount > 0 ? classes.primaryBtn : classes.qaGhostBtn}
-                    disabled={backfilling || Boolean(watch) || selectedCount < 1}
+                    disabled={analysisLocked || selectedCount < 1}
                     onClick={runReanalyzeSelected}
                   >
                     <AudioLines size={15} className={backfilling || watch ? classes.spin : ''} />
@@ -607,7 +620,7 @@ export default function QaReviewQueuePanel({
                       selectable={canSelect}
                       selected={selectedKeys.has(key)}
                       onSelectToggle={() => toggleSelected(row)}
-                      selectDisabled={backfilling || Boolean(watch)}
+                      selectDisabled={analysisLocked}
                       expanded={expandedId === key || row?.qaAudioReview?.status === 'processing'}
                       onToggle={() => {
                         setExpandedId(expandedId === key ? null : key);
@@ -624,7 +637,7 @@ export default function QaReviewQueuePanel({
                       onConfirm={() => openConfirm(row)}
                       onDismiss={() => openDismiss(row)}
                       onReanalyze={reanalyzeReview ? () => runReanalyzeOne(row) : null}
-                      reanalyzeDisabled={backfilling || Boolean(watch)}
+                      reanalyzeDisabled={analysisLocked}
                     />
                   );
                 })}

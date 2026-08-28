@@ -76,6 +76,7 @@ router.delete('/qa-rules/:ruleId', qaReviewController.deleteQaRule);
 router.get('/qa-reviews', qaReviewController.listQaReviews);
 router.get('/qa-reviews/pending-count', qaReviewController.countPendingQaReviews);
 router.get('/qa-reviews/status', qaReviewController.getQaPipelineStatus);
+router.patch('/qa-reviews/enabled', qaReviewController.setQaReviewsEnabled);
 router.post('/qa-reviews/backfill', qaReviewController.backfillQaAudioReviews);
 router.post('/qa-reviews/reanalyze-batch', qaReviewController.reanalyzeQaAudioReviewBatch);
 router.post('/qa-reviews/:agentId/:callLogId/reanalyze', qaReviewController.reanalyzeQaAudioReview);

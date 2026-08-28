@@ -3,6 +3,11 @@ const qaComplianceRuleService = require('../services/qaComplianceRuleService');
 const { flagAgentAccount } = require('../services/agentFlagService');
 const { getUserDoc } = require('../services/userDataService');
 const { runQaAudioReviewJob, isAiFlagsGeminiEnabled } = require('../queues/qaQueue');
+const {
+  setAiFlagsEnabled,
+  getAiFlagsSnapshot,
+  aiFlagsDisabledError,
+} = require('../services/aiFlagsSettings');
 const { parseRecordingSid, isMockCallLog } = require('../utils/recordingSid');
 const { tryAcquireQaAudioJob, releaseQaAudioJob } = require('../queues/qaRunLock');
 
@@ -82,7 +87,8 @@ async function countPendingQaReviews(req, res) {
 async function getQaPipelineStatus(req, res) {
   try {
     const geminiConfigured = Boolean(String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || '').trim());
-    const aiFlagsGeminiEnabled = isAiFlagsGeminiEnabled();
+    const flags = getAiFlagsSnapshot();
+    const aiFlagsGeminiEnabled = flags.enabled;
     const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
     const [activeRules, pipeline] = await Promise.all([
       qaComplianceRuleService.listRules({ activeOnly: true }),
@@ -103,6 +109,9 @@ async function getQaPipelineStatus(req, res) {
     res.json({
       state,
       aiFlagsGeminiEnabled,
+      aiFlagsRuntimeEnabled: flags.runtimeEnabled,
+      aiFlagsEnvEnabled: flags.envEnabled,
+      aiFlagsEnvLocked: flags.envLocked,
       geminiConfigured,
       model,
       activeRuleCount,
@@ -178,6 +187,20 @@ async function reviewCall(req, res, nextStatus) {
   }
 }
 
+async function setQaReviewsEnabled(req, res) {
+  try {
+    const enabled = req.body?.enabled !== false;
+    const out = await setAiFlagsEnabled(enabled, req.user?.uid || null);
+    res.json({
+      success: true,
+      ...out,
+    });
+  } catch (err) {
+    console.error('[QA] setQaReviewsEnabled:', err.message);
+    res.status(serviceErrorStatus(err)).json({ error: err.message || 'Failed to update AI Flags' });
+  }
+}
+
 async function confirmQaReview(req, res) {
   return reviewCall(req, res, 'confirmed');
 }
@@ -188,7 +211,7 @@ async function dismissQaReview(req, res) {
 
 async function backfillQaAudioReviews(req, res) {
   if (!isAiFlagsGeminiEnabled()) {
-    return res.status(503).json({ error: 'AI Flags Gemini is disabled. Set AI_FLAGS_GEMINI_ENABLED=true to re-enable.' });
+    return res.status(503).json({ error: aiFlagsDisabledError() });
   }
   if (!tryAcquireQaAudioJob('manual-backfill')) {
     return res.status(409).json({ error: 'A recording analysis job is already running' });
@@ -295,7 +318,7 @@ async function backfillQaAudioReviews(req, res) {
 
 async function reanalyzeQaAudioReview(req, res) {
   if (!isAiFlagsGeminiEnabled()) {
-    return res.status(503).json({ error: 'AI Flags Gemini is disabled. Set AI_FLAGS_GEMINI_ENABLED=true to re-enable.' });
+    return res.status(503).json({ error: aiFlagsDisabledError() });
   }
   const geminiConfigured = Boolean(String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || '').trim());
   if (!geminiConfigured) {
@@ -363,7 +386,7 @@ async function reanalyzeQaAudioReview(req, res) {
 
 async function reanalyzeQaAudioReviewBatch(req, res) {
   if (!isAiFlagsGeminiEnabled()) {
-    return res.status(503).json({ error: 'AI Flags Gemini is disabled. Set AI_FLAGS_GEMINI_ENABLED=true to re-enable.' });
+    return res.status(503).json({ error: aiFlagsDisabledError() });
   }
   const geminiConfigured = Boolean(String(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || '').trim());
   if (!geminiConfigured) {
@@ -485,6 +508,9 @@ async function listQaRules(req, res) {
 }
 
 async function createQaRule(req, res) {
+  if (!isAiFlagsGeminiEnabled()) {
+    return res.status(503).json({ error: aiFlagsDisabledError() });
+  }
   try {
     const rule = await qaComplianceRuleService.createRule(req.body || {}, req.user?.uid);
     res.status(201).json({ rule });
@@ -495,6 +521,9 @@ async function createQaRule(req, res) {
 }
 
 async function updateQaRule(req, res) {
+  if (!isAiFlagsGeminiEnabled()) {
+    return res.status(503).json({ error: aiFlagsDisabledError() });
+  }
   try {
     const rule = await qaComplianceRuleService.updateRule(req.params.ruleId, req.body || {}, req.user?.uid);
     res.json({ rule });
@@ -505,6 +534,9 @@ async function updateQaRule(req, res) {
 }
 
 async function deleteQaRule(req, res) {
+  if (!isAiFlagsGeminiEnabled()) {
+    return res.status(503).json({ error: aiFlagsDisabledError() });
+  }
   try {
     const out = await qaComplianceRuleService.deleteRule(req.params.ruleId);
     res.json(out);
@@ -518,6 +550,7 @@ module.exports = {
   listQaReviews,
   countPendingQaReviews,
   getQaPipelineStatus,
+  setQaReviewsEnabled,
   confirmQaReview,
   dismissQaReview,
   backfillQaAudioReviews,

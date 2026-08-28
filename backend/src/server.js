@@ -66,6 +66,7 @@ const startEngine = async () => {
   // ── Sync pricing config from Firestore before serving any traffic ─────────
   const { syncPricingConfig } = require('./config/pricing');
   await syncPricingConfig();
+  await require('./services/aiFlagsSettings').loadAiFlagsSettings();
 
   await connectRedis();
 
