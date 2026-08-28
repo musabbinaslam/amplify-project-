@@ -35,11 +35,13 @@
 }
 
 .tenantTitle {
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   margin: 0 0 4px;
   color: var(--text-primary);
+  font-family: inherit;
+  line-height: 1.25;
 }
 
 .tenantSub {
@@ -69,8 +71,13 @@
 
 .chartsRow {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1.7fr 1fr;
   gap: 18px;
+  align-items: stretch;
+}
+
+.chartsMain {
+  min-width: 0;
 }
 
 .rateBar {

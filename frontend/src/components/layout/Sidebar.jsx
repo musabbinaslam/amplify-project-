@@ -69,10 +69,12 @@ const Sidebar = () => {
           group: 'admin',
           activeMatch: (pathname) => (
             pathname === '/app/admin'
-            || (pathname.startsWith('/app/admin/') && !pathname.startsWith('/app/admin/ops/'))
+            || (pathname.startsWith('/app/admin/')
+              && !pathname.startsWith('/app/admin/ops/')
+              && !pathname.startsWith('/app/admin/agencies'))
           ),
         },
-        { path: '/app/admin/ops/agencies', label: 'Agencies', icon: Building2, end: false, group: 'admin' },
+        { path: '/app/admin/agencies', label: 'Agencies', icon: Building2, end: false, group: 'admin' },
         { path: '/app/admin/ops/teams', label: 'Manager Teams', icon: UserCog, end: false, group: 'admin' },
       );
     }

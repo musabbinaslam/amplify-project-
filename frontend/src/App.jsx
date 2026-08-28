@@ -123,7 +123,9 @@ const OpsAgencyRedirect = () => {
   const { agencyId } = useParams();
   return (
     <Navigate
-      to={`/app/admin/ops/agencies?selected=${encodeURIComponent(agencyId || '')}`}
+      to={agencyId
+        ? `/app/admin/agencies?selected=${encodeURIComponent(agencyId)}&tab=overview`
+        : '/app/admin/agencies'}
       replace
     />
   );

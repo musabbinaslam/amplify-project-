@@ -91,7 +91,7 @@ export function resolveRouteBreadcrumbs(pathname) {
   if (normalized === '/app/admin/ops/agencies') {
     return [
       { label: 'Admin', href: ADMIN_HOME },
-      { label: 'Agencies' },
+      { label: 'Agencies', href: '/app/admin/agencies' },
     ];
   }
 
@@ -106,7 +106,7 @@ export function resolveRouteBreadcrumbs(pathname) {
   if (agenciesOpsLegacy) {
     return [
       { label: 'Admin', href: ADMIN_HOME },
-      { label: 'Agencies', href: '/app/admin/ops/agencies' },
+      { label: 'Agencies', href: '/app/admin/agencies' },
       { label: 'Loading…' },
     ];
   }
