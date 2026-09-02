@@ -14,6 +14,7 @@ import {
 import classes from './SignupPage.module.css';
 import { referralService } from '../services/referralService';
 import { initMetaPixelOnSignupPage, trackSignupComplete } from '../services/metaPixel';
+import PersonaVerificationBlocker from '../components/auth/PersonaVerificationBlocker';
 
 import { TOS_VERSION, TOS_HEADER, TOS_TEXT } from '../utils/legalText';
 
@@ -123,7 +124,7 @@ const SignupPage = () => {
         },
       };
 
-  if (token && step === 'credentials' && !googleFlowActive.current) {
+  if (token && step === 'credentials' && !googleFlowActive.current && !submitting) {
     return <Navigate to="/app" replace />;
   }
 
@@ -179,7 +180,7 @@ const SignupPage = () => {
         }
       }
       toast.success('Account created!');
-      navigate('/app');
+      setStep('verification');
     } catch (err) {
       toast.error(getFirebaseErrorMessage(err));
     } finally {
@@ -245,7 +246,7 @@ const SignupPage = () => {
       }
       toast.success('Account created!');
       googleFlowActive.current = false;
-      navigate('/app');
+      setStep('verification');
     } catch (err) {
       toast.error(err?.message || 'Failed to save profile');
     } finally {
@@ -448,6 +449,22 @@ const SignupPage = () => {
           </motion.div>
         </AuthShell>
       </>
+    );
+  }
+
+  if (step === 'verification') {
+    return (
+      <AuthShell
+        brand={renderBrandPanel(
+          'Verification',
+          'Secure your account',
+          'Complete a quick identity check to finalize your setup.',
+        )}
+      >
+        <motion.div initial="hidden" animate="visible" variants={formStagger}>
+          <PersonaVerificationBlocker onComplete={() => navigate('/app')} />
+        </motion.div>
+      </AuthShell>
     );
   }
 

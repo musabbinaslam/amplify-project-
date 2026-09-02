@@ -17,6 +17,10 @@ export function getMyAdminNotifications(params = {}) {
   return getMyNotifications({ ...params, scope: 'admin' });
 }
 
+export function getMyAiFlagNotifications(params = {}) {
+  return getMyNotifications({ ...params, scope: 'ai_flags' });
+}
+
 export function markNotificationRead(id) {
   return apiFetch(`/api/users/me/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
 }

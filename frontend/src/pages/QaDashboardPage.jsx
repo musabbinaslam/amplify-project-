@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  Shield, Users, Phone, Radio, RefreshCw, Trash2, CalendarDays, CircleDollarSign, Activity, Play
+  Shield, Users, Phone, Radio, RefreshCw, Trash2, CalendarDays, CircleDollarSign, Activity, Play, Flag
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -18,6 +19,8 @@ import {
   getQaAnalyticsDrilldown,
   getQaLiveCalls,
   qaForceRemoveAgent,
+  countQaReviewsPending,
+  getQaPipelineStatus,
 } from '../services/qaService';
 import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
@@ -49,7 +52,9 @@ const QaDashboardPage = () => {
   const [drilldownDay, setDrilldownDay] = useState('');
   const [agentSearch, setAgentSearch] = useState('');
   const [activeRecording, setActiveRecording] = useState(null);
-        const [qaForceRemoveAgentId, setForceRemoveAgentId] = useState('');
+  const [qaForceRemoveAgentId, setForceRemoveAgentId] = useState('');
+  const [pendingAiFlags, setPendingAiFlags] = useState(0);
+  const [aiState, setAiState] = useState(null);
 
   const getRange = useCallback(() => {
     const now = new Date();
@@ -65,9 +70,15 @@ const QaDashboardPage = () => {
     // Canonical fast path: overview-lite includes live calls payload.
     setLoading(true);
     try {
-      const ov = await getQaOverviewLite();
+      const [ov, pending, pipeline] = await Promise.all([
+        getQaOverviewLite(),
+        countQaReviewsPending().catch(() => ({ pending: 0 })),
+        getQaPipelineStatus().catch(() => null),
+      ]);
       setOverview(ov);
       setLiveCalls(Array.isArray(ov?.liveCalls) ? ov.liveCalls : []);
+      setPendingAiFlags(Number(pending?.pending || 0));
+      setAiState(pipeline?.state || null);
     } catch (e) {
       // Recovery path only: if overview-lite fails, try standalone live endpoint.
       try {
@@ -292,6 +303,22 @@ const QaDashboardPage = () => {
           <h1 className={classes.title}>QA Dashboard</h1>
           <p className={classes.subtitle}>Quality Assurance analytics and live operations</p>
         </div>
+        <Link
+          to="/app/qa/review"
+          className={`${classes.pendingFlagBadge} ${
+            aiState === 'working' || aiState === 'analyzing' ? classes.aiStatusOk
+              : aiState === 'missing_key' ? classes.aiStatusBad
+                : classes.aiStatusWarn
+          }`}
+        >
+          <Flag size={14} />
+          {aiState === 'analyzing' ? 'AI analyzing…'
+            : aiState === 'working' ? 'AI is working'
+              : aiState === 'missing_key' ? 'AI key missing'
+                : aiState === 'no_rules' ? 'AI needs rules'
+                  : 'AI Flags'}
+          {pendingAiFlags > 0 ? ` · ${pendingAiFlags} pending` : ''}
+        </Link>
       </motion.div>
 
       <motion.section className={classes.card} variants={presets.child}>
@@ -775,6 +802,15 @@ const QaDashboardPage = () => {
                           ) : (
                             <span className={`${classes.statusPill} ${classes.dispMissed}`}>Missed</span>
                           )}
+                          {log.qaAudioReview?.status ? (
+                            <span className={`${classes.statusPill} ${
+                              log.qaAudioReview.status === 'pending_review' ? classes.dispAnswered
+                                : log.qaAudioReview.status === 'confirmed' ? classes.dispMissed
+                                  : classes.dispSold
+                            }`} style={{ marginLeft: 6 }}>
+                              AI {log.qaAudioReview.status.replace('_', ' ')}
+                            </span>
+                          ) : null}
                         </td>
                         <td>
                           {log.disposition === 'sold' ? (

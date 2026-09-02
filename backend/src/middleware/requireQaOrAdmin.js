@@ -2,7 +2,7 @@ const { getUserDoc } = require('../services/userDataService');
 
 /**
  * After verifyFirebaseToken. Requires Firestore users/{uid}.role === 'admin' or 'qa'.
- * Used for the /api/qa read-only endpoints that QA reviewers can access.
+ * Used for /api/qa endpoints that QA reviewers or admins can access.
  */
 async function requireQaOrAdmin(req, res, next) {
   try {

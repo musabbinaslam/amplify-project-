@@ -4,6 +4,7 @@ const walletService = require('../services/walletService');
 const notificationService = require('../services/notificationService');
 const socketRegistry = require('../sockets/socketRegistry');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
+const { parseRecordingSid } = require('../utils/recordingSid');
 
 /**
  * GET /api/admin/suspicious-agents
@@ -33,6 +34,7 @@ async function listSuspiciousAgents(req, res) {
                 const q = await callLogsRef.where('callSid', '==', sid).limit(1).get();
                 if (q.empty) return null;
                 const d = q.docs[0].data() || {};
+                const recordingSid = parseRecordingSid(d.recordingSid || d.recordingUrl);
                 return {
                   id: q.docs[0].id,
                   callSid: d.callSid || sid,
@@ -41,8 +43,10 @@ async function listSuspiciousAgents(req, res) {
                   campaign: d.campaign || null,
                   campaignLabel: d.campaignLabel || d.campaign || null,
                   recordingUrl: d.recordingUrl || null,
+                  recordingSid: recordingSid || null,
                   timestamp: d.timestamp || null,
                   status: d.status || null,
+                  isBillable: d.isBillable === true,
                 };
               } catch {
                 return null;

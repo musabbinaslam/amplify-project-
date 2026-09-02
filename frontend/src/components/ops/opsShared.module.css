@@ -183,18 +183,29 @@
 .statIcon { color: var(--brand-text); }
 
 .statLabel {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
+  font-family: inherit;
+}
+
+.statHint {
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--text-tertiary);
+  line-height: 1.3;
 }
 
 .statValue {
-  font-size: 32px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+  line-height: 1.15;
 }
 
 /* Cards */

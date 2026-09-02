@@ -791,6 +791,11 @@ async function patchMe(req, res) {
   try {
     const body = { ...req.body };
     delete body.role;
+    // In production, personaStatus MUST only be updated by the webhook.
+    // In development, we allow the frontend to set it since webhooks can't reach localhost.
+    if (process.env.NODE_ENV === 'production') {
+      delete body.personaStatus;
+    }
     const existingProfile = await getUserDoc(req.user.uid);
     if (!existingProfile) {
       body.role = 'agent';

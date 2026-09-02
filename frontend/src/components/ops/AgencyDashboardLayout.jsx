@@ -1,6 +1,6 @@
 import {
   Building2, Users, Phone, Radio, CircleDollarSign, RefreshCw, Search,
-  ChevronLeft, ChevronRight, AlertTriangle,
+  ChevronLeft, ChevronRight, AlertTriangle, Activity, PhoneIncoming, PhoneCall,
 } from 'lucide-react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -11,9 +11,10 @@ import { RecordingModal } from '../../pages/CallLogsPage';
 import { useOpsDashboard } from '../../hooks/useOpsDashboard';
 import OpsScopedNav, { OpsSettingsLink } from './OpsScopedNav';
 import {
-  OpsOnlineGauge,
   OpsEarningsTrendChart,
   OpsTopAgentsChart,
+  OpsCallTrendChart,
+  OpsCampaignMixChart,
 } from './OpsCharts';
 import chartClasses from './OpsCharts.module.css';
 import OpsDrilldownPanel from './OpsDrilldownPanel';
@@ -90,10 +91,12 @@ export default function AgencyDashboardLayout({
       ) : null}
       {compactHeader ? (
         <div className={`glass ${shared.compactToolbar}`}>
-          <div className={shared.compactToolbarLead}>
-            <h2 className={shared.compactTitle}>{agencyName}</h2>
-            <p className={shared.compactSub}>{compactSub}</p>
-          </div>
+          {!embedMode ? (
+            <div className={shared.compactToolbarLead}>
+              <h2 className={shared.compactTitle}>{agencyName}</h2>
+              <p className={shared.compactSub}>{compactSub}</p>
+            </div>
+          ) : null}
           <div className={shared.compactToolbarActions}>
             <div className={shared.filterRow}>
               {Object.keys(RANGE_LABELS).map((key) => (
@@ -161,19 +164,68 @@ export default function AgencyDashboardLayout({
       </motion.div>
       )}
 
-      <motion.div className={agency.liveCommandRow} variants={presets.child}>
-        <div className={`glass ${shared.card}`}>
-          <OpsLiveAgentGrid
-            agents={ops.agents}
-            liveCallByAgent={ops.liveCallByAgent}
-            selectedAgent={ops.selectedAgent}
-            onSelectAgent={ops.selectAgent}
-            loading={ops.loadingAgents}
-            emptyMessage="No agents in this agency yet."
+      <motion.div className={shared.kpiGrid} variants={presets.statsStrip}>
+        <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
+          <Users size={18} className={shared.statIcon} />
+          <span className={shared.statLabel}>Agents</span>
+          <span className={shared.statValue}>{ops.agents.length}</span>
+        </motion.div>
+        <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
+          <Activity size={18} className={shared.statIcon} />
+          <span className={shared.statLabel}>Online</span>
+          <span className={shared.statValue}>{ops.onlineCount}/{ops.agents.length || 0}</span>
+          <span className={shared.statHint}>
+            {ops.agents.length ? `${Math.round((ops.onlineCount / ops.agents.length) * 100)}% of team` : 'No agents yet'}
+          </span>
+        </motion.div>
+        <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
+          <Radio size={18} className={shared.statIcon} />
+          <span className={shared.statLabel}>Live calls</span>
+          <span className={shared.statValue}>{ops.liveCalls.length}</span>
+        </motion.div>
+        <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
+          <Phone size={18} className={shared.statIcon} />
+          <span className={shared.statLabel}>Calls</span>
+          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : s.totalCalls}</span>
+        </motion.div>
+        <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
+          <PhoneIncoming size={18} className={shared.statIcon} />
+          <span className={shared.statLabel}>Answer rate</span>
+          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : `${Math.round((s.answerRate || 0) * 100)}%`}</span>
+          <span className={shared.statHint}>{s.answeredCalls || 0} answered</span>
+        </motion.div>
+        <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
+          <PhoneCall size={18} className={shared.statIcon} />
+          <span className={shared.statLabel}>Billable rate</span>
+          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : `${Math.round((s.billableRate || 0) * 100)}%`}</span>
+        </motion.div>
+        <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
+          <Phone size={18} className={shared.statIcon} />
+          <span className={shared.statLabel}>Billable calls</span>
+          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : (s.billableCalls || 0)}</span>
+        </motion.div>
+        <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
+          <CircleDollarSign size={18} className={shared.statIcon} />
+          <span className={shared.statLabel}>Earnings</span>
+          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : `$${(s.totalCost || 0).toFixed(2)}`}</span>
+        </motion.div>
+      </motion.div>
+
+      <motion.div className={agency.chartsRow} variants={presets.child}>
+        <div className={`glass ${chartClasses.chartCard} ${agency.chartsMain}`}>
+          <OpsCallTrendChart
+            data={ops.byDay}
+            loading={ops.analyticsLoading}
+            reduceMotion={reduceMotion}
+            totalCalls={s.totalCalls}
           />
         </div>
-        <div className={`glass ${shared.card}`}>
-          <OpsOnlineGauge online={ops.onlineCount} total={ops.agents.length} reduceMotion={reduceMotion} />
+        <div className={`glass ${chartClasses.chartCard}`}>
+          <OpsCampaignMixChart
+            data={ops.campaigns}
+            loading={ops.analyticsLoading}
+            reduceMotion={reduceMotion}
+          />
         </div>
       </motion.div>
 
@@ -186,27 +238,16 @@ export default function AgencyDashboardLayout({
         </div>
       </motion.div>
 
-      <motion.div className={shared.kpiGrid} variants={presets.statsStrip}>
-        <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
-          <Users size={18} className={shared.statIcon} />
-          <span className={shared.statLabel}>Agents</span>
-          <span className={shared.statValue}>{ops.agents.length}</span>
-        </motion.div>
-        <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
-          <Phone size={18} className={shared.statIcon} />
-          <span className={shared.statLabel}>Calls</span>
-          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : s.totalCalls}</span>
-        </motion.div>
-        <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
-          <Radio size={18} className={shared.statIcon} />
-          <span className={shared.statLabel}>Billable Rate</span>
-          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : `${Math.round((s.billableRate || 0) * 100)}%`}</span>
-        </motion.div>
-        <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
-          <CircleDollarSign size={18} className={shared.statIcon} />
-          <span className={shared.statLabel}>Earnings</span>
-          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : `$${(s.totalCost || 0).toFixed(2)}`}</span>
-        </motion.div>
+      <motion.div className={`glass ${shared.card}`} variants={presets.child}>
+        <OpsLiveAgentGrid
+          agents={ops.agents}
+          liveCallByAgent={ops.liveCallByAgent}
+          selectedAgent={ops.selectedAgent}
+          onSelectAgent={ops.selectAgent}
+          loading={ops.loadingAgents}
+          emptyMessage="No agents in this agency yet."
+          compact
+        />
       </motion.div>
 
       <motion.section className={`glass ${shared.card}`} variants={presets.child}>
@@ -228,14 +269,15 @@ export default function AgencyDashboardLayout({
                 <th>Calls</th>
                 <th>Billable</th>
                 <th>Rate</th>
+                <th>Answer</th>
                 <th>Earnings</th>
               </tr>
             </thead>
             <tbody>
               {ops.analyticsLoading ? (
-                <tr><td colSpan={6} className={shared.muted}>Loading…</td></tr>
+                <tr><td colSpan={7} className={shared.muted}>Loading…</td></tr>
               ) : ops.sortedAgentStats.length === 0 ? (
-                <tr><td colSpan={6} className={shared.empty}>No data in this period.</td></tr>
+                <tr><td colSpan={7} className={shared.empty}>No data in this period.</td></tr>
               ) : (
                 ops.pagedAgentStats.map((row, idx) => {
                   const rank = (ops.perfPageSafe - 1) * 10 + idx + 1;
@@ -281,6 +323,7 @@ export default function AgencyDashboardLayout({
                           {low ? <AlertTriangle size={13} className={shared.warnIcon} /> : null}
                         </span>
                       </td>
+                      <td>{Math.round((row.answerRate || 0) * 100)}%</td>
                       <td>${(row.totalCost || 0).toFixed(2)}</td>
                     </tr>
                   );

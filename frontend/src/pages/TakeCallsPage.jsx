@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
+import PersonaVerificationBlocker from '../components/auth/PersonaVerificationBlocker';
 import classes from './TakeCallsPage.module.css';
 import { initializeTwilioDevice } from '../services/twilioService';
 import useDialerStore from '../store/useDialerStore';
@@ -959,6 +960,7 @@ const AcaTransferPanel = () => {
   );
 };
 
+
 // ─── Main Page Component ─────────────────────────────────────────────────────
 const TakeCallsPage = () => {
   const presets = useSubtlePageMotion();
@@ -1299,7 +1301,20 @@ const TakeCallsPage = () => {
         </motion.div>
       )}
 
-      {!user?.flagged && (
+      {!user?.flagged && user?.personaStatus !== 'verified' && (
+        <motion.div variants={presets.child}>
+          <PersonaVerificationBlocker 
+            onComplete={() => {
+              const { user, setUserField } = useAuthStore.getState();
+              if (user) {
+                setUserField('personaStatus', 'verified');
+              }
+            }} 
+          />
+        </motion.div>
+      )}
+
+      {!user?.flagged && user?.personaStatus === 'verified' && (
         <motion.div className={`glass ${classes.wizardShell}`} variants={presets.child}>
 
           <div className={classes.wizardGrid}>

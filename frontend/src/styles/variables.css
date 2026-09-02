@@ -51,7 +51,7 @@
   --radius-full: 9999px;
 
   /* Layout */
-  --sidebar-width: 260px;
+  --sidebar-width: 200px;
   --sidebar-collapsed: 72px;
   --topbar-height: 72px; /* Increased slightly for editorial vertical breathing room */
   --banner-height: 48px;

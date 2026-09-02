@@ -1,6 +1,19 @@
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
+const { parseRecordingSid, isMockCallLog } = require('../utils/recordingSid');
+const { getAiFlagsEligibility } = require('../utils/aiFlagsEligibility');
+
+const QA_CLAIMED_STATUSES = ['pending_review', 'confirmed', 'dismissed', 'processing'];
+const QA_BACKFILL_SKIP_CALL_STATUSES = new Set([
+    'busy',
+    'failed',
+    'no-answer',
+    'no_answer',
+    'canceled',
+    'cancelled',
+    'missed',
+]);
 
 class CallLogService {
     async upsertAdminDailyMetrics(log) {
@@ -251,6 +264,223 @@ class CallLogService {
         }
     }
 
+    async claimQaAudioReview(uid, callLogId, { force = false } = {}) {
+        if (!admin || !uid || !callLogId) return false;
+        const db = getDb();
+        const ref = db.collection('users').doc(uid).collection('callLogs').doc(callLogId);
+        try {
+            return await db.runTransaction(async (tx) => {
+                const snap = await tx.get(ref);
+                if (!snap.exists) return false;
+                const status = snap.data()?.qaAudioReview?.status;
+                if (!force && status && QA_CLAIMED_STATUSES.includes(status)) {
+                    return false;
+                }
+                tx.set(ref, {
+                    qaAudioReview: {
+                        status: 'processing',
+                        transcript: '',
+                        summary: 'Analyzing recording…',
+                        violations: [],
+                        source: 'processing',
+                        model: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
+                        version: 'qa-audio-v1',
+                        generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    },
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+                return true;
+            });
+        } catch (err) {
+            console.error(`[Firestore] claimQaAudioReview failed for ${uid}/${callLogId}:`, err.message);
+            return false;
+        }
+    }
+
+    async attachQaAudioReview(uid, callLogId, qaAudioReview) {
+        if (!admin || !uid || !callLogId || !qaAudioReview) return false;
+        try {
+            const db = getDb();
+            await db
+                .collection('users')
+                .doc(uid)
+                .collection('callLogs')
+                .doc(callLogId)
+                .set({
+                    qaAudioReview: {
+                        ...qaAudioReview,
+                        generatedAt: qaAudioReview.generatedAt || admin.firestore.FieldValue.serverTimestamp(),
+                    },
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+            return true;
+        } catch (err) {
+            console.error(`[Firestore] Failed to attach QA audio review for ${uid}/${callLogId}:`, err.message);
+            return false;
+        }
+    }
+
+    async findCallLogByCallSid(agentId, callSid) {
+        if (!admin || !agentId || !callSid) return null;
+        try {
+            const db = getDb();
+            const ref = db.collection('users').doc(agentId).collection('callLogs');
+            let snap = await ref.where('callSid', '==', callSid).limit(1).get();
+            if (snap.empty) {
+                snap = await ref.where('dialCallSid', '==', callSid).limit(1).get();
+            }
+            if (snap.empty) return null;
+            const doc = snap.docs[0];
+            const data = doc.data() || {};
+            return { id: doc.id, agentId, ...data };
+        } catch (err) {
+            console.error(`[Firestore] findCallLogByCallSid failed for ${agentId}/${callSid}:`, err.message);
+            return null;
+        }
+    }
+
+    async listQaAudioReviews({ status = 'pending_review', limit = 20, offset = 0 } = {}) {
+        if (!admin) {
+            return { reviews: [], total: 0, hasMore: false, pageSize: 20, offset: 0 };
+        }
+        const allowed = new Set(['pending_review', 'clear', 'confirmed', 'dismissed', 'processing']);
+        const statuses = status === 'all'
+            ? ['pending_review', 'clear', 'confirmed', 'dismissed', 'processing']
+            : allowed.has(status) ? [status] : ['pending_review'];
+        // Fixed scan window so page 2+ sees the same sorted set as page 1.
+        const scanCap = 300;
+        const pageSize = Math.min(Math.max(Number(limit) || 20, 1), scanCap);
+        const skip = Math.max(0, Number(offset) || 0);
+
+        try {
+            const db = getDb();
+            const snaps = await Promise.all(statuses.map((s) => (
+                db.collectionGroup('callLogs')
+                    .where('qaAudioReview.status', '==', s)
+                    .limit(scanCap)
+                    .get()
+            )));
+
+            const rows = [];
+            snaps.forEach((snap) => {
+                snap.docs.forEach((doc) => {
+                    const data = doc.data() || {};
+                    const agentId = data.agentId || doc.ref.parent.parent.id;
+                    const review = data.qaAudioReview || {};
+                    rows.push({
+                        id: doc.id,
+                        callLogId: doc.id,
+                        agentId,
+                        agencyId: data.agencyId ?? null,
+                        callSid: data.callSid || null,
+                        campaign: data.campaign || 'unknown',
+                        campaignLabel: data.campaignLabel || data.campaign || 'unknown',
+                        duration: Number(data.duration || 0),
+                        cost: Number(data.cost || 0),
+                        isBillable: Boolean(data.isBillable),
+                        recordingUrl: data.recordingUrl || null,
+                        recordingSid: data.recordingSid || null,
+                        createdAt: data.createdAt?.toDate?.()
+                            ? data.createdAt.toDate().toISOString()
+                            : data.createdAt || data.timestamp || null,
+                        qaAudioReview: {
+                            ...review,
+                            generatedAt: review.generatedAt?.toDate?.()
+                                ? review.generatedAt.toDate().toISOString()
+                                : review.generatedAt || null,
+                            review: review.review ? {
+                                ...review.review,
+                                at: review.review.at?.toDate?.()
+                                    ? review.review.at.toDate().toISOString()
+                                    : review.review.at || null,
+                            } : null,
+                        },
+                    });
+                });
+            });
+
+            rows.sort((a, b) => {
+                const aTs = new Date(a.qaAudioReview?.generatedAt || a.createdAt || 0).getTime();
+                const bTs = new Date(b.qaAudioReview?.generatedAt || b.createdAt || 0).getTime();
+                return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
+            });
+
+            // Dedupe if "all" pulled the same doc across status queries (shouldn't, but safe).
+            const seen = new Set();
+            const unique = [];
+            for (const row of rows) {
+                const key = `${row.agentId}/${row.callLogId || row.id}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                unique.push(row);
+            }
+
+            const windowed = unique.slice(0, scanCap);
+            const reviews = windowed.slice(skip, skip + pageSize);
+            const total = windowed.length;
+            const hasMore = skip + pageSize < total;
+            return {
+                reviews,
+                total,
+                hasMore,
+                pageSize,
+                offset: skip,
+                capped: unique.length >= scanCap,
+            };
+        } catch (err) {
+            console.error('[Firestore] listQaAudioReviews failed:', err.message);
+            return { reviews: [], total: 0, hasMore: false, pageSize, offset: skip };
+        }
+    }
+
+    async countQaAudioReviews(status = 'pending_review') {
+        const out = await this.listQaAudioReviews({ status, limit: 100, offset: 0 });
+        return Array.isArray(out) ? out.length : (out.total || out.reviews?.length || 0);
+    }
+
+    async getQaAudioPipelineStatus() {
+        const [processingOut, pendingOut, clearOut, confirmedOut, dismissedOut] = await Promise.all([
+            this.listQaAudioReviews({ status: 'processing', limit: 50, offset: 0 }),
+            this.listQaAudioReviews({ status: 'pending_review', limit: 50, offset: 0 }),
+            this.listQaAudioReviews({ status: 'clear', limit: 50, offset: 0 }),
+            this.listQaAudioReviews({ status: 'confirmed', limit: 50, offset: 0 }),
+            this.listQaAudioReviews({ status: 'dismissed', limit: 50, offset: 0 }),
+        ]);
+        const processing = processingOut.reviews || [];
+        const pending = pendingOut.reviews || [];
+        const clear = clearOut.reviews || [];
+        const confirmed = confirmedOut.reviews || [];
+        const dismissed = dismissedOut.reviews || [];
+        const all = [...processing, ...pending, ...clear, ...confirmed, ...dismissed].sort((a, b) => {
+            const aTs = new Date(a.qaAudioReview?.generatedAt || a.createdAt || 0).getTime();
+            const bTs = new Date(b.qaAudioReview?.generatedAt || b.createdAt || 0).getTime();
+            return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
+        });
+        const last = all[0] || null;
+        const lastGemini = all.find((row) => row.qaAudioReview?.source === 'gemini_audio') || null;
+        const qa = last?.qaAudioReview || {};
+        return {
+            counts: {
+                processing: processingOut.total ?? processing.length,
+                pending: pendingOut.total ?? pending.length,
+                clear: clearOut.total ?? clear.length,
+                confirmed: confirmedOut.total ?? confirmed.length,
+                dismissed: dismissedOut.total ?? dismissed.length,
+            },
+            lastReview: last ? {
+                callLogId: last.callLogId || last.id,
+                agentId: last.agentId,
+                campaign: last.campaignLabel || last.campaign,
+                status: qa.status || null,
+                source: qa.source || null,
+                summary: qa.summary || '',
+                generatedAt: qa.generatedAt || last.createdAt || null,
+                violationCount: Array.isArray(qa.violations) ? qa.violations.length : 0,
+            } : null,
+            lastGeminiAt: lastGemini?.qaAudioReview?.generatedAt || null,
+        };
+    }
+
     async findCallLogByRecordingSid(recordingSid) {
         if (!admin || !recordingSid) return null;
         try {
@@ -273,6 +503,265 @@ class CallLogService {
             console.error(`[Firestore] findCallLogByRecordingSid failed for ${recordingSid}:`, err.message);
             return null;
         }
+    }
+
+    qaAudioBackfillSkipReason(data, {
+        force = false,
+        maxDurationSec = 0,
+        minDurationSec = 0,
+        useBufferWindow = true,
+    } = {}) {
+        if (isMockCallLog(data)) return 'mock_call';
+        const callStatus = String(data?.status || '').toLowerCase();
+        if (QA_BACKFILL_SKIP_CALL_STATUSES.has(callStatus)) return 'skipped_status';
+        const recordingSid = parseRecordingSid(data?.recordingSid || data?.recordingUrl);
+        if (!recordingSid) return 'no_recording';
+        const duration = Number(data?.duration || 0);
+
+        if (useBufferWindow) {
+            const { eligible, reason } = getAiFlagsEligibility({
+                campaign: data?.campaign,
+                duration,
+                force: false,
+            });
+            if (!eligible) {
+                return reason === 'below_buffer_window' ? 'too_short' : 'too_long';
+            }
+        } else {
+            const maxDur = Number(maxDurationSec) || 0;
+            const minDur = Number(minDurationSec) || 0;
+            if (minDur > 0 && !(duration >= minDur)) return 'too_short';
+            if (maxDur > 0 && !(duration > 0 && duration <= maxDur)) return 'too_long';
+        }
+
+        // Don't keep retrying recordings Twilio already said are gone.
+        if (!force && data?.qaAudioReview?.source === 'recording_fetch_failed') return 'recording_gone';
+        if (force) return null;
+        const qa = data?.qaAudioReview || {};
+        if (QA_CLAIMED_STATUSES.includes(qa.status)) return 'in_flight_or_reviewed';
+        if (qa.source === 'gemini_audio') return 'already_analyzed';
+        return null;
+    }
+
+    async fetchRecentCallLogDocs(userRef, perUserLimit) {
+        const col = userRef.collection('callLogs');
+        const limit = Math.min(Math.max(Number(perUserLimit) || 80, 1), 200);
+        try {
+            const snap = await col.orderBy('createdAt', 'desc').limit(limit).get();
+            if (!snap.empty) return snap.docs;
+        } catch (_) { /* some older logs only have timestamp */ }
+        try {
+            const snap = await col.orderBy('timestamp', 'desc').limit(limit).get();
+            if (!snap.empty) return snap.docs;
+        } catch (_) { /* fall through */ }
+        const snap = await col.limit(limit).get();
+        return snap.docs;
+    }
+
+    async collectClearQaAudioReanalyzeCandidates({ limit = 1 } = {}) {
+        const cap = Math.min(Math.max(Number(limit) || 1, 1), 25);
+        const stats = {
+            scannedUsers: 0,
+            scannedLogs: 0,
+            skippedNoRecording: 0,
+            skippedAlreadyAnalyzed: 0,
+            skippedInFlight: 0,
+            skippedStatus: 0,
+            skippedTooLong: 0,
+            skippedTooShort: 0,
+            skippedMock: 0,
+            skippedRecordingGone: 0,
+            maxDurationSec: null,
+            minDurationSec: null,
+            preferShort: false,
+            useBufferWindow: true,
+            fromClear: true,
+            candidates: [],
+        };
+        if (!admin) return stats;
+
+        const clearOut = await this.listQaAudioReviews({ status: 'clear', limit: Math.max(cap * 4, 40), offset: 0 });
+        const clearRows = clearOut.reviews || [];
+        stats.scannedLogs = clearRows.length;
+
+        for (const row of clearRows) {
+            if (stats.candidates.length >= cap) break;
+            if (isMockCallLog(row)) {
+                stats.skippedMock += 1;
+                continue;
+            }
+            const recordingSid = parseRecordingSid(row.recordingSid || row.recordingUrl);
+            if (!recordingSid) {
+                stats.skippedNoRecording += 1;
+                continue;
+            }
+            if (row.qaAudioReview?.source === 'recording_fetch_failed') {
+                stats.skippedRecordingGone += 1;
+                continue;
+            }
+            const { eligible, reason } = getAiFlagsEligibility({
+                campaign: row.campaign,
+                duration: row.duration,
+                force: false,
+            });
+            if (!eligible) {
+                if (reason === 'below_buffer_window') stats.skippedTooShort += 1;
+                else stats.skippedTooLong += 1;
+                continue;
+            }
+
+            stats.candidates.push({
+                ...row,
+                id: row.callLogId || row.id,
+                agentId: row.agentId,
+                recordingSid,
+            });
+        }
+
+        return stats;
+    }
+
+    async collectQaAudioBackfillCandidates({
+        limit = 25,
+        force = false,
+        uid = '',
+        maxDurationSec = 0,
+        minDurationSec = 0,
+        preferShort = false,
+        sinceMs = 0,
+        useBufferWindow = true,
+    } = {}) {
+        const cap = Math.min(Math.max(Number(limit) || 25, 1), 100);
+        const gatherCap = Math.min(Math.max(cap * 8, cap), 400);
+        const maxDur = Math.max(0, Number(maxDurationSec) || 0);
+        const minDur = Math.max(0, Number(minDurationSec) || 0);
+        const since = Math.max(0, Number(sinceMs) || 0);
+        const bufferWindow = useBufferWindow !== false;
+        const stats = {
+            scannedUsers: 0,
+            scannedLogs: 0,
+            skippedNoRecording: 0,
+            skippedAlreadyAnalyzed: 0,
+            skippedInFlight: 0,
+            skippedStatus: 0,
+            skippedTooLong: 0,
+            skippedTooShort: 0,
+            skippedMock: 0,
+            skippedRecordingGone: 0,
+            skippedTooOld: 0,
+            maxDurationSec: bufferWindow ? null : (maxDur || null),
+            minDurationSec: bufferWindow ? null : (minDur || null),
+            preferShort: Boolean(preferShort),
+            useBufferWindow: bufferWindow,
+            sinceMs: since || null,
+            candidates: [],
+        };
+        if (!admin) return stats;
+
+        const db = getDb();
+        const targetUid = String(uid || '').trim();
+        const userDocs = targetUid
+            ? [{ id: targetUid, ref: db.collection('users').doc(targetUid) }]
+            : (await db.collection('users').select().get()).docs;
+
+        const toMillis = (value) => {
+            if (!value) return 0;
+            if (typeof value.toDate === 'function') {
+                try { return value.toDate().getTime(); } catch (_) { return 0; }
+            }
+            const ms = new Date(value).getTime();
+            return Number.isFinite(ms) ? ms : 0;
+        };
+
+        for (const userDoc of userDocs) {
+            if (!targetUid && stats.scannedUsers >= 250) break;
+            if (stats.candidates.length >= gatherCap) break;
+            stats.scannedUsers += 1;
+            let docs = [];
+            try {
+                docs = await this.fetchRecentCallLogDocs(userDoc.ref, targetUid ? 200 : 80);
+            } catch (err) {
+                console.warn(`[Firestore] backfill scan failed for ${userDoc.id}: ${err.message}`);
+                continue;
+            }
+
+            for (const doc of docs) {
+                if (stats.candidates.length >= gatherCap) break;
+                stats.scannedLogs += 1;
+                const data = doc.data() || {};
+                if (since > 0) {
+                    const createdMs = toMillis(data.createdAt || data.timestamp);
+                    if (!createdMs || createdMs < since) {
+                        stats.skippedTooOld += 1;
+                        continue;
+                    }
+                }
+                const reason = this.qaAudioBackfillSkipReason(data, {
+                    force,
+                    maxDurationSec: maxDur,
+                    minDurationSec: minDur,
+                    useBufferWindow: bufferWindow,
+                });
+                if (reason === 'no_recording') {
+                    stats.skippedNoRecording += 1;
+                    continue;
+                }
+                if (reason === 'already_analyzed') {
+                    stats.skippedAlreadyAnalyzed += 1;
+                    continue;
+                }
+                if (reason === 'in_flight_or_reviewed') {
+                    stats.skippedInFlight += 1;
+                    continue;
+                }
+                if (reason === 'skipped_status') {
+                    stats.skippedStatus += 1;
+                    continue;
+                }
+                if (reason === 'too_long') {
+                    stats.skippedTooLong += 1;
+                    continue;
+                }
+                if (reason === 'too_short') {
+                    stats.skippedTooShort += 1;
+                    continue;
+                }
+                if (reason === 'mock_call') {
+                    stats.skippedMock += 1;
+                    continue;
+                }
+                if (reason === 'recording_gone') {
+                    stats.skippedRecordingGone += 1;
+                    continue;
+                }
+
+                const recordingSid = parseRecordingSid(data.recordingSid || data.recordingUrl);
+                if (!data.recordingSid && recordingSid) {
+                    try {
+                        await doc.ref.set({ recordingSid }, { merge: true });
+                    } catch (_) { /* proxy still works from URL parse */ }
+                }
+
+                stats.candidates.push({
+                    ...data,
+                    id: doc.id,
+                    agentId: data.agentId || userDoc.id,
+                    recordingSid,
+                });
+            }
+        }
+
+        stats.candidates.sort((a, b) => {
+            const durDiff = Number(a.duration || 0) - Number(b.duration || 0);
+            if (preferShort) {
+                if (durDiff !== 0) return durDiff;
+            } else if (!bufferWindow && (minDur > 0 || maxDur === 0)) {
+                if (durDiff !== 0) return -durDiff;
+            }
+            return toMillis(b.createdAt || b.timestamp) - toMillis(a.createdAt || a.timestamp);
+        });
+        stats.candidates = stats.candidates.slice(0, cap);
+        return stats;
     }
 
     async getCallLog(agentId, callLogId) {

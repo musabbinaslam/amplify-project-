@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { usePageBreadcrumbs } from '../../hooks/usePageBreadcrumbs';
 import {
   Building2,
@@ -14,10 +14,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
-  LayoutDashboard,
-  Copy,
   Check,
   Link2,
+  ArrowLeft,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -34,7 +33,9 @@ import {
   assignAgencyDid,
 } from '../../services/agencyService';
 import { getAdminOverviewLite, listAdminUsers } from '../../services/adminService';
-import AdminAgencySettingsShell from '../../components/admin/AdminAgencySettingsShell';
+import AdminPageShell from '../../components/admin/AdminPageShell';
+import AgencyDashboardLayout from '../../components/ops/AgencyDashboardLayout';
+import CustomSelect from '../../components/ui/CustomSelect';
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
 import PageLoader from '../../components/ui/PageLoader';
 import shared from '../../components/admin/adminShared.module.css';
@@ -42,8 +43,10 @@ import classes from './AdminAgenciesPage.module.css';
 
 const MEMBERS_PAGE_SIZE = 25;
 const PICKER_PAGE_SIZE = 12;
+const VALID_TABS = ['overview', 'members', 'campaigns', 'dids'];
 
 const SETTINGS_TABS = [
+  { id: 'overview', label: 'Overview' },
   { id: 'members', label: 'Members' },
   { id: 'campaigns', label: 'Campaigns' },
   { id: 'dids', label: 'DIDs' },
@@ -280,19 +283,62 @@ function AssignMembersModal({
   );
 }
 
+function ConfirmDialog({
+  open,
+  title,
+  body,
+  confirmLabel,
+  confirming,
+  onClose,
+  onConfirm,
+}) {
+  if (!open) return null;
+  return (
+    <div
+      className={shared.modalOverlay}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="agency-confirm-title"
+      onClick={() => !confirming && onClose()}
+    >
+      <div className={`glass ${shared.modalBox}`} onClick={(e) => e.stopPropagation()}>
+        <div className={shared.modalHeader}>
+          <h3 id="agency-confirm-title">{title}</h3>
+          <button type="button" className={shared.modalCloseBtn} onClick={onClose} aria-label="Close" disabled={confirming}>
+            <X size={18} />
+          </button>
+        </div>
+        <p className={shared.modalSub}>{body}</p>
+        <div className={shared.modalActions}>
+          <button type="button" className={shared.modalCancelBtn} onClick={onClose} disabled={confirming}>
+            Cancel
+          </button>
+          <button type="button" className={shared.dangerBtn} onClick={onConfirm} disabled={confirming}>
+            {confirming ? 'Working…' : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminAgenciesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [agencies, setAgencies] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
-  const [liveCallsCount, setLiveCallsCount] = useState(0);
-  const [users, setUsers] = useState([]);
+  const [liveCallsRaw, setLiveCallsRaw] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [selectedId, setSelectedId] = useState(() => searchParams.get('selected') || '');
-  const [settingsTab, setSettingsTab] = useState('members');
   const [members, setMembers] = useState([]);
   const [dids, setDids] = useState([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [createForm, setCreateForm] = useState({ name: '', slug: '' });
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [directorySearch, setDirectorySearch] = useState('');
+  const [confirm, setConfirm] = useState(null);
+  const [confirming, setConfirming] = useState(false);
   const [memberForm, setMemberForm] = useState({ selectedUids: [], role: 'agency_agent' });
   const [memberSearch, setMemberSearch] = useState('');
   const [pickerPage, setPickerPage] = useState(1);
@@ -317,6 +363,9 @@ export default function AdminAgenciesPage() {
   }, [selectedId]);
 
   const selected = agencies.find((a) => a.id === selectedId) || null;
+  const settingsTab = VALID_TABS.includes(searchParams.get('tab'))
+    ? searchParams.get('tab')
+    : 'overview';
 
   const breadcrumbs = useMemo(() => {
     const crumbs = [
@@ -331,14 +380,19 @@ export default function AdminAgenciesPage() {
 
   usePageBreadcrumbs(breadcrumbs);
 
-  const updateSelectedId = useCallback((id) => {
-    setSelectedId(id);
-    if (id) {
-      setSearchParams({ selected: id }, { replace: true });
-    } else {
-      setSearchParams({}, { replace: true });
-    }
+  const updateSelectedId = useCallback((id, tab) => {
+    setSelectedId(id || '');
+    setSearchParams((prev) => {
+      if (!id) return {};
+      const nextTab = tab || prev.get('tab') || 'overview';
+      return { selected: id, tab: nextTab };
+    }, { replace: true });
   }, [setSearchParams]);
+
+  const setSettingsTab = useCallback((tab) => {
+    if (!selectedId) return;
+    setSearchParams({ selected: selectedId, tab }, { replace: true });
+  }, [selectedId, setSearchParams]);
 
   useEffect(() => {
     const param = searchParams.get('selected');
@@ -347,6 +401,41 @@ export default function AdminAgenciesPage() {
       setSelectedId(param);
     }
   }, [agencies, searchParams, selectedId]);
+
+  useEffect(() => {
+    if (loading || !agencies.length || !selectedId) return;
+    if (!agencies.some((a) => a.id === selectedId)) {
+      toast.error('Agency not found');
+      updateSelectedId('');
+    }
+  }, [loading, agencies, selectedId, updateSelectedId]);
+
+  const unassignedUsers = useMemo(
+    () => allUsers.filter((u) => !u.agencyId),
+    [allUsers],
+  );
+
+  const liveCallsByAgency = useMemo(() => {
+    const agencyOf = new Map();
+    allUsers.forEach((u) => {
+      if (u.agencyId && u.uid) agencyOf.set(u.uid, u.agencyId);
+    });
+    const counts = new Map();
+    liveCallsRaw.forEach((c) => {
+      const aid = agencyOf.get(c.agentId);
+      if (!aid) return;
+      counts.set(aid, (counts.get(aid) || 0) + 1);
+    });
+    return counts;
+  }, [allUsers, liveCallsRaw]);
+
+  const filteredAgencies = useMemo(() => {
+    const q = directorySearch.trim().toLowerCase();
+    if (!q) return agencies;
+    return agencies.filter((a) => (
+      [a.name, a.slug, a.id, a.status].filter(Boolean).join(' ').toLowerCase().includes(q)
+    ));
+  }, [agencies, directorySearch]);
 
   const filteredMembers = useMemo(
     () => filterByQuery(members, membersSearch, ['role']),
@@ -360,15 +449,14 @@ export default function AdminAgenciesPage() {
   const stats = useMemo(() => {
     const active = agencies.filter((a) => a.status !== 'suspended').length;
     const agents = agencies.reduce((sum, a) => sum + (a.agentCount ?? 0), 0);
-    return { total: agencies.length, active, agents };
-  }, [agencies]);
-
-  const metrics = useMemo(() => [
-    { label: 'agencies', value: stats.total },
-    { label: 'active', value: stats.active },
-    { label: 'agents', value: stats.agents },
-    { label: 'live calls', value: liveCallsCount },
-  ], [stats, liveCallsCount]);
+    return {
+      total: agencies.length,
+      active,
+      suspended: agencies.length - active,
+      agents,
+      liveCalls: liveCallsRaw.length,
+    };
+  }, [agencies, liveCallsRaw.length]);
 
   const loadAgencies = useCallback(async () => {
     const out = await listAdminAgencies();
@@ -383,8 +471,8 @@ export default function AdminAgenciesPage() {
         listAdminUsers(),
       ]);
       setCampaigns(ov?.campaigns || []);
-      setLiveCallsCount(ov?.live?.activeCalls || 0);
-      setUsers(dedupeUsers(userOut?.users || []).filter((u) => !u.agencyId));
+      setLiveCallsRaw(ov?.liveCalls || []);
+      setAllUsers(dedupeUsers(userOut?.users || []));
       await loadAgencies();
     } catch (e) {
       toast.error(e.message || 'Failed to load agencies');
@@ -427,7 +515,6 @@ export default function AdminAgenciesPage() {
     setMemberForm({ selectedUids: [], role: 'agency_agent' });
     setMemberSearch('');
     setPickerPage(1);
-    setSettingsTab('members');
   }, [selectedId]);
 
   useEffect(() => {
@@ -452,14 +539,18 @@ export default function AdminAgenciesPage() {
       toast.error('Agency name is required');
       return;
     }
+    setCreating(true);
     try {
       const out = await createAdminAgency(createForm);
       toast.success('Agency created');
       setCreateForm({ name: '', slug: '' });
+      setCreateOpen(false);
       await loadAgencies();
-      if (out?.agency?.id) updateSelectedId(out.agency.id);
+      if (out?.agency?.id) updateSelectedId(out.agency.id, 'overview');
     } catch (err) {
       toast.error(err.message || 'Failed to create agency');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -537,14 +628,54 @@ export default function AdminAgenciesPage() {
     }
   };
 
-  const handleRemoveMember = async (uid) => {
-    if (!selectedId || !window.confirm('Remove this user from the agency?')) return;
+  const handleRemoveMember = (uid) => {
+    const member = members.find((m) => m.uid === uid);
+    setConfirm({
+      type: 'remove-member',
+      id: uid,
+      title: 'Remove member',
+      body: `Remove ${member?.name || member?.email || 'this user'} from the agency?`,
+      confirmLabel: 'Remove',
+    });
+  };
+
+  const handleDeleteAgency = (id) => {
+    const agency = agencies.find((a) => a.id === id);
+    setConfirm({
+      type: 'delete-agency',
+      id,
+      title: 'Delete agency',
+      body: `Delete ${agency?.name || 'this agency'}? It must have no members.`,
+      confirmLabel: 'Delete agency',
+    });
+  };
+
+  const runConfirm = async () => {
+    if (!confirm) return;
+    setConfirming(true);
     try {
-      await removeAgencyMember(selectedId, uid);
-      toast.success('Member removed');
-      await Promise.all([loadShell(), loadAgencies(), loadAgencyDetail(selectedId)]);
+      if (confirm.type === 'remove-member') {
+        if (!selectedId) return;
+        await removeAgencyMember(selectedId, confirm.id);
+        toast.success('Member removed');
+        setConfirm(null);
+        await Promise.all([loadShell(), loadAgencies(), loadAgencyDetail(selectedId)]);
+      } else if (confirm.type === 'delete-agency') {
+        const result = await deleteAdminAgency(confirm.id);
+        const unlocked = result?.unlockedCampaignIds?.length || 0;
+        const routes = result?.updatedRouteIds?.length || 0;
+        const parts = ['Agency deleted'];
+        if (unlocked > 0) parts.push(`${unlocked} campaign${unlocked !== 1 ? 's' : ''} returned to platform`);
+        if (routes > 0) parts.push(`${routes} phone route${routes !== 1 ? 's' : ''} moved to platform`);
+        toast.success(parts.join('. '));
+        setConfirm(null);
+        if (selectedId === confirm.id) updateSelectedId('');
+        await loadAgencies();
+      }
     } catch (err) {
-      toast.error(err.message || 'Failed to remove member');
+      toast.error(err.message || 'Action failed');
+    } finally {
+      setConfirming(false);
     }
   };
 
@@ -583,23 +714,6 @@ export default function AdminAgenciesPage() {
     ));
   };
 
-  const handleDeleteAgency = async (id) => {
-    if (!window.confirm('Delete this agency? It must have no members.')) return;
-    try {
-      const result = await deleteAdminAgency(id);
-      const unlocked = result?.unlockedCampaignIds?.length || 0;
-      const routes = result?.updatedRouteIds?.length || 0;
-      const parts = ['Agency deleted'];
-      if (unlocked > 0) parts.push(`${unlocked} campaign${unlocked !== 1 ? 's' : ''} returned to platform`);
-      if (routes > 0) parts.push(`${routes} phone route${routes !== 1 ? 's' : ''} moved to platform`);
-      toast.success(parts.join('. '));
-      if (selectedId === id) updateSelectedId('');
-      await loadAgencies();
-    } catch (err) {
-      toast.error(err.message || 'Failed to delete agency');
-    }
-  };
-
   const handleSuspend = async (agency) => {
     try {
       await updateAdminAgency(agency.id, {
@@ -614,117 +728,257 @@ export default function AdminAgenciesPage() {
 
   if (loading && !agencies.length) return <PageLoader />;
 
-  const contextHeader = selected ? (
-    <div className={classes.contextHeaderRow}>
-      <div className={classes.contextLead}>
-        <div className={classes.contextIcon} aria-hidden="true">
-          <Building2 size={20} />
-        </div>
-        <div className={classes.contextCopy}>
-          <h3 className={classes.contextTitle}>{selected.name}</h3>
-          <p className={classes.contextMeta}>
-            {selected.slug || selected.id}
-            {' · '}
-            {selected.agentCount ?? 0} member{(selected.agentCount ?? 0) !== 1 ? 's' : ''}
-          </p>
-        </div>
-      </div>
-      <div className={classes.contextActions}>
-        <span className={`${shared.statusPill} ${selected.status === 'suspended' ? shared.dispMissed : shared.dispAnswered}`}>
-          {selected.status === 'suspended' ? 'Suspended' : 'Active'}
-        </span>
-        <Link
-          to={`/app/admin/ops/agencies?selected=${encodeURIComponent(selected.id)}`}
-          className={classes.opsLink}
+  if (!selectedId) {
+    return (
+      <>
+        <AdminPageShell
+          title="Agencies"
+          description="Create tenants, then open one to manage members, campaigns, DIDs, and live ops."
+          icon={Building2}
+          category={ADMIN_CATEGORIES.configuration}
+          actions={(
+            <button type="button" className={shared.primaryBtn} onClick={() => setCreateOpen(true)}>
+              <Plus size={16} />
+              Create agency
+            </button>
+          )}
         >
-          <LayoutDashboard size={15} />
-          <span className={classes.opsLinkLabel}>View ops dashboard</span>
-        </Link>
-        <button
-          type="button"
-          className={`${shared.rowBtnWarn} ${classes.contextActionBtn}`}
-          onClick={() => handleSuspend(selected)}
-        >
-          {selected.status === 'suspended' ? <Play size={14} /> : <Pause size={14} />}
-          {selected.status === 'suspended' ? 'Activate' : 'Suspend'}
-        </button>
-        <button
-          type="button"
-          className={shared.rowBtnDanger}
-          onClick={() => handleDeleteAgency(selected.id)}
-          aria-label="Delete agency"
-        >
-          <Trash2 size={14} />
-        </button>
-        <button
-          type="button"
-          className={classes.closeBtn}
-          onClick={() => updateSelectedId('')}
-          aria-label="Close agency settings"
-        >
-          <X size={16} />
-        </button>
-      </div>
-    </div>
-  ) : null;
+          <div className={`glass ${shared.qaStrip}`} aria-label="Platform summary">
+            <div className={shared.qaStripCell}>
+              <span className={shared.qaStripLabel}>Agencies</span>
+              <span className={shared.qaStripValue}>{stats.total}</span>
+              <span className={shared.qaStripSub}>All tenants</span>
+            </div>
+            <div className={`${shared.qaStripCell} ${stats.active > 0 ? shared.qaStripCellHot : ''}`}>
+              <span className={shared.qaStripLabel}>Active</span>
+              <span className={shared.qaStripValue}>{stats.active}</span>
+              <span className={shared.qaStripSub}>Can take calls</span>
+            </div>
+            <div className={shared.qaStripCell}>
+              <span className={shared.qaStripLabel}>Suspended</span>
+              <span className={shared.qaStripValue}>{stats.suspended}</span>
+              <span className={shared.qaStripSub}>Paused tenants</span>
+            </div>
+            <div className={shared.qaStripCell}>
+              <span className={shared.qaStripLabel}>Agents</span>
+              <span className={shared.qaStripValue}>{stats.agents}</span>
+              <span className={shared.qaStripSub}>Across agencies</span>
+            </div>
+            <div className={`${shared.qaStripCell} ${stats.liveCalls > 0 ? shared.qaStripCellHot : ''}`}>
+              <span className={shared.qaStripLabel}>Live calls</span>
+              <span className={shared.qaStripValue}>{stats.liveCalls}</span>
+              <span className={shared.qaStripSub}>On the floor now</span>
+            </div>
+          </div>
 
-  const railCreate = (
-    <form className={classes.createFooterForm} onSubmit={handleCreate}>
-      <div className={shared.formField}>
-        <label>Name</label>
-        <input
-          className={shared.input}
-          value={createForm.name}
-          onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
-          placeholder="Acme Call Center"
-        />
-      </div>
-      <div className={shared.formField}>
-        <label>Slug (optional)</label>
-        <input
-          className={shared.input}
-          value={createForm.slug}
-          onChange={(e) => setCreateForm((f) => ({ ...f, slug: e.target.value }))}
-          placeholder="acme-call-center"
-        />
-      </div>
-      <button type="submit" className={`${shared.primaryBtn} ${classes.createFooterBtn}`}>
-        <Plus size={16} />
-        Create agency
-      </button>
-    </form>
-  );
+          <div className={classes.toolbar}>
+            <div className={classes.searchWrap}>
+              <Search size={16} className={classes.searchIcon} aria-hidden="true" />
+              <input
+                className={`${shared.searchInput} ${classes.directorySearch}`}
+                placeholder="Search agencies…"
+                value={directorySearch}
+                onChange={(e) => setDirectorySearch(e.target.value)}
+                aria-label="Search agencies"
+              />
+            </div>
+            <span className={classes.pickerMeta}>
+              {filteredAgencies.length} of {agencies.length}
+            </span>
+          </div>
+
+          {!agencies.length ? (
+            <div className={shared.emptyPanel}>
+              <Building2 size={26} className={shared.emptyPanelIcon} />
+              <h4>No agencies yet</h4>
+              <p>Create an agency to assign members, lock campaigns, and monitor live ops.</p>
+            </div>
+          ) : filteredAgencies.length === 0 ? (
+            <div className={shared.emptyPanel}>
+              <h4>No matches</h4>
+              <p>No agencies match “{directorySearch}”.</p>
+            </div>
+          ) : (
+            <div className={classes.agencyGrid}>
+              {filteredAgencies.map((agency) => {
+                const live = liveCallsByAgency.get(agency.id) || 0;
+                const suspended = agency.status === 'suspended';
+                return (
+                  <button
+                    key={agency.id}
+                    type="button"
+                    className={`glass ${classes.agencyCard}`}
+                    onClick={() => updateSelectedId(agency.id, 'overview')}
+                  >
+                    <div className={classes.agencyCardTop}>
+                      <div>
+                        <h3 className={classes.agencyCardName}>{agency.name}</h3>
+                        <p className={classes.agencyCardSlug}>{agency.slug || agency.id}</p>
+                      </div>
+                      <span className={`${shared.statusPill} ${suspended ? shared.dispMissed : shared.dispAnswered}`}>
+                        {suspended ? 'Suspended' : 'Active'}
+                      </span>
+                    </div>
+                    <div className={classes.agencyCardStats}>
+                      <div className={classes.agencyCardStat}>
+                        <span className={classes.agencyCardStatValue}>{agency.agentCount ?? 0}</span>
+                        <span className={classes.agencyCardStatLabel}>Agents</span>
+                      </div>
+                      <div className={classes.agencyCardStat}>
+                        <span className={classes.agencyCardStatValue}>{live}</span>
+                        <span className={classes.agencyCardStatLabel}>Live calls</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </AdminPageShell>
+
+        {createOpen ? (
+          <div
+            className={shared.modalOverlay}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-agency-title"
+            onClick={() => !creating && setCreateOpen(false)}
+          >
+            <div className={`glass ${shared.modalBox}`} onClick={(e) => e.stopPropagation()}>
+              <div className={shared.modalHeader}>
+                <h3 id="create-agency-title">Create agency</h3>
+                <button
+                  type="button"
+                  className={shared.modalCloseBtn}
+                  onClick={() => !creating && setCreateOpen(false)}
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <p className={shared.modalSub}>Add a tenant, then open it to assign members and campaigns.</p>
+              <form className={classes.createForm} onSubmit={handleCreate}>
+                <div className={shared.formField}>
+                  <label htmlFor="agency-name">Name</label>
+                  <input
+                    id="agency-name"
+                    className={shared.input}
+                    value={createForm.name}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="Acme Call Center"
+                    autoFocus
+                  />
+                </div>
+                <div className={shared.formField}>
+                  <label htmlFor="agency-slug">Slug (optional)</label>
+                  <input
+                    id="agency-slug"
+                    className={shared.input}
+                    value={createForm.slug}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, slug: e.target.value }))}
+                    placeholder="acme-call-center"
+                  />
+                </div>
+                <div className={shared.modalActions}>
+                  <button
+                    type="button"
+                    className={shared.modalCancelBtn}
+                    onClick={() => setCreateOpen(false)}
+                    disabled={creating}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className={shared.primaryBtn} disabled={creating}>
+                    <Plus size={16} />
+                    {creating ? 'Creating…' : 'Create agency'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        ) : null}
+      </>
+    );
+  }
 
   return (
     <>
-      <AdminAgencySettingsShell
-        metrics={metrics}
-        loading={loading}
-        category={ADMIN_CATEGORIES.configuration}
-        tenants={agencies}
-        activeId={selectedId}
-        onSelect={updateSelectedId}
-        getTenantId={(a) => a.id}
-        getPrimaryLabel={(a) => a.name}
-        getSecondaryLabel={(a) => a.slug || a.id}
-        getAgentCount={(a) => a.agentCount ?? 0}
-        getStatusPill={(a) => ({
-          label: a.status === 'suspended' ? 'Suspended' : 'Active',
-          variant: a.status === 'suspended' ? 'suspended' : 'active',
-        })}
-        getSearchText={(a) => [a.name, a.slug, a.id, a.status].filter(Boolean).join(' ')}
-        railCreate={railCreate}
-        createTriggerLabel="Create agency"
-        detailHeader={contextHeader}
-        tabs={SETTINGS_TABS}
-        activeTab={settingsTab}
-        onTabChange={setSettingsTab}
-        emptyTenantsTitle="No agencies yet"
-        emptyTenantsBody="Click Create agency above to add your first tenant."
-        emptySelectionTitle="Select an agency"
-        emptySelectionBody="Choose from the directory to manage members, campaigns, and DIDs."
-      >
-        {settingsTab === 'members' ? (
+      <div className={classes.workspace}>
+        <button type="button" className={classes.backBtn} onClick={() => updateSelectedId('')}>
+          <ArrowLeft size={16} />
+          All agencies
+        </button>
+
+        <div className={`glass ${classes.workspaceCard}`}>
+          <div className={classes.workspaceHeader}>
+            <div className={classes.workspaceLead}>
+              <div className={classes.contextIcon} aria-hidden="true">
+                <Building2 size={20} />
+              </div>
+              <div className={classes.workspaceCopy}>
+                <CustomSelect
+                  className={classes.switcher}
+                  options={agencies.map((agency) => ({ value: agency.id, label: agency.name }))}
+                  value={selectedId}
+                  onChange={(id) => updateSelectedId(id, settingsTab)}
+                />
+                <p className={classes.contextMeta}>
+                  {selected?.slug || selectedId}
+                  {' · '}
+                  {selected?.agentCount ?? 0} agent{(selected?.agentCount ?? 0) !== 1 ? 's' : ''}
+                  {' · '}
+                  {liveCallsByAgency.get(selectedId) || 0} live
+                </p>
+              </div>
+            </div>
+            <div className={classes.contextActions}>
+              <span className={`${shared.statusPill} ${selected?.status === 'suspended' ? shared.dispMissed : shared.dispAnswered}`}>
+                {selected?.status === 'suspended' ? 'Suspended' : 'Active'}
+              </span>
+              <button
+                type="button"
+                className={`${shared.rowBtnWarn} ${classes.contextActionBtn}`}
+                onClick={() => selected && handleSuspend(selected)}
+              >
+                {selected?.status === 'suspended' ? <Play size={14} /> : <Pause size={14} />}
+                {selected?.status === 'suspended' ? 'Activate' : 'Suspend'}
+              </button>
+              <button
+                type="button"
+                className={shared.rowBtnDanger}
+                onClick={() => handleDeleteAgency(selectedId)}
+                aria-label="Delete agency"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+
+          <div className={classes.tabBar} role="tablist" aria-label="Agency sections">
+            {SETTINGS_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={settingsTab === tab.id}
+                className={`${classes.tab} ${settingsTab === tab.id ? classes.tabActive : ''}`}
+                onClick={() => setSettingsTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className={`${classes.tabPanel} ${settingsTab === 'overview' ? classes.tabPanelFlush : ''}`} role="tabpanel">
+            {settingsTab === 'overview' ? (
+              <AgencyDashboardLayout
+                scope={{ agencyId: selectedId }}
+                embedMode
+                compactHeader
+              />
+            ) : null}
+
+            {settingsTab === 'members' ? (
           <div className={classes.tabContent}>
             <div className={classes.tabToolbar}>
               <p className={classes.tabIntro}>
@@ -970,12 +1224,14 @@ export default function AdminAgenciesPage() {
             </div>
           </div>
         ) : null}
-      </AdminAgencySettingsShell>
+          </div>
+        </div>
+      </div>
 
       <AssignMembersModal
         open={assignModalOpen}
         onClose={closeAssignModal}
-        users={users}
+        users={unassignedUsers}
         selectedUids={memberForm.selectedUids}
         role={memberForm.role}
         search={memberSearch}
@@ -988,6 +1244,16 @@ export default function AdminAgenciesPage() {
         onSelectAllFiltered={selectAllFilteredMembers}
         onRoleChange={(role) => setMemberForm((f) => ({ ...f, role }))}
         onSubmit={handleAssignMember}
+      />
+
+      <ConfirmDialog
+        open={Boolean(confirm)}
+        title={confirm?.title || ''}
+        body={confirm?.body || ''}
+        confirmLabel={confirm?.confirmLabel || 'Confirm'}
+        confirming={confirming}
+        onClose={() => !confirming && setConfirm(null)}
+        onConfirm={runConfirm}
       />
     </>
   );

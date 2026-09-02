@@ -348,6 +348,7 @@ export function useOpsDashboard(mode, scope = {}) {
     loadingAgents,
     agents,
     liveCallByAgent,
+    liveCalls,
     analyticsLoading,
     summary: summarySafe,
     agentStats,

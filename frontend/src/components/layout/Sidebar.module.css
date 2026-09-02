@@ -24,7 +24,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px 0 14px;
+  padding: 0 8px 0 10px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
   flex-shrink: 0;
 }
@@ -32,7 +32,7 @@
 .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -80,7 +80,7 @@
 .nav {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 10px;
+  padding: 12px 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -133,9 +133,9 @@
 .navItem {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-height: 42px;
-  padding: 6px 10px;
+  padding: 6px 8px;
   border-radius: var(--radius-lg);
   border: 1px solid transparent;
   color: var(--text-secondary);
@@ -233,7 +233,7 @@
 
 .badge {
   font-size: 10px;
-  padding: 3px 8px;
+  padding: 3px 6px;
   border-radius: var(--radius-full);
   font-weight: 700;
   text-transform: uppercase;
@@ -294,9 +294,9 @@
   --logout-color: #ef4444;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-height: 42px;
-  padding: 6px 10px;
+  padding: 6px 8px;
   width: 100%;
   border-radius: var(--radius-lg);
   color: var(--logout-color);

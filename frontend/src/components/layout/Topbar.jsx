@@ -14,6 +14,7 @@ import classes from './Topbar.module.css';
 const Topbar = ({
   notifications = [],
   adminNotifications = [],
+  aiFlagNotifications = [],
   isAdmin = false,
   unreadCount = 0,
   onMarkRead,
@@ -33,6 +34,7 @@ const Topbar = ({
   const [inboxTab, setInboxTab] = useState('general');
   const inboxRef = useRef(null);
   const { callState } = useDialerStore();
+  const showPersonaWarning = Boolean(user && user.personaStatus !== 'verified');
 
   const isOnline = callState !== 'offline' && callState !== 'error';
   const inboxMotion = dropdownPanelMotion(reduceMotion);
@@ -108,6 +110,10 @@ const Topbar = ({
     () => (isAdmin ? adminNotifications.slice(0, 12) : []),
     [adminNotifications, isAdmin],
   );
+  const aiFlagItems = useMemo(
+    () => (isAdmin ? aiFlagNotifications.slice(0, 12) : []),
+    [aiFlagNotifications, isAdmin],
+  );
   const generalUnread = useMemo(
     () => notifications.filter((row) => !row.read).length,
     [notifications],
@@ -116,7 +122,15 @@ const Topbar = ({
     () => adminNotifications.filter((row) => !row.read).length,
     [adminNotifications],
   );
-  const activeItems = inboxTab === 'admin' && isAdmin ? adminItems : generalItems;
+  const aiFlagUnread = useMemo(
+    () => aiFlagNotifications.filter((row) => !row.read).length,
+    [aiFlagNotifications],
+  );
+  const activeItems = inboxTab === 'admin' && isAdmin
+    ? adminItems
+    : inboxTab === 'ai_flags' && isAdmin
+      ? aiFlagItems
+      : generalItems;
   const activeTabEmpty = activeItems.length === 0;
 
   const closeInbox = () => {
@@ -127,7 +141,7 @@ const Topbar = ({
   const openNotification = (row) => {
     if (row.id && onMarkRead) onMarkRead(row.id);
 
-    if (row.linkPath && (row.type === 'admin_alert' || row.type === 'contest_credited')) {
+    if (row.linkPath && (row.type === 'admin_alert' || row.type === 'ai_flag' || row.type === 'contest_credited')) {
       closeInbox();
       navigate(row.linkPath);
       return;
@@ -152,16 +166,19 @@ const Topbar = ({
       key={row.id || `${row.title}-${row.createdAt}`}
       className={`${classes.notificationCard} ${!row.read ? classes.notificationCardUnread : ''} ${
         latestNotificationId && row.id === latestNotificationId ? classes.notificationCardNew : ''
-      } ${row.type === 'admin_alert' ? classes.notificationCardAdmin : ''}`}
+      } ${row.type === 'admin_alert' || row.type === 'ai_flag' ? classes.notificationCardAdmin : ''}`}
       onClick={() => openNotification(row)}
     >
       {!row.read && <span className={classes.unreadDot} aria-hidden="true" />}
       <div className={classes.cardMain}>
         <div className={classes.cardTitleRow}>
           <span className={classes.itemTitle}>{row.title || 'Notification'}</span>
-          {row.type === 'admin_alert' && (
+          {row.type === 'admin_alert' ? (
             <span className={classes.adminChip}>Admin</span>
-          )}
+          ) : null}
+          {row.type === 'ai_flag' ? (
+            <span className={classes.adminChip}>AI Flags</span>
+          ) : null}
         </div>
         {row.body ? <span className={classes.itemBody}>{row.body}</span> : null}
         <span className={classes.itemTime}>{formatTime(row.createdAt || row.createdAtIso)}</span>
@@ -221,6 +238,19 @@ const Topbar = ({
           <span className={classes.discordLabel}>Join Discord</span>
         </a>
 
+        {showPersonaWarning ? (
+          <button
+            type="button"
+            className={classes.personaWarning}
+            onClick={() => navigate('/app/take-calls')}
+            aria-label="Verify identity to take calls"
+            title="Verify identity to take calls"
+          >
+            <span className={classes.personaWarningIcon} aria-hidden="true">⚠</span>
+            <span className={classes.personaWarningText}>Verify identity to take calls</span>
+          </button>
+        ) : null}
+
         <div className={classes.inboxWrap} ref={inboxRef}>
           <button
             className={`${classes.iconBtn} ${isInboxOpen ? classes.iconBtnActive : ''} ${isBellAnimating ? classes.bellAnimated : ''}`}
@@ -251,7 +281,13 @@ const Topbar = ({
                   <button
                     type="button"
                     className={classes.inlineBtn}
-                    onClick={() => onMarkAllRead?.(inboxTab === 'admin' && isAdmin ? 'admin' : 'general')}
+                    onClick={() => onMarkAllRead?.(
+                      inboxTab === 'admin' && isAdmin
+                        ? 'admin'
+                        : inboxTab === 'ai_flags' && isAdmin
+                          ? 'ai_flags'
+                          : 'general',
+                    )}
                   >
                     Mark all read
                   </button>
@@ -285,6 +321,20 @@ const Topbar = ({
                         </span>
                       ) : null}
                     </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={inboxTab === 'ai_flags'}
+                      className={`${classes.inboxTab} ${inboxTab === 'ai_flags' ? classes.inboxTabActiveAdmin : ''}`}
+                      onClick={() => setInboxTab('ai_flags')}
+                    >
+                      AI Flags
+                      {aiFlagUnread > 0 ? (
+                        <span className={`${classes.inboxTabBadge} ${classes.inboxTabBadgeAdmin}`}>
+                          {aiFlagUnread > 99 ? '99+' : aiFlagUnread}
+                        </span>
+                      ) : null}
+                    </button>
                   </div>
                 ) : null}
 
@@ -293,7 +343,11 @@ const Topbar = ({
                     <div className={classes.emptyPanel}>
                       <Bell size={22} className={classes.emptyPanelIcon} aria-hidden="true" />
                       <p>
-                        {inboxTab === 'admin' ? 'No admin alerts right now.' : 'No notifications yet.'}
+                        {inboxTab === 'admin'
+                          ? 'No admin alerts right now.'
+                          : inboxTab === 'ai_flags'
+                            ? 'No AI flags yet.'
+                            : 'No notifications yet.'}
                       </p>
                     </div>
                   ) : (

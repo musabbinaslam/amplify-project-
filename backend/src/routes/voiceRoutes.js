@@ -15,6 +15,9 @@ router.post('/incoming-call', webhookCallLimiter, validateTwilioWebhook, voiceCo
 // Handle call completion for billing (Secured)
 router.post('/call-completed', webhookCallLimiter, validateTwilioWebhook, voiceController.handleCallCompleted);
 
+// Recording is ready — persist SID and dispatch audio QA
+router.post('/recording-complete', webhookCallLimiter, validateTwilioWebhook, voiceController.handleRecordingComplete);
+
 // Dial leg status (answered / completed) — promotes IN_CALL without browser socket
 router.post('/dial-status', webhookCallLimiter, validateTwilioWebhook, voiceController.handleDialStatus);
 

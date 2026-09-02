@@ -20,6 +20,7 @@ const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const { mergeUserDoc, getUserDoc } = require('../services/userDataService');
 const callLogService = require('../services/callLogService');
+const { flagAgentAccount } = require('../services/agentFlagService');
 const ANALYTICS_CACHE_TTL_MS = 30000;
 const READ_CONCURRENCY = 10;
 const analyticsCache = new Map();
@@ -65,7 +66,7 @@ const upsertCampaign = async (req, res) => {
     if (!Number.isFinite(priceNum) || priceNum < 0) {
       return res.status(400).json({ error: 'Price must be a non-negative number.' });
     }
-    
+
     const allowRefundsBool = typeof allowRefunds === 'boolean' ? allowRefunds : true;
 
     const campaignId = id.trim().toLowerCase();
@@ -148,7 +149,7 @@ const patchAdminCallLogDisposition = async (req, res) => {
   if (!uid || !callLogId || typeof disposition !== 'string') {
     return res.status(400).json({ error: 'uid, callLogId, and disposition are required' });
   }
-  
+
   try {
     const success = await callLogService.updateCallLogById(uid, callLogId, { disposition });
     if (!success) {
@@ -253,6 +254,13 @@ function normalizeCall(doc) {
     disposition: data.disposition || null,
     recordingUrl: data.recordingUrl || null,
     recordingSid: data.recordingSid || null,
+    qaAudioReview: data.qaAudioReview
+      ? {
+          status: data.qaAudioReview.status || null,
+          summary: data.qaAudioReview.summary || '',
+          violations: Array.isArray(data.qaAudioReview.violations) ? data.qaAudioReview.violations : [],
+        }
+      : null,
     refunded: Boolean(data.refunded),
     refundReason: data.refundReason || null,
     contestId: data.contestId || null,
@@ -463,9 +471,9 @@ async function buildUserMetaMap(agentIds = []) {
     const balanceCents = typeof data.wallet?.balance === 'number' ? data.wallet.balance : null;
     const flagged = data.flagged === true;
     const flagReason = data.flagReason || null;
-    
+
     if (candidate || phone || balanceCents !== null || flagged) {
-      map.set(snap.id, { name: candidate, phone, balanceCents, flagged, flagReason });
+      map.set(snap.id, { name: candidate, phone, balanceCents, flagged, flagReason, agencyId: data.agencyId });
     }
   });
   const missing = ids.filter((id) => {
@@ -868,6 +876,7 @@ async function getOverviewLite(req, res) {
         phone: metaMap.get(a.id)?.phone || null,
         flagged: metaMap.get(a.id)?.flagged || false,
         flagReason: metaMap.get(a.id)?.flagReason || null,
+        agencyId: metaMap.get(a.id)?.agencyId || null,
         paused: pausedSet.has(a.id),
         status: pausedSet.has(a.id) ? 'PAUSED' : a.status,
       })),
@@ -1377,32 +1386,13 @@ async function flagAgent(req, res) {
     const id = agentId.trim();
     const reason = String(req.body?.reason || 'Low billable rate — below 30% threshold').trim();
 
-    // 1. Write flagged:true to Firestore
-    await mergeUserDoc(id, {
-      flagged: true,
-      flaggedAt: new Date().toISOString(),
-      flaggedBy: req.user?.uid || 'admin',
-      flagReason: reason,
-    });
-
-    // 2. Kick them from Redis pool immediately
-    await agentManager.removeAgent(id);
-
-    // 3. Notify their browser via socket if they are online
-    await socketRegistry.emitToAgent(id, 'agent:flagged', {
+    await flagAgentAccount(id, {
       reason,
+      flaggedBy: req.user?.uid || 'admin',
       message: 'Your account has been flagged due to inactivity or a low billable rate. Please contact admin@callsflow.io to resume your activity.',
+      notificationBody: `Your account was flagged by an admin: ${reason}`,
     });
 
-    // 4. Send persistent notification to the agent's bell tray
-    await notifyAgent(id, {
-      type: 'personal',
-      title: 'Account Flagged',
-      body: `Your account was flagged by an admin: ${reason}`,
-      priority: 'high',
-    });
-
-    // 5. Invalidate analytics cache so the admin dashboard updates immediately
     analyticsCache.clear();
     coachingCache.clear();
 
@@ -1483,8 +1473,8 @@ async function getAnalyticsDrilldown(req, res) {
         const metaMap = await buildUserMetaMap(recentLogs.map((r) => r.agentId));
 
         const enrichedLogs = recentLogs.map((r) => mapRecentLogRow(r, {
-            agentName: metaMap.get(r.agentId)?.name || r.agentId,
-            phone: metaMap.get(r.agentId)?.phone || null,
+          agentName: metaMap.get(r.agentId)?.name || r.agentId,
+          phone: metaMap.get(r.agentId)?.phone || null,
         }));
 
         return res.json({
@@ -1851,13 +1841,13 @@ async function listAllUsersLite(req, res) {
     const snap = await db.collection('users').select().limit(5000).get();
     const ids = snap.docs.map((d) => d.id);
     const metaMap = await buildUserMetaMap(ids);
-    
+
     const users = ids.map((id) => {
       const entry = metaMap.get(id) || {};
       const name = entry.name || id;
       return { id, name, email: entry.email || null, phone: entry.phone || null };
     });
-    
+
     users.sort((a, b) => a.name.localeCompare(b.name));
     res.json({ users });
   } catch (err) {
