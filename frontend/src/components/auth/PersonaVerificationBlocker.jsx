@@ -22,6 +22,7 @@ const PersonaVerificationBlocker = ({ onComplete }) => {
     }
 
     try {
+      let capturedInquiryId = '';
       const client = new window.Persona.Client({
         templateId,
         environmentId,
@@ -30,11 +31,27 @@ const PersonaVerificationBlocker = ({ onComplete }) => {
           client.open();
           setIsLaunching(false);
         },
-        onComplete: async ({ inquiryId, status }) => {
-          console.log('[Persona] completed', status, inquiryId);
+        onEvent: (name, meta) => {
+          const id = meta?.inquiryId || meta?.inquiry_id;
+          if (id) capturedInquiryId = id;
+        },
+        onComplete: async (...args) => {
+          const payload = args[0];
+          const inquiryId =
+            (typeof payload === 'string' && payload.startsWith('inq_') ? payload : '')
+            || payload?.inquiryId
+            || payload?.inquiry_id
+            || payload?.id
+            || args[1]?.inquiryId
+            || capturedInquiryId;
+          console.log('[Persona] completed', args, 'inquiryId=', inquiryId);
           try {
-            if (inquiryId) {
-              await confirmPersonaInquiry(inquiryId);
+            if (!inquiryId) {
+              throw new Error('Persona did not return an inquiry id');
+            }
+            const result = await confirmPersonaInquiry(inquiryId);
+            if (result?.personaStatus === 'verified') {
+              useAuthStore.getState().setUserField('personaStatus', 'verified');
             }
             await useAuthStore.getState().refreshUserRole();
             const verified = useAuthStore.getState().user?.personaStatus === 'verified';
@@ -45,10 +62,11 @@ const PersonaVerificationBlocker = ({ onComplete }) => {
             if (onComplete) onComplete();
           } catch (err) {
             console.error('[Persona] confirm failed:', err);
+            const detail = String(err?.message || '').trim();
             toast.error(
-              err?.message?.includes('API key')
-                ? 'Verification finished in Persona, but the server could not save it. Add PERSONA_API_KEY and the Persona webhook.'
-                : 'Verification finished, but your account is not marked verified yet. Refresh in a few seconds.',
+              detail
+                ? `Verification finished in Persona, but CallsFlow could not save it: ${detail}`
+                : 'Verification finished, but your account is not marked verified yet.',
             );
             setIsLaunching(false);
           }
