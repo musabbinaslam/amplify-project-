@@ -1,12 +1,12 @@
 const express = require('express');
 const crypto = require('crypto');
-const admin = require('../config/firebaseAdmin');
 const { verifyFirebaseToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-const VERIFIED_STATUSES = new Set(['approved', 'completed']);
+const VERIFIED_STATUSES = new Set(['approved', 'completed', 'passed']);
 const FAILED_STATUSES = new Set(['failed', 'declined', 'expired']);
+const PENDING_STATUSES = new Set(['created', 'pending', 'needs_review', 'needs-review', '']);
 
 function parseJsonBody(req) {
   if (Buffer.isBuffer(req.body)) {
@@ -27,29 +27,33 @@ function attr(obj, ...keys) {
   return undefined;
 }
 
+function isInquiryNode(node) {
+  if (!node || typeof node !== 'object') return false;
+  if (node.type === 'inquiry') return true;
+  if (String(node.id || '').startsWith('inq_')) return true;
+  const attrs = node.attributes;
+  return Boolean(attrs && (attrs.status || attrs['status']));
+}
+
 function extractInquiry(payload) {
   const eventType = payload?.data?.attributes?.name || payload?.data?.type || '';
-  const inquiry =
-    payload?.data?.attributes?.payload?.data
-    || payload?.data?.attributes?.payload
-    || payload?.data;
-  const attrs = inquiry?.attributes || {};
+  const nested = payload?.data?.attributes?.payload;
+  const candidates = [nested?.data, payload?.data, nested, payload];
+  const inquiry = candidates.find(isInquiryNode) || payload?.data || {};
+  const attrs = inquiry.attributes || {};
   return {
-    eventType: String(eventType),
-    inquiryId: inquiry?.id || null,
+    eventType: String(eventType || ''),
+    inquiryId: inquiry.id || nested?.data?.id || null,
     status: String(attr(attrs, 'status') || '').toLowerCase(),
     referenceId: attr(attrs, 'referenceId', 'reference-id', 'reference_id') || null,
   };
 }
 
 async function setPersonaStatus(uid, status, inquiryId) {
-  const db = admin.firestore();
-  const patch = {
-    personaStatus: status,
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-  };
+  const { mergeUserDoc } = require('../services/userDataService');
+  const patch = { personaStatus: status };
   if (inquiryId) patch.personaInquiryId = inquiryId;
-  await db.collection('users').doc(uid).set(patch, { merge: true });
+  await mergeUserDoc(uid, patch);
 }
 
 function verifyPersonaSignature(req, rawBody, secret) {
@@ -153,8 +157,17 @@ router.post('/confirm', verifyFirebaseToken, async (req, res) => {
       });
     }
 
-    const inquiryPayload = await fetchPersonaInquiry(inquiryId);
-    const { status, referenceId } = extractInquiry(inquiryPayload);
+    let status = '';
+    let referenceId = null;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const inquiryPayload = await fetchPersonaInquiry(inquiryId);
+      ({ status, referenceId } = extractInquiry(inquiryPayload));
+      console.log(`[Persona Confirm] attempt=${attempt + 1} inquiry=${inquiryId} status=${status || 'none'} ref=${referenceId || 'none'}`);
+      if (VERIFIED_STATUSES.has(status) || FAILED_STATUSES.has(status)) break;
+      if (!PENDING_STATUSES.has(status)) break;
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+
     const uid = req.user.uid;
 
     if (referenceId && referenceId !== uid) {
@@ -165,11 +178,12 @@ router.post('/confirm', verifyFirebaseToken, async (req, res) => {
       return res.status(409).json({
         error: `Inquiry is not approved yet (status: ${status || 'unknown'})`,
         status,
-        personaStatus: status === 'declined' || status === 'failed' ? 'failed' : 'unverified',
+        personaStatus: FAILED_STATUSES.has(status) ? 'failed' : 'unverified',
       });
     }
 
     await setPersonaStatus(uid, 'verified', inquiryId);
+    console.log(`[Persona Confirm] Verified user ${uid} inquiry=${inquiryId}`);
     return res.json({ ok: true, personaStatus: 'verified', inquiryId, status });
   } catch (err) {
     console.error('[Persona Confirm] Error:', err);
