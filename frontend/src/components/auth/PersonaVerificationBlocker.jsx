@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
+import { confirmPersonaInquiry } from '../../services/personaService';
 import classes from './PersonaVerificationBlocker.module.css';
 
 const PersonaVerificationBlocker = ({ onComplete }) => {
@@ -30,21 +31,27 @@ const PersonaVerificationBlocker = ({ onComplete }) => {
           setIsLaunching(false);
         },
         onComplete: async ({ inquiryId, status }) => {
-          console.log('[Persona] completed', status);
-          toast.success('Identity verification completed successfully!');
-          const { user, setUserField } = useAuthStore.getState();
-          if (user) {
-            setUserField('personaStatus', 'verified');
-            if (import.meta.env.DEV) {
-              try {
-                const { saveProfile } = await import('../../services/profileService');
-                await saveProfile(user.uid, { personaStatus: 'verified' });
-              } catch (e) {
-                console.warn('Local dev persona save failed', e);
-              }
+          console.log('[Persona] completed', status, inquiryId);
+          try {
+            if (inquiryId) {
+              await confirmPersonaInquiry(inquiryId);
             }
+            await useAuthStore.getState().refreshUserRole();
+            const verified = useAuthStore.getState().user?.personaStatus === 'verified';
+            if (!verified) {
+              throw new Error('Verification has not been saved yet');
+            }
+            toast.success('Identity verification completed successfully!');
+            if (onComplete) onComplete();
+          } catch (err) {
+            console.error('[Persona] confirm failed:', err);
+            toast.error(
+              err?.message?.includes('API key')
+                ? 'Verification finished in Persona, but the server could not save it. Add PERSONA_API_KEY and the Persona webhook.'
+                : 'Verification finished, but your account is not marked verified yet. Refresh in a few seconds.',
+            );
+            setIsLaunching(false);
           }
-          if (onComplete) onComplete();
         },
         onCancel: () => {
           toast('Verification cancelled');

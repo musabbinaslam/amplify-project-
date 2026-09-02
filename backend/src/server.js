@@ -51,8 +51,9 @@ const corsOptions = {
 // Twilio sends data as x-www-form-urlencoded, so we must have this!
 app.use(cors(corsOptions));
 
-// Stripe webhook requires raw body for signature verification
+// Stripe / Persona webhooks require the raw body for signature verification.
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+app.use('/api/persona/webhook', express.raw({ type: 'application/json' }));
 app.use(express.urlencoded({ extended: true, limit: '6mb' }));
 app.use(express.json({ limit: '6mb' }));
 
