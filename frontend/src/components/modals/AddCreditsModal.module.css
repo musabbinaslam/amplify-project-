@@ -143,6 +143,10 @@
 
 .tierPopular {
   border-color: color-mix(in srgb, var(--brand-text) 35%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 8%, var(--surface-container-high));
+}
+
+.tierLast {
   grid-column: span 2;
 }
 
@@ -187,6 +191,6 @@
   }
 
   .tierPopular {
-    grid-column: span 1;
+    grid-column: auto;
   }
 }

@@ -4,11 +4,11 @@ import { motion, useReducedMotion } from 'framer-motion';
 import classes from './AddCreditsModal.module.css';
 
 const TOPUP_TIERS = [
-  { id: 'tier_50', label: '$50', amountCents: 5000 },
-  { id: 'tier_100', label: '$100', amountCents: 10000 },
-  { id: 'tier_250', label: '$250', amountCents: 25000, popular: true },
-  { id: 'tier_500', label: '$500', amountCents: 50000 },
+  { id: 'tier_250', label: '$250', amountCents: 25000 },
+  { id: 'tier_500', label: '$500', amountCents: 50000, popular: true },
   { id: 'tier_1000', label: '$1,000', amountCents: 100000 },
+  { id: 'tier_2500', label: '$2,500', amountCents: 250000 },
+  { id: 'tier_5000', label: '$5,000', amountCents: 500000, last: true },
 ];
 
 /* eslint-disable react/prop-types -- modal props are simple and stable */
@@ -77,7 +77,7 @@ const AddCreditsModal = ({ isOpen, onClose, discount, checkoutLoading, onTopup }
               <button
                 key={tier.id}
                 type="button"
-                className={`${classes.tierBtn} ${tier.popular ? classes.tierPopular : ''}`}
+                className={`${classes.tierBtn} ${tier.popular ? classes.tierPopular : ''} ${tier.last ? classes.tierLast : ''}`}
                 onClick={() => onTopup(tier.amountCents)}
                 disabled={checkoutLoading}
               >
