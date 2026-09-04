@@ -86,6 +86,7 @@ async function submitContest(agentId, callLogId, { reason, category, files = [] 
     agentId,
     callLogId,
     callSid: log.callSid || null,
+    callerPhone: log.from || null,
     campaign: log.campaign || 'unknown',
     campaignLabel: log.campaignLabel || log.campaign || 'unknown',
     duration: Number(log.duration || 0),
@@ -165,6 +166,19 @@ async function listContests({ status = 'pending', limit = 50 } = {}) {
     const row = serializeContest(doc);
     if (row.proofFiles?.length) {
       row.proofFiles = attachProofUrls(row.id, row.proofFiles);
+    }
+    // Backfill callerPhone for old contests that were submitted before this field was added
+    if (!row.callerPhone && row.agentId && row.callLogId) {
+      try {
+        const log = await callLogService.getCallLog(row.agentId, row.callLogId);
+        if (log?.from) {
+          row.callerPhone = log.from;
+          // Persist so we don't have to look it up again next time
+          db.collection('callContests').doc(row.id).set({ callerPhone: log.from }, { merge: true }).catch(() => {});
+        }
+      } catch {
+        // non-blocking — just leave callerPhone as null
+      }
     }
     rows.push(row);
   }

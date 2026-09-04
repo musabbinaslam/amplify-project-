@@ -333,6 +333,10 @@ export function ContestReviewCard({
                       <dd>{c.agentName || c.agentId}</dd>
                     </div>
                     <div>
+                      <dt>Caller ID</dt>
+                      <dd className={classes.contestFactMono}>{c.callerPhone || '—'}</dd>
+                    </div>
+                    <div>
                       <dt>Campaign</dt>
                       <dd>{c.campaignLabel || c.campaign}</dd>
                     </div>
