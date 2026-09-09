@@ -929,17 +929,7 @@ class AgentManager {
 
          const row = JSON.parse(rowStr);
          const agent = agentStr ? JSON.parse(agentStr) : {};
-         // null / '*' = admin global view (every tenant). A concrete agencyId
-         // (including platform via normalizeAgencyId → null segment) is scoped.
-         // NOTE: do NOT use agentMatchesAgencyFilter(null) here — that means
-         // "platform only", which hid all agency live calls on admin overview.
-         const scoped =
-            agencyIdFilter != null &&
-            agencyIdFilter !== '' &&
-            agencyIdFilter !== '*';
-         if (scoped && !this.agentMatchesAgencyFilter(agent.agencyId, agencyIdFilter)) {
-            return null;
-         }
+         if (!this.agentMatchesAgencyFilter(agent.agencyId, agencyIdFilter)) return null;
 
          // Always use the agent's real status — but if it is somehow AVAILABLE
          // while the call record exists, override to IN_CALL. An entry in
@@ -954,7 +944,6 @@ class AgentManager {
             from: row.from || null,
             to: row.to || null,
             campaignId: row.campaignId || agent.campaignId || null,
-            agencyId: agent.agencyId ?? row.agencyId ?? null,
             startedAt: row.startedAt || null,
             durationSec: Number.isNaN(startedAtMs) ? 0 : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000)),
             status: displayStatus,

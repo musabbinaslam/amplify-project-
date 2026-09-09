@@ -422,8 +422,7 @@ export default function AdminAgenciesPage() {
     });
     const counts = new Map();
     liveCallsRaw.forEach((c) => {
-      // Prefer Redis agencyId on the call row; fall back to Firestore user map.
-      const aid = c.agencyId || agencyOf.get(c.agentId);
+      const aid = agencyOf.get(c.agentId);
       if (!aid) return;
       counts.set(aid, (counts.get(aid) || 0) + 1);
     });
@@ -482,19 +481,6 @@ export default function AdminAgenciesPage() {
     }
   }, [loadAgencies]);
 
-  // Keep LIVE CALLS / "X live" in sync with Live Ops (which polls separately).
-  const refreshLiveCalls = useCallback(async () => {
-    try {
-      const ov = await getAdminOverviewLite();
-      setLiveCallsRaw(ov?.liveCalls || []);
-      if (Array.isArray(ov?.campaigns) && ov.campaigns.length) {
-        setCampaigns(ov.campaigns);
-      }
-    } catch {
-      // Soft-fail: directory stays usable with last known counts.
-    }
-  }, []);
-
   const loadAgencyDetail = useCallback(async (agencyId) => {
     if (!agencyId) {
       setMembers([]);
@@ -521,25 +507,6 @@ export default function AdminAgenciesPage() {
 
   useEffect(() => { loadShell(); }, [loadShell]);
   useEffect(() => { loadAgencyDetail(selectedId); }, [selectedId, loadAgencyDetail]);
-
-  useEffect(() => {
-    let timer = null;
-    const schedule = () => {
-      if (timer) window.clearInterval(timer);
-      const ms = document.visibilityState === 'visible' ? 15000 : 60000;
-      timer = window.setInterval(refreshLiveCalls, ms);
-    };
-    schedule();
-    const onVis = () => {
-      if (document.visibilityState === 'visible') refreshLiveCalls();
-      schedule();
-    };
-    document.addEventListener('visibilitychange', onVis);
-    return () => {
-      if (timer) window.clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVis);
-    };
-  }, [refreshLiveCalls]);
 
   useEffect(() => {
     setMembersPage(1);
@@ -960,7 +927,7 @@ export default function AdminAgenciesPage() {
                   {' · '}
                   {selected?.agentCount ?? 0} agent{(selected?.agentCount ?? 0) !== 1 ? 's' : ''}
                   {' · '}
-                  {liveCallsByAgency.get(selectedId) || 0} live call{(liveCallsByAgency.get(selectedId) || 0) !== 1 ? 's' : ''}
+                  {liveCallsByAgency.get(selectedId) || 0} live
                 </p>
               </div>
             </div>

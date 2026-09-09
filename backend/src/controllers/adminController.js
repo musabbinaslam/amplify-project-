@@ -876,8 +876,7 @@ async function getOverviewLite(req, res) {
         phone: metaMap.get(a.id)?.phone || null,
         flagged: metaMap.get(a.id)?.flagged || false,
         flagReason: metaMap.get(a.id)?.flagReason || null,
-        // Prefer Redis tenant (live presence) over Firestore — overview used to wipe Redis agencyId.
-        agencyId: a.agencyId ?? metaMap.get(a.id)?.agencyId ?? null,
+        agencyId: metaMap.get(a.id)?.agencyId || null,
         paused: pausedSet.has(a.id),
         status: pausedSet.has(a.id) ? 'PAUSED' : a.status,
       })),
@@ -900,7 +899,6 @@ async function getOverviewLite(req, res) {
         ...row,
         agentName: metaMap.get(row.agentId)?.name || row.agentId,
         phone: metaMap.get(row.agentId)?.phone || null,
-        agencyId: row.agencyId ?? metaMap.get(row.agentId)?.agencyId ?? null,
       })),
     });
   } catch (err) {
