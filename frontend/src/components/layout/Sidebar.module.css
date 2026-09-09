@@ -29,6 +29,17 @@
   flex-shrink: 0;
 }
 
+/* Match collapsed nav icon column (padding-inline 8px + centered 36px wrap). */
+.sidebar.collapsed .header {
+  justify-content: center;
+  padding: 0 8px;
+}
+
+.sidebar.collapsed .toggleBtn {
+  width: 36px;
+  height: 36px;
+}
+
 .logo {
   display: flex;
   align-items: center;
