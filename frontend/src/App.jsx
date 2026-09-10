@@ -1,20 +1,34 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import AppShell from './components/layout/AppShell';
 import PageLoader from './components/ui/PageLoader';
 import ErrorFallback from './components/ui/ErrorFallback';
-import LandingPage from './pages/LandingPage';
-import useAuthStore from './store/authStore';
-import { isAgencyAdminUser } from './utils/authRoles';
-import { auth } from './config/firebase';
 import UpdateBanner from './components/ui/UpdateBanner';
-import TermsGatewayModal from './components/TermsGatewayModal';
 
+const AppShell = lazy(() => import('./components/layout/AppShell'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
+const TermsGatewayModal = lazy(() => import('./components/TermsGatewayModal'));
+const DialerOverlay = lazy(() => import('./components/ui/DialerOverlay'));
+
+let authStoreModule = null;
+let firebaseModule = null;
+
+async function loadAuthModules() {
+  if (authStoreModule && firebaseModule) {
+    return { authStoreModule, firebaseModule };
+  }
+  const [auth, firebase] = await Promise.all([
+    import('./store/authStore'),
+    import('./config/firebase'),
+  ]);
+  authStoreModule = auth;
+  firebaseModule = firebase;
+  return { authStoreModule, firebaseModule };
+}
 
 const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 const TakeCallsPage = lazy(() => import('./pages/TakeCallsPage'));
@@ -58,45 +72,107 @@ const TeamDashboardPage = lazy(() => import('./pages/TeamDashboardPage'));
 const AgencyDashboardPage = lazy(() => import('./pages/AgencyDashboardPage'));
 
 
-import DialerOverlay from './components/ui/DialerOverlay';
-
-const ProtectedRoute = () => {
+const ProtectedRouteInner = ({ useAuthStore, auth }) => {
   const token = useAuthStore((s) => s.token);
   const loading = useAuthStore((s) => s.loading);
   const hasFirebaseSession = Boolean(auth?.currentUser);
+  
   if (loading) return <PageLoader fullScreen />;
   if (!token || !hasFirebaseSession) return <Navigate to="/login" replace />;
+  
   return (
-    <>
+    <Suspense fallback={<PageLoader fullScreen />}>
       <TermsGatewayModal />
       <AppShell />
-    </>
+    </Suspense>
   );
 };
 
-const GuestRoute = ({ children }) => {
+const ProtectedRoute = () => {
+  const [modules, setModules] = useState(null);
+
+  useEffect(() => {
+    loadAuthModules().then(({ authStoreModule, firebaseModule }) => {
+      setModules({ 
+        useAuthStore: authStoreModule.default, 
+        auth: firebaseModule.auth 
+      });
+    });
+  }, []);
+
+  if (!modules) return <PageLoader fullScreen />;
+  
+  return <ProtectedRouteInner useAuthStore={modules.useAuthStore} auth={modules.auth} />;
+};
+
+const GuestRouteInner = ({ useAuthStore, auth, children }) => {
   const token = useAuthStore((s) => s.token);
   const loading = useAuthStore((s) => s.loading);
   const hasFirebaseSession = Boolean(auth?.currentUser);
+  
   if (loading) return <PageLoader fullScreen />;
   if (token && hasFirebaseSession) return <Navigate to="/app" replace />;
+  
   return children;
 };
 
+const GuestRoute = ({ children }) => {
+  const [modules, setModules] = useState(null);
 
-const QaOnly = ({ children }) => {
+  useEffect(() => {
+    loadAuthModules().then(({ authStoreModule, firebaseModule }) => {
+      setModules({ 
+        useAuthStore: authStoreModule.default, 
+        auth: firebaseModule.auth 
+      });
+    });
+  }, []);
+
+  if (!modules) return <PageLoader fullScreen />;
+  
+  return <GuestRouteInner useAuthStore={modules.useAuthStore} auth={modules.auth}>{children}</GuestRouteInner>;
+};
+
+
+const QaOnlyInner = ({ useAuthStore, children }) => {
   const role = useAuthStore((s) => s.user?.role);
   if (role !== 'admin' && role !== 'qa') return <Navigate to="/app" replace />;
   return children;
 };
 
-const AdminOnly = ({ children }) => {
+const QaOnly = ({ children }) => {
+  const [useAuthStore, setAuthStore] = useState(null);
+  
+  useEffect(() => {
+    loadAuthModules().then(({ authStoreModule }) => {
+      setAuthStore(() => authStoreModule.default);
+    });
+  }, []);
+  
+  if (!useAuthStore) return <PageLoader fullScreen />;
+  return <QaOnlyInner useAuthStore={useAuthStore}>{children}</QaOnlyInner>;
+};
+
+const AdminOnlyInner = ({ useAuthStore, children }) => {
   const role = useAuthStore((s) => s.user?.role);
   if (role !== 'admin') return <Navigate to="/app" replace />;
   return children;
 };
 
-const AgencyAdminOnly = ({ children }) => {
+const AdminOnly = ({ children }) => {
+  const [useAuthStore, setAuthStore] = useState(null);
+  
+  useEffect(() => {
+    loadAuthModules().then(({ authStoreModule }) => {
+      setAuthStore(() => authStoreModule.default);
+    });
+  }, []);
+  
+  if (!useAuthStore) return <PageLoader fullScreen />;
+  return <AdminOnlyInner useAuthStore={useAuthStore}>{children}</AdminOnlyInner>;
+};
+
+const AgencyAdminOnlyInner = ({ useAuthStore, isAgencyAdminUser, children }) => {
   const user = useAuthStore((s) => s.user);
   if (!isAgencyAdminUser(user) && user?.role !== 'manager') {
     return <Navigate to="/app" replace />;
@@ -104,12 +180,43 @@ const AgencyAdminOnly = ({ children }) => {
   return children;
 };
 
-const ManagerOnly = ({ children }) => {
+const AgencyAdminOnly = ({ children }) => {
+  const [useAuthStore, setAuthStore] = useState(null);
+  const [isAgencyAdminUser, setIsAgencyAdminUser] = useState(null);
+  
+  useEffect(() => {
+    Promise.all([
+      loadAuthModules(),
+      import('./utils/authRoles'),
+    ]).then(([{ authStoreModule }, authRolesModule]) => {
+      setAuthStore(() => authStoreModule.default);
+      setIsAgencyAdminUser(() => authRolesModule.isAgencyAdminUser);
+    });
+  }, []);
+  
+  if (!useAuthStore || !isAgencyAdminUser) return <PageLoader fullScreen />;
+  return <AgencyAdminOnlyInner useAuthStore={useAuthStore} isAgencyAdminUser={isAgencyAdminUser}>{children}</AgencyAdminOnlyInner>;
+};
+
+const ManagerOnlyInner = ({ useAuthStore, children }) => {
   const role = useAuthStore((s) => s.user?.role);
   if (role !== 'admin' && role !== 'manager') {
     return <Navigate to="/app" replace />;
   }
   return children;
+};
+
+const ManagerOnly = ({ children }) => {
+  const [useAuthStore, setAuthStore] = useState(null);
+  
+  useEffect(() => {
+    loadAuthModules().then(({ authStoreModule }) => {
+      setAuthStore(() => authStoreModule.default);
+    });
+  }, []);
+  
+  if (!useAuthStore) return <PageLoader fullScreen />;
+  return <ManagerOnlyInner useAuthStore={useAuthStore}>{children}</ManagerOnlyInner>;
 };
 
 /** Tiny redirect: /r/AGENT-XXXXXX → /signup?ref=AGENT-XXXXXX */
@@ -145,7 +252,9 @@ const OpsTeamRedirect = () => {
 const AnimatedRoutes = () => {
   return (
     <>
-      <DialerOverlay />
+      <Suspense fallback={null}>
+        <DialerOverlay />
+      </Suspense>
       <Routes>
         {/* Public landing page */}
         <Route path="/" element={

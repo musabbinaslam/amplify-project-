@@ -1,16 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
-import * as Sentry from '@sentry/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import App from './App.jsx';
-import useAuthStore from './store/authStore';
 import { useUIStore } from './store/uiStore';
 import { useThemeStore } from './store/themeStore';
-import { initFirebase } from './config/firebase';
 import './index.css';
 
-if (import.meta.env.VITE_SENTRY_DSN) {
+useUIStore.getState().initTheme();
+useThemeStore.getState().initBrand();
+
+let sentryInitialized = false;
+async function initSentry() {
+  if (sentryInitialized || !import.meta.env.VITE_SENTRY_DSN) return;
+  sentryInitialized = true;
+  const Sentry = await import('@sentry/react');
   Sentry.init({
     dsn: import.meta.env.VITE_SENTRY_DSN,
     environment: import.meta.env.VITE_SENTRY_ENVIRONMENT || import.meta.env.MODE,
@@ -25,9 +29,6 @@ if (import.meta.env.VITE_SENTRY_DSN) {
   });
 }
 
-useUIStore.getState().initTheme();
-useThemeStore.getState().initBrand();
-
 const queryClient = new QueryClient();
 const MIN_SPLASH_MS = 1800;
 /** Extra time after auth so the first route can mount under the splash. */
@@ -37,14 +38,18 @@ const SPLASH_EXIT_MS = 420;
 
 const AuthInit = ({ children }) => {
   const [ready, setReady] = useState(false);
-  const initAuth = useAuthStore((s) => s.initAuth);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        const [{ initFirebase }, { default: useAuthStore }] = await Promise.all([
+          import('./config/firebase'),
+          import('./store/authStore'),
+        ]);
         await initFirebase();
-        await initAuth();
+        await useAuthStore.getState().initAuth();
+        await initSentry();
       } catch (e) {
         console.error('[Firebase]', e);
       } finally {
@@ -54,7 +59,7 @@ const AuthInit = ({ children }) => {
     return () => {
       cancelled = true;
     };
-  }, [initAuth]);
+  }, []);
 
   // Keep the HTML splash on top while the app mounts, routes load, and auth settles.
   useEffect(() => {
