@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Analytics } from '@vercel/analytics/react';
@@ -13,6 +13,22 @@ const SignupPage = lazy(() => import('./pages/SignupPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const TermsGatewayModal = lazy(() => import('./components/TermsGatewayModal'));
 const DialerOverlay = lazy(() => import('./components/ui/DialerOverlay'));
+
+let authStoreModule = null;
+let firebaseModule = null;
+
+async function loadAuthModules() {
+  if (authStoreModule && firebaseModule) {
+    return { authStoreModule, firebaseModule };
+  }
+  const [auth, firebase] = await Promise.all([
+    import('./store/authStore'),
+    import('./config/firebase'),
+  ]);
+  authStoreModule = auth;
+  firebaseModule = firebase;
+  return { authStoreModule, firebaseModule };
+}
 
 const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 const TakeCallsPage = lazy(() => import('./pages/TakeCallsPage'));
@@ -56,25 +72,12 @@ const TeamDashboardPage = lazy(() => import('./pages/TeamDashboardPage'));
 const AgencyDashboardPage = lazy(() => import('./pages/AgencyDashboardPage'));
 
 
-const ProtectedRoute = () => {
-  const [useAuthStore, setAuthStore] = React.useState(null);
-  const [auth, setAuth] = React.useState(null);
-
-  React.useEffect(() => {
-    Promise.all([
-      import('./store/authStore'),
-      import('./config/firebase'),
-    ]).then(([authModule, firebaseModule]) => {
-      setAuthStore(() => authModule.default);
-      setAuth(firebaseModule.auth);
-    });
-  }, []);
-
-  const token = useAuthStore ? useAuthStore((s) => s.token) : null;
-  const loading = useAuthStore ? useAuthStore((s) => s.loading) : true;
-  const hasFirebaseSession = auth ? Boolean(auth.currentUser) : false;
-
-  if (!useAuthStore || !auth || loading) return <PageLoader fullScreen />;
+const ProtectedRouteInner = ({ useAuthStore, auth }) => {
+  const token = useAuthStore((s) => s.token);
+  const loading = useAuthStore((s) => s.loading);
+  const hasFirebaseSession = Boolean(auth?.currentUser);
+  
+  if (loading) return <PageLoader fullScreen />;
   if (!token || !hasFirebaseSession) return <Navigate to="/login" replace />;
   
   return (
@@ -85,83 +88,135 @@ const ProtectedRoute = () => {
   );
 };
 
-const GuestRoute = ({ children }) => {
-  const [useAuthStore, setAuthStore] = React.useState(null);
-  const [auth, setAuth] = React.useState(null);
+const ProtectedRoute = () => {
+  const [modules, setModules] = useState(null);
 
-  React.useEffect(() => {
-    Promise.all([
-      import('./store/authStore'),
-      import('./config/firebase'),
-    ]).then(([authModule, firebaseModule]) => {
-      setAuthStore(() => authModule.default);
-      setAuth(firebaseModule.auth);
+  useEffect(() => {
+    loadAuthModules().then(({ authStoreModule, firebaseModule }) => {
+      setModules({ 
+        useAuthStore: authStoreModule.default, 
+        auth: firebaseModule.auth 
+      });
     });
   }, []);
 
-  const token = useAuthStore ? useAuthStore((s) => s.token) : null;
-  const loading = useAuthStore ? useAuthStore((s) => s.loading) : true;
-  const hasFirebaseSession = auth ? Boolean(auth.currentUser) : false;
+  if (!modules) return <PageLoader fullScreen />;
+  
+  return <ProtectedRouteInner useAuthStore={modules.useAuthStore} auth={modules.auth} />;
+};
 
-  if (!useAuthStore || !auth || loading) return <PageLoader fullScreen />;
+const GuestRouteInner = ({ useAuthStore, auth, children }) => {
+  const token = useAuthStore((s) => s.token);
+  const loading = useAuthStore((s) => s.loading);
+  const hasFirebaseSession = Boolean(auth?.currentUser);
+  
+  if (loading) return <PageLoader fullScreen />;
   if (token && hasFirebaseSession) return <Navigate to="/app" replace />;
   
   return children;
 };
 
+const GuestRoute = ({ children }) => {
+  const [modules, setModules] = useState(null);
 
-const useAuthStoreHook = () => {
-  const [useAuthStore, setAuthStore] = React.useState(null);
-  React.useEffect(() => {
-    import('./store/authStore').then((m) => setAuthStore(() => m.default));
+  useEffect(() => {
+    loadAuthModules().then(({ authStoreModule, firebaseModule }) => {
+      setModules({ 
+        useAuthStore: authStoreModule.default, 
+        auth: firebaseModule.auth 
+      });
+    });
   }, []);
-  return useAuthStore;
+
+  if (!modules) return <PageLoader fullScreen />;
+  
+  return <GuestRouteInner useAuthStore={modules.useAuthStore} auth={modules.auth}>{children}</GuestRouteInner>;
 };
 
-const QaOnly = ({ children }) => {
-  const useAuthStore = useAuthStoreHook();
-  const role = useAuthStore ? useAuthStore((s) => s.user?.role) : null;
-  
-  if (!useAuthStore) return <PageLoader fullScreen />;
+
+const QaOnlyInner = ({ useAuthStore, children }) => {
+  const role = useAuthStore((s) => s.user?.role);
   if (role !== 'admin' && role !== 'qa') return <Navigate to="/app" replace />;
   return children;
 };
 
-const AdminOnly = ({ children }) => {
-  const useAuthStore = useAuthStoreHook();
-  const role = useAuthStore ? useAuthStore((s) => s.user?.role) : null;
+const QaOnly = ({ children }) => {
+  const [useAuthStore, setAuthStore] = useState(null);
+  
+  useEffect(() => {
+    loadAuthModules().then(({ authStoreModule }) => {
+      setAuthStore(() => authStoreModule.default);
+    });
+  }, []);
   
   if (!useAuthStore) return <PageLoader fullScreen />;
+  return <QaOnlyInner useAuthStore={useAuthStore}>{children}</QaOnlyInner>;
+};
+
+const AdminOnlyInner = ({ useAuthStore, children }) => {
+  const role = useAuthStore((s) => s.user?.role);
   if (role !== 'admin') return <Navigate to="/app" replace />;
   return children;
 };
 
-const AgencyAdminOnly = ({ children }) => {
-  const useAuthStore = useAuthStoreHook();
-  const [isAgencyAdminUser, setIsAgencyAdminUser] = React.useState(null);
+const AdminOnly = ({ children }) => {
+  const [useAuthStore, setAuthStore] = useState(null);
   
-  React.useEffect(() => {
-    import('./utils/authRoles').then((m) => setIsAgencyAdminUser(() => m.isAgencyAdminUser));
+  useEffect(() => {
+    loadAuthModules().then(({ authStoreModule }) => {
+      setAuthStore(() => authStoreModule.default);
+    });
   }, []);
-
-  const user = useAuthStore ? useAuthStore((s) => s.user) : null;
   
-  if (!useAuthStore || !isAgencyAdminUser) return <PageLoader fullScreen />;
+  if (!useAuthStore) return <PageLoader fullScreen />;
+  return <AdminOnlyInner useAuthStore={useAuthStore}>{children}</AdminOnlyInner>;
+};
+
+const AgencyAdminOnlyInner = ({ useAuthStore, isAgencyAdminUser, children }) => {
+  const user = useAuthStore((s) => s.user);
   if (!isAgencyAdminUser(user) && user?.role !== 'manager') {
     return <Navigate to="/app" replace />;
   }
   return children;
 };
 
-const ManagerOnly = ({ children }) => {
-  const useAuthStore = useAuthStoreHook();
-  const role = useAuthStore ? useAuthStore((s) => s.user?.role) : null;
+const AgencyAdminOnly = ({ children }) => {
+  const [useAuthStore, setAuthStore] = useState(null);
+  const [isAgencyAdminUser, setIsAgencyAdminUser] = useState(null);
   
-  if (!useAuthStore) return <PageLoader fullScreen />;
+  useEffect(() => {
+    Promise.all([
+      loadAuthModules(),
+      import('./utils/authRoles'),
+    ]).then(([{ authStoreModule }, authRolesModule]) => {
+      setAuthStore(() => authStoreModule.default);
+      setIsAgencyAdminUser(() => authRolesModule.isAgencyAdminUser);
+    });
+  }, []);
+  
+  if (!useAuthStore || !isAgencyAdminUser) return <PageLoader fullScreen />;
+  return <AgencyAdminOnlyInner useAuthStore={useAuthStore} isAgencyAdminUser={isAgencyAdminUser}>{children}</AgencyAdminOnlyInner>;
+};
+
+const ManagerOnlyInner = ({ useAuthStore, children }) => {
+  const role = useAuthStore((s) => s.user?.role);
   if (role !== 'admin' && role !== 'manager') {
     return <Navigate to="/app" replace />;
   }
   return children;
+};
+
+const ManagerOnly = ({ children }) => {
+  const [useAuthStore, setAuthStore] = useState(null);
+  
+  useEffect(() => {
+    loadAuthModules().then(({ authStoreModule }) => {
+      setAuthStore(() => authStoreModule.default);
+    });
+  }, []);
+  
+  if (!useAuthStore) return <PageLoader fullScreen />;
+  return <ManagerOnlyInner useAuthStore={useAuthStore}>{children}</ManagerOnlyInner>;
 };
 
 /** Tiny redirect: /r/AGENT-XXXXXX → /signup?ref=AGENT-XXXXXX */
