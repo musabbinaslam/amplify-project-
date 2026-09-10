@@ -121,16 +121,20 @@ const AppShell = () => {
 
   useEffect(() => {
     if (!user?.uid) return undefined;
-    let socket = null;
+    
+    let cancelled = false;
+    let socketInstance = null;
     
     import('socket.io-client').then(({ io }) => {
-      socket = io(getApiBaseUrl());
+      if (cancelled) return;
+      
+      socketInstance = io(getApiBaseUrl());
       const registerSocket = () => {
-        socket.emit('notification:register', { uid: user.uid });
+        socketInstance.emit('notification:register', { uid: user.uid });
       };
-      if (socket.connected) registerSocket();
-      socket.on('connect', registerSocket);
-      socket.on('notification:new', (payload) => {
+      if (socketInstance.connected) registerSocket();
+      socketInstance.on('connect', registerSocket);
+      socketInstance.on('notification:new', (payload) => {
         if (!payload) return;
         if (payload.type === 'admin_alert') {
           if (user?.role !== 'admin') return;
@@ -161,7 +165,7 @@ const AppShell = () => {
           window.dispatchEvent(new CustomEvent('contest:resolved', { detail: payload }));
         }
       });
-      socket.on('notification:updated', (payload) => {
+      socketInstance.on('notification:updated', (payload) => {
         if (!payload?.broadcastId) return;
         const patch = (row) => (
           row.broadcastId === payload.broadcastId
@@ -177,37 +181,37 @@ const AppShell = () => {
         setNotifications((rows) => rows.map(patch));
         setNotificationTick((n) => n + 1);
       });
-      socket.on('notification:removed', (payload) => {
+      socketInstance.on('notification:removed', (payload) => {
         if (!payload?.broadcastId) return;
         setNotifications((rows) => rows.filter((row) => row.broadcastId !== payload.broadcastId));
         setNotificationTick((n) => n + 1);
       });
       
-      socket.on('agent:flag_lifted', (data) => {
+      socketInstance.on('agent:flag_lifted', (data) => {
         useAuthStore.getState().setUserField('flagged', false);
         useAuthStore.getState().setUserField('flagReason', null);
         toast.success(data?.message || 'Your account has been resumed. You can now go live!', { duration: 6000 });
         toast.dismiss('account-flagged-toast');
       });
       
-      socket.on('agent:flagged', (data) => {
+      socketInstance.on('agent:flagged', (data) => {
         useAuthStore.getState().setUserField('flagged', true);
         useAuthStore.getState().setUserField('flagReason', data?.reason || null);
         toast.error(data?.message || 'Your account has been flagged. Contact admin@callsflow.io.', { duration: 5000, id: 'account-flagged-toast' });
       });
 
-      socket.on('agent:suspicious_warning', (data) => {
+      socketInstance.on('agent:suspicious_warning', (data) => {
         useAuthStore.getState().setUserField('suspiciousWarningActive', true);
         toast.error(data?.message || 'Suspicious call drop pattern detected. Warning issued.', { duration: 10000, id: 'suspicious-warning-toast' });
       });
 
-      socket.on('agent:suspicious_warning_cleared', (data) => {
+      socketInstance.on('agent:suspicious_warning_cleared', (data) => {
         useAuthStore.getState().setUserField('suspiciousWarningActive', false);
         toast.dismiss('suspicious-warning-toast');
         toast.success(data?.message || 'Your warning has been cleared by an admin.', { duration: 5000 });
       });
 
-      socket.on('agent:forced_offline', (data) => {
+      socketInstance.on('agent:forced_offline', (data) => {
         const dialerStore = useDialerStore.getState();
         if (dialerStore.socket?.connected) return;
         if (dialerStore.callState === 'offline' || dialerStore.callState === 'error') return;
@@ -220,7 +224,7 @@ const AppShell = () => {
         );
       });
 
-      socket.on('wallet:updated', (payload) => {
+      socketInstance.on('wallet:updated', (payload) => {
         const balance = Number(payload?.balance);
         if (Number.isFinite(balance)) {
           window.dispatchEvent(new CustomEvent('wallet_updated', { detail: balance }));
@@ -228,7 +232,7 @@ const AppShell = () => {
           window.dispatchEvent(new CustomEvent('wallet_updated'));
         }
       });
-      socket.on('maintenance:update', (payload) => {
+      socketInstance.on('maintenance:update', (payload) => {
         setMaintenance(payload || null);
         if (payload?.active) {
           toast(payload.title || 'Maintenance update', { icon: '🛠️' });
@@ -237,9 +241,10 @@ const AppShell = () => {
     });
     
     return () => {
-      if (socket) {
-        socket.emit('notification:unregister');
-        socket.disconnect();
+      cancelled = true;
+      if (socketInstance) {
+        socketInstance.emit('notification:unregister');
+        socketInstance.disconnect();
       }
     };
   }, [user?.uid, user?.role]);

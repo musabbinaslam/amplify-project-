@@ -70,13 +70,13 @@ const ProtectedRoute = () => {
     });
   }, []);
 
-  if (!useAuthStore || !auth) return <PageLoader fullScreen />;
+  const token = useAuthStore ? useAuthStore((s) => s.token) : null;
+  const loading = useAuthStore ? useAuthStore((s) => s.loading) : true;
+  const hasFirebaseSession = auth ? Boolean(auth.currentUser) : false;
 
-  const token = useAuthStore((s) => s.token);
-  const loading = useAuthStore((s) => s.loading);
-  const hasFirebaseSession = Boolean(auth?.currentUser);
-  if (loading) return <PageLoader fullScreen />;
+  if (!useAuthStore || !auth || loading) return <PageLoader fullScreen />;
   if (!token || !hasFirebaseSession) return <Navigate to="/login" replace />;
+  
   return (
     <Suspense fallback={<PageLoader fullScreen />}>
       <TermsGatewayModal />
@@ -99,13 +99,13 @@ const GuestRoute = ({ children }) => {
     });
   }, []);
 
-  if (!useAuthStore || !auth) return <PageLoader fullScreen />;
+  const token = useAuthStore ? useAuthStore((s) => s.token) : null;
+  const loading = useAuthStore ? useAuthStore((s) => s.loading) : true;
+  const hasFirebaseSession = auth ? Boolean(auth.currentUser) : false;
 
-  const token = useAuthStore((s) => s.token);
-  const loading = useAuthStore((s) => s.loading);
-  const hasFirebaseSession = Boolean(auth?.currentUser);
-  if (loading) return <PageLoader fullScreen />;
+  if (!useAuthStore || !auth || loading) return <PageLoader fullScreen />;
   if (token && hasFirebaseSession) return <Navigate to="/app" replace />;
+  
   return children;
 };
 
@@ -120,16 +120,18 @@ const useAuthStoreHook = () => {
 
 const QaOnly = ({ children }) => {
   const useAuthStore = useAuthStoreHook();
+  const role = useAuthStore ? useAuthStore((s) => s.user?.role) : null;
+  
   if (!useAuthStore) return <PageLoader fullScreen />;
-  const role = useAuthStore((s) => s.user?.role);
   if (role !== 'admin' && role !== 'qa') return <Navigate to="/app" replace />;
   return children;
 };
 
 const AdminOnly = ({ children }) => {
   const useAuthStore = useAuthStoreHook();
+  const role = useAuthStore ? useAuthStore((s) => s.user?.role) : null;
+  
   if (!useAuthStore) return <PageLoader fullScreen />;
-  const role = useAuthStore((s) => s.user?.role);
   if (role !== 'admin') return <Navigate to="/app" replace />;
   return children;
 };
@@ -142,9 +144,9 @@ const AgencyAdminOnly = ({ children }) => {
     import('./utils/authRoles').then((m) => setIsAgencyAdminUser(() => m.isAgencyAdminUser));
   }, []);
 
-  if (!useAuthStore || !isAgencyAdminUser) return <PageLoader fullScreen />;
+  const user = useAuthStore ? useAuthStore((s) => s.user) : null;
   
-  const user = useAuthStore((s) => s.user);
+  if (!useAuthStore || !isAgencyAdminUser) return <PageLoader fullScreen />;
   if (!isAgencyAdminUser(user) && user?.role !== 'manager') {
     return <Navigate to="/app" replace />;
   }
@@ -153,8 +155,9 @@ const AgencyAdminOnly = ({ children }) => {
 
 const ManagerOnly = ({ children }) => {
   const useAuthStore = useAuthStoreHook();
+  const role = useAuthStore ? useAuthStore((s) => s.user?.role) : null;
+  
   if (!useAuthStore) return <PageLoader fullScreen />;
-  const role = useAuthStore((s) => s.user?.role);
   if (role !== 'admin' && role !== 'manager') {
     return <Navigate to="/app" replace />;
   }
