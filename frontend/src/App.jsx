@@ -3,18 +3,16 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'rea
 import { ErrorBoundary } from 'react-error-boundary';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import AppShell from './components/layout/AppShell';
 import PageLoader from './components/ui/PageLoader';
 import ErrorFallback from './components/ui/ErrorFallback';
-import LandingPage from './pages/LandingPage';
-import useAuthStore from './store/authStore';
-import { isAgencyAdminUser } from './utils/authRoles';
-import { auth } from './config/firebase';
 import UpdateBanner from './components/ui/UpdateBanner';
-import TermsGatewayModal from './components/TermsGatewayModal';
 
+const AppShell = lazy(() => import('./components/layout/AppShell'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
+const TermsGatewayModal = lazy(() => import('./components/TermsGatewayModal'));
+const DialerOverlay = lazy(() => import('./components/ui/DialerOverlay'));
 
 const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 const TakeCallsPage = lazy(() => import('./pages/TakeCallsPage'));
@@ -58,23 +56,51 @@ const TeamDashboardPage = lazy(() => import('./pages/TeamDashboardPage'));
 const AgencyDashboardPage = lazy(() => import('./pages/AgencyDashboardPage'));
 
 
-import DialerOverlay from './components/ui/DialerOverlay';
-
 const ProtectedRoute = () => {
+  const [useAuthStore, setAuthStore] = React.useState(null);
+  const [auth, setAuth] = React.useState(null);
+
+  React.useEffect(() => {
+    Promise.all([
+      import('./store/authStore'),
+      import('./config/firebase'),
+    ]).then(([authModule, firebaseModule]) => {
+      setAuthStore(() => authModule.default);
+      setAuth(firebaseModule.auth);
+    });
+  }, []);
+
+  if (!useAuthStore || !auth) return <PageLoader fullScreen />;
+
   const token = useAuthStore((s) => s.token);
   const loading = useAuthStore((s) => s.loading);
   const hasFirebaseSession = Boolean(auth?.currentUser);
   if (loading) return <PageLoader fullScreen />;
   if (!token || !hasFirebaseSession) return <Navigate to="/login" replace />;
   return (
-    <>
+    <Suspense fallback={<PageLoader fullScreen />}>
       <TermsGatewayModal />
       <AppShell />
-    </>
+    </Suspense>
   );
 };
 
 const GuestRoute = ({ children }) => {
+  const [useAuthStore, setAuthStore] = React.useState(null);
+  const [auth, setAuth] = React.useState(null);
+
+  React.useEffect(() => {
+    Promise.all([
+      import('./store/authStore'),
+      import('./config/firebase'),
+    ]).then(([authModule, firebaseModule]) => {
+      setAuthStore(() => authModule.default);
+      setAuth(firebaseModule.auth);
+    });
+  }, []);
+
+  if (!useAuthStore || !auth) return <PageLoader fullScreen />;
+
   const token = useAuthStore((s) => s.token);
   const loading = useAuthStore((s) => s.loading);
   const hasFirebaseSession = Boolean(auth?.currentUser);
@@ -84,19 +110,40 @@ const GuestRoute = ({ children }) => {
 };
 
 
+const useAuthStoreHook = () => {
+  const [useAuthStore, setAuthStore] = React.useState(null);
+  React.useEffect(() => {
+    import('./store/authStore').then((m) => setAuthStore(() => m.default));
+  }, []);
+  return useAuthStore;
+};
+
 const QaOnly = ({ children }) => {
+  const useAuthStore = useAuthStoreHook();
+  if (!useAuthStore) return <PageLoader fullScreen />;
   const role = useAuthStore((s) => s.user?.role);
   if (role !== 'admin' && role !== 'qa') return <Navigate to="/app" replace />;
   return children;
 };
 
 const AdminOnly = ({ children }) => {
+  const useAuthStore = useAuthStoreHook();
+  if (!useAuthStore) return <PageLoader fullScreen />;
   const role = useAuthStore((s) => s.user?.role);
   if (role !== 'admin') return <Navigate to="/app" replace />;
   return children;
 };
 
 const AgencyAdminOnly = ({ children }) => {
+  const useAuthStore = useAuthStoreHook();
+  const [isAgencyAdminUser, setIsAgencyAdminUser] = React.useState(null);
+  
+  React.useEffect(() => {
+    import('./utils/authRoles').then((m) => setIsAgencyAdminUser(() => m.isAgencyAdminUser));
+  }, []);
+
+  if (!useAuthStore || !isAgencyAdminUser) return <PageLoader fullScreen />;
+  
   const user = useAuthStore((s) => s.user);
   if (!isAgencyAdminUser(user) && user?.role !== 'manager') {
     return <Navigate to="/app" replace />;
@@ -105,6 +152,8 @@ const AgencyAdminOnly = ({ children }) => {
 };
 
 const ManagerOnly = ({ children }) => {
+  const useAuthStore = useAuthStoreHook();
+  if (!useAuthStore) return <PageLoader fullScreen />;
   const role = useAuthStore((s) => s.user?.role);
   if (role !== 'admin' && role !== 'manager') {
     return <Navigate to="/app" replace />;
@@ -145,7 +194,9 @@ const OpsTeamRedirect = () => {
 const AnimatedRoutes = () => {
   return (
     <>
-      <DialerOverlay />
+      <Suspense fallback={null}>
+        <DialerOverlay />
+      </Suspense>
       <Routes>
         {/* Public landing page */}
         <Route path="/" element={
