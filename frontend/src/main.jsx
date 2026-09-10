@@ -8,7 +8,7 @@ import useAuthStore from './store/authStore';
 import { useUIStore } from './store/uiStore';
 import { useThemeStore } from './store/themeStore';
 import { initFirebase } from './config/firebase';
-import './index.css';
+import './styles/global.css';
 
 if (import.meta.env.VITE_SENTRY_DSN) {
   Sentry.init({
