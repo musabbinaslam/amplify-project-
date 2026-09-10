@@ -166,9 +166,9 @@ const startEngine = async () => {
     }
   }
 
-  // Run immediately on boot, then every 5 seconds
+  // Run immediately on boot, then every 30 seconds
   runGhostCleanup();
-  const ghostCleanupInterval = setInterval(runGhostCleanup, 5 * 1000);
+  const ghostCleanupInterval = setInterval(runGhostCleanup, 30 * 1000);
 
   const { startQaShiftAutoReviewScheduler } = require('./services/qaShiftAutoReviewService');
   const qaShiftInterval = startQaShiftAutoReviewScheduler();
