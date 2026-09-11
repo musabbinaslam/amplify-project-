@@ -28,6 +28,7 @@ backend/scripts/seed_manager_mock_data.js
 
 # Local operational exports and disposable files
 .tmp/
+scratch/
 *.log
 url.txt
 frontend/dist.zip
