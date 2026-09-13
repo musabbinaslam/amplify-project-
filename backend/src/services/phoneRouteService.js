@@ -1,8 +1,10 @@
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
+const { redisClient } = require('../config/redis');
 
 const COLLECTION = 'phoneRoutes';
+const ROUTE_CACHE_TTL = 300; // 5 minutes — routes rarely change
 
 function normalizePhoneE164(input) {
   if (!input || typeof input !== 'string') return '';
@@ -46,18 +48,47 @@ async function getRouteByToNumber(toRaw) {
   const phoneE164 = normalizePhoneE164(toRaw);
   if (!phoneE164) return null;
 
-  const db = getDb();
-  if (!db) return null;
+  // Check Redis cache first — avoids Firestore round-trip on every incoming call
+  try {
+    const cacheKey = `route:${phoneE164}`;
+    const cached = await redisClient.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached); // null is stored as 'null' string, parse handles it
+    }
 
-  const snap = await db.collection(COLLECTION).where('phoneE164', '==', phoneE164).limit(10).get();
+    const db = getDb();
+    if (!db) return null;
 
-  if (snap.empty) return null;
-  const match = snap.docs.map((d) => d.data()).find((d) => d.active !== false);
-  if (!match || typeof match.campaignId !== 'string') return null;
-  return {
-    campaignId: match.campaignId,
-    agencyId: match.agencyId == null || match.agencyId === '' ? null : String(match.agencyId),
-  };
+    const snap = await db.collection(COLLECTION).where('phoneE164', '==', phoneE164).limit(10).get();
+
+    let result = null;
+    if (!snap.empty) {
+      const match = snap.docs.map((d) => d.data()).find((d) => d.active !== false);
+      if (match && typeof match.campaignId === 'string') {
+        result = {
+          campaignId: match.campaignId,
+          agencyId: match.agencyId == null || match.agencyId === '' ? null : String(match.agencyId),
+        };
+      }
+    }
+
+    // Cache result (including null) for ROUTE_CACHE_TTL seconds
+    await redisClient.setEx(cacheKey, ROUTE_CACHE_TTL, JSON.stringify(result));
+    return result;
+  } catch (cacheErr) {
+    // If Redis fails, fall back to direct Firestore lookup
+    console.warn('[PhoneRoute] Redis cache error, falling back to Firestore:', cacheErr.message);
+    const db = getDb();
+    if (!db) return null;
+    const snap = await db.collection(COLLECTION).where('phoneE164', '==', phoneE164).limit(10).get();
+    if (snap.empty) return null;
+    const match = snap.docs.map((d) => d.data()).find((d) => d.active !== false);
+    if (!match || typeof match.campaignId !== 'string') return null;
+    return {
+      campaignId: match.campaignId,
+      agencyId: match.agencyId == null || match.agencyId === '' ? null : String(match.agencyId),
+    };
+  }
 }
 
 /** @deprecated use getRouteByToNumber */
