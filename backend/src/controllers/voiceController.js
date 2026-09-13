@@ -60,6 +60,22 @@ exports.generateToken = (req, res) => {
 };
 
 exports.handleIncomingCall = async (req, res) => {
+    // Safety timeout — if routing logic takes > 10s, respond immediately with a
+    // pause+redirect so Twilio never hits its 15s webhook timeout and retries.
+    // Without this, slow Redis/Firestore under load causes the 41-retry storms.
+    let responded = false;
+    const safetyTimer = setTimeout(() => {
+        if (!responded) {
+            responded = true;
+            console.warn(`[Router] ⚠️  Routing safety timeout fired for ${req.body?.From} — sending pause+redirect to prevent Twilio retry`);
+            const fallback = new VoiceResponse();
+            fallback.pause({ length: 2 });
+            fallback.redirect({ method: 'POST' }, voiceWebhookUrl(req, req.originalUrl));
+            res.set('Content-Type', 'text/xml');
+            res.send(fallback.toString());
+        }
+    }, 10000);
+
     const twiml = new VoiceResponse();
 
     const fromNumber = (req.body && req.body.From) || 'Unknown Caller';
@@ -197,7 +213,7 @@ exports.handleIncomingCall = async (req, res) => {
                 twilioClientObj.calls.create({
                     to: `client:${available.id}`,
                     from: fromNum,
-                    timeout: 20, // 20s ring time
+                    timeout: 10,
                     statusCallback: voiceWebhookUrl(req, `/api/voice/dial-status?${dialStatusQs.toString()}`),
                     statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
                     statusCallbackMethod: 'POST',
@@ -209,7 +225,7 @@ exports.handleIncomingCall = async (req, res) => {
                 const dial = twiml.dial({
                     action: voiceWebhookUrl(req, `/api/voice/call-completed?${completedQs.toString()}`),
                     method: 'POST',
-                    timeout: 20,
+                    timeout: 10,
                     answerOnBridge: true,
                     record: 'record-from-answer',
                     recordingStatusCallback: recordingCallbackUrl,
@@ -253,8 +269,12 @@ exports.handleIncomingCall = async (req, res) => {
         twiml.hangup();
     }
 
-    res.set('Content-Type', 'text/xml');
-    res.send(twiml.toString());
+    clearTimeout(safetyTimer);
+    if (!responded) {
+        responded = true;
+        res.set('Content-Type', 'text/xml');
+        res.send(twiml.toString());
+    }
 };
 
 /**
