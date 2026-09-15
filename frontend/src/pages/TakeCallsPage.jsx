@@ -1162,7 +1162,7 @@ const TakeCallsPage = () => {
             <div style={{ fontSize: '15px' }}>
               <ul style={{ paddingLeft: '20px', margin: 0, listStyleType: 'disc', display: 'flex', flexDirection: 'column', gap: '10px', opacity: 0.9 }}>
                 <li><strong>All sales are final once the call is connected.</strong> It’s billable and non-refundable.</li>
-                <li><strong>All sales are final except for Dead Air and overAge. Nothing else is refundable.</strong></li>
+                <li><strong>Only dead air calls with no one on the line will be refunded. Nothing else is refundable.</strong></li>
               </ul>
             </div>
           </motion.div>
