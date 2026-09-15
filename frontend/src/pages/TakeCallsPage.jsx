@@ -1161,9 +1161,8 @@ const TakeCallsPage = () => {
             </strong>
             <div style={{ fontSize: '15px' }}>
               <ul style={{ paddingLeft: '20px', margin: 0, listStyleType: 'disc', display: 'flex', flexDirection: 'column', gap: '10px', opacity: 0.9 }}>
-                <li><strong>All sales are final once the call goes over buffer.</strong> It’s billable and non-refundable.</li>
-                <li><strong>Our system routes calls based on area codes.</strong> If you get someone from a state you’re not licensed in once in a while, we can’t do anything about it and it’s not refundable.</li>
-                <li><strong>Disconnect before the buffer ends if you are not licensed. There are NO refunds after the buffer. To avoid this, ask the state within the buffer.</strong></li>
+                <li><strong>All sales are final once the call is connected.</strong> It’s billable and non-refundable.</li>
+                <li><strong>All sales are final except for Dead Air and overAge. Nothing else is refundable.</strong></li>
               </ul>
             </div>
           </motion.div>
