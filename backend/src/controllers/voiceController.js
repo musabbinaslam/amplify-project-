@@ -111,6 +111,8 @@ exports.handleIncomingCall = async (req, res) => {
             console.warn(`[Router] Campaign "${campaign}" is paused — rejecting inbound route`);
             twiml.say('This campaign is temporarily paused. Please try again shortly.');
             twiml.hangup();
+            clearTimeout(safetyTimer);
+            responded = true;
             res.set('Content-Type', 'text/xml');
             res.send(twiml.toString());
             return;
@@ -354,22 +356,11 @@ exports.handleDialStatus = async (req, res) => {
                         await agentManager.markAgentRejectedCall(agentId, parentSid);
                     }
 
-                    // If this was an ACA outbound agent leg that failed, reroute the waiting caller
+                    // If this was an ACA outbound agent leg that failed, hang up the waiting caller
                     if (req.query.isOutboundAgent === 'true' && parentSid) {
-                        const retryCount = Number(req.query.retryCount || 0);
-                        if (retryCount < 2) {
-                            const nextRetry = retryCount + 1;
-                            const redirectQs = new URLSearchParams({ campaign: String(campaign || ''), retryCount: String(nextRetry) });
-                            const redirectUrl = voiceWebhookUrl(req, `/api/voice/incoming-call?${redirectQs.toString()}`);
-                            await twilioClientObj.calls(parentSid).update({
-                                method: 'POST',
-                                url: redirectUrl
-                            }).catch(err => console.warn('[Router] Failed to redirect parent call for ACA retry:', err.message));
-                        } else {
-                            await twilioClientObj.calls(parentSid).update({
-                                twiml: '<Response><Say>All agents are currently assisting other callers. Please try again shortly.</Say><Hangup/></Response>'
-                            }).catch(err => console.warn('[Router] Failed to hangup parent call for ACA:', err.message));
-                        }
+                        await twilioClientObj.calls(parentSid).update({
+                            twiml: '<Response><Say>The agent is currently unavailable. Please try again later.</Say><Hangup/></Response>'
+                        }).catch(err => console.warn('[Router] Failed to hangup parent call for ACA:', err.message));
                     }
                 } else {
                     // Agent was IN_CALL but their leg terminated (they clicked End Call or hung up).
@@ -413,15 +404,21 @@ exports.handleCallCompleted = async (req, res) => {
     const retryCount = Math.min(Number(req.query.retryCount || 0), 5);
     const { From, To, DialCallDuration, DialCallStatus, DialCallSid, CallSid, FromState, RecordingUrl } = req.body;
 
-    // ── Immediate re-routing decision ───────────────────────────────────────
+    // ── Missed Call Handling ────────────────────────────────────────────────
     // If the agent dial failed, wasn't answered, or agent rejected the call,
-    // AND the caller is still on the line (not cancel), AND we have retries left,
-    // immediately redirect to try the next available agent.
+    // we must kick them offline. We no longer re-route the call; it will naturally drop.
     const isRerouteable = ['failed', 'no-answer', 'busy'].includes(DialCallStatus);
-    const callerHungUp = DialCallStatus === 'cancel';
-    const MAX_RETRIES = 2; // maximum re-routing hops per call
+    
+    let responseSent = false;
 
-    if (isRerouteable && !callerHungUp && retryCount < MAX_RETRIES) {
+    if (isRerouteable) {
+        // Drop the call IMMEDIATELY on Twilio's end so the caller isn't kept waiting
+        const earlyTwiml = new VoiceResponse();
+        earlyTwiml.hangup();
+        res.set('Content-Type', 'text/xml');
+        res.send(earlyTwiml.toString());
+        responseSent = true;
+
         // Kick the agent offline if they missed the call, rejected it, or their browser failed.
         // We do NOT want to put them back into the AVAILABLE pool if they are asleep.
         if (agentId) {
@@ -429,7 +426,7 @@ exports.handleCallCompleted = async (req, res) => {
                 const active = await agentManager.getActiveCall(agentId);
                 const agentState = await agentManager.getAgentState(agentId);
                 if (!active && agentState?.status === 'WRAP_UP') {
-                    console.log(`[Twilio] Call complete re-route ignored kick for WRAP_UP agent ${agentId}`);
+                    console.log(`[Twilio] Call complete missed but ignored kick for WRAP_UP agent ${agentId}`);
                 } else {
                     await agentManager.clearActiveCall(agentId);
                     // Kick them entirely out of the pool so they stop receiving ghost routes
@@ -437,49 +434,15 @@ exports.handleCallCompleted = async (req, res) => {
                     console.log(`[Router] 🥾 Kicked agent ${agentId} offline due to missed/failed call.`);
 
                     // Notify the agent's browser immediately so the UI shows "Offline"
-                    // instead of staying stuck on "Listening for Calls".
                     await socketRegistry.emitToAgent(agentId, 'agent:forced_offline', {
                         reason: 'missed_call',
                         message: 'You missed a call and have been taken offline. Please go live again when ready.'
                     });
-                    // Log the missed call so it shows up in their history,
-                    // since we are about to return early and skip the main logging block.
-                    try {
-                        await callLogService.logCall({
-                            callSid: CallSid,
-                            dialCallSid: DialCallSid || null,
-                            agentId: agentId,
-                            campaignId: campaign || '',
-                            from: From || '',
-                            to: To || '',
-                            duration: 0,
-                            status: 'missed',
-                            recordingUrl: null,
-                            disposition: '',
-                            qaInsight: null,
-                            isBillable: false
-                        });
-                    } catch (logErr) {
-                        console.error('[Router] Failed to log missed call during reroute:', logErr.message);
-                    }
                 }
             } catch (e) {
-                console.warn('[Router] Re-route kick/log failed:', e.message);
+                console.warn('[Router] Kick failed:', e.message);
             }
         }
-        const nextRetry = retryCount + 1;
-        const fromState = FromState || '';
-        const redirectQs = new URLSearchParams({
-            campaign: String(campaign || ''),
-            retryCount: String(nextRetry),
-        });
-        if (fromState) redirectQs.set('FromState', fromState);
-        const redirectUrl = voiceWebhookUrl(req, `/api/voice/incoming-call?${redirectQs.toString()}`);
-        console.log(`[Router] 🔁 Re-routing call (attempt ${nextRetry}/${MAX_RETRIES}) — DialCallStatus: ${DialCallStatus} | CallSid: ${CallSid}`);
-        const rerouteTwiml = new VoiceResponse();
-        rerouteTwiml.redirect({ method: 'POST' }, redirectUrl);
-        res.set('Content-Type', 'text/xml');
-        return res.send(rerouteTwiml.toString());
     }
 
 
@@ -687,10 +650,12 @@ exports.handleCallCompleted = async (req, res) => {
 
     // IMPORTANT: Always return <Hangup/> so Twilio terminates the caller leg.
     // Without this, rejected/no-answer calls can loop back and re-ring the agent.
-    const twiml = new VoiceResponse();
-    twiml.hangup();
-    res.set('Content-Type', 'text/xml');
-    res.send(twiml.toString());
+    if (!responseSent) {
+        const twiml = new VoiceResponse();
+        twiml.hangup();
+        res.set('Content-Type', 'text/xml');
+        res.send(twiml.toString());
+    }
 };
 
 /**
