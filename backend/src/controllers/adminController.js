@@ -1291,11 +1291,11 @@ async function patchManagerSettings(req, res) {
 
     const existing = targetSnap.data() || {};
     const existingRole = String(existing.role || 'agent');
-    const PROTECTED_PLATFORM_ROLES = new Set(['admin', 'qa']);
+    const PROTECTED_PLATFORM_ROLES = new Set(['admin', 'qa', 'support']);
 
     if (PROTECTED_PLATFORM_ROLES.has(existingRole)) {
       return res.status(403).json({
-        error: 'Platform admin and QA accounts cannot be assigned as manager team leads or demoted through manager settings.',
+        error: 'Platform admin, QA, and support accounts cannot be assigned as manager team leads or demoted through manager settings.',
       });
     }
 
@@ -2138,6 +2138,53 @@ async function refundCallHandler(req, res) {
   }
 }
 
+async function patchSupportRole(req, res) {
+  try {
+    const uid = String(req.params.uid || '').trim();
+    if (!uid) return res.status(400).json({ error: 'uid is required' });
+    const role = String(req.body?.role || '').trim();
+    if (!['support', 'agent'].includes(role)) {
+      return res.status(400).json({ error: "role must be 'support' or 'agent'" });
+    }
+
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database unavailable' });
+
+    const targetRef = db.collection('users').doc(uid);
+    const targetSnap = await targetRef.get();
+    if (!targetSnap.exists) return res.status(404).json({ error: 'User not found' });
+
+    const existing = targetSnap.data() || {};
+    const existingRole = String(existing.role || 'agent');
+    if (existingRole === 'admin' || existingRole === 'qa') {
+      return res.status(403).json({ error: 'Admin and QA accounts cannot be changed through support-role settings.' });
+    }
+    if (role === 'agent' && existingRole !== 'support') {
+      return res.status(400).json({ error: 'Only support staff can be demoted to agent here.' });
+    }
+    if (role === 'support' && existingRole === 'support') {
+      return res.json({ uid, role: 'support' });
+    }
+
+    const { FieldValue } = admin.firestore;
+    const patch = {
+      role,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    if (role === 'support') {
+      patch.managedAgents = FieldValue.delete();
+      patch.teamName = FieldValue.delete();
+    }
+
+    await targetRef.set(patch, { merge: true });
+    console.log(`[Admin] Set role=${role} on ${uid} by ${req.user?.uid || 'unknown'} (support-role)`);
+    res.json({ uid, role });
+  } catch (err) {
+    console.error('[Admin] patchSupportRole:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to update support role' });
+  }
+}
+
 module.exports = {
   getOverviewLite,
   getAnalyticsBundle,
@@ -2183,4 +2230,5 @@ module.exports = {
   approveCallContest,
   denyCallContest,
   refundCall: refundCallHandler,
+  patchSupportRole,
 };

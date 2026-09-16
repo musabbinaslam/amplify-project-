@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   MessageSquare,
-  Send,
-  Bot,
   Mail,
   Loader2,
   Paperclip,
@@ -12,15 +11,17 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
-import { sendMessage } from '../services/chatService';
+import useSupportChatStore from '../store/useSupportChatStore';
 import {
   sendSupportEmail,
   validateAttachments,
   SUPPORT_ATTACHMENT_LIMITS,
 } from '../services/supportService';
+import SupportThread from '../components/support/SupportThread';
 import { motion } from 'framer-motion';
 import CustomSelect from '../components/ui/CustomSelect';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
+import { browserTimeZone } from '../utils/chatDaySeparators';
 import classes from './SupportPage.module.css';
 
 function formatBytes(bytes = 0) {
@@ -30,23 +31,26 @@ function formatBytes(bytes = 0) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-const WELCOME_MESSAGE = {
-  id: 'welcome',
-  role: 'assistant',
-  text: "Hi! I'm the Agent Calls support bot. I can help with billing, call setup, scripts, leads, and more. What can I help you with?",
-};
-
 const CATEGORIES = ['Billing', 'Technical', 'Account', 'Other'];
 
 const SupportPage = () => {
   const presets = useSubtlePageMotion();
+  const location = useLocation();
+  const isEmail = /\/support\/email\/?$/.test(location.pathname);
   const user = useAuthStore((s) => s.user);
   const getIdToken = useAuthStore((s) => s.getIdToken);
-  const [messages, setMessages] = useState([WELCOME_MESSAGE]);
+  const conversation = useSupportChatStore((s) => s.conversation);
+  const messages = useSupportChatStore((s) => s.messages);
+  const loading = useSupportChatStore((s) => s.loading);
+  const staffOnline = useSupportChatStore((s) => s.staffOnline);
+  const supportTyping = useSupportChatStore((s) => s.supportTyping);
+  const loadMine = useSupportChatStore((s) => s.loadMine);
+  const emitTyping = useSupportChatStore((s) => s.emitTyping);
+  const markRead = useSupportChatStore((s) => s.markRead);
+  const setViewingThread = useSupportChatStore((s) => s.setViewingThread);
+
   const [input, setInput] = useState('');
-  const [typing, setTyping] = useState(false);
-  const messagesEndRef = useRef(null);
-  const textareaRef = useRef(null);
+  const typingTimer = useRef(null);
 
   const [emailSubject, setEmailSubject] = useState('');
   const [emailCategory, setEmailCategory] = useState('');
@@ -61,10 +65,28 @@ const SupportPage = () => {
     emailBody.trim().length > 0 &&
     !emailSending;
 
+  useEffect(() => {
+    setViewingThread(!isEmail);
+    loadMine()
+      .then(() => {
+        if (!isEmail) markRead();
+      })
+      .catch((err) => {
+        if (!isEmail) toast.error(err?.message || 'Could not load support chat.');
+      });
+    return () => setViewingThread(false);
+  }, [isEmail, loadMine, markRead, setViewingThread]);
+
+  useEffect(() => {
+    if (isEmail || !messages.length) return undefined;
+    const hasStaffMessage = messages.some((m) => m?.senderRole === 'support' || m?.senderRole === 'admin');
+    if (hasStaffMessage) markRead();
+    return undefined;
+  }, [isEmail, messages, markRead]);
+
   const handleAddFiles = (fileList) => {
     const incoming = Array.from(fileList || []);
     if (!incoming.length) return;
-
     const combined = [...attachments, ...incoming];
     const check = validateAttachments(combined);
     if (check.error) {
@@ -77,10 +99,6 @@ const SupportPage = () => {
   const handleFileInputChange = (e) => {
     handleAddFiles(e.target.files);
     if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handleRemoveAttachment = (idx) => {
-    setAttachments((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleSendEmail = async () => {
@@ -111,71 +129,35 @@ const SupportPage = () => {
     }
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const handleInputChange = (value) => {
+    setInput(value);
+    const convoId = conversation?.id;
+    if (!convoId) return;
+    emitTyping(convoId, true);
+    clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(() => emitTyping(convoId, false), 1200);
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, typing]);
-
-  const handleSend = async () => {
-    const text = input.trim();
-    if (!text || typing) return;
-
-    const userMsg = { id: Date.now().toString(), role: 'user', text };
-    const updated = [...messages, userMsg];
-    setMessages(updated);
+  const handleSend = async (meta = {}) => {
+    const text = String(meta.text ?? input).trim();
+    const attachments = Array.isArray(meta.attachments) ? meta.attachments : [];
+    if (!text && !attachments.length) return;
     setInput('');
-    setTyping(true);
-
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
-
+    const store = useSupportChatStore.getState();
+    store.emitTyping(store.conversation?.id, false);
     try {
-      const reply = await sendMessage(updated, getIdToken);
-      setMessages((prev) => [
-        ...prev,
-        { id: (Date.now() + 1).toString(), role: 'assistant', text: reply },
-      ]);
+      if (!store.conversation?.id) await store.loadMine();
+      await store.sendMessage(text, {
+        replyTo: meta.replyTo || undefined,
+        attachments: attachments.length ? attachments : undefined,
+      });
+      store.markRead();
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          isError: true,
-          text:
-            err?.message?.trim() || 'Sorry, something went wrong. Please try again.',
-        },
-      ]);
-    } finally {
-      setTyping(false);
+      toast.error(err?.message || 'Could not send message.');
     }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const handleInputChange = (e) => {
-    setInput(e.target.value);
-    const el = e.target;
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
   };
 
   const userInitial = user?.name?.charAt(0)?.toUpperCase() || 'U';
-
-  const bubbleClass = (msg) => {
-    if (msg.role === 'user') return classes.userBubble;
-    if (msg.isError) return classes.errorBubble;
-    return classes.botBubble;
-  };
 
   return (
     <motion.div
@@ -185,190 +167,136 @@ const SupportPage = () => {
       animate="visible"
     >
       <motion.div className={classes.pageHeader} variants={presets.child}>
-        <div className={classes.iconBox}><MessageSquare size={22} /></div>
-        <div>
-          <h2>Support</h2>
-          <p>Get help from Agent Calls Bot and our support team</p>
+        <div className={classes.headerLead}>
+          <div className={classes.iconBox}>
+            {isEmail ? <Mail size={22} /> : <MessageSquare size={22} />}
+          </div>
+          <div>
+            <h2>{isEmail ? 'Email support' : 'Live chat'}</h2>
+            <p>
+              {isEmail
+                ? 'Send a ticket and we will reply to your inbox within 24 hours.'
+                : 'Message our team live. Stay here or keep working — we will pop in.'}
+            </p>
+          </div>
         </div>
+        <nav className={classes.switcher} aria-label="Support channel">
+          <NavLink
+            to="/app/support"
+            end
+            className={({ isActive }) =>
+              `${classes.switchBtn} ${isActive ? classes.switchBtnActive : ''}`
+            }
+          >
+            <MessageSquare size={14} />
+            Live chat
+          </NavLink>
+          <NavLink
+            to="/app/support/email"
+            className={({ isActive }) =>
+              `${classes.switchBtn} ${isActive ? classes.switchBtnActive : ''}`
+            }
+          >
+            <Mail size={14} />
+            Email
+          </NavLink>
+        </nav>
       </motion.div>
 
-      <motion.div className={classes.twoCol} variants={presets.child}>
-        <div className={`glass ${classes.chatPane}`}>
-          <div className={classes.chatHeader}>
-            <div className={classes.chatHeaderTitle}>
-              <Bot size={16} />
-              Support Bot
+      {isEmail ? (
+        <motion.div className={`glass ${classes.emailStage}`} variants={presets.child}>
+          <div className={classes.emailHead}>
+            <div>
+              <h3>New ticket</h3>
+              <p>We read every email. Attach screenshots if it helps.</p>
             </div>
-            <span className={classes.chatStatus}>Online</span>
           </div>
 
-          <div className={classes.messageList}>
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`${classes.messageRow} ${msg.role === 'user' ? classes.userRow : classes.botRow}`}
-              >
-                {msg.role === 'assistant' && (
-                  <div className={classes.botAvatar}>
-                    <Bot size={18} />
-                  </div>
-                )}
-                <div className={`${classes.bubble} ${bubbleClass(msg)}`}>
-                  {msg.text}
-                </div>
-                {msg.role === 'user' && (
-                  <div className={classes.userAvatar}>{userInitial}</div>
-                )}
-              </div>
-            ))}
-
-            {typing && (
-              <div className={`${classes.messageRow} ${classes.botRow}`}>
-                <div className={classes.botAvatar}>
-                  <Bot size={18} />
-                </div>
-                <div className={`${classes.bubble} ${classes.botBubble}`}>
-                  <span className={classes.typingDots}>
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          <div className={classes.inputChrome}>
-            <textarea
-              ref={textareaRef}
-              className={classes.chatInput}
-              value={input}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder="Type your message..."
-              rows={1}
-            />
-            <button
-              type="button"
-              className={classes.sendBtn}
-              onClick={handleSend}
-              disabled={!input.trim() || typing}
-              aria-label="Send message"
-            >
-              <Send size={18} />
-            </button>
-          </div>
-        </div>
-
-        <div className={`glass ${classes.emailPane}`}>
-          <div className={classes.cardHead}>
-            <h3><Mail size={18} /> Email Support</h3>
-          </div>
-          <p className={classes.cardSubtitle}>
-            Describe your issue and our team will respond within 24 hours.
-          </p>
-
-          <div className={classes.emailFields}>
-            <div className={classes.formGroup}>
-              <div className={classes.formLabel}>Subject</div>
-              <input
-                type="text"
-                className={classes.formInput}
-                value={emailSubject}
-                onChange={(e) => setEmailSubject(e.target.value)}
-                placeholder="Brief summary of your issue"
-              />
-            </div>
-
-            <div className={classes.formGroup}>
-              <div className={classes.formLabel}>Category</div>
-              <div className={classes.selectField}>
-                <CustomSelect
-                  options={CATEGORIES.map((c) => ({ value: c, label: c }))}
-                  value={emailCategory}
-                  onChange={setEmailCategory}
-                  placeholder="Select a category"
-                  className={classes.supportSelect}
+          <div className={classes.emailBody}>
+            <div className={classes.emailGrid}>
+              <div className={classes.formGroup}>
+                <div className={classes.formLabel}>Subject</div>
+                <input
+                  type="text"
+                  className={classes.formInput}
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder="Brief summary"
                 />
               </div>
+              <div className={classes.formGroup}>
+                <div className={classes.formLabel}>Category</div>
+                <div className={classes.selectField}>
+                  <CustomSelect
+                    options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+                    value={emailCategory}
+                    onChange={setEmailCategory}
+                    placeholder="Select a category"
+                    className={classes.supportSelect}
+                  />
+                </div>
+              </div>
             </div>
-
-            <div className={classes.formGroup}>
+            <div className={`${classes.formGroup} ${classes.descriptionGroup}`}>
               <div className={classes.formLabel}>Description</div>
               <textarea
                 className={classes.formTextarea}
                 value={emailBody}
                 onChange={(e) => setEmailBody(e.target.value)}
-                placeholder="Describe your issue in detail..."
-                rows={3}
+                placeholder="Describe your issue..."
+                rows={8}
               />
             </div>
-
-            <div className={classes.formGroup}>
-              <div className={classes.formLabel}>
-                Attachments
-                <span className={classes.attachmentHint}>
-                  (optional · up to {SUPPORT_ATTACHMENT_LIMITS.maxFiles} files,{' '}
-                  {SUPPORT_ATTACHMENT_LIMITS.maxFileBytes / (1024 * 1024)} MB each)
-                </span>
-              </div>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept={SUPPORT_ATTACHMENT_LIMITS.acceptList.join(',')}
-                onChange={handleFileInputChange}
-                className={classes.fileInputHidden}
-              />
-
-              <button
-                type="button"
-                className={classes.attachBtn}
-                onClick={() => fileInputRef.current?.click()}
-                disabled={
-                  emailSending || attachments.length >= SUPPORT_ATTACHMENT_LIMITS.maxFiles
-                }
-              >
-                <Paperclip size={15} />
-                {attachments.length > 0 ? 'Add more files' : 'Add files'}
-              </button>
-
-              {attachments.length > 0 && (
-                <ul className={classes.attachmentList}>
-                  {attachments.map((file, idx) => {
-                    const isImage = (file.type || '').startsWith('image/');
-                    return (
-                      <li key={`${file.name}-${idx}`} className={classes.attachmentChip}>
-                        <span className={classes.attachmentIcon}>
-                          {isImage ? <ImageIcon size={14} /> : <FileText size={14} />}
-                        </span>
-                        <span className={classes.attachmentName} title={file.name}>
-                          {file.name}
-                        </span>
-                        <span className={classes.attachmentSize}>
-                          {formatBytes(file.size)}
-                        </span>
-                        <button
-                          type="button"
-                          className={classes.attachmentRemove}
-                          onClick={() => handleRemoveAttachment(idx)}
-                          aria-label={`Remove ${file.name}`}
-                          disabled={emailSending}
-                        >
-                          <X size={13} />
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
+            {attachments.length > 0 ? (
+              <ul className={classes.attachmentList}>
+                {attachments.map((file, idx) => {
+                  const isImage = (file.type || '').startsWith('image/');
+                  return (
+                    <li key={`${file.name}-${idx}`} className={classes.attachmentChip}>
+                      <span className={classes.attachmentIcon}>
+                        {isImage ? <ImageIcon size={14} /> : <FileText size={14} />}
+                      </span>
+                      <span className={classes.attachmentName} title={file.name}>
+                        {file.name}
+                      </span>
+                      <span className={classes.attachmentSize}>{formatBytes(file.size)}</span>
+                      <button
+                        type="button"
+                        className={classes.attachmentRemove}
+                        onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                        aria-label={`Remove ${file.name}`}
+                        disabled={emailSending}
+                      >
+                        <X size={13} />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
           </div>
 
-          <div className={classes.formActions}>
+          <div className={classes.emailFooter}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={SUPPORT_ATTACHMENT_LIMITS.acceptList.join(',')}
+              onChange={handleFileInputChange}
+              className={classes.fileInputHidden}
+            />
+            <button
+              type="button"
+              className={classes.attachBtn}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={emailSending || attachments.length >= SUPPORT_ATTACHMENT_LIMITS.maxFiles}
+            >
+              <Paperclip size={15} />
+              {attachments.length > 0 ? 'Add more' : 'Add files'}
+              <span className={classes.attachmentHint}>
+                up to {SUPPORT_ATTACHMENT_LIMITS.maxFiles}
+              </span>
+            </button>
             <button
               type="button"
               className={classes.submitBtn}
@@ -381,12 +309,31 @@ const SupportPage = () => {
                   Sending...
                 </>
               ) : (
-                <>Send Email</>
+                <>Send email</>
               )}
             </button>
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      ) : (
+        <motion.div className={`glass ${classes.chatStage}`} variants={presets.child}>
+          <SupportThread
+            portal
+            messages={messages}
+            input={input}
+            onInputChange={handleInputChange}
+            onSend={handleSend}
+            typing={supportTyping}
+            online={staffOnline}
+            loading={loading}
+            userInitial={userInitial}
+            title="Live chat"
+            timeZone={conversation?.userTimeZone || browserTimeZone()}
+            selfId={user?.uid}
+            conversationId={conversation?.id || user?.uid}
+            peerLastReadAt={conversation?.supportLastReadAt || null}
+          />
+        </motion.div>
+      )}
     </motion.div>
   );
 };

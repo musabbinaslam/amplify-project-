@@ -8,7 +8,7 @@ import PageLoader from './components/ui/PageLoader';
 import ErrorFallback from './components/ui/ErrorFallback';
 import LandingPage from './pages/LandingPage';
 import useAuthStore from './store/authStore';
-import { isAgencyAdminUser } from './utils/authRoles';
+import { isAgencyAdminUser, isSupportStaffUser } from './utils/authRoles';
 import { auth } from './config/firebase';
 import UpdateBanner from './components/ui/UpdateBanner';
 import TermsGatewayModal from './components/TermsGatewayModal';
@@ -25,6 +25,9 @@ const BillingPage = lazy(() => import('./pages/BillingPage'));
 const LicensedStatesPage = lazy(() => import('./pages/LicensedStatesPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
+const SupportHubPage = lazy(() => import('./pages/SupportHubPage'));
+const SupportDeskPage = lazy(() => import('./pages/SupportDeskPage'));
+const SupportAnalyticsPage = lazy(() => import('./pages/SupportAnalyticsPage'));
 
 const ScriptPage = lazy(() => import('./pages/ScriptPage'));
 const NotesPage = lazy(() => import('./pages/NotesPage'));
@@ -59,6 +62,7 @@ const AgencyDashboardPage = lazy(() => import('./pages/AgencyDashboardPage'));
 
 
 import DialerOverlay from './components/ui/DialerOverlay';
+import SupportChatPopup from './components/support/SupportChatPopup';
 
 const ProtectedRoute = () => {
   const token = useAuthStore((s) => s.token);
@@ -112,6 +116,22 @@ const ManagerOnly = ({ children }) => {
   return children;
 };
 
+const SupportStaffOnly = ({ children }) => {
+  const user = useAuthStore((s) => s.user);
+  if (!isSupportStaffUser(user)) return <Navigate to="/app" replace />;
+  return children;
+};
+
+const AppIndex = () => {
+  const role = useAuthStore((s) => s.user?.role);
+  if (role === 'support') return <Navigate to="/app/support-desk/analytics" replace />;
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <WelcomePage />
+    </Suspense>
+  );
+};
+
 /** Tiny redirect: /r/AGENT-XXXXXX → /signup?ref=AGENT-XXXXXX */
 const ReferralRedirect = () => {
   const { code } = useParams();
@@ -146,6 +166,7 @@ const AnimatedRoutes = () => {
   return (
     <>
       <DialerOverlay />
+      <SupportChatPopup />
       <Routes>
         {/* Public landing page */}
         <Route path="/" element={
@@ -170,9 +191,7 @@ const AnimatedRoutes = () => {
 
         {/* Authenticated app under /app */}
         <Route path="/app" element={<ProtectedRoute />}>
-          <Route index element={
-            <Suspense fallback={<PageLoader />}><WelcomePage /></Suspense>
-          } />
+          <Route index element={<AppIndex />} />
           <Route path="take-calls" element={
             <Suspense fallback={<PageLoader />}><TakeCallsPage /></Suspense>
           } />
@@ -206,7 +225,7 @@ const AnimatedRoutes = () => {
           <Route path="profile" element={
             <Suspense fallback={<PageLoader />}><ProfilePage /></Suspense>
           } />
-          <Route path="support" element={
+          <Route path="support/*" element={
             <Suspense fallback={<PageLoader />}><SupportPage /></Suspense>
           } />
           <Route path="settings" element={
@@ -364,6 +383,27 @@ const AnimatedRoutes = () => {
               <ManagerOnly>
                 <TeamDashboardPage />
               </ManagerOnly>
+            </Suspense>
+          } />
+          <Route path="support-desk" element={
+            <Suspense fallback={<PageLoader />}>
+              <SupportStaffOnly>
+                <SupportHubPage />
+              </SupportStaffOnly>
+            </Suspense>
+          } />
+          <Route path="support-desk/inbox" element={
+            <Suspense fallback={<PageLoader />}>
+              <SupportStaffOnly>
+                <SupportDeskPage />
+              </SupportStaffOnly>
+            </Suspense>
+          } />
+          <Route path="support-desk/analytics" element={
+            <Suspense fallback={<PageLoader />}>
+              <SupportStaffOnly>
+                <SupportAnalyticsPage />
+              </SupportStaffOnly>
             </Suspense>
           } />
 

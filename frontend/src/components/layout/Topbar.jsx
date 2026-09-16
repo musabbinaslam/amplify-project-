@@ -34,7 +34,10 @@ const Topbar = ({
   const [inboxTab, setInboxTab] = useState('general');
   const inboxRef = useRef(null);
   const { callState } = useDialerStore();
-  const showPersonaWarning = Boolean(user && user.personaStatus !== 'verified');
+  const showPersonaWarning = Boolean(
+    user && user.personaStatus !== 'verified' && user.role !== 'support' && user.role !== 'admin' && user.role !== 'qa',
+  );
+  const isSupportRole = user?.role === 'support';
 
   const isOnline = callState !== 'offline' && callState !== 'error';
   const inboxMotion = dropdownPanelMotion(reduceMotion);
@@ -59,6 +62,7 @@ const Topbar = ({
     };
 
     if (user) {
+      if (user.role === 'support') return undefined;
       fetchBalance();
       const interval = setInterval(fetchBalance, 60000);
       window.addEventListener('wallet_updated', handleWalletUpdate);
@@ -361,18 +365,20 @@ const Topbar = ({
           </AnimatePresence>
         </div>
 
-        <button
-          type="button"
-          className={classes.walletBox}
-          onClick={() => navigate('/app/billing')}
-          title="View billing"
-        >
-          <Wallet size={16} className={classes.walletIcon} />
-          <span className={classes.balance}>{formatBalance(balanceCents)}</span>
-          {balanceCents !== null && balanceCents < 5000 && (
-            <span className={classes.noCreditsBadge}>Low Credits</span>
-          )}
-        </button>
+        {isSupportRole ? null : (
+          <button
+            type="button"
+            className={classes.walletBox}
+            onClick={() => navigate('/app/billing')}
+            title="View billing"
+          >
+            <Wallet size={16} className={classes.walletIcon} />
+            <span className={classes.balance}>{formatBalance(balanceCents)}</span>
+            {balanceCents !== null && balanceCents < 5000 && (
+              <span className={classes.noCreditsBadge}>Low Credits</span>
+            )}
+          </button>
+        )}
 
         <button
           type="button"
@@ -383,10 +389,12 @@ const Topbar = ({
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
 
-        <div className={`${classes.statusBadge} ${isOnline ? classes.statusOnline : ''}`}>
-          <span className={classes.statusDot} />
-          {isOnline ? 'Online' : 'Offline'}
-        </div>
+        {isSupportRole ? null : (
+          <div className={`${classes.statusBadge} ${isOnline ? classes.statusOnline : ''}`}>
+            <span className={classes.statusDot} />
+            {isOnline ? 'Online' : 'Offline'}
+          </div>
+        )}
       </div>
 
       <NotificationDetailModal

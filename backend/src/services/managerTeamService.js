@@ -220,7 +220,7 @@ async function cleanManagedAgentIds(managerUid, managedAgents, { platformAgentsO
     .filter((s) => {
       const data = s.data() || {};
       const role = String(data.role || '');
-      if (role === 'admin' || role === 'qa') return true;
+      if (role === 'admin' || role === 'qa' || role === 'support') return true;
       return !isPlatformUser(data) || role === 'manager';
     })
     .map((s) => s.id);
