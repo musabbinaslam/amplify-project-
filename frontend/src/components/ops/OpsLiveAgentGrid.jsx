@@ -1,6 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Activity, Search } from 'lucide-react';
-import { formatAgentDisplayName, getAgentLiveSubtext, statusMeta } from './opsUtils';
+import {
+  formatAgentDisplayName,
+  formatLiveCallClock,
+  getAgentLiveSubtext,
+  getLiveCallElapsedSec,
+  statusMeta,
+} from './opsUtils';
 import shared from './opsShared.module.css';
 import classes from './OpsLiveAgents.module.css';
 
@@ -49,6 +55,18 @@ export default function OpsLiveAgentGrid({
     () => sortAgents(filterAgents(agents, search, onlineOnly)),
     [agents, search, onlineOnly],
   );
+
+  const hasLiveCall = useMemo(
+    () => visibleAgents.some((agent) => liveCallByAgent.get(agent.id)),
+    [visibleAgents, liveCallByAgent],
+  );
+
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!hasLiveCall) return undefined;
+    const id = window.setInterval(() => setTick((n) => n + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [hasLiveCall]);
 
   const listStyle = {
     maxHeight: compact ? LIST_MAX_HEIGHT_COMPACT : LIST_MAX_HEIGHT,
@@ -118,6 +136,7 @@ export default function OpsLiveAgentGrid({
               const isSelected = selectedAgent === agent.id;
               const { label, title: nameTitle } = formatAgentDisplayName(agent);
               const subtext = getAgentLiveSubtext(agent, live);
+              const callClock = live ? formatLiveCallClock(getLiveCallElapsedSec(live)) : null;
 
               return (
                 <button
@@ -133,8 +152,13 @@ export default function OpsLiveAgentGrid({
                     <span className={`${shared.statusDot} ${meta.cls}`} aria-hidden="true" />
                     <span className={classes.rowName}>{label}</span>
                   </span>
-                  <span className={`${classes.rowStatus} ${meta.cls}`}>{meta.label}</span>
-                  {subtext && !compact ? (
+                  <span className={`${classes.rowStatus} ${meta.cls}`}>
+                    {meta.label}
+                    {callClock ? (
+                      <span className={classes.rowDuration}>{callClock}</span>
+                    ) : null}
+                  </span>
+                  {subtext ? (
                     <span className={classes.rowMeta}>{subtext}</span>
                   ) : null}
                 </button>

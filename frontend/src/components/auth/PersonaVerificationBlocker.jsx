@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
+import { confirmPersonaInquiry } from '../../services/personaService';
 import classes from './PersonaVerificationBlocker.module.css';
 
 const PersonaVerificationBlocker = ({ onComplete }) => {
@@ -21,6 +22,7 @@ const PersonaVerificationBlocker = ({ onComplete }) => {
     }
 
     try {
+      let capturedInquiryId = '';
       const client = new window.Persona.Client({
         templateId,
         environmentId,
@@ -29,22 +31,45 @@ const PersonaVerificationBlocker = ({ onComplete }) => {
           client.open();
           setIsLaunching(false);
         },
-        onComplete: async ({ inquiryId, status }) => {
-          console.log('[Persona] completed', status);
-          toast.success('Identity verification completed successfully!');
-          const { user, setUserField } = useAuthStore.getState();
-          if (user) {
-            setUserField('personaStatus', 'verified');
-            if (import.meta.env.DEV) {
-              try {
-                const { saveProfile } = await import('../../services/profileService');
-                await saveProfile(user.uid, { personaStatus: 'verified' });
-              } catch (e) {
-                console.warn('Local dev persona save failed', e);
-              }
+        onEvent: (name, meta) => {
+          const id = meta?.inquiryId || meta?.inquiry_id;
+          if (id) capturedInquiryId = id;
+        },
+        onComplete: async (...args) => {
+          const payload = args[0];
+          const inquiryId =
+            (typeof payload === 'string' && payload.startsWith('inq_') ? payload : '')
+            || payload?.inquiryId
+            || payload?.inquiry_id
+            || payload?.id
+            || args[1]?.inquiryId
+            || capturedInquiryId;
+          console.log('[Persona] completed', args, 'inquiryId=', inquiryId);
+          try {
+            if (!inquiryId) {
+              throw new Error('Persona did not return an inquiry id');
             }
+            const result = await confirmPersonaInquiry(inquiryId);
+            if (result?.personaStatus === 'verified') {
+              useAuthStore.getState().setUserField('personaStatus', 'verified');
+            }
+            await useAuthStore.getState().refreshUserRole();
+            const verified = useAuthStore.getState().user?.personaStatus === 'verified';
+            if (!verified) {
+              throw new Error('Verification has not been saved yet');
+            }
+            toast.success('Identity verification completed successfully!');
+            if (onComplete) onComplete();
+          } catch (err) {
+            console.error('[Persona] confirm failed:', err);
+            const detail = String(err?.message || '').trim();
+            toast.error(
+              detail
+                ? `Verification finished in Persona, but CallsFlow could not save it: ${detail}`
+                : 'Verification finished, but your account is not marked verified yet.',
+            );
+            setIsLaunching(false);
           }
-          if (onComplete) onComplete();
         },
         onCancel: () => {
           toast('Verification cancelled');

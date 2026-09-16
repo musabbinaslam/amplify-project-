@@ -116,16 +116,31 @@
 
 .rowStatus {
   grid-column: 2;
-  grid-row: 1;
+  grid-row: 1 / span 2;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   white-space: nowrap;
+  line-height: 1.1;
+}
+
+.rowDuration {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  opacity: 0.95;
 }
 
 .rowMeta {
-  grid-column: 1 / -1;
+  grid-column: 1;
   grid-row: 2;
   padding-left: 19px;
   font-size: 12px;
@@ -151,17 +166,21 @@
   text-align: right;
 }
 
-/* Compact sidebar: single-line rows */
+/* Compact: tighter padding, still two rows so duration + states stay visible */
 .wrapCompact .row {
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto;
+  grid-template-rows: auto auto;
   padding: 8px 4px;
-}
-
-.wrapCompact .rowMeta {
-  display: none;
 }
 
 .wrapCompact .rowStatus {
   font-size: 10px;
+}
+
+.wrapCompact .rowDuration {
+  font-size: 13px;
+}
+
+.wrapCompact .rowMeta {
+  font-size: 11px;
 }

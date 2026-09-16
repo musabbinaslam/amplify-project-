@@ -23,28 +23,43 @@ export function formatAgentDisplayName(agent) {
   return { label: raw, title: raw };
 }
 
+export function getLiveCallElapsedSec(liveCall) {
+  if (!liveCall) return 0;
+  const started = liveCall.startedAt ? new Date(liveCall.startedAt).getTime() : NaN;
+  if (Number.isFinite(started)) {
+    return Math.max(0, Math.floor((Date.now() - started) / 1000));
+  }
+  return Math.max(0, Math.floor(Number(liveCall.durationSec) || 0));
+}
+
+export function formatLiveCallClock(durationSec) {
+  const secs = Math.max(0, Math.floor(Number(durationSec) || 0));
+  return `${secs}s`;
+}
+
+function licensedStatesLabel(agent) {
+  if (!agent?.licensedStates || agent.licensedStates.length === 0) return '';
+  let parsedStates = agent.licensedStates;
+  if (typeof parsedStates === 'string') {
+    try { parsedStates = JSON.parse(parsedStates); } catch { parsedStates = []; }
+  }
+  if (!Array.isArray(parsedStates) || parsedStates.length === 0) return '';
+  return `[${parsedStates.join(', ')}]`;
+}
+
 export function getAgentLiveSubtext(agent, liveCall) {
   if (!agent?.online) return null;
-  
-  let statesStr = '';
-  if (agent.licensedStates && agent.licensedStates.length > 0) {
-    let parsedStates = agent.licensedStates;
-    if (typeof parsedStates === 'string') {
-      try { parsedStates = JSON.parse(parsedStates); } catch (e) { parsedStates = []; }
-    }
-    if (Array.isArray(parsedStates) && parsedStates.length > 0) {
-      statesStr = ` [${parsedStates.join(', ')}]`;
-    }
-  }
+
+  const statesStr = licensedStatesLabel(agent);
 
   if (liveCall) {
-    const secs = Number(liveCall.durationSec || 0);
-    return secs > 0 ? `On call · ${secs}s${statesStr}` : `On call${statesStr}`;
+    return statesStr || null;
   }
   if (agent.campaignId) {
-    return `${CAMPAIGN_SHORT[agent.campaignId] || agent.campaignId}${statesStr}`;
+    const campaign = CAMPAIGN_SHORT[agent.campaignId] || agent.campaignId;
+    return statesStr ? `${campaign} ${statesStr}` : campaign;
   }
-  return `Ready — no active call${statesStr}`;
+  return statesStr ? `Ready — no active call ${statesStr}` : 'Ready — no active call';
 }
 
 export function statusMeta(status, online, classes) {
