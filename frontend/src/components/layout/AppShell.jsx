@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Wrench } from 'lucide-react';
 import { routeOutletMotion } from '../../motion/appMotion';
@@ -9,6 +9,7 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import useAuthStore from '../../store/authStore';
 import useDialerStore from '../../store/useDialerStore';
+import useSupportChatStore from '../../store/useSupportChatStore';
 import { useUIStore } from '../../store/uiStore';
 import { getApiBaseUrl } from '../../config/apiBase';
 import {
@@ -24,9 +25,11 @@ import classes from './AppShell.module.css';
 const AppShell = () => {
   const { isSidebarCollapsed } = useUIStore();
   const location = useLocation();
+  const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
   const outletMotion = useMemo(() => routeOutletMotion(reduceMotion), [reduceMotion]);
   const user = useAuthStore((s) => s.user);
+  const getIdToken = useAuthStore((s) => s.getIdToken);
   const [notifications, setNotifications] = useState([]);
   const [adminNotifications, setAdminNotifications] = useState([]);
   const [aiFlagNotifications, setAiFlagNotifications] = useState([]);
@@ -242,6 +245,41 @@ const AppShell = () => {
   }, [user?.uid, user?.role]);
 
   useEffect(() => {
+    if (!user?.uid) return undefined;
+    const isStaffViewer = user.role === 'support' || user.role === 'admin';
+    const store = useSupportChatStore.getState();
+    store.setUid(user.uid);
+    store.connect(getIdToken, { isStaffViewer }).catch(() => {});
+    // Don't warm media tokens for staff until they open inbox/chat — saves boot work for admins.
+    if (!isStaffViewer) {
+      import('../../services/supportLiveService').then(({ warmSupportMediaToken }) => {
+        warmSupportMediaToken();
+      }).catch(() => {});
+      store.loadMine().catch(() => {});
+    }
+    return () => {
+      useSupportChatStore.getState().disconnect();
+    };
+  }, [user?.uid, user?.role, getIdToken]);
+
+  useEffect(() => {
+    if (!user?.uid) return undefined;
+    const onDeskMedia = location.pathname.startsWith('/app/support-desk/inbox')
+      || location.pathname.startsWith('/app/support');
+    if (!onDeskMedia) return undefined;
+    import('../../services/supportLiveService').then(({ warmSupportMediaToken }) => {
+      warmSupportMediaToken();
+    }).catch(() => {});
+    return undefined;
+  }, [user?.uid, location.pathname]);
+
+  useEffect(() => {
+    if (user?.role === 'support' && !location.pathname.startsWith('/app/support-desk')) {
+      navigate('/app/support-desk/analytics', { replace: true });
+    }
+  }, [user?.role, location.pathname, navigate]);
+
+  useEffect(() => {
     const timer = window.setInterval(() => setNowTs(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
@@ -352,10 +390,10 @@ const AppShell = () => {
             notificationTick={notificationTick}
             latestNotificationId={latestNotificationId}
           />
-          <main className={classes.mainContent}>
+          <main className={`${classes.mainContent} ${['/app/support-desk/inbox', '/app/support', '/app/support/email'].includes(location.pathname.replace(/\/+$/, '')) ? classes.mainContentFlush : ''}`}>
             <motion.div
               key={location.pathname}
-              style={{ width: '100%', height: '100%' }}
+              style={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
               {...outletMotion}
             >
               <Outlet />

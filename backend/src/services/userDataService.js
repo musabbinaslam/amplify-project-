@@ -2,18 +2,38 @@ const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const crypto = require('crypto');
 
+const USER_DOC_TTL_MS = 20_000;
+const userDocCache = new Map();
+
 function usersRef(uid) {
   const db = getDb();
   if (!db) return null;
   return db.collection('users').doc(uid);
 }
 
+function rememberUserDoc(uid, data) {
+  const key = String(uid);
+  userDocCache.set(key, { at: Date.now(), data });
+  if (userDocCache.size > 400) {
+    const oldest = userDocCache.keys().next().value;
+    userDocCache.delete(oldest);
+  }
+}
+
+function invalidateUserDoc(uid) {
+  userDocCache.delete(String(uid));
+}
+
 async function getUserDoc(uid) {
+  const key = String(uid);
+  const cached = userDocCache.get(key);
+  if (cached && Date.now() - cached.at < USER_DOC_TTL_MS) return cached.data;
   const ref = usersRef(uid);
   if (!ref) throw new Error('Database unavailable');
   const snap = await ref.get();
-  if (!snap.exists) return null;
-  return snap.data();
+  const data = snap.exists ? snap.data() : null;
+  rememberUserDoc(key, data);
+  return data;
 }
 
 /**
@@ -31,6 +51,7 @@ async function mergeUserDoc(uid, data) {
     },
     { merge: true },
   );
+  invalidateUserDoc(uid);
 }
 
 async function mergeSettings(uid, partial) {

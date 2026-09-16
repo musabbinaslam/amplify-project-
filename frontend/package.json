@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "node -e \"const fs=require('fs');const id=process.env.VERCEL_GIT_COMMIT_SHA||('local-'+Date.now());fs.writeFileSync('public/version.json',JSON.stringify({buildId:id,releaseId:id}))\" && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

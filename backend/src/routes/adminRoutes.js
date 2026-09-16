@@ -22,6 +22,7 @@ router.get('/users', adminController.getAllUsers);
 router.get('/managers', adminController.listManagerTeams);
 router.get('/managers/:uid', adminController.getManagerTeam);
 router.patch('/users/:uid/manager-settings', adminController.patchManagerSettings);
+router.patch('/users/:uid/support-role', adminController.patchSupportRole);
 
 router.post('/agents/:agentId/flag', adminController.flagAgent);
 router.post('/agents/:agentId/resume', adminController.resumeAgent);

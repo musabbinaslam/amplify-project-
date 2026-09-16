@@ -1,5 +1,5 @@
 /** Platform roles that must not be replaced when joining an agency. */
-const PLATFORM_ROLES = new Set(['admin', 'qa', 'manager']);
+const PLATFORM_ROLES = new Set(['admin', 'qa', 'manager', 'support']);
 
 function poolSegment(agencyId) {
   const id = agencyId == null || agencyId === '' ? null : String(agencyId).trim();

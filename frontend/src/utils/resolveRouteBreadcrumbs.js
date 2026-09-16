@@ -17,6 +17,7 @@ const TOP_LEVEL_ROUTES = {
   '/app/leads': 'Leads',
   '/app/profile': 'Profile',
   '/app/support': 'Support',
+  '/app/support-desk': 'Support Desk',
   '/app/settings': 'Settings',
   '/app/referral-program': 'Referral Program',
   '/app/agency': 'Agency Dashboard',
@@ -74,6 +75,21 @@ export function resolveRouteBreadcrumbs(pathname) {
 
   if (TOP_LEVEL_ROUTES[normalized]) {
     return [{ label: TOP_LEVEL_ROUTES[normalized] }];
+  }
+
+  if (normalized === '/app/support/email') {
+    return [
+      { label: 'Support', href: '/app/support' },
+      { label: 'Email' },
+    ];
+  }
+
+  if (normalized === '/app/support-desk/inbox') {
+    return [{ label: 'Inbox' }];
+  }
+
+  if (normalized === '/app/support-desk/analytics') {
+    return [{ label: 'Analytics' }];
   }
 
   if (normalized === ADMIN_HOME) {

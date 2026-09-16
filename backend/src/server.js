@@ -18,6 +18,8 @@ const managerRoutes = require('./routes/managerRoutes');
 const agencyRoutes = require('./routes/agencyRoutes');
 const leaderboardRoutes = require('./routes/leaderboardRoutes');
 const { setupCallSockets } = require('./sockets/callSockets');
+const { setupSupportSockets } = require('./sockets/supportSockets');
+const supportDeskRoutes = require('./routes/supportDeskRoutes');
 const socketRegistry = require('./sockets/socketRegistry');
 const { verifyFirebaseToken } = require('./middleware/auth');
 const { globalRateLimiter } = require('./middleware/security');
@@ -111,6 +113,7 @@ const startEngine = async () => {
 
   // Init Socket events
   setupCallSockets(io);
+  setupSupportSockets(io);
 
   // ── Periodic Ghost Agent Cleanup ──────────────────────────────────────────
   // Agents whose browser crashed / network died stop sending heartbeats.
@@ -214,8 +217,9 @@ const startEngine = async () => {
   const referralRoutes = require('./routes/referralRoutes');
   app.use('/api/referrals', referralRoutes);
 
-  // Support chat (Gemini); requires Firebase ID token
+  // Support chat (Gemini + live human thread); requires Firebase ID token
   app.use('/api/support', supportRoutes);
+  app.use('/api/support-desk', supportDeskRoutes);
 
   // Revoke all refresh tokens for the authenticated user
   app.post('/api/auth/revoke', verifyFirebaseToken, async (req, res) => {

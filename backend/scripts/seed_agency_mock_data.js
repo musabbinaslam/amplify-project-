@@ -124,7 +124,7 @@ async function getPlatformUsers() {
     .filter((u) => {
       if (u.agencyId) return false;
       const role = u.role || 'agent';
-      if (role === 'admin' || role === 'qa') return false;
+      if (role === 'admin' || role === 'qa' || role === 'support') return false;
       return true;
     });
 }

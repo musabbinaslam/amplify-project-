@@ -1,0 +1,441 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+:root {
+  --topbar-height: 56px;
+  --text-primary: #f2f7f2;
+  --text-secondary: #9bb09b;
+  --text-tertiary: #6f856f;
+  --brand-text: #6dff8a;
+  --brand-solid: #2f9e4b;
+  --brand-on: #04140a;
+  --accent-yellow: #f5c84c;
+  --glass-border: rgba(255,255,255,0.12);
+  --surface-container-high: #16301c;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+}
+body { margin: 0; background: #07140c; color: var(--text-primary); font-family: Inter, system-ui, sans-serif; }
+.glass { border: 1px solid var(--glass-border); border-radius: 18px; background: rgba(18,40,24,0.72); }
+.page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--topbar-height) - 120px);
+  min-height: 560px;
+  gap: 0;
+}
+
+.bento {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-rows: minmax(120px, 0.28fr) minmax(72px, auto) 1fr;
+  gap: 12px;
+}
+
+.waitingTile,
+.stampTile,
+.queueTile,
+.threadTile {
+  min-width: 0;
+  min-height: 0;
+}
+
+.waitingTile > *,
+.stampTile > *,
+.queueTile > *,
+.threadTile > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Lead: live thread — 8 cols, all rows */
+.threadTile {
+  grid-column: 5 / 13;
+  grid-row: 1 / 4;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Waiting satellite — 4 cols, tall display type */
+.waitingTile {
+  grid-column: 1 / 5;
+  grid-row: 1;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.waitingValue {
+  font-size: clamp(40px, 4.5vw, 48px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.waitingWarn .waitingValue {
+  color: var(--accent-yellow);
+}
+
+.waitingHint {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.closedLink {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.closedLink:hover {
+  color: var(--brand-text);
+}
+
+/* Open + avg reply stamps */
+.stampTile {
+  grid-column: span 2;
+  grid-row: 2;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.stampTile:nth-child(2) {
+  grid-column: 1 / 3;
+}
+
+.stampTile:nth-child(3) {
+  grid-column: 3 / 5;
+  cursor: default;
+}
+
+.stampValue {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.meta {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.tileActive {
+  border-color: color-mix(in srgb, var(--brand-text) 40%, var(--glass-border));
+}
+
+/* Inbox — remaining left column */
+.queueTile {
+  grid-column: 1 / 5;
+  grid-row: 3;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 12px 0;
+  flex-shrink: 0;
+}
+
+.tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 8px 6px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.tabActive {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+}
+
+.search {
+  margin: 10px 12px 8px;
+  width: calc(100% - 24px);
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 8px 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.row:hover {
+  background: color-mix(in srgb, var(--brand-text) 7%, transparent);
+}
+
+.rowActive {
+  border-color: color-mix(in srgb, var(--brand-text) 40%, transparent);
+  background: color-mix(in srgb, var(--brand-text) 8%, transparent);
+}
+
+.rowAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+}
+
+.rowBody {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rowTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rowName {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowTime {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.rowPreview {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unread {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--brand-text);
+  flex-shrink: 0;
+}
+
+.emptyList {
+  margin: auto;
+  padding: 24px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.emptyThread {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px 36px;
+  gap: 10px;
+  min-height: 0;
+}
+
+.emptyTitle {
+  margin: 0;
+  max-width: 14ch;
+  font-size: clamp(28px, 3.2vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: var(--text-primary);
+}
+
+.emptyCopy {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 1100px) {
+  .bento {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: minmax(420px, 1.2fr) auto auto minmax(220px, 0.7fr);
+  }
+
+  .threadTile {
+    grid-column: 1 / 3;
+    grid-row: 1;
+    min-height: 420px;
+  }
+
+  .waitingTile {
+    grid-column: 1 / 3;
+    grid-row: 2;
+  }
+
+  .stampTile:nth-child(2) {
+    grid-column: 1 / 2;
+    grid-row: 3;
+  }
+
+  .stampTile:nth-child(3) {
+    grid-column: 2 / 3;
+    grid-row: 3;
+  }
+
+  .queueTile {
+    grid-column: 1 / 3;
+    grid-row: 4;
+    max-height: none;
+    min-height: 220px;
+  }
+}
+
+@media (max-width: 720px) {
+  .bento {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(420px, 1fr) auto auto auto minmax(240px, auto);
+  }
+
+  .threadTile,
+  .waitingTile,
+  .stampTile,
+  .queueTile {
+    grid-column: 1 / 2;
+  }
+
+  .threadTile { grid-row: 1; }
+  .waitingTile { grid-row: 2; }
+  .stampTile:nth-child(2) { grid-row: 3; }
+  .stampTile:nth-child(3) { grid-row: 4; }
+  .queueTile { grid-row: 5; min-height: 240px; }
+}
+</style>
+</head>
+<body>
+<div class="page" style="height:100vh;padding:20px;box-sizing:border-box;">
+  <div class="bento">
+    <button type="button" class="glass waitingTile waitingWarn">
+      <span class="meta">Waiting</span>
+      <span class="waitingValue">1</span>
+      <span class="waitingHint">Claim next — they see it live
+        <button type="button" class="closedLink">0 closed today</button>
+      </span>
+    </button>
+    <button type="button" class="glass stampTile tileActive">
+      <span class="meta">Open</span>
+      <span class="stampValue">1</span>
+    </button>
+    <div class="glass stampTile">
+      <span class="meta">Avg first reply</span>
+      <span class="stampValue">17m</span>
+    </div>
+    <div class="glass queueTile">
+      <div class="tabs">
+        <button class="tab tabActive">waiting</button>
+        <button class="tab">mine</button>
+        <button class="tab">closed</button>
+      </div>
+      <input class="search" placeholder="Search name or preview" />
+      <div class="list">
+        <button class="row rowActive">
+          <span class="rowAvatar">A</span>
+          <span class="rowBody">
+            <span class="rowTop"><span class="rowName">Arham</span><span class="unread"></span><span class="rowTime">9m</span></span>
+            <span class="rowPreview">No messages yet</span>
+          </span>
+        </button>
+      </div>
+    </div>
+    <div class="glass threadTile">
+      <div class="emptyThread">
+        <p class="emptyTitle">Claim from the inbox</p>
+        <p class="emptyCopy">They see it live.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
