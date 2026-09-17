@@ -256,18 +256,29 @@ const AppShell = () => {
 
   useEffect(() => {
     if (!user?.uid) return undefined;
+    const isSupportOnly = user.role === 'support';
     const isStaffViewer = user.role === 'support' || user.role === 'admin';
     const store = useSupportChatStore.getState();
     store.setUid(user.uid);
-    store.connect(getIdToken, { isStaffViewer }).catch(() => {});
-    // Don't warm media tokens for staff until they open inbox/chat — saves boot work for admins.
-    if (!isStaffViewer) {
+    let cancelled = false;
+    (async () => {
+      try {
+        await store.connect(getIdToken, { isStaffViewer });
+        // Agents + admins use the user support popup; support role uses desk only.
+        if (!cancelled && !isSupportOnly) {
+          await store.loadMine();
+        }
+      } catch {
+        /* boot soft-fail; popup open path retries */
+      }
+    })();
+    if (!isSupportOnly) {
       import('../../services/supportLiveService').then(({ warmSupportMediaToken }) => {
         warmSupportMediaToken();
       }).catch(() => {});
-      store.loadMine().catch(() => {});
     }
     return () => {
+      cancelled = true;
       useSupportChatStore.getState().disconnect();
     };
   }, [user?.uid, user?.role, getIdToken]);

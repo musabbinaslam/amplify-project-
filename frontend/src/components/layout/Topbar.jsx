@@ -36,6 +36,7 @@ const Topbar = ({
   const inboxRef = useRef(null);
   const { callState } = useDialerStore();
   const openSupportPopup = useSupportChatStore((s) => s.openPopup);
+  const prepareUserChat = useSupportChatStore((s) => s.prepareUserChat);
   const markSupportRead = useSupportChatStore((s) => s.markRead);
   const supportUnread = useSupportChatStore((s) => s.unreadForUser);
   const supportPopupOpen = useSupportChatStore((s) => s.popupOpen);
@@ -181,7 +182,9 @@ const Topbar = ({
       return;
     }
     openSupportPopup();
-    markSupportRead();
+    prepareUserChat()
+      .then(() => markSupportRead())
+      .catch(() => {});
   };
 
   const renderInboxItems = (rows) => rows.map((row) => (

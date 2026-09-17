@@ -45,6 +45,23 @@ const useSupportChatStore = create((set, get) => ({
   minimizePopup: () => set({ popupMinimized: true, popupOpen: true }),
   closePopup: () => set({ popupOpen: false, popupMinimized: true }),
 
+  /** Ensure conversation + socket room are ready before chatting from the popup. */
+  prepareUserChat: async () => {
+    const state = get();
+    const getIdToken = state._getIdToken;
+    if (!state._socket && typeof getIdToken === 'function') {
+      await get().connect(getIdToken, {
+        isStaffViewer: false,
+      });
+    }
+    const out = await get().loadMine();
+    const convoId = out?.conversation?.id || get().conversation?.id;
+    if (convoId) {
+      get().joinConversation(convoId, { timeZone: browserTimeZone() });
+    }
+    return out;
+  },
+
   applyConversation: (conversation) => {
     if (!conversation) return;
     set((state) => {
@@ -139,11 +156,15 @@ const useSupportChatStore = create((set, get) => ({
         loading: false,
       });
       const socket = get()._socket;
-      if (socket?.connected && out?.conversation?.id) {
-        socket.emit('support:join', {
-          conversationId: out.conversation.id,
-          timeZone: browserTimeZone(),
-        });
+      const convoId = out?.conversation?.id;
+      if (convoId) {
+        set({ _joinedConversationId: convoId });
+        if (socket?.connected) {
+          socket.emit('support:join', {
+            conversationId: convoId,
+            timeZone: browserTimeZone(),
+          });
+        }
       }
       return out;
     } catch (err) {
