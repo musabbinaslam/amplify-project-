@@ -309,16 +309,32 @@ const AppShell = () => {
         const { listSupportDeskConversations } = await import('../../services/supportLiveService');
         const out = await listSupportDeskConversations({ status: 'inbox' });
         if (cancelled) return;
-        const prev = useSupportChatStore.getState().deskUnreadById || {};
-        const rows = (out?.rows || []).map((row) => ({
-          ...row,
-          unreadForSupport: Math.max(
+        const state = useSupportChatStore.getState();
+        const prev = state.deskUnreadById || {};
+        const activeId = state._activeDeskConversationId
+          ? String(state._activeDeskConversationId)
+          : null;
+        const rows = (out?.rows || []).map((row) => {
+          if (activeId && String(row.id) === activeId) {
+            return { ...row, unreadForSupport: 0, clearUnread: true };
+          }
+          const serverUnread = Math.max(
             Number(row.unreadForSupport || 0),
             deskUnreadFromConversation(row),
-            Number(prev[row.id] || prev[String(row.id)] || 0),
-          ),
-        }));
-        useSupportChatStore.getState().syncDeskUnreadFromRows(rows);
+          );
+          // Once server says read, drop sticky client count for that thread.
+          if (serverUnread <= 0) {
+            return { ...row, unreadForSupport: 0, clearUnread: true };
+          }
+          return {
+            ...row,
+            unreadForSupport: Math.max(
+              serverUnread,
+              Number(prev[row.id] || prev[String(row.id)] || 0),
+            ),
+          };
+        });
+        state.syncDeskUnreadFromRows(rows);
       } catch {
         /* ignore */
       }

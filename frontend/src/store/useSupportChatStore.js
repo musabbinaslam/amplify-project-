@@ -68,8 +68,19 @@ const useSupportChatStore = create((set, get) => ({
     set({ _activeDeskConversationId: id });
     if (!id) return;
     const byId = { ...get().deskUnreadById };
-    if (byId[id]) {
+    let changed = false;
+    if (byId[id] != null) {
       delete byId[id];
+      changed = true;
+    }
+    // Guard against mixed string/raw keys from older payloads.
+    Object.keys(byId).forEach((key) => {
+      if (String(key) === id) {
+        delete byId[key];
+        changed = true;
+      }
+    });
+    if (changed) {
       const total = Object.values(byId).reduce((sum, n) => sum + Number(n || 0), 0);
       set({ deskUnreadById: byId, deskUnreadTotal: total });
     }
@@ -77,14 +88,27 @@ const useSupportChatStore = create((set, get) => ({
 
   syncDeskUnreadFromRows: (rows = []) => {
     const prevById = get().deskUnreadById || {};
+    const activeId = get()._activeDeskConversationId
+      ? String(get()._activeDeskConversationId)
+      : null;
     const byId = {};
     let total = 0;
     const seen = new Set();
     (Array.isArray(rows) ? rows : []).forEach((row) => {
       if (!row?.id) return;
-      seen.add(String(row.id));
-      // Never let a slow list response wipe a fresher socket unread.
-      const n = Math.max(Number(row.unreadForSupport || 0), Number(prevById[row.id] || 0));
+      const id = String(row.id);
+      seen.add(id);
+      if (activeId && id === activeId) return; // open thread is never unread
+      const rowUnread = Number(row.unreadForSupport || 0);
+      const prevUnread = Number(prevById[row.id] || prevById[id] || 0);
+      // Explicit zero from a read/clear must win over a sticky previous count.
+      const cleared = row.clearUnread
+        || (rowUnread <= 0 && (
+          row.supportLastReadAt
+          || row.lastSenderRole === 'support'
+          || row.lastSenderRole === 'admin'
+        ));
+      const n = cleared ? 0 : Math.max(rowUnread, prevUnread);
       if (n > 0) {
         byId[row.id] = n;
         total += n;
@@ -92,6 +116,7 @@ const useSupportChatStore = create((set, get) => ({
     });
     Object.entries(prevById).forEach(([id, n]) => {
       if (seen.has(String(id))) return;
+      if (activeId && String(id) === activeId) return;
       const count = Number(n || 0);
       if (count <= 0) return;
       byId[id] = count;
@@ -106,14 +131,22 @@ const useSupportChatStore = create((set, get) => ({
     messageId = null,
   } = {}) => {
     if (!conversation?.id) return;
-    const activeId = get()._activeDeskConversationId;
-    const viewingOpen = Boolean(activeId && String(activeId) === String(conversation.id));
+    const convoId = String(conversation.id);
+    const activeId = get()._activeDeskConversationId
+      ? String(get()._activeDeskConversationId)
+      : null;
+    const viewingOpen = Boolean(activeId && activeId === convoId);
     const prevById = { ...get().deskUnreadById };
-    const prevCount = Number(prevById[conversation.id] || 0);
+    const prevCount = Number(prevById[conversation.id] || prevById[convoId] || 0);
     const incoming = Number(conversation.unreadForSupport || 0);
     const inferred = deskUnreadFromConversation(conversation);
     const staffReply = conversation.lastSenderRole === 'support'
       || conversation.lastSenderRole === 'admin';
+    const explicitClear = incoming <= 0 && Boolean(
+      conversation.supportLastReadAt
+      || staffReply
+      || conversation.clearUnread,
+    );
 
     const counted = get()._deskCountedMessageIds || {};
     const msgKey = messageId ? String(messageId) : null;
@@ -135,12 +168,12 @@ const useSupportChatStore = create((set, get) => ({
       }
     } else if (fromUserMessage && alreadyCounted) {
       effective = Math.max(incoming, prevCount);
+    } else if (explicitClear) {
+      effective = 0;
     } else if (incoming > prevCount) {
       effective = incoming;
     } else if (inferred > 0) {
       effective = Math.max(incoming, inferred, prevCount);
-    } else if (staffReply && incoming <= 0 && inferred <= 0) {
-      effective = 0;
     } else if (incoming >= prevCount) {
       effective = incoming;
     } else {
@@ -149,11 +182,12 @@ const useSupportChatStore = create((set, get) => ({
 
     // Re-read in case messageId set() happened above
     const latestById = { ...get().deskUnreadById };
+    Object.keys(latestById).forEach((key) => {
+      if (String(key) === convoId) delete latestById[key];
+    });
     if (effective > 0) latestById[conversation.id] = effective;
-    else delete latestById[conversation.id];
     const total = Object.values(latestById).reduce((sum, n) => sum + Number(n || 0), 0);
     set({ deskUnreadById: latestById, deskUnreadTotal: total });
-
     if (
       !silent
       && fromUserMessage

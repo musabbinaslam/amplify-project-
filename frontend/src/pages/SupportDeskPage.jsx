@@ -268,14 +268,20 @@ const SupportDeskPage = () => {
   // Keep sidebar/bell badges in sync from row timestamps (works even when server unread=0).
   useEffect(() => {
     if (tab === 'closed') return undefined;
-    const mapped = rows.map((row) => ({
-      ...row,
-      unreadForSupport: Math.max(
-        Number(row.unreadForSupport || 0),
-        Number(attentionById[String(row.id)] || attentionById[row.id] || 0),
-        deskUnreadCount(row, selectedId),
-      ),
-    }));
+    const mapped = rows.map((row) => {
+      const isOpen = selectedId && String(selectedId) === String(row.id);
+      if (isOpen) {
+        return { ...row, unreadForSupport: 0, clearUnread: true };
+      }
+      return {
+        ...row,
+        unreadForSupport: Math.max(
+          Number(row.unreadForSupport || 0),
+          Number(attentionById[String(row.id)] || attentionById[row.id] || 0),
+          deskUnreadCount(row, selectedId),
+        ),
+      };
+    });
     syncDeskUnreadFromRows(mapped);
     return undefined;
   }, [rows, selectedId, attentionById, tab, syncDeskUnreadFromRows]);
@@ -299,7 +305,13 @@ const SupportDeskPage = () => {
     setRows((prev) => prev.map((row) => (
       row.id === id ? { ...row, unreadForSupport: 0, supportLastReadAt: at } : row
     )));
-    applyDeskInboxUpdate({ id, unreadForSupport: 0, lastSenderRole: 'support' }, { silent: true });
+    applyDeskInboxUpdate({
+      id,
+      unreadForSupport: 0,
+      lastSenderRole: 'support',
+      supportLastReadAt: at,
+      clearUnread: true,
+    }, { silent: true });
     if (socket?.connected) {
       socket.emit('support:read', { conversationId: id });
     } else {
@@ -348,10 +360,21 @@ const SupportDeskPage = () => {
       const nextRows = Array.isArray(out?.rows) ? out.rows : [];
       setRows(nextRows);
       if (nextTab !== 'closed') {
-        syncDeskUnreadFromRows(nextRows);
+        const activeId = selectedIdRef.current ? String(selectedIdRef.current) : null;
+        const forSync = nextRows.map((row) => (
+          activeId && String(row.id) === activeId
+            ? { ...row, unreadForSupport: 0, clearUnread: true }
+            : row
+        ));
+        syncDeskUnreadFromRows(forSync);
         setAttentionById((prev) => {
           const next = { ...prev };
+          if (activeId) {
+            delete next[activeId];
+            delete next[selectedIdRef.current];
+          }
           nextRows.forEach((row) => {
+            if (activeId && String(row.id) === activeId) return;
             const n = Number(row?.unreadForSupport || 0);
             if (row?.id && n > 0) next[row.id] = Math.max(Number(next[row.id] || 0), n);
           });
@@ -367,8 +390,26 @@ const SupportDeskPage = () => {
 
   const openConversation = useCallback(async (id, preview) => {
     const req = ++openReq.current;
+    // Clear badges immediately (before the selectedId effect) so refresh/socket
+    // cannot re-inflate unread while the thread is opening.
+    setActiveDeskConversation(id);
     setSelectedId(id);
     clearAttention(id);
+    const at = new Date().toISOString();
+    setRows((prev) => prev.map((row) => (
+      String(row.id) === String(id)
+        ? { ...row, unreadForSupport: 0, supportLastReadAt: at }
+        : row
+    )));
+    applyDeskInboxUpdate({
+      id,
+      unreadForSupport: 0,
+      lastSenderRole: 'support',
+      supportLastReadAt: at,
+      lastMessageAt: preview?.lastMessageAt,
+      lastMessagePreview: preview?.lastMessagePreview,
+      clearUnread: true,
+    }, { silent: true });
     setThreadLoading(true);
     setThread((prev) => ({
       conversation: preview || prev.conversation || { id },
@@ -390,7 +431,14 @@ const SupportDeskPage = () => {
         setRows((prev) => upsertRow(prev, {
           ...out.conversation,
           unreadForSupport: 0,
+          supportLastReadAt: out.conversation.supportLastReadAt || at,
         }));
+        applyDeskInboxUpdate({
+          ...out.conversation,
+          unreadForSupport: 0,
+          supportLastReadAt: out.conversation.supportLastReadAt || at,
+          clearUnread: true,
+        }, { silent: true });
       }
     } catch (err) {
       if (openReq.current !== req) return;
@@ -398,7 +446,7 @@ const SupportDeskPage = () => {
     } finally {
       if (openReq.current === req) setThreadLoading(false);
     }
-  }, [joinConversation, clearAttention]);
+  }, [joinConversation, clearAttention, applyDeskInboxUpdate, setActiveDeskConversation]);
 
   useEffect(() => {
     loadQueue('inbox');
@@ -826,14 +874,17 @@ const SupportDeskPage = () => {
               <p className={classes.emptyList}>No conversations yet.</p>
             ) : filtered.map((row) => {
               const rowKey = String(row.id);
+              const isSelected = selectedId && String(selectedId) === String(row.id);
               const attention = Number(attentionById[rowKey] || attentionById[row.id] || 0);
               const storeUnread = Number(deskUnreadById?.[row.id] || deskUnreadById?.[rowKey] || 0);
-              const unreadCount = Math.max(
-                attention,
-                storeUnread,
-                Number(row.unreadForSupport || 0),
-                deskUnreadCount(row, selectedId),
-              );
+              const unreadCount = isSelected
+                ? 0
+                : Math.max(
+                  attention,
+                  storeUnread,
+                  Number(row.unreadForSupport || 0),
+                  deskUnreadCount(row, selectedId),
+                );
               const unread = unreadCount > 0;
               return (
               <button
