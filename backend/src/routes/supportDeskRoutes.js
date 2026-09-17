@@ -11,7 +11,9 @@ router.use(verifyFirebaseToken);
 router.use(requireSupportOrAdmin);
 
 router.get('/conversations', supportDeskController.listConversations);
+router.get('/users/search', supportDeskController.searchUsers);
 router.get('/kpis', supportDeskController.getKpis);
+router.post('/conversations/outbound', supportLiveLimiter, supportDeskController.startOutbound);
 router.get('/conversations/:id/messages', supportDeskController.getMessages);
 router.post(
   '/conversations/:id/media',

@@ -38,6 +38,38 @@ async function listConversations(req, res) {
   }
 }
 
+async function searchUsers(req, res) {
+  try {
+    const q = String(req.query.q || '').trim();
+    const limit = req.query.limit;
+    const users = await supportConversationService.searchUsersForDesk({
+      q,
+      limit,
+      excludeUid: req.user?.uid,
+    });
+    res.json({ users });
+  } catch (err) {
+    sendErr(res, err, 'Failed to search users');
+  }
+}
+
+async function startOutbound(req, res) {
+  try {
+    const actor = await actorFromReq(req);
+    const userId = String(req.body?.userId || '').trim();
+    const out = await supportConversationService.startOutboundConversation(
+      userId,
+      actor,
+      req.body?.text,
+      { replyTo: req.body?.replyTo, attachments: req.body?.attachments },
+    );
+    supportSockets.broadcastMessage(out.conversation, out.message);
+    res.json(out);
+  } catch (err) {
+    sendErr(res, err, 'Failed to start conversation');
+  }
+}
+
 async function postMessage(req, res) {
   try {
     const actor = await actorFromReq(req);
@@ -154,6 +186,8 @@ async function getMedia(req, res) {
 
 module.exports = {
   listConversations,
+  searchUsers,
+  startOutbound,
   postMessage,
   claimConversation,
   closeConversation,

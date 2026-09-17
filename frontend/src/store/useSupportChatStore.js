@@ -21,6 +21,23 @@ function upsertMessage(messages, incoming) {
   return [...messages, incoming];
 }
 
+/** Infer desk unread from timestamps when server unreadForSupport is stale/0. */
+export function deskUnreadFromConversation(conversation) {
+  if (!conversation?.id) return 0;
+  const explicit = Number(conversation.unreadForSupport || 0);
+  if (explicit > 0) return explicit;
+  const hasMessage = Boolean(conversation.lastMessagePreview)
+    || Number(conversation.messageCount || 0) > 0;
+  if (!hasMessage) return 0;
+  const lastMs = conversation.lastMessageAt ? new Date(conversation.lastMessageAt).getTime() : 0;
+  if (!lastMs || Number.isNaN(lastMs)) return 0;
+  const readMs = conversation.supportLastReadAt
+    ? new Date(conversation.supportLastReadAt).getTime()
+    : 0;
+  if (!readMs || Number.isNaN(readMs) || lastMs > readMs) return 1;
+  return 0;
+}
+
 const useSupportChatStore = create((set, get) => ({
   conversation: null,
   messages: [],
@@ -39,49 +56,117 @@ const useSupportChatStore = create((set, get) => ({
   _socket: null,
   _getIdToken: null,
   _joinedConversationId: null,
+  _activeDeskConversationId: null,
   _markReadTimer: null,
   _isStaffViewer: false,
+  _deskCountedMessageIds: {},
 
   setViewingThread: (viewingThread) => set({ viewingThread: Boolean(viewingThread) }),
 
+  setActiveDeskConversation: (conversationId) => {
+    const id = conversationId ? String(conversationId) : null;
+    set({ _activeDeskConversationId: id });
+    if (!id) return;
+    const byId = { ...get().deskUnreadById };
+    if (byId[id]) {
+      delete byId[id];
+      const total = Object.values(byId).reduce((sum, n) => sum + Number(n || 0), 0);
+      set({ deskUnreadById: byId, deskUnreadTotal: total });
+    }
+  },
+
   syncDeskUnreadFromRows: (rows = []) => {
+    const prevById = get().deskUnreadById || {};
     const byId = {};
     let total = 0;
+    const seen = new Set();
     (Array.isArray(rows) ? rows : []).forEach((row) => {
       if (!row?.id) return;
-      const n = Number(row.unreadForSupport || 0);
+      seen.add(String(row.id));
+      // Never let a slow list response wipe a fresher socket unread.
+      const n = Math.max(Number(row.unreadForSupport || 0), Number(prevById[row.id] || 0));
       if (n > 0) {
         byId[row.id] = n;
         total += n;
       }
     });
+    Object.entries(prevById).forEach(([id, n]) => {
+      if (seen.has(String(id))) return;
+      const count = Number(n || 0);
+      if (count <= 0) return;
+      byId[id] = count;
+      total += count;
+    });
     set({ deskUnreadById: byId, deskUnreadTotal: total });
   },
 
-  applyDeskInboxUpdate: (conversation, { silent = false } = {}) => {
+  applyDeskInboxUpdate: (conversation, {
+    silent = false,
+    fromUserMessage = false,
+    messageId = null,
+  } = {}) => {
     if (!conversation?.id) return;
-    const viewingId = get()._joinedConversationId;
-    const viewingOpen = Boolean(viewingId && String(viewingId) === String(conversation.id));
-    const incoming = Number(conversation.unreadForSupport || 0);
-    const effective = viewingOpen ? 0 : incoming;
+    const activeId = get()._activeDeskConversationId;
+    const viewingOpen = Boolean(activeId && String(activeId) === String(conversation.id));
     const prevById = { ...get().deskUnreadById };
     const prevCount = Number(prevById[conversation.id] || 0);
-    if (effective > 0) prevById[conversation.id] = effective;
-    else delete prevById[conversation.id];
-    const total = Object.values(prevById).reduce((sum, n) => sum + Number(n || 0), 0);
-    set({ deskUnreadById: prevById, deskUnreadTotal: total });
+    const incoming = Number(conversation.unreadForSupport || 0);
+    const inferred = deskUnreadFromConversation(conversation);
+    const staffReply = conversation.lastSenderRole === 'support'
+      || conversation.lastSenderRole === 'admin';
 
-    const fromUser = conversation.lastSenderRole === 'user';
+    const counted = get()._deskCountedMessageIds || {};
+    const msgKey = messageId ? String(messageId) : null;
+    const alreadyCounted = Boolean(msgKey && counted[msgKey]);
+
+    let effective;
+    if (viewingOpen) {
+      effective = 0;
+    } else if (fromUserMessage && !alreadyCounted) {
+      // Each new message increments; prefer server count when it's ahead.
+      effective = Math.max(incoming, prevCount + 1);
+      if (msgKey) {
+        set({
+          _deskCountedMessageIds: {
+            ...counted,
+            [msgKey]: true,
+          },
+        });
+      }
+    } else if (fromUserMessage && alreadyCounted) {
+      effective = Math.max(incoming, prevCount);
+    } else if (incoming > prevCount) {
+      effective = incoming;
+    } else if (inferred > 0) {
+      effective = Math.max(incoming, inferred, prevCount);
+    } else if (staffReply && incoming <= 0 && inferred <= 0) {
+      effective = 0;
+    } else if (incoming >= prevCount) {
+      effective = incoming;
+    } else {
+      effective = prevCount;
+    }
+
+    // Re-read in case messageId set() happened above
+    const latestById = { ...get().deskUnreadById };
+    if (effective > 0) latestById[conversation.id] = effective;
+    else delete latestById[conversation.id];
+    const total = Object.values(latestById).reduce((sum, n) => sum + Number(n || 0), 0);
+    set({ deskUnreadById: latestById, deskUnreadTotal: total });
+
     if (
       !silent
-      && fromUser
-      && effective > prevCount
+      && fromUserMessage
+      && !alreadyCounted
       && !viewingOpen
       && typeof window !== 'undefined'
     ) {
       window.dispatchEvent(new CustomEvent('support-desk:user-message', {
         detail: {
-          conversation,
+          conversation: {
+            ...conversation,
+            unreadForSupport: effective,
+          },
           preview: conversation.lastMessagePreview || 'New support message',
           unread: effective,
         },
@@ -222,7 +307,13 @@ const useSupportChatStore = create((set, get) => ({
   },
 
   connect: async (getIdToken, { isStaffViewer = false } = {}) => {
-    if (get()._socket) return get()._socket;
+    if (get()._socket) {
+      // HMR / role changes can leave a socket without staff inbox handlers.
+      if (Boolean(get()._isStaffViewer) === Boolean(isStaffViewer)) {
+        return get()._socket;
+      }
+      get().disconnect();
+    }
     const resolveToken = typeof getIdToken === 'function' ? getIdToken : async () => getIdToken;
     set({ _getIdToken: resolveToken, _isStaffViewer: Boolean(isStaffViewer) });
 
@@ -271,8 +362,17 @@ const useSupportChatStore = create((set, get) => ({
           });
         }
       }
-      if (isStaffViewer && payload?.conversation) {
-        get().applyDeskInboxUpdate(payload.conversation);
+      if (get()._isStaffViewer && payload?.conversation) {
+        const msg = payload?.message;
+        const activeId = get()._activeDeskConversationId;
+        const viewingOpen = Boolean(
+          activeId && String(activeId) === String(payload.conversation.id),
+        );
+        get().applyDeskInboxUpdate(payload.conversation, {
+          fromUserMessage: Boolean(msg?.id) && !viewingOpen,
+          silent: false,
+          messageId: msg?.id || null,
+        });
       }
       get().applyIncoming(payload, {
         isOwn: Boolean(myUid && uid === myUid),
@@ -288,7 +388,9 @@ const useSupportChatStore = create((set, get) => ({
     socket.on('support:read', (payload = {}) => {
       if (payload.conversation) {
         get().applyConversation(payload.conversation);
-        if (isStaffViewer) get().applyDeskInboxUpdate(payload.conversation, { silent: true });
+        if (isStaffViewer || get()._isStaffViewer) {
+          get().applyDeskInboxUpdate(payload.conversation, { silent: true });
+        }
       }
     });
     socket.on('support:claimed', (payload = {}) => {
@@ -297,14 +399,17 @@ const useSupportChatStore = create((set, get) => ({
     socket.on('support:closed', (payload = {}) => {
       if (payload.conversation) {
         get().applyConversation(payload.conversation);
-        if (isStaffViewer) get().applyDeskInboxUpdate(payload.conversation, { silent: true });
+        if (isStaffViewer || get()._isStaffViewer) {
+          get().applyDeskInboxUpdate(payload.conversation, { silent: true });
+        }
       }
     });
     socket.on('support:inbox:updated', (conversation) => {
       if (conversation && get().conversation?.id === conversation.id) {
         get().applyConversation(conversation);
       }
-      if (isStaffViewer && conversation) {
+      if ((isStaffViewer || get()._isStaffViewer) && conversation) {
+        // Sync absolute counts only — do not +1 here (message:new already increments).
         get().applyDeskInboxUpdate(conversation, { silent: true });
       }
     });
@@ -319,12 +424,6 @@ const useSupportChatStore = create((set, get) => ({
     const socket = get()._socket;
     if (!conversationId) return;
     set({ _joinedConversationId: conversationId });
-    if (get()._isStaffViewer) {
-      const byId = { ...get().deskUnreadById };
-      delete byId[conversationId];
-      const total = Object.values(byId).reduce((sum, n) => sum + Number(n || 0), 0);
-      set({ deskUnreadById: byId, deskUnreadTotal: total });
-    }
     if (socket) {
       const payload = { conversationId };
       if (timeZone) payload.timeZone = timeZone;
@@ -452,7 +551,6 @@ const useSupportChatStore = create((set, get) => ({
   disconnect: () => {
     const socket = get()._socket;
     if (socket) {
-      socket.removeAllListeners();
       socket.disconnect();
     }
     set({
@@ -460,6 +558,7 @@ const useSupportChatStore = create((set, get) => ({
       connected: false,
       supportTyping: false,
       userTyping: false,
+      _activeDeskConversationId: null,
     });
   },
 }));

@@ -276,9 +276,9 @@
   font-size: 10px;
   font-weight: 800;
   color: #fff;
-  background: var(--accent-red);
-  border: 1px solid color-mix(in srgb, var(--accent-red) 55%, transparent);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-red) 35%, transparent);
+  background: #e25555;
+  border: none;
+  box-shadow: 0 0 10px color-mix(in srgb, #e25555 40%, transparent);
 }
 
 .disabled {

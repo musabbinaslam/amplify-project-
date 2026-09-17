@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { HeadphonesIcon, Loader2, Search } from 'lucide-react';
+import { HeadphonesIcon, Loader2, MessageSquarePlus, Search, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
@@ -12,6 +12,8 @@ import {
   postSupportDeskMessage,
   closeSupportConversation,
   markSupportDeskRead,
+  searchSupportDeskUsers,
+  startSupportDeskOutbound,
 } from '../services/supportLiveService';
 import classes from './SupportDeskPage.module.css';
 
@@ -33,13 +35,6 @@ function rowInitial(row) {
   return String(label).charAt(0).toUpperCase();
 }
 
-function upsertRow(rows, conversation) {
-  if (!conversation?.id) return rows;
-  const next = rows.filter((r) => r.id !== conversation.id);
-  next.unshift(conversation);
-  return next;
-}
-
 function laterIso(a, b) {
   const aMs = a ? new Date(a).getTime() : 0;
   const bMs = b ? new Date(b).getTime() : 0;
@@ -47,6 +42,68 @@ function laterIso(a, b) {
   if (!aMs || Number.isNaN(aMs)) return b || null;
   if (!bMs || Number.isNaN(bMs)) return a || null;
   return bMs >= aMs ? b : a;
+}
+
+/** WhatsApp-style: unread if last activity is newer than staff last-read (or never read). */
+function deskUnreadCount(row, selectedId) {
+  if (!row?.id) return 0;
+  if (selectedId && String(selectedId) === String(row.id)) return 0;
+  const explicit = Number(row.unreadForSupport || 0);
+  if (explicit > 0) return explicit;
+  const hasMessage = Boolean(row.lastMessagePreview) || Number(row.messageCount || 0) > 0;
+  if (!hasMessage) return 0;
+  const lastMs = row.lastMessageAt ? new Date(row.lastMessageAt).getTime() : 0;
+  if (!lastMs || Number.isNaN(lastMs)) return 0;
+  const readMs = row.supportLastReadAt ? new Date(row.supportLastReadAt).getTime() : 0;
+  if (!readMs || Number.isNaN(readMs) || lastMs > readMs) return 1;
+  return 0;
+}
+
+/** Keep unread counts from being wiped by stale inbox socket payloads. */
+function mergeInboxConversation(prev, next, { fromUserMessage = false } = {}) {
+  if (!next) return prev || null;
+  if (!prev) {
+    const unread = fromUserMessage
+      ? Math.max(Number(next.unreadForSupport || 0), 1)
+      : Number(next.unreadForSupport || 0);
+    return {
+      ...next,
+      unreadForSupport: unread,
+      lastSenderRole: fromUserMessage ? 'user' : next.lastSenderRole,
+    };
+  }
+  const prevUnread = Number(prev.unreadForSupport || 0);
+  let nextUnread = Number(next.unreadForSupport || 0);
+  const prevReadMs = prev.supportLastReadAt ? new Date(prev.supportLastReadAt).getTime() : 0;
+  const nextReadMs = next.supportLastReadAt ? new Date(next.supportLastReadAt).getTime() : 0;
+  const readAdvanced = nextReadMs > prevReadMs;
+  const staffReply = next.lastSenderRole === 'support' || next.lastSenderRole === 'admin';
+  if (fromUserMessage) {
+    nextUnread = Math.max(nextUnread, prevUnread + 1, 1);
+  } else if (staffReply || readAdvanced) {
+    nextUnread = Number(next.unreadForSupport || 0);
+  } else if (nextUnread < prevUnread) {
+    nextUnread = prevUnread;
+  } else if (next.lastSenderRole === 'user' && nextUnread <= 0) {
+    nextUnread = Math.max(prevUnread, 1);
+  }
+  return {
+    ...prev,
+    ...next,
+    lastSenderRole: fromUserMessage ? 'user' : (next.lastSenderRole || prev.lastSenderRole),
+    unreadForSupport: nextUnread,
+    userLastReadAt: laterIso(prev.userLastReadAt, next.userLastReadAt),
+    supportLastReadAt: laterIso(prev.supportLastReadAt, next.supportLastReadAt),
+  };
+}
+
+function upsertRow(rows, conversation, options = {}) {
+  if (!conversation?.id) return rows;
+  const prev = rows.find((r) => r.id === conversation.id);
+  const merged = mergeInboxConversation(prev, conversation, options);
+  const next = rows.filter((r) => r.id !== conversation.id);
+  next.unshift(merged);
+  return next;
 }
 
 function mergeConversation(prev, next) {
@@ -128,14 +185,17 @@ const SupportDeskPage = () => {
   const presets = useSubtlePageMotion();
   const user = useAuthStore((s) => s.user);
   const socket = useSupportChatStore((s) => s._socket);
+  const deskUnreadById = useSupportChatStore((s) => s.deskUnreadById);
   const joinConversation = useSupportChatStore((s) => s.joinConversation);
   const emitTyping = useSupportChatStore((s) => s.emitTyping);
   const userTyping = useSupportChatStore((s) => s.userTyping);
   const syncDeskUnreadFromRows = useSupportChatStore((s) => s.syncDeskUnreadFromRows);
   const applyDeskInboxUpdate = useSupportChatStore((s) => s.applyDeskInboxUpdate);
+  const setActiveDeskConversation = useSupportChatStore((s) => s.setActiveDeskConversation);
 
   const [tab, setTab] = useState('inbox');
   const [rows, setRows] = useState([]);
+  const [attentionById, setAttentionById] = useState(() => ({}));
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState(null);
   const [thread, setThread] = useState({ conversation: null, messages: [] });
@@ -143,17 +203,86 @@ const SupportDeskPage = () => {
   const [busy, setBusy] = useState(false);
   const [inboxLoading, setInboxLoading] = useState(true);
   const [threadLoading, setThreadLoading] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeQuery, setComposeQuery] = useState('');
+  const [composeResults, setComposeResults] = useState([]);
+  const [composeSearching, setComposeSearching] = useState(false);
+  const [composeSelected, setComposeSelected] = useState(null);
+  const [composeText, setComposeText] = useState('');
+  const [composeSending, setComposeSending] = useState(false);
   const typingTimer = useRef(null);
   const openReq = useRef(0);
   const selectedIdRef = useRef(null);
   const refreshTimer = useRef(null);
+  const composeSearchTimer = useRef(null);
+  const myUid = user?.uid || '';
+
+  const clearAttention = useCallback((id) => {
+    if (!id) return;
+    setAttentionById((prev) => {
+      if (!prev[id] && !prev[String(id)]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      delete next[String(id)];
+      return next;
+    });
+  }, []);
+
+  const markAttention = useCallback((id, meta = {}) => {
+    if (!id) return;
+    if (String(id) === String(selectedIdRef.current || '')) return;
+    const key = String(id);
+    setAttentionById((prev) => {
+      const serverCount = Math.max(Number(meta.unreadForSupport || 0), 0);
+      const next = Math.max(Number(prev[key] || prev[id] || 0) + 1, serverCount, 1);
+      return { ...prev, [key]: next };
+    });
+    // Store socket handler owns toast + deskUnreadTotal increment — don't double-count here.
+  }, []);
+
+  const rowsRef = useRef([]);
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
+
+  // HMR / stale sockets can leave desk without staff inbox handlers — force staff connect.
+  useEffect(() => {
+    const store = useSupportChatStore.getState();
+    const tokenFn = store._getIdToken;
+    if (typeof tokenFn !== 'function') return undefined;
+    let cancelled = false;
+    store.connect(tokenFn, { isStaffViewer: true }).catch(() => {});
+    return () => { cancelled = true; void cancelled; };
+  }, []);
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
-  }, [selectedId]);
+    setActiveDeskConversation(selectedId || null);
+  }, [selectedId, setActiveDeskConversation]);
+
+  useEffect(() => () => {
+    // Leaving Inbox must not leave a sticky "viewing" id (blocks Analytics badges).
+    setActiveDeskConversation(null);
+  }, [setActiveDeskConversation]);
+
+  // Keep sidebar/bell badges in sync from row timestamps (works even when server unread=0).
+  useEffect(() => {
+    if (tab === 'closed') return undefined;
+    const mapped = rows.map((row) => ({
+      ...row,
+      unreadForSupport: Math.max(
+        Number(row.unreadForSupport || 0),
+        Number(attentionById[String(row.id)] || attentionById[row.id] || 0),
+        deskUnreadCount(row, selectedId),
+      ),
+    }));
+    syncDeskUnreadFromRows(mapped);
+    return undefined;
+  }, [rows, selectedId, attentionById, tab, syncDeskUnreadFromRows]);
 
   const markConversationSeen = useCallback((id) => {
     if (!id) return;
+    clearAttention(id);
     const at = new Date().toISOString();
     setThread((prev) => (
       prev.conversation?.id === id
@@ -170,6 +299,7 @@ const SupportDeskPage = () => {
     setRows((prev) => prev.map((row) => (
       row.id === id ? { ...row, unreadForSupport: 0, supportLastReadAt: at } : row
     )));
+    applyDeskInboxUpdate({ id, unreadForSupport: 0, lastSenderRole: 'support' }, { silent: true });
     if (socket?.connected) {
       socket.emit('support:read', { conversationId: id });
     } else {
@@ -184,7 +314,7 @@ const SupportDeskPage = () => {
         }
       }).catch(() => {});
     }
-  }, [socket]);
+  }, [socket, clearAttention, applyDeskInboxUpdate]);
 
   const refreshActiveThread = useCallback(async (id, { markRead = false } = {}) => {
     if (!id) return;
@@ -217,7 +347,17 @@ const SupportDeskPage = () => {
       });
       const nextRows = Array.isArray(out?.rows) ? out.rows : [];
       setRows(nextRows);
-      if (nextTab !== 'closed') syncDeskUnreadFromRows(nextRows);
+      if (nextTab !== 'closed') {
+        syncDeskUnreadFromRows(nextRows);
+        setAttentionById((prev) => {
+          const next = { ...prev };
+          nextRows.forEach((row) => {
+            const n = Number(row?.unreadForSupport || 0);
+            if (row?.id && n > 0) next[row.id] = Math.max(Number(next[row.id] || 0), n);
+          });
+          return next;
+        });
+      }
     } catch (err) {
       toast.error(err?.message || 'Could not load inbox');
     } finally {
@@ -228,6 +368,7 @@ const SupportDeskPage = () => {
   const openConversation = useCallback(async (id, preview) => {
     const req = ++openReq.current;
     setSelectedId(id);
+    clearAttention(id);
     setThreadLoading(true);
     setThread((prev) => ({
       conversation: preview || prev.conversation || { id },
@@ -257,7 +398,7 @@ const SupportDeskPage = () => {
     } finally {
       if (openReq.current === req) setThreadLoading(false);
     }
-  }, [joinConversation]);
+  }, [joinConversation, clearAttention]);
 
   useEffect(() => {
     loadQueue('inbox');
@@ -277,16 +418,32 @@ const SupportDeskPage = () => {
     const onInbox = (conversation) => {
       if (!conversation?.id) return;
       const isClosed = conversation.status === 'closed';
+      const activeId = selectedIdRef.current;
+      const isActive = String(conversation.id) === String(activeId || '');
+      const prevRow = rowsRef.current.find((r) => String(r.id) === String(conversation.id));
+      const messageAdvanced = Boolean(
+        conversation.lastMessageAt
+        && conversation.lastMessageAt !== prevRow?.lastMessageAt
+      );
+      // Shared inbox cue: refresh row; counting/toast happen on support:message:new.
+      const bumpUnread = !isActive && messageAdvanced;
       setRows((prev) => {
         const showClosed = tab === 'closed';
         if (isClosed !== showClosed) {
           return prev.filter((r) => r.id !== conversation.id);
         }
-        return upsertRow(prev, conversation);
+        const storeCount = Number(
+          useSupportChatStore.getState().deskUnreadById?.[conversation.id] || 0,
+        );
+        return upsertRow(prev, {
+          ...conversation,
+          unreadForSupport: bumpUnread
+            ? Math.max(Number(conversation.unreadForSupport || 0), storeCount, 1)
+            : conversation.unreadForSupport,
+        }, { fromUserMessage: false });
       });
       applyDeskInboxUpdate(conversation, { silent: true });
-      const activeId = selectedIdRef.current;
-      if (String(conversation.id) !== String(activeId || '')) {
+      if (!isActive) {
         setThread((prev) => (
           prev.conversation?.id === conversation.id
             ? { ...prev, conversation: mergeConversation(prev.conversation, conversation) }
@@ -307,19 +464,46 @@ const SupportDeskPage = () => {
     };
     const onMessage = (payload = {}) => {
       const { conversation, message } = payload;
+      const activeId = selectedIdRef.current;
+      const isActive = Boolean(
+        conversation?.id && String(conversation.id) === String(activeId || ''),
+      );
+      const senderId = message?.senderId ? String(message.senderId) : '';
+      const isOwnStaffSend = Boolean(myUid && senderId && senderId === String(myUid));
+      // Any message on a thread you are not viewing = attention (shared inbox).
+      const bumpUnread = Boolean(conversation?.id && !isActive && message?.id);
       if (conversation) {
+        if (bumpUnread) {
+          markAttention(conversation.id, {
+            unreadForSupport: conversation.unreadForSupport,
+          });
+        }
         setRows((prev) => {
           const isClosed = conversation.status === 'closed';
           const showClosed = tab === 'closed';
           if (isClosed !== showClosed) {
             return prev.filter((r) => r.id !== conversation.id);
           }
-          return upsertRow(prev, conversation);
+          const prevRow = prev.find((r) => String(r.id) === String(conversation.id));
+          const prevUnread = Number(prevRow?.unreadForSupport || 0);
+          const storeCount = Number(
+            useSupportChatStore.getState().deskUnreadById?.[conversation.id] || 0,
+          );
+          const serverCount = Number(conversation.unreadForSupport || 0);
+          return upsertRow(prev, {
+            ...conversation,
+            lastSenderRole: bumpUnread
+              ? (message?.senderRole || conversation.lastSenderRole || 'user')
+              : conversation.lastSenderRole,
+            unreadForSupport: bumpUnread
+              ? Math.max(serverCount, storeCount, prevUnread + 1, 1)
+              : conversation.unreadForSupport,
+          }, { fromUserMessage: false });
         });
-        applyDeskInboxUpdate(conversation);
+        // Increment is handled once in the store message:new handler.
+        applyDeskInboxUpdate(conversation, { silent: true });
       }
-      const activeId = selectedIdRef.current;
-      if (!message?.id || !conversation?.id || String(conversation.id) !== String(activeId || '')) {
+      if (!message?.id || !conversation?.id || !isActive) {
         if (conversation?.id) {
           setThread((prev) => (
             prev.conversation?.id === conversation.id
@@ -333,7 +517,7 @@ const SupportDeskPage = () => {
         conversation: mergeConversation(prev.conversation, conversation),
         messages: mergeMessages(prev.messages, [message]),
       }));
-      if (message.senderRole === 'user') {
+      if (!isOwnStaffSend) {
         markConversationSeen(activeId);
       }
     };
@@ -358,18 +542,20 @@ const SupportDeskPage = () => {
     socket.on('support:inbox:updated', onInbox);
     socket.on('support:message:new', onMessage);
     socket.on('support:read', onRead);
-    socket.on('support:claimed', (p) => p?.conversation && onInbox(p.conversation));
-    socket.on('support:closed', (p) => p?.conversation && onInbox(p.conversation));
+    const onClaimed = (p) => p?.conversation && onInbox(p.conversation);
+    const onClosed = (p) => p?.conversation && onInbox(p.conversation);
+    socket.on('support:claimed', onClaimed);
+    socket.on('support:closed', onClosed);
     return () => {
       window.clearTimeout(refreshTimer.current);
       socket.off('connect', onConnect);
       socket.off('support:inbox:updated', onInbox);
       socket.off('support:message:new', onMessage);
       socket.off('support:read', onRead);
-      socket.off('support:claimed');
-      socket.off('support:closed');
+      socket.off('support:claimed', onClaimed);
+      socket.off('support:closed', onClosed);
     };
-  }, [socket, tab, joinConversation, markConversationSeen, refreshActiveThread, applyDeskInboxUpdate]);
+  }, [socket, tab, joinConversation, markConversationSeen, refreshActiveThread, applyDeskInboxUpdate, markAttention, myUid]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -499,6 +685,83 @@ const SupportDeskPage = () => {
     typingTimer.current = setTimeout(() => emitTyping(id, false), 1200);
   };
 
+  const openCompose = () => {
+    setComposeOpen(true);
+    setComposeQuery('');
+    setComposeResults([]);
+    setComposeSelected(null);
+    setComposeText('');
+  };
+
+  const closeCompose = () => {
+    if (composeSending) return;
+    setComposeOpen(false);
+    setComposeQuery('');
+    setComposeResults([]);
+    setComposeSelected(null);
+    setComposeText('');
+  };
+
+  useEffect(() => {
+    if (!composeOpen) return undefined;
+    const q = composeQuery.trim();
+    if (q.length < 2) {
+      setComposeResults([]);
+      setComposeSearching(false);
+      return undefined;
+    }
+    setComposeSearching(true);
+    window.clearTimeout(composeSearchTimer.current);
+    composeSearchTimer.current = window.setTimeout(async () => {
+      try {
+        const out = await searchSupportDeskUsers({ q, limit: 20 });
+        setComposeResults(Array.isArray(out?.users) ? out.users : []);
+      } catch (err) {
+        toast.error(err?.message || 'Search failed');
+        setComposeResults([]);
+      } finally {
+        setComposeSearching(false);
+      }
+    }, 280);
+    return () => window.clearTimeout(composeSearchTimer.current);
+  }, [composeQuery, composeOpen]);
+
+  const handleOutboundSend = async () => {
+    if (!composeSelected?.id) {
+      toast.error('Pick a user first');
+      return;
+    }
+    const text = composeText.trim();
+    if (!text) {
+      toast.error('Enter a message');
+      return;
+    }
+    setComposeSending(true);
+    try {
+      const out = await startSupportDeskOutbound({
+        userId: composeSelected.id,
+        text,
+      });
+      const conversation = out?.conversation;
+      if (conversation) {
+        setTab('inbox');
+        setRows((prev) => upsertRow(prev, conversation, { fromUserMessage: false }));
+        applyDeskInboxUpdate(conversation, { silent: true });
+        await openConversation(conversation.id, conversation);
+      }
+      toast.success('Message sent');
+      setComposeOpen(false);
+      setComposeQuery('');
+      setComposeResults([]);
+      setComposeSelected(null);
+      setComposeText('');
+    } catch (err) {
+      toast.error(err?.message || 'Could not send');
+    } finally {
+      setComposeSending(false);
+    }
+  };
+
   const userInitial = user?.name?.charAt(0)?.toUpperCase() || 'S';
   const convo = thread.conversation;
 
@@ -510,6 +773,15 @@ const SupportDeskPage = () => {
             <div className={classes.inboxTitleRow}>
               <HeadphonesIcon size={16} />
               <h2>Inbox</h2>
+              <button
+                type="button"
+                className={classes.messageUserBtn}
+                onClick={openCompose}
+                title="Message a user"
+              >
+                <MessageSquarePlus size={15} />
+                <span>Message</span>
+              </button>
             </div>
           </div>
 
@@ -553,7 +825,16 @@ const SupportDeskPage = () => {
             ) : filtered.length === 0 ? (
               <p className={classes.emptyList}>No conversations yet.</p>
             ) : filtered.map((row) => {
-              const unread = Number(row.unreadForSupport) > 0;
+              const rowKey = String(row.id);
+              const attention = Number(attentionById[rowKey] || attentionById[row.id] || 0);
+              const storeUnread = Number(deskUnreadById?.[row.id] || deskUnreadById?.[rowKey] || 0);
+              const unreadCount = Math.max(
+                attention,
+                storeUnread,
+                Number(row.unreadForSupport || 0),
+                deskUnreadCount(row, selectedId),
+              );
+              const unread = unreadCount > 0;
               return (
               <button
                 key={row.id}
@@ -566,13 +847,15 @@ const SupportDeskPage = () => {
                 <span className={classes.rowBody}>
                   <span className={classes.rowTop}>
                     <span className={classes.rowName}>{row.userName || row.userEmail || row.userId}</span>
-                    <span className={classes.rowTime}>{relativeTime(row.lastMessageAt)}</span>
+                    <span className={`${classes.rowTime} ${unread ? classes.rowTimeUnread : ''}`}>
+                      {relativeTime(row.lastMessageAt)}
+                    </span>
                   </span>
                   <span className={classes.rowPreview}>{row.lastMessagePreview || 'No messages yet'}</span>
                 </span>
                 {unread ? (
-                  <span className={classes.unreadBadge} aria-label={`${row.unreadForSupport} unread`}>
-                    {Number(row.unreadForSupport) > 99 ? '99+' : row.unreadForSupport}
+                  <span className={classes.unreadBadge} aria-label={`${unreadCount} unread`}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 ) : null}
               </button>
@@ -654,6 +937,157 @@ const SupportDeskPage = () => {
           )}
         </section>
       </motion.div>
+
+      {composeOpen ? (
+        <div className={classes.composeOverlay} role="presentation" onClick={closeCompose}>
+          <div
+            className={classes.composeModal}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Message a user"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={classes.composeHeader}>
+              <div className={classes.composeHeaderText}>
+                <span className={classes.composeBadge}>
+                  <MessageSquarePlus size={13} />
+                  Outbound
+                </span>
+                <h3 className={classes.composeTitle}>Message a user</h3>
+                <p className={classes.composeSub}>
+                  {composeSelected
+                    ? 'Write your message and send it to their support inbox.'
+                    : 'Search anyone on the platform, then send the first message.'}
+                </p>
+              </div>
+              <button type="button" className={classes.composeClose} onClick={closeCompose} aria-label="Close">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className={classes.composeSteps} aria-hidden="true">
+              <span className={`${classes.composeStep} ${!composeSelected ? classes.composeStepActive : classes.composeStepDone}`}>
+                1. Pick user
+              </span>
+              <span className={classes.composeStepDivider} />
+              <span className={`${classes.composeStep} ${composeSelected ? classes.composeStepActive : ''}`}>
+                2. Write message
+              </span>
+            </div>
+
+            {!composeSelected ? (
+              <div className={classes.composePanel}>
+                <div className={classes.composeSearchWrap}>
+                  <Search size={15} aria-hidden="true" />
+                  <input
+                    className={classes.composeSearch}
+                    value={composeQuery}
+                    onChange={(e) => setComposeQuery(e.target.value)}
+                    placeholder="Name or email…"
+                    autoFocus
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                  />
+                  {composeSearching ? <Loader2 size={14} className={classes.spin} /> : null}
+                </div>
+
+                <div className={classes.composeResults}>
+                  {composeQuery.trim().length < 2 ? (
+                    <div className={classes.composeEmpty}>
+                      <Search size={18} />
+                      <p>Type at least 2 characters to search</p>
+                    </div>
+                  ) : composeSearching ? (
+                    <div className={classes.composeEmpty}>
+                      <Loader2 size={18} className={classes.spin} />
+                      <p>Searching users…</p>
+                    </div>
+                  ) : composeResults.length === 0 ? (
+                    <div className={classes.composeEmpty}>
+                      <p>No users match “{composeQuery.trim()}”</p>
+                    </div>
+                  ) : (
+                    composeResults.map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        className={classes.composeResult}
+                        onClick={() => {
+                          setComposeSelected(u);
+                          setComposeQuery('');
+                          setComposeResults([]);
+                        }}
+                      >
+                        <span className={classes.composeAvatar}>
+                          {String(u.name || u.email || '?').charAt(0).toUpperCase()}
+                        </span>
+                        <span className={classes.composeResultBody}>
+                          <span className={classes.composeResultName}>{u.name || u.id}</span>
+                          {u.email ? <span className={classes.composeResultEmail}>{u.email}</span> : null}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className={classes.composePanel}>
+                <div className={classes.composeRecipient}>
+                  <span className={classes.composeAvatar}>
+                    {String(composeSelected.name || composeSelected.email || '?').charAt(0).toUpperCase()}
+                  </span>
+                  <span className={classes.composeResultBody}>
+                    <span className={classes.composeRecipientLabel}>To</span>
+                    <span className={classes.composeResultName}>
+                      {composeSelected.name || composeSelected.id}
+                    </span>
+                    {composeSelected.email ? (
+                      <span className={classes.composeResultEmail}>{composeSelected.email}</span>
+                    ) : null}
+                  </span>
+                  <button
+                    type="button"
+                    className={classes.composeChangeBtn}
+                    onClick={() => {
+                      setComposeSelected(null);
+                      setComposeText('');
+                    }}
+                    disabled={composeSending}
+                  >
+                    Change
+                  </button>
+                </div>
+
+                <textarea
+                  className={classes.composeTextarea}
+                  value={composeText}
+                  onChange={(e) => setComposeText(e.target.value)}
+                  placeholder="Hi — reaching out from support…"
+                  rows={5}
+                  disabled={composeSending}
+                  autoFocus
+                />
+              </div>
+            )}
+
+            <div className={classes.composeActions}>
+              <button type="button" className={classes.composeCancel} onClick={closeCompose} disabled={composeSending}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={classes.composeSend}
+                onClick={handleOutboundSend}
+                disabled={composeSending || !composeSelected || !composeText.trim()}
+              >
+                {composeSending ? <Loader2 size={14} className={classes.spin} /> : null}
+                {composeSending ? 'Sending…' : 'Send message'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </motion.div>
   );
 };

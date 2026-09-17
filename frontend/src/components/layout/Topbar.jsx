@@ -39,17 +39,20 @@ const Topbar = ({
   const prepareUserChat = useSupportChatStore((s) => s.prepareUserChat);
   const markSupportRead = useSupportChatStore((s) => s.markRead);
   const supportUnread = useSupportChatStore((s) => s.unreadForUser);
+  const deskUnread = useSupportChatStore((s) => s.deskUnreadTotal);
   const supportPopupOpen = useSupportChatStore((s) => s.popupOpen);
   const supportPopupMinimized = useSupportChatStore((s) => s.popupMinimized);
   const showPersonaWarning = Boolean(
     user && user.personaStatus !== 'verified' && user.role !== 'support' && user.role !== 'admin' && user.role !== 'qa',
   );
   const isSupportRole = user?.role === 'support';
+  const isStaffViewer = user?.role === 'support' || user?.role === 'admin';
   const path = location.pathname.replace(/\/+$/, '');
   const onUserSupportPage = path === '/app/support' || path === '/app/support/email';
   const onSupportDesk = path.startsWith('/app/support-desk');
   const showSupportChat = Boolean(user) && !isSupportRole && !onSupportDesk;
   const supportChatActive = supportPopupOpen && !supportPopupMinimized;
+  const bellUnread = isStaffViewer ? (Number(deskUnread) || 0) + Number(unreadCount || 0) : Number(unreadCount || 0);
 
   const isOnline = callState !== 'offline' && callState !== 'error';
   const inboxMotion = dropdownPanelMotion(reduceMotion);
@@ -103,6 +106,13 @@ const Topbar = ({
     const timer = window.setTimeout(() => setIsBellAnimating(false), 1100);
     return () => window.clearTimeout(timer);
   }, [notificationTick]);
+
+  useEffect(() => {
+    if (!deskUnread) return;
+    setIsBellAnimating(true);
+    const timer = window.setTimeout(() => setIsBellAnimating(false), 1100);
+    return () => window.clearTimeout(timer);
+  }, [deskUnread]);
 
   const breadcrumbs = useMemo(() => {
     if (pageBreadcrumbs?.length) return pageBreadcrumbs;
@@ -168,6 +178,14 @@ const Topbar = ({
   };
 
   const toggleInbox = () => {
+    if (isSupportRole && deskUnread > 0 && !onSupportDesk) {
+      navigate('/app/support-desk/inbox');
+      return;
+    }
+    if (isSupportRole && deskUnread > 0 && onSupportDesk && path !== '/app/support-desk/inbox') {
+      navigate('/app/support-desk/inbox');
+      return;
+    }
     if (isInboxOpen) {
       closeInbox();
       return;
@@ -293,9 +311,9 @@ const Topbar = ({
             aria-haspopup="dialog"
           >
             <Bell size={18} className={classes.bellIcon} />
-            {unreadCount > 0 ? (
+            {bellUnread > 0 ? (
               <span className={`${classes.unreadBadge} ${isBellAnimating ? classes.badgeAnimated : ''}`}>
-                {unreadCount > 99 ? '99+' : unreadCount}
+                {bellUnread > 99 ? '99+' : bellUnread}
               </span>
             ) : null}
           </button>

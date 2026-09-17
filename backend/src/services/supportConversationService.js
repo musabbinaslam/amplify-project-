@@ -1,6 +1,7 @@
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
-const { mergeUserDoc } = require('./userDataService');
+const { mergeUserDoc, getUserDoc } = require('./userDataService');
+const { buildUserMetaMap, displayNameFromUserData } = require('../utils/managerAnalytics');
 const {
   resolveAttachments,
   inferMessageType,
@@ -482,6 +483,96 @@ async function listConversations({ status } = {}) {
     .slice(0, 80);
 }
 
+/**
+ * Search platform users for outbound desk messaging (name / email).
+ * @param {{ q: string, limit?: number, excludeUid?: string }} opts
+ */
+async function searchUsersForDesk({ q, limit = 20, excludeUid } = {}) {
+  const needle = String(q || '').trim().toLowerCase();
+  if (needle.length < 2) {
+    throw Object.assign(new Error('Search query must be at least 2 characters'), { status: 400 });
+  }
+  const pageSize = Math.min(Math.max(Number(limit) || 20, 1), 50);
+  const db = ensureDb();
+  const snap = await db.collection('users').select().limit(5000).get();
+  let ids = snap.docs.map((d) => d.id);
+
+  // Exact uid match shortcut
+  if (/^[a-zA-Z0-9_-]{6,128}$/.test(String(q || '').trim())) {
+    const exactId = String(q).trim();
+    if (!ids.includes(exactId)) {
+      const doc = await getUserDoc(exactId);
+      if (doc) ids = [exactId, ...ids];
+    }
+  }
+
+  const metaMap = await buildUserMetaMap(ids);
+  const exclude = excludeUid ? String(excludeUid) : '';
+  const matches = [];
+  ids.forEach((id) => {
+    if (exclude && String(id) === exclude) return;
+    const entry = metaMap.get(id) || {};
+    const name = String(entry.name || '').toLowerCase();
+    const email = String(entry.email || '').toLowerCase();
+    const idLower = String(id).toLowerCase();
+    if (
+      name.includes(needle)
+      || email.includes(needle)
+      || idLower.includes(needle)
+    ) {
+      matches.push({
+        id,
+        name: entry.name || id,
+        email: entry.email || null,
+      });
+    }
+  });
+  matches.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  return matches.slice(0, pageSize);
+}
+
+/**
+ * Staff creates (if needed) and messages a user's support conversation.
+ */
+async function startOutboundConversation(targetUserId, actor, text, extra = {}) {
+  if (!isStaffRole(actor?.role)) {
+    throw Object.assign(new Error('Forbidden'), { status: 403 });
+  }
+  const uid = String(targetUserId || '').trim();
+  if (!uid) {
+    throw Object.assign(new Error('userId is required'), { status: 400 });
+  }
+  const body = String(text || '').trim();
+  const attachments = Array.isArray(extra.attachments) ? extra.attachments : [];
+  if (!body && !attachments.length) {
+    throw Object.assign(new Error('Message text is required'), { status: 400 });
+  }
+
+  const target = await getUserDoc(uid);
+  if (!target) {
+    throw Object.assign(new Error('User not found'), { status: 404 });
+  }
+
+  const db = ensureDb();
+  const snap = await convRef(db, uid).get();
+  if (!snap.exists) {
+    const name = displayNameFromUserData(target)
+      || target.displayName
+      || target.name
+      || target.fullName
+      || target.email
+      || 'User';
+    await createConversation(db, {
+      uid,
+      name,
+      email: target.email || '',
+      displayName: name,
+    });
+  }
+
+  return postMessage(uid, actor, text, extra);
+}
+
 function startOfDay(dateStr) {
   const d = dateStr ? new Date(`${dateStr}T00:00:00.000Z`) : new Date();
   if (Number.isNaN(d.getTime())) throw Object.assign(new Error('Invalid date range'), { status: 400 });
@@ -727,6 +818,8 @@ module.exports = {
   claimConversation,
   closeConversation,
   listConversations,
+  searchUsersForDesk,
+  startOutboundConversation,
   getKpis,
   assertUserCanAccess,
 };

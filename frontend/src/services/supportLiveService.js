@@ -86,6 +86,26 @@ export function postSupportDeskMessage(conversationId, text, { replyTo, attachme
   });
 }
 
+export function searchSupportDeskUsers({ q, limit = 20 } = {}) {
+  const qs = new URLSearchParams();
+  if (q) qs.set('q', q);
+  if (limit) qs.set('limit', String(limit));
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch(`/api/support-desk/users/search${suffix}`, { method: 'GET' });
+}
+
+export function startSupportDeskOutbound({ userId, text, replyTo, attachments } = {}) {
+  return apiFetch('/api/support-desk/conversations/outbound', {
+    method: 'POST',
+    body: {
+      userId,
+      text,
+      ...(replyTo ? { replyTo } : {}),
+      ...(attachments?.length ? { attachments } : {}),
+    },
+  });
+}
+
 export const CHAT_MEDIA_LIMITS = {
   maxFiles: 5,
   maxFileBytes: 10 * 1024 * 1024,

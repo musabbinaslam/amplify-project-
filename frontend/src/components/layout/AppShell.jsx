@@ -8,7 +8,7 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import useAuthStore from '../../store/authStore';
 import useDialerStore from '../../store/useDialerStore';
-import useSupportChatStore from '../../store/useSupportChatStore';
+import useSupportChatStore, { deskUnreadFromConversation } from '../../store/useSupportChatStore';
 import { useUIStore } from '../../store/uiStore';
 import { getApiBaseUrl } from '../../config/apiBase';
 import {
@@ -264,14 +264,22 @@ const AppShell = () => {
     (async () => {
       try {
         await store.connect(getIdToken, { isStaffViewer });
-        // Agents + admins use the user support popup; support role uses desk only.
         if (!cancelled && !isSupportOnly) {
           await store.loadMine();
         }
         if (!cancelled && isStaffViewer) {
           const { listSupportDeskConversations } = await import('../../services/supportLiveService');
           const out = await listSupportDeskConversations({ status: 'inbox' });
-          if (!cancelled) store.syncDeskUnreadFromRows(out?.rows || []);
+          if (!cancelled) {
+            const rows = (out?.rows || []).map((row) => ({
+              ...row,
+              unreadForSupport: Math.max(
+                Number(row.unreadForSupport || 0),
+                deskUnreadFromConversation(row),
+              ),
+            }));
+            store.syncDeskUnreadFromRows(rows);
+          }
         }
       } catch {
         /* boot soft-fail; popup open path retries */
@@ -288,33 +296,148 @@ const AppShell = () => {
     };
   }, [user?.uid, user?.role, getIdToken]);
 
+  // Staff desk badges must work on Analytics too (Inbox page may be unmounted).
+  useEffect(() => {
+    const isStaffViewer = user?.role === 'support' || user?.role === 'admin';
+    if (!isStaffViewer || !user?.uid) return undefined;
+
+    let cancelled = false;
+    let detachSocket = null;
+
+    const refreshFromApi = async () => {
+      try {
+        const { listSupportDeskConversations } = await import('../../services/supportLiveService');
+        const out = await listSupportDeskConversations({ status: 'inbox' });
+        if (cancelled) return;
+        const prev = useSupportChatStore.getState().deskUnreadById || {};
+        const rows = (out?.rows || []).map((row) => ({
+          ...row,
+          unreadForSupport: Math.max(
+            Number(row.unreadForSupport || 0),
+            deskUnreadFromConversation(row),
+            Number(prev[row.id] || prev[String(row.id)] || 0),
+          ),
+        }));
+        useSupportChatStore.getState().syncDeskUnreadFromRows(rows);
+      } catch {
+        /* ignore */
+      }
+    };
+
+    const onMessage = (payload = {}) => {
+      const conversation = payload?.conversation;
+      const message = payload?.message;
+      if (!conversation?.id) return;
+      useSupportChatStore.getState().applyDeskInboxUpdate(conversation, {
+        fromUserMessage: Boolean(message?.id),
+        silent: false,
+        messageId: message?.id || null,
+      });
+    };
+    const onInbox = (conversation) => {
+      if (!conversation?.id) return;
+      useSupportChatStore.getState().applyDeskInboxUpdate(conversation, { silent: true });
+    };
+
+    const attach = (socket) => {
+      if (!socket) return null;
+      socket.on('support:message:new', onMessage);
+      socket.on('support:inbox:updated', onInbox);
+      return () => {
+        socket.off('support:message:new', onMessage);
+        socket.off('support:inbox:updated', onInbox);
+      };
+    };
+
+    detachSocket = attach(useSupportChatStore.getState()._socket);
+    let prevSocket = useSupportChatStore.getState()._socket;
+    const unsub = useSupportChatStore.subscribe((state) => {
+      if (state._socket === prevSocket) return;
+      prevSocket = state._socket;
+      if (typeof detachSocket === 'function') detachSocket();
+      detachSocket = attach(state._socket);
+    });
+
+    // Ensure staff socket exists even after HMR wiped the store.
+    useSupportChatStore.getState().connect(getIdToken, { isStaffViewer: true })
+      .then((socket) => {
+        if (cancelled) return;
+        if (!detachSocket) detachSocket = attach(socket);
+        refreshFromApi();
+      })
+      .catch(() => {});
+
+    const interval = window.setInterval(refreshFromApi, 15000);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') refreshFromApi();
+    };
+    document.addEventListener('visibilitychange', onVis);
+
+    return () => {
+      cancelled = true;
+      if (typeof detachSocket === 'function') detachSocket();
+      unsub();
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [user?.uid, user?.role, getIdToken]);
+
   useEffect(() => {
     const isStaffViewer = user?.role === 'support' || user?.role === 'admin';
     if (!isStaffViewer) return undefined;
     const baseTitle = typeof document !== 'undefined' ? document.title : 'CallsFlow';
+    const assetUrl = (path) => {
+      if (typeof window === 'undefined') return path;
+      return new URL(path, window.location.origin).href;
+    };
     const onUserMessage = (event) => {
       const detail = event?.detail || {};
       const name = detail.conversation?.userName || detail.conversation?.userEmail || 'User';
-      const preview = String(detail.preview || 'New support message').slice(0, 120);
-      toast(`${name}: ${preview}`, {
-        icon: '💬',
-        duration: 5000,
-        id: `support-desk-${detail.conversation?.id || 'msg'}`,
-      });
+      const preview = String(detail.preview || 'New message').slice(0, 72);
+      const unreadTotal = Number(useSupportChatStore.getState().deskUnreadTotal || detail.unread || 1);
+      const initial = String(name).charAt(0).toUpperCase() || '?';
+      const toastId = `support-desk-${detail.conversation?.id || 'msg'}`;
+
+      toast.custom(
+        (t) => (
+          <button
+            type="button"
+            className={`${classes.supportToast} ${t.visible ? classes.supportToastIn : classes.supportToastOut}`}
+            onClick={() => {
+              toast.dismiss(t.id);
+              navigate('/app/support-desk/inbox');
+            }}
+          >
+            <span className={classes.supportToastAvatar} aria-hidden="true">{initial}</span>
+            <span className={classes.supportToastBody}>
+              <span className={classes.supportToastName}>{name}</span>
+              <span className={classes.supportToastPreview}>{preview}</span>
+            </span>
+            <span className={classes.supportToastBadge}>{unreadTotal > 99 ? '99+' : unreadTotal}</span>
+          </button>
+        ),
+        { duration: 4500, id: toastId },
+      );
+
       if (typeof document !== 'undefined') {
-        document.title = `(${useSupportChatStore.getState().deskUnreadTotal || 1}) New support message`;
+        document.title = `(${unreadTotal}) ${name}`;
         window.setTimeout(() => {
           if (document.title.startsWith('(')) document.title = baseTitle;
-        }, 4000);
+        }, 5000);
       }
-      if (typeof Notification !== 'undefined' && document.hidden) {
+
+      // OS notifications only when the tab is in the background (Safari chrome can't be styled).
+      if (typeof Notification !== 'undefined' && typeof document !== 'undefined' && document.hidden) {
         const fire = async () => {
           let permission = Notification.permission;
           if (permission === 'default') permission = await Notification.requestPermission();
           if (permission !== 'granted') return;
-          const notif = new Notification('CallsFlow Support Inbox', {
-            body: `${name}: ${preview}`,
-            icon: '/favicon.ico',
+          const notif = new Notification(name, {
+            body: preview,
+            icon: assetUrl('/logo.png'),
+            badge: assetUrl('/favicon.svg'),
+            tag: toastId,
+            renotify: true,
           });
           notif.onclick = () => {
             window.focus();
