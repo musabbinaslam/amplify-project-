@@ -25,6 +25,8 @@ const useSupportChatStore = create((set, get) => ({
   conversation: null,
   messages: [],
   unreadForUser: 0,
+  deskUnreadTotal: 0,
+  deskUnreadById: {},
   popupOpen: false,
   popupMinimized: true,
   supportTyping: false,
@@ -38,12 +40,75 @@ const useSupportChatStore = create((set, get) => ({
   _getIdToken: null,
   _joinedConversationId: null,
   _markReadTimer: null,
+  _isStaffViewer: false,
 
   setViewingThread: (viewingThread) => set({ viewingThread: Boolean(viewingThread) }),
+
+  syncDeskUnreadFromRows: (rows = []) => {
+    const byId = {};
+    let total = 0;
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      if (!row?.id) return;
+      const n = Number(row.unreadForSupport || 0);
+      if (n > 0) {
+        byId[row.id] = n;
+        total += n;
+      }
+    });
+    set({ deskUnreadById: byId, deskUnreadTotal: total });
+  },
+
+  applyDeskInboxUpdate: (conversation, { silent = false } = {}) => {
+    if (!conversation?.id) return;
+    const viewingId = get()._joinedConversationId;
+    const viewingOpen = Boolean(viewingId && String(viewingId) === String(conversation.id));
+    const incoming = Number(conversation.unreadForSupport || 0);
+    const effective = viewingOpen ? 0 : incoming;
+    const prevById = { ...get().deskUnreadById };
+    const prevCount = Number(prevById[conversation.id] || 0);
+    if (effective > 0) prevById[conversation.id] = effective;
+    else delete prevById[conversation.id];
+    const total = Object.values(prevById).reduce((sum, n) => sum + Number(n || 0), 0);
+    set({ deskUnreadById: prevById, deskUnreadTotal: total });
+
+    const fromUser = conversation.lastSenderRole === 'user';
+    if (
+      !silent
+      && fromUser
+      && effective > prevCount
+      && !viewingOpen
+      && typeof window !== 'undefined'
+    ) {
+      window.dispatchEvent(new CustomEvent('support-desk:user-message', {
+        detail: {
+          conversation,
+          preview: conversation.lastMessagePreview || 'New support message',
+          unread: effective,
+        },
+      }));
+    }
+  },
 
   openPopup: () => set({ popupOpen: true, popupMinimized: false }),
   minimizePopup: () => set({ popupMinimized: true, popupOpen: true }),
   closePopup: () => set({ popupOpen: false, popupMinimized: true }),
+
+  /** Ensure conversation + socket room are ready before chatting from the popup. */
+  prepareUserChat: async () => {
+    const state = get();
+    const getIdToken = state._getIdToken;
+    if (!state._socket && typeof getIdToken === 'function') {
+      await get().connect(getIdToken, {
+        isStaffViewer: false,
+      });
+    }
+    const out = await get().loadMine();
+    const convoId = out?.conversation?.id || get().conversation?.id;
+    if (convoId) {
+      get().joinConversation(convoId, { timeZone: browserTimeZone() });
+    }
+    return out;
+  },
 
   applyConversation: (conversation) => {
     if (!conversation) return;
@@ -139,11 +204,15 @@ const useSupportChatStore = create((set, get) => ({
         loading: false,
       });
       const socket = get()._socket;
-      if (socket?.connected && out?.conversation?.id) {
-        socket.emit('support:join', {
-          conversationId: out.conversation.id,
-          timeZone: browserTimeZone(),
-        });
+      const convoId = out?.conversation?.id;
+      if (convoId) {
+        set({ _joinedConversationId: convoId });
+        if (socket?.connected) {
+          socket.emit('support:join', {
+            conversationId: convoId,
+            timeZone: browserTimeZone(),
+          });
+        }
       }
       return out;
     } catch (err) {
@@ -155,7 +224,7 @@ const useSupportChatStore = create((set, get) => ({
   connect: async (getIdToken, { isStaffViewer = false } = {}) => {
     if (get()._socket) return get()._socket;
     const resolveToken = typeof getIdToken === 'function' ? getIdToken : async () => getIdToken;
-    set({ _getIdToken: resolveToken });
+    set({ _getIdToken: resolveToken, _isStaffViewer: Boolean(isStaffViewer) });
 
     const socket = io(`${getApiBaseUrl()}/support`, {
       auth: (cb) => {
@@ -202,6 +271,9 @@ const useSupportChatStore = create((set, get) => ({
           });
         }
       }
+      if (isStaffViewer && payload?.conversation) {
+        get().applyDeskInboxUpdate(payload.conversation);
+      }
       get().applyIncoming(payload, {
         isOwn: Boolean(myUid && uid === myUid),
         isStaffViewer,
@@ -214,17 +286,26 @@ const useSupportChatStore = create((set, get) => ({
       if (payload.role === 'user') set({ userTyping: Boolean(payload.typing) });
     });
     socket.on('support:read', (payload = {}) => {
-      if (payload.conversation) get().applyConversation(payload.conversation);
+      if (payload.conversation) {
+        get().applyConversation(payload.conversation);
+        if (isStaffViewer) get().applyDeskInboxUpdate(payload.conversation, { silent: true });
+      }
     });
     socket.on('support:claimed', (payload = {}) => {
       if (payload.conversation) get().applyConversation(payload.conversation);
     });
     socket.on('support:closed', (payload = {}) => {
-      if (payload.conversation) get().applyConversation(payload.conversation);
+      if (payload.conversation) {
+        get().applyConversation(payload.conversation);
+        if (isStaffViewer) get().applyDeskInboxUpdate(payload.conversation, { silent: true });
+      }
     });
     socket.on('support:inbox:updated', (conversation) => {
       if (conversation && get().conversation?.id === conversation.id) {
         get().applyConversation(conversation);
+      }
+      if (isStaffViewer && conversation) {
+        get().applyDeskInboxUpdate(conversation, { silent: true });
       }
     });
 
@@ -238,6 +319,12 @@ const useSupportChatStore = create((set, get) => ({
     const socket = get()._socket;
     if (!conversationId) return;
     set({ _joinedConversationId: conversationId });
+    if (get()._isStaffViewer) {
+      const byId = { ...get().deskUnreadById };
+      delete byId[conversationId];
+      const total = Object.values(byId).reduce((sum, n) => sum + Number(n || 0), 0);
+      set({ deskUnreadById: byId, deskUnreadTotal: total });
+    }
     if (socket) {
       const payload = { conversationId };
       if (timeZone) payload.timeZone = timeZone;

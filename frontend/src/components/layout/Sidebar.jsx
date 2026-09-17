@@ -56,6 +56,7 @@ const Sidebar = () => {
   const user = useAuthStore((s) => s.user);
   const role = user?.role;
   const supportUnread = useSupportChatStore((s) => s.unreadForUser);
+  const deskUnread = useSupportChatStore((s) => s.deskUnreadTotal);
   const navigate = useNavigate();
   const location = useLocation();
   const navRef = useRef(null);
@@ -77,6 +78,7 @@ const Sidebar = () => {
           icon: Inbox,
           end: true,
           group: 'support',
+          badgeKey: 'deskUnread',
         },
       ];
     }
@@ -102,6 +104,7 @@ const Sidebar = () => {
           label: 'Support Desk',
           icon: HeadphonesIcon,
           group: 'admin',
+          badgeKey: 'deskUnread',
           activeMatch: (pathname) => (
             pathname === '/app/support-desk'
             || pathname.startsWith('/app/support-desk/')
@@ -189,8 +192,13 @@ const Sidebar = () => {
         <>
           <span className={classes.label}>{item.label}</span>
           {item.badgeKey === 'supportUnread' && supportUnread > 0 && (
-            <span className={`${classes.badge} ${classes.comingSoon}`}>
+            <span className={`${classes.badge} ${classes.unreadCount}`}>
               {supportUnread > 99 ? '99+' : supportUnread}
+            </span>
+          )}
+          {item.badgeKey === 'deskUnread' && deskUnread > 0 && (
+            <span className={`${classes.badge} ${classes.unreadCount}`}>
+              {deskUnread > 99 ? '99+' : deskUnread}
             </span>
           )}
           {item.badge && (

@@ -172,36 +172,67 @@
   color: var(--text-primary);
 }
 
-.discordPill {
-  --discord: #5865f2;
+.chatPill {
   position: relative;
-  overflow: hidden;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   height: 38px;
-  padding: 0 16px;
+  padding: 0 14px;
   border-radius: var(--radius-full);
-  border: 1px solid color-mix(in srgb, var(--discord) 45%, var(--glass-border));
-  background: color-mix(in srgb, var(--discord) 16%, var(--surface-container-high));
+  border: 1px solid color-mix(in srgb, var(--brand-text) 28%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 12%, var(--surface-container-high));
   box-shadow: var(--glass-highlight), var(--glass-edge);
-  color: color-mix(in srgb, var(--discord) 55%, var(--text-primary));
+  color: var(--brand-text);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.01em;
   white-space: nowrap;
+  cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
-.discordPill:hover {
-  background: color-mix(in srgb, var(--discord) 26%, var(--surface-container-high));
-  border-color: color-mix(in srgb, var(--discord) 65%, var(--glass-border));
-  color: color-mix(in srgb, var(--discord) 30%, var(--text-primary));
+.chatPill:hover {
+  background: color-mix(in srgb, var(--brand-text) 20%, var(--surface-container-high));
+  border-color: color-mix(in srgb, var(--brand-text) 45%, var(--glass-border));
   transform: translateY(-1px);
 }
 
-.discordPill svg {
+.chatPill:active {
+  transform: translateY(0);
+}
+
+.chatPill:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand-text) 65%, transparent);
+  outline-offset: 2px;
+}
+
+.chatPillActive {
+  background: color-mix(in srgb, var(--brand-text) 22%, var(--surface-container-high));
+  border-color: color-mix(in srgb, var(--brand-text) 50%, var(--glass-border));
+}
+
+.chatPill svg {
   flex-shrink: 0;
+}
+
+.chatPillLabel {
+  display: inline-block;
+}
+
+.chatPillBadge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-red);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .personaWarning {
@@ -277,33 +308,6 @@
   56%,
   100% {
     transform: translateX(140%);
-  }
-}
-
-/* Periodic light sweep to catch the eye */
-.discordPill::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    115deg,
-    transparent 30%,
-    color-mix(in srgb, #ffffff 55%, transparent) 48%,
-    transparent 66%
-  );
-  transform: translateX(-130%);
-  animation: discordShimmer 4s ease-in-out infinite;
-}
-
-@keyframes discordShimmer {
-  0%,
-  15% {
-    transform: translateX(-130%);
-  }
-  55%,
-  100% {
-    transform: translateX(130%);
   }
 }
 
@@ -705,15 +709,21 @@
     font-size: 12px;
   }
 
-  .discordPill {
+  .chatPill {
     width: 38px;
     padding: 0;
     justify-content: center;
     gap: 0;
   }
 
-  .discordLabel {
+  .chatPillLabel {
     display: none;
+  }
+
+  .chatPillBadge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
   }
 
   .personaWarning {
@@ -742,7 +752,7 @@
     animation: none;
   }
 
-  .discordPill {
+  .chatPill {
     transition: none;
   }
 
@@ -751,11 +761,6 @@
   }
 
   .personaWarning::after {
-    animation: none;
-    display: none;
-  }
-
-  .discordPill::after {
     animation: none;
     display: none;
   }
