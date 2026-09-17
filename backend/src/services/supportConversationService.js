@@ -180,7 +180,9 @@ async function stampUserTimeZone(conversationId, timeZone) {
   const data = snap.data() || {};
   if (data.userTimeZone === tz) return null;
   await ref.set({ userTimeZone: tz }, { merge: true });
-  return serializeConversation(snap.id, { ...data, userTimeZone: tz });
+  // Re-read so we never broadcast a stale unread snapshot over a newer message.
+  const fresh = await ref.get();
+  return serializeConversation(fresh.id, fresh.data() || { ...data, userTimeZone: tz });
 }
 
 async function getOrCreateMine(user, { timeZone } = {}) {

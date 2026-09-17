@@ -131,6 +131,8 @@ const SupportDeskPage = () => {
   const joinConversation = useSupportChatStore((s) => s.joinConversation);
   const emitTyping = useSupportChatStore((s) => s.emitTyping);
   const userTyping = useSupportChatStore((s) => s.userTyping);
+  const syncDeskUnreadFromRows = useSupportChatStore((s) => s.syncDeskUnreadFromRows);
+  const applyDeskInboxUpdate = useSupportChatStore((s) => s.applyDeskInboxUpdate);
 
   const [tab, setTab] = useState('inbox');
   const [rows, setRows] = useState([]);
@@ -213,13 +215,15 @@ const SupportDeskPage = () => {
       const out = await listSupportDeskConversations({
         status: nextTab === 'closed' ? 'closed' : 'inbox',
       });
-      setRows(Array.isArray(out?.rows) ? out.rows : []);
+      const nextRows = Array.isArray(out?.rows) ? out.rows : [];
+      setRows(nextRows);
+      if (nextTab !== 'closed') syncDeskUnreadFromRows(nextRows);
     } catch (err) {
       toast.error(err?.message || 'Could not load inbox');
     } finally {
       setInboxLoading(false);
     }
-  }, [tab]);
+  }, [tab, syncDeskUnreadFromRows]);
 
   const openConversation = useCallback(async (id, preview) => {
     const req = ++openReq.current;
@@ -280,6 +284,7 @@ const SupportDeskPage = () => {
         }
         return upsertRow(prev, conversation);
       });
+      applyDeskInboxUpdate(conversation, { silent: true });
       const activeId = selectedIdRef.current;
       if (String(conversation.id) !== String(activeId || '')) {
         setThread((prev) => (
@@ -311,6 +316,7 @@ const SupportDeskPage = () => {
           }
           return upsertRow(prev, conversation);
         });
+        applyDeskInboxUpdate(conversation);
       }
       const activeId = selectedIdRef.current;
       if (!message?.id || !conversation?.id || String(conversation.id) !== String(activeId || '')) {
@@ -363,7 +369,7 @@ const SupportDeskPage = () => {
       socket.off('support:claimed');
       socket.off('support:closed');
     };
-  }, [socket, tab, joinConversation, markConversationSeen, refreshActiveThread]);
+  }, [socket, tab, joinConversation, markConversationSeen, refreshActiveThread, applyDeskInboxUpdate]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -546,11 +552,13 @@ const SupportDeskPage = () => {
               </div>
             ) : filtered.length === 0 ? (
               <p className={classes.emptyList}>No conversations yet.</p>
-            ) : filtered.map((row) => (
+            ) : filtered.map((row) => {
+              const unread = Number(row.unreadForSupport) > 0;
+              return (
               <button
                 key={row.id}
                 type="button"
-                className={`${classes.row} ${selectedId === row.id ? classes.rowActive : ''}`}
+                className={`${classes.row} ${selectedId === row.id ? classes.rowActive : ''} ${unread ? classes.rowUnread : ''}`}
                 onClick={() => openConversation(row.id, row)}
                 disabled={threadLoading && selectedId === row.id}
               >
@@ -562,9 +570,14 @@ const SupportDeskPage = () => {
                   </span>
                   <span className={classes.rowPreview}>{row.lastMessagePreview || 'No messages yet'}</span>
                 </span>
-                {Number(row.unreadForSupport) > 0 ? <span className={classes.unread} /> : null}
+                {unread ? (
+                  <span className={classes.unreadBadge} aria-label={`${row.unreadForSupport} unread`}>
+                    {Number(row.unreadForSupport) > 99 ? '99+' : row.unreadForSupport}
+                  </span>
+                ) : null}
               </button>
-            ))}
+              );
+            })}
           </div>
         </aside>
 

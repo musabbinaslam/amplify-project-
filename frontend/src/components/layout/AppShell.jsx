@@ -268,6 +268,11 @@ const AppShell = () => {
         if (!cancelled && !isSupportOnly) {
           await store.loadMine();
         }
+        if (!cancelled && isStaffViewer) {
+          const { listSupportDeskConversations } = await import('../../services/supportLiveService');
+          const out = await listSupportDeskConversations({ status: 'inbox' });
+          if (!cancelled) store.syncDeskUnreadFromRows(out?.rows || []);
+        }
       } catch {
         /* boot soft-fail; popup open path retries */
       }
@@ -282,6 +287,52 @@ const AppShell = () => {
       useSupportChatStore.getState().disconnect();
     };
   }, [user?.uid, user?.role, getIdToken]);
+
+  useEffect(() => {
+    const isStaffViewer = user?.role === 'support' || user?.role === 'admin';
+    if (!isStaffViewer) return undefined;
+    const baseTitle = typeof document !== 'undefined' ? document.title : 'CallsFlow';
+    const onUserMessage = (event) => {
+      const detail = event?.detail || {};
+      const name = detail.conversation?.userName || detail.conversation?.userEmail || 'User';
+      const preview = String(detail.preview || 'New support message').slice(0, 120);
+      toast(`${name}: ${preview}`, {
+        icon: '💬',
+        duration: 5000,
+        id: `support-desk-${detail.conversation?.id || 'msg'}`,
+      });
+      if (typeof document !== 'undefined') {
+        document.title = `(${useSupportChatStore.getState().deskUnreadTotal || 1}) New support message`;
+        window.setTimeout(() => {
+          if (document.title.startsWith('(')) document.title = baseTitle;
+        }, 4000);
+      }
+      if (typeof Notification !== 'undefined' && document.hidden) {
+        const fire = async () => {
+          let permission = Notification.permission;
+          if (permission === 'default') permission = await Notification.requestPermission();
+          if (permission !== 'granted') return;
+          const notif = new Notification('CallsFlow Support Inbox', {
+            body: `${name}: ${preview}`,
+            icon: '/favicon.ico',
+          });
+          notif.onclick = () => {
+            window.focus();
+            navigate('/app/support-desk/inbox');
+            notif.close();
+          };
+        };
+        fire().catch(() => {});
+      }
+    };
+    window.addEventListener('support-desk:user-message', onUserMessage);
+    return () => {
+      window.removeEventListener('support-desk:user-message', onUserMessage);
+      if (typeof document !== 'undefined' && document.title.startsWith('(')) {
+        document.title = baseTitle;
+      }
+    };
+  }, [user?.role, navigate]);
 
   useEffect(() => {
     if (!user?.uid) return undefined;

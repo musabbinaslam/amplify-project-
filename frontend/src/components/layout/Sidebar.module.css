@@ -264,6 +264,23 @@
   border: 1px solid var(--glass-border);
 }
 
+.badge.unreadCount {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--accent-red);
+  border: 1px solid color-mix(in srgb, var(--accent-red) 55%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-red) 35%, transparent);
+}
+
 .disabled {
   cursor: not-allowed;
 }
