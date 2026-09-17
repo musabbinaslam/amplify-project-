@@ -522,6 +522,5 @@ amplify-project/
 │   └── package.json
 │
 ├── architecture/            ← This document
-├── pictures/                ← UI screenshots / design references
 └── README.md
 ```
