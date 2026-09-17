@@ -57,6 +57,19 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       sourcemap: true,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'firebase-core': ['firebase/app'],
+            'firebase-auth': ['firebase/auth'],
+            'firebase-analytics': ['firebase/analytics'],
+            'sentry': ['@sentry/react'],
+            'recharts': ['recharts'],
+            'socket': ['socket.io-client'],
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          },
+        },
+      },
     },
     plugins: [
       react(),
