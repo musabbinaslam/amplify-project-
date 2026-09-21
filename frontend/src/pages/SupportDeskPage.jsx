@@ -99,6 +99,10 @@ function mergeInboxConversation(prev, next, { fromUserMessage = false } = {}) {
 
 function upsertRow(rows, conversation, options = {}) {
   if (!conversation?.id) return rows;
+  const hasContent = Number(conversation.messageCount || 0) > 0 || Boolean(conversation.lastMessagePreview);
+  if (!hasContent) {
+    return rows.filter((r) => r.id !== conversation.id);
+  }
   const prev = rows.find((r) => r.id === conversation.id);
   const merged = mergeInboxConversation(prev, conversation, options);
   const next = rows.filter((r) => r.id !== conversation.id);
@@ -606,9 +610,12 @@ const SupportDeskPage = () => {
   }, [socket, tab, joinConversation, markConversationSeen, refreshActiveThread, applyDeskInboxUpdate, markAttention, myUid]);
 
   const filtered = useMemo(() => {
+    const validRows = rows.filter(
+      (row) => Number(row.messageCount || 0) > 0 || Boolean(row.lastMessagePreview),
+    );
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((row) => (
+    if (!q) return validRows;
+    return validRows.filter((row) => (
       [row.userName, row.userEmail, row.lastMessagePreview, row.id]
         .some((v) => String(v || '').toLowerCase().includes(q))
     ));

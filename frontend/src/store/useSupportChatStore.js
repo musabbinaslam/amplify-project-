@@ -24,11 +24,11 @@ function upsertMessage(messages, incoming) {
 /** Infer desk unread from timestamps when server unreadForSupport is stale/0. */
 export function deskUnreadFromConversation(conversation) {
   if (!conversation?.id) return 0;
-  const explicit = Number(conversation.unreadForSupport || 0);
-  if (explicit > 0) return explicit;
   const hasMessage = Boolean(conversation.lastMessagePreview)
     || Number(conversation.messageCount || 0) > 0;
   if (!hasMessage) return 0;
+  const explicit = Number(conversation.unreadForSupport || 0);
+  if (explicit > 0) return explicit;
   const lastMs = conversation.lastMessageAt ? new Date(conversation.lastMessageAt).getTime() : 0;
   if (!lastMs || Number.isNaN(lastMs)) return 0;
   const readMs = conversation.supportLastReadAt
@@ -131,6 +131,8 @@ const useSupportChatStore = create((set, get) => ({
     messageId = null,
   } = {}) => {
     if (!conversation?.id) return;
+    const hasContent = Number(conversation.messageCount || 0) > 0 || Boolean(conversation.lastMessagePreview);
+    if (!hasContent) return;
     const convoId = String(conversation.id);
     const activeId = get()._activeDeskConversationId
       ? String(get()._activeDeskConversationId)

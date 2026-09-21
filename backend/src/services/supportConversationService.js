@@ -138,7 +138,7 @@ async function listRecentMessages(db, conversationId, { cursor, limit = MESSAGE_
   return { messages, nextCursor };
 }
 
-async function createConversation(db, user, { timeZone } = {}) {
+async function createConversation(db, user, { timeZone, status = 'idle' } = {}) {
   const { FieldValue } = admin.firestore;
   const id = String(user.uid);
   const ref = convRef(db, id);
@@ -149,7 +149,7 @@ async function createConversation(db, user, { timeZone } = {}) {
     userEmail: user.email || '',
     assignedTo: null,
     assignedName: null,
-    status: 'waiting',
+    status,
     lastMessageAt: FieldValue.serverTimestamp(),
     lastMessagePreview: '',
     lastSenderRole: null,
@@ -200,12 +200,25 @@ async function getOrCreateMine(user, { timeZone } = {}) {
     const page = await listRecentMessages(db, snap.id);
     return { conversation: serializeConversation(snap.id, data), ...page };
   }
-  const conversation = await createConversation(db, {
-    uid,
-    name: user.name || user.displayName,
-    email: user.email,
-  }, { timeZone: tz });
-  return { conversation, messages: [], nextCursor: null };
+  // Transient conversation representation — do not write to Firestore until user messages
+  return {
+    conversation: serializeConversation(uid, {
+      userId: uid,
+      userName: user.name || user.displayName || user.email || 'User',
+      userEmail: user.email || '',
+      status: 'idle',
+      lastMessageAt: null,
+      lastMessagePreview: '',
+      lastSenderRole: null,
+      unreadForUser: 0,
+      unreadForSupport: 0,
+      messageCount: 0,
+      createdAt: new Date().toISOString(),
+      userTimeZone: tz,
+    }),
+    messages: [],
+    nextCursor: null,
+  };
 }
 
 async function getConversation(conversationId) {
@@ -226,11 +239,29 @@ async function assertUserCanAccess(conversation, uid, role) {
 
 async function getMessages(conversationId, actor, { cursor, limit, markRead: shouldMarkRead = false } = {}) {
   const db = ensureDb();
-  const [convo, page] = await Promise.all([
-    getConversation(conversationId),
-    listRecentMessages(db, conversationId, { cursor, limit }),
-  ]);
+  const snap = await convRef(db, conversationId).get();
+  if (!snap.exists) {
+    if (String(conversationId) === String(actor.uid)) {
+      return {
+        conversation: serializeConversation(actor.uid, {
+          userId: actor.uid,
+          userName: actor.name || actor.displayName || actor.email || 'User',
+          userEmail: actor.email || '',
+          status: 'idle',
+          unreadForUser: 0,
+          unreadForSupport: 0,
+          messageCount: 0,
+        }),
+        messages: [],
+        nextCursor: null,
+        readChanged: false,
+      };
+    }
+    throw Object.assign(new Error('Conversation not found'), { status: 404 });
+  }
+  const convo = { id: snap.id, ...snap.data(), _ref: snap.ref };
   await assertUserCanAccess(convo, actor.uid, actor.role);
+  const page = await listRecentMessages(db, conversationId, { cursor, limit });
   let conversation = serializeConversation(convo.id, convo);
   if (shouldMarkRead) {
     const marked = await markRead(conversationId, actor, { conversation: convo });
@@ -262,7 +293,7 @@ async function postMessage(conversationId, actor, text, extra = {}) {
   const snap = await ref.get();
   if (!snap.exists) {
     if (!isStaff && String(conversationId) === String(actor.uid)) {
-      await createConversation(db, actor);
+      await createConversation(db, actor, { status: 'waiting' });
     } else {
       throw Object.assign(new Error('Conversation not found'), { status: 404 });
     }
@@ -371,7 +402,26 @@ async function postMessage(conversationId, actor, text, extra = {}) {
 
 async function markRead(conversationId, actor, { force = false, conversation: preloaded = null } = {}) {
   const db = ensureDb();
-  const convo = preloaded || await getConversation(conversationId);
+  let convo = preloaded;
+  if (!convo) {
+    const snap = await convRef(db, conversationId).get();
+    if (!snap.exists) {
+      if (String(conversationId) === String(actor.uid)) {
+        return {
+          conversation: serializeConversation(conversationId, {
+            userId: conversationId,
+            status: 'idle',
+            unreadForUser: 0,
+            unreadForSupport: 0,
+            messageCount: 0,
+          }),
+          changed: false,
+        };
+      }
+      throw Object.assign(new Error('Conversation not found'), { status: 404 });
+    }
+    convo = { id: snap.id, ...snap.data(), _ref: snap.ref };
+  }
   await assertUserCanAccess(convo, actor.uid, actor.role);
   const now = admin.firestore.Timestamp.now();
   const nowIso = now.toDate().toISOString();
@@ -471,7 +521,9 @@ async function listConversations({ status } = {}) {
       .orderBy('lastMessageAt', 'desc')
       .limit(80)
       .get();
-    return mapQueryDocs(snap);
+    return mapQueryDocs(snap).filter(
+      (c) => Number(c.messageCount || 0) > 0 || Boolean(c.lastMessagePreview),
+    );
   }
 
   const [waitingSnap, openSnap] = await Promise.all([
@@ -479,6 +531,7 @@ async function listConversations({ status } = {}) {
     col.where('status', '==', 'open').orderBy('lastMessageAt', 'desc').limit(80).get(),
   ]);
   return [...mapQueryDocs(waitingSnap), ...mapQueryDocs(openSnap)]
+    .filter((c) => Number(c.messageCount || 0) > 0 || Boolean(c.lastMessagePreview))
     .sort((a, b) => String(b.lastMessageAt || '').localeCompare(String(a.lastMessageAt || '')))
     .slice(0, 80);
 }
@@ -662,10 +715,13 @@ async function getKpis({ from, to, staffUid, lite = false } = {}) {
 
   const oldestWaitPromise = (async () => {
     try {
-      const oldestSnap = await col.where('status', '==', 'waiting').orderBy('lastMessageAt', 'asc').limit(1).get();
-      const row = oldestSnap.docs[0];
-      if (!row) return 0;
-      const data = row.data() || {};
+      const oldestSnap = await col.where('status', '==', 'waiting').orderBy('lastMessageAt', 'asc').limit(25).get();
+      const validDoc = oldestSnap.docs.find((d) => {
+        const data = d.data() || {};
+        return Number(data.messageCount || 0) > 0 || Boolean(data.lastMessagePreview);
+      });
+      if (!validDoc) return 0;
+      const data = validDoc.data() || {};
       const when = data.lastMessageAt?.toDate?.() || data.createdAt?.toDate?.() || data.lastMessageAt || data.createdAt;
       const at = when instanceof Date ? when : when ? new Date(when) : null;
       if (!at || Number.isNaN(at.getTime())) return 0;
@@ -805,10 +861,39 @@ function formatDuration(ms) {
   return rem ? `${hours}h ${rem}m` : `${hours}h`;
 }
 
+async function cleanupEmptyWaitingConversations() {
+  try {
+    const db = ensureDb();
+    const col = db.collection(COLLECTION);
+    const snap = await col.where('status', '==', 'waiting').limit(300).get();
+    let cleaned = 0;
+    const batch = db.batch();
+    snap.docs.forEach((d) => {
+      const data = d.data() || {};
+      const hasContent = Number(data.messageCount || 0) > 0 || Boolean(data.lastMessagePreview);
+      if (!hasContent) {
+        batch.set(d.ref, { status: 'idle' }, { merge: true });
+        cleaned += 1;
+      }
+    });
+    if (cleaned > 0) {
+      await batch.commit();
+      kpiCache.clear();
+      console.log(`[Support] Cleaned up ${cleaned} empty conversation(s) from waiting state.`);
+    }
+    return cleaned;
+  } catch (err) {
+    console.warn('[Support] cleanupEmptyWaitingConversations failed:', err.message);
+    return 0;
+  }
+}
+
 module.exports = {
   COLLECTION,
   serializeConversation,
   serializeMessage,
+  createConversation,
+  cleanupEmptyWaitingConversations,
   getOrCreateMine,
   stampUserTimeZone,
   getConversation,
