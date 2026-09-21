@@ -25,6 +25,8 @@ const LIMIT_SUPPORT_CHAT_WINDOW_MS = envInt('RATE_LIMIT_SUPPORT_CHAT_WINDOW_MS',
 const LIMIT_SUPPORT_CHAT_MAX = envInt('RATE_LIMIT_SUPPORT_CHAT_MAX', 12);
 const LIMIT_SUPPORT_EMAIL_WINDOW_MS = envInt('RATE_LIMIT_SUPPORT_EMAIL_WINDOW_MS', 10 * 60 * 1000);
 const LIMIT_SUPPORT_EMAIL_MAX = envInt('RATE_LIMIT_SUPPORT_EMAIL_MAX', 5);
+const LIMIT_SUPPORT_LIVE_WINDOW_MS = envInt('RATE_LIMIT_SUPPORT_LIVE_WINDOW_MS', 60 * 1000);
+const LIMIT_SUPPORT_LIVE_MAX = envInt('RATE_LIMIT_SUPPORT_LIVE_MAX', 60);
 const LIMIT_VOICE_TOKEN_WINDOW_MS = envInt('RATE_LIMIT_VOICE_TOKEN_WINDOW_MS', 60 * 1000);
 const LIMIT_VOICE_TOKEN_MAX = envInt('RATE_LIMIT_VOICE_TOKEN_MAX', 30);
 const LIMIT_TWILIO_WEBHOOK_WINDOW_MS = envInt('RATE_LIMIT_TWILIO_WEBHOOK_WINDOW_MS', 60 * 1000);
@@ -72,6 +74,15 @@ const supportEmailLimiter = rateLimit({
     legacyHeaders: false,
     keyGenerator: (req) => getRequestKey(req, 'support-email'),
     message: { error: 'Too many support emails in a short period. Please try again in a few minutes.' }
+});
+
+const supportLiveLimiter = rateLimit({
+    windowMs: LIMIT_SUPPORT_LIVE_WINDOW_MS,
+    max: LIMIT_SUPPORT_LIVE_MAX,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => getRequestKey(req, 'support-live'),
+    message: { error: 'Too many chat messages. Please slow down and retry in a minute.' }
 });
 
 const voiceTokenLimiter = rateLimit({
@@ -148,6 +159,7 @@ module.exports = {
     aiTrainingWriteLimiter,
     supportChatLimiter,
     supportEmailLimiter,
+    supportLiveLimiter,
     voiceTokenLimiter,
     webhookCallLimiter,
     referralResolveLimiter,

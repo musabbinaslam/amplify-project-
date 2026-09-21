@@ -44,13 +44,13 @@ async function main() {
     patch.agencyId = null;
     patch.agencyRole = null;
   }
-  if (role === 'admin' || role === 'qa') {
+  if (role === 'admin' || role === 'qa' || role === 'support') {
     patch.managedAgents = admin.firestore.FieldValue.delete();
     patch.teamName = admin.firestore.FieldValue.delete();
   }
 
   await ref.set(patch, { merge: true });
-  console.log(`Restored users/${uid}: role=${role}${keepAgency ? ' (kept agency membership)' : ' (cleared agency)'}${role === 'admin' || role === 'qa' ? ' (cleared manager team fields)' : ''}`);
+  console.log(`Restored users/${uid}: role=${role}${keepAgency ? ' (kept agency membership)' : ' (cleared agency)'}${role === 'admin' || role === 'qa' || role === 'support' ? ' (cleared manager team fields)' : ''}`);
 }
 
 main().catch((err) => {

@@ -8,9 +8,10 @@ import {
   DollarSign, Box, User, HeadphonesIcon,
   MessageSquare, Gift, Settings, LogOut,
   ChevronLeft, ChevronRight, Shield, FileEdit, ShieldCheck, Users,
-  Building2, UserCog, Trophy, Flag,
+  Building2, UserCog, Trophy, Flag, BarChart2, Inbox,
 } from 'lucide-react';
 import { isAgencyAdminUser } from '../../utils/authRoles';
+import useSupportChatStore from '../../store/useSupportChatStore';
 import classes from './Sidebar.module.css';
 
 const NAV_GROUP_LABELS = {
@@ -21,6 +22,7 @@ const NAV_GROUP_LABELS = {
   agency: 'Agency',
   admin: 'Admin',
   qa: 'QA',
+  support: 'Support',
 };
 
 function matchesNavItem(item, pathname) {
@@ -43,7 +45,7 @@ const navItems = [
   { path: '/app/leads', label: 'Leads', icon: Box, badge: 'Beta', disabled: true, teaser: true, group: 'business' },
   { path: '/app/profile', label: 'Profile', icon: User, group: 'you' },
   { path: '/app/ai-training', label: 'AI Training', icon: HeadphonesIcon, group: 'you' },
-  { path: '/app/support', label: 'Support', icon: MessageSquare, group: 'you' },
+  { path: '/app/support', label: 'Support', icon: MessageSquare, group: 'you', badgeKey: 'supportUnread' },
   { path: '/app/referral-program', label: 'Referral Program', icon: Gift, group: 'you' },
   { path: '/app/settings', label: 'Settings', icon: Settings, group: 'you' },
 ];
@@ -53,12 +55,33 @@ const Sidebar = () => {
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
   const role = user?.role;
+  const supportUnread = useSupportChatStore((s) => s.unreadForUser);
+  const deskUnread = useSupportChatStore((s) => s.deskUnreadTotal);
   const navigate = useNavigate();
   const location = useLocation();
   const navRef = useRef(null);
   const activeItemRef = useRef(null);
 
   const items = React.useMemo(() => {
+    if (role === 'support') {
+      return [
+        {
+          path: '/app/support-desk/analytics',
+          label: 'Analytics',
+          icon: BarChart2,
+          end: true,
+          group: 'support',
+        },
+        {
+          path: '/app/support-desk/inbox',
+          label: 'Inbox',
+          icon: Inbox,
+          end: true,
+          group: 'support',
+          badgeKey: 'deskUnread',
+        },
+      ];
+    }
     const base = [...navItems];
     if (role === 'admin') {
       base.push(
@@ -76,6 +99,17 @@ const Sidebar = () => {
         },
         { path: '/app/admin/agencies', label: 'Agencies', icon: Building2, end: false, group: 'admin' },
         { path: '/app/admin/ops/teams', label: 'Manager Teams', icon: UserCog, end: false, group: 'admin' },
+        {
+          path: '/app/support-desk',
+          label: 'Support Desk',
+          icon: HeadphonesIcon,
+          group: 'admin',
+          badgeKey: 'deskUnread',
+          activeMatch: (pathname) => (
+            pathname === '/app/support-desk'
+            || pathname.startsWith('/app/support-desk/')
+          ),
+        },
       );
     }
     if (role === 'qa') {
@@ -99,7 +133,7 @@ const Sidebar = () => {
   }, [role, user]);
 
   const navGroups = React.useMemo(() => {
-    const order = ['work', 'business', 'you', 'agency', 'manager', 'admin', 'qa'];
+    const order = ['work', 'business', 'you', 'agency', 'manager', 'admin', 'qa', 'support'];
     return order
       .map((groupId) => ({
         id: groupId,
@@ -157,6 +191,16 @@ const Sidebar = () => {
       {!isSidebarCollapsed && (
         <>
           <span className={classes.label}>{item.label}</span>
+          {item.badgeKey === 'supportUnread' && supportUnread > 0 && (
+            <span className={`${classes.badge} ${classes.unreadCount}`}>
+              {supportUnread > 99 ? '99+' : supportUnread}
+            </span>
+          )}
+          {item.badgeKey === 'deskUnread' && deskUnread > 0 && (
+            <span className={`${classes.badge} ${classes.unreadCount}`}>
+              {deskUnread > 99 ? '99+' : deskUnread}
+            </span>
+          )}
           {item.badge && (
             <span className={`${classes.badge} ${item.badge === 'Beta' ? classes.beta : classes.comingSoon}`}>
               {item.badge}

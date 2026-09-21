@@ -89,37 +89,30 @@ const useDialerStore = create((set, get) => ({
   // Actions for the Call
   acceptCall: async () => {
     const { activeCall } = get();
-    console.log('DEBUG: Attempting to accept call. Call state is:', activeCall?.state);
     
     if (activeCall) {
       try {
         activeCall.accept();
         set({ callState: 'active' });
-        console.log('DEBUG: Call accepted successfully.');
       } catch (err) {
-        console.error('DEBUG: ERROR ACCEPTING CALL:', err);
         const twilioState = String(activeCall?.status?.() || activeCall?.status || '').toLowerCase();
         if (twilioState === 'open' || twilioState === 'connected' || twilioState === 'answered') {
           set({ callState: 'active' });
-          console.log('DEBUG: accept() threw but call leg is already active — keeping session live');
           return;
         }
         alert('Could not answer call. Check your microphone permissions!');
         get().rejectCall();
       }
-    } else {
-      console.warn('DEBUG: No active call found in store to accept.');
     }
   },
 
   rejectCall: () => {
     const { activeCall, socket } = get();
-    console.log('DEBUG: Rejecting incoming call.');
     if (activeCall) {
        try {
          activeCall.reject();
        } catch (err) {
-         console.error('DEBUG: Error rejecting call:', err);
+         // Silent catch: rejection is best-effort
        }
     }
     // Notify backend immediately so the agent is released from ringing
@@ -139,7 +132,6 @@ const useDialerStore = create((set, get) => ({
 
   goOffline: () => {
     const { device, socket, audioSettingsUnsubscribe } = get();
-    console.log('DEBUG: Going offline & destroying connections');
 
     if (audioSettingsUnsubscribe) {
       try { audioSettingsUnsubscribe(); } catch (e) { /* noop */ }
@@ -173,7 +165,6 @@ const useDialerStore = create((set, get) => ({
     const { activeCall, isMuted } = get();
     if (activeCall) {
       const nextMute = !isMuted;
-      console.log('DEBUG: Muting microphone state:', nextMute);
       
       // Depending on the Twilio Voice SDK version, mute() takes a boolean
       if (typeof activeCall.mute === 'function') {

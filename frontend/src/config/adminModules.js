@@ -106,6 +106,14 @@ export const ADMIN_MODULES = [
     category: 'communications',
   },
   {
+    id: 'support-desk',
+    title: 'Support Desk',
+    description: 'Live inbox and support analytics — claim threads and track queue health.',
+    route: '/app/support-desk',
+    icon: HeadphonesIcon,
+    category: 'communications',
+  },
+  {
     id: 'ai-training',
     title: 'AI Training',
     description: 'Coaching adherence, risk tracking, and agent plan visibility.',

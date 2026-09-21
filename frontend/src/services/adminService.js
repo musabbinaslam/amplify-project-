@@ -141,6 +141,13 @@ export function patchManagerSettings(uid, { role, managedAgents, teamName }) {
   });
 }
 
+export function patchSupportRole(uid, role) {
+  return apiFetch(`/api/admin/users/${encodeURIComponent(uid)}/support-role`, {
+    method: 'PATCH',
+    body: { role },
+  });
+}
+
 export function listAdminManagers(params = {}) {
   const qs = new URLSearchParams();
   if (params.from) qs.set('from', params.from);

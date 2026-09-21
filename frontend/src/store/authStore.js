@@ -42,7 +42,8 @@ async function loadUserRole(uid) {
           : r === 'agency_admin' ? 'agency_admin'
             : r === 'agency_agent' ? 'agency_agent'
               : r === 'manager' ? 'manager'
-                : 'agent',
+                : r === 'support' ? 'support'
+                  : 'agent',
       agencyRole: normalizeAgencyRole(profile),
       agencyId: profile?.agencyId || null,
       flagged: profile?.flagged === true,

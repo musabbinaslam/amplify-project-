@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Users, Trash2, X, Flag, ShieldCheck, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import { Users, Trash2, X, Flag, ShieldCheck, ChevronLeft, ChevronRight, Pause, Play, HeadphonesIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -8,6 +8,7 @@ import {
   flagAdminAgent,
   resumeAdminAgent,
   patchAdminAgentPause,
+  patchSupportRole,
 } from '../../services/adminService';
 import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
@@ -206,6 +207,25 @@ export default function AdminAgentsPage() {
       }
     } catch (err) {
       toast.error(err.message || 'Failed to resume agent');
+    }
+  };
+
+  const handleSupportRole = async (row, nextRole) => {
+    const name = getAgentName(row);
+    const uid = getAgentId(row);
+    const confirmMsg = nextRole === 'support'
+      ? `Promote ${name} to support staff? They will only see the support desk.`
+      : `Demote ${name} from support back to agent?`;
+    if (!window.confirm(confirmMsg)) return;
+    setActionSubmitting(true);
+    try {
+      await patchSupportRole(uid, nextRole);
+      toast.success(nextRole === 'support' ? `${name} is now support staff.` : `${name} is now an agent.`);
+      await loadAgents();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update support role');
+    } finally {
+      setActionSubmitting(false);
     }
   };
 
@@ -459,6 +479,28 @@ export default function AdminAgentsPage() {
                                 Pause
                               </button>
                             )}
+
+                            {String(row.role || 'agent') === 'support' ? (
+                              <button
+                                type="button"
+                                className={`${classes.rowBtnWarn} ${classes.agentActionBtn}`}
+                                onClick={() => handleSupportRole(row, 'agent')}
+                                disabled={actionSubmitting}
+                              >
+                                <HeadphonesIcon size={14} aria-hidden="true" />
+                                Demote support
+                              </button>
+                            ) : !['admin', 'qa', 'manager'].includes(String(row.role || 'agent')) ? (
+                              <button
+                                type="button"
+                                className={`${classes.rowBtnPrimary} ${classes.agentActionBtn}`}
+                                onClick={() => handleSupportRole(row, 'support')}
+                                disabled={actionSubmitting}
+                              >
+                                <HeadphonesIcon size={14} aria-hidden="true" />
+                                Make support
+                              </button>
+                            ) : null}
 
                             {row.flagged ? (
                               <button

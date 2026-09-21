@@ -29,7 +29,7 @@ import classes from './AdminManagersPage.module.css';
 
 const AGENTS_VISIBLE_CAP = 5;
 const PICKER_PAGE_SIZE = 12;
-const MANAGER_INELIGIBLE_ROLES = new Set(['admin', 'qa', 'manager']);
+const MANAGER_INELIGIBLE_ROLES = new Set(['admin', 'qa', 'manager', 'support']);
 
 const SETTINGS_TABS = [
   { id: 'settings', label: 'Settings' },

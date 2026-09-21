@@ -120,7 +120,6 @@ The **sidebar** (`Sidebar.jsx`) defines the intended product map:
 | `frontend/` | React 18 + Vite SPA: UI, Twilio Voice SDK, Zustand, TanStack Query |
 | `backend/` | Node.js + Express + Socket.io + Twilio JWT + in-memory Redis mock |
 | `architecture/` | **Target** system design (full stack vision, not all implemented in code) |
-| `pictures/` | Screenshots / reference images |
 
 There is **no** root `README.md` or `.env.example` in the clone; `.gitignore` excludes `node_modules/`, `.env`, `dist/`, etc.
 
@@ -366,13 +365,7 @@ Create a `.env` in `backend/` (ignored by git). **Do not commit secrets.**
 
 ---
 
-## 10. `pictures/` folder
-
-Contains **screenshots** (PNG) used as design references; they are not loaded by the app at runtime unless referenced elsewhere.
-
----
-
-## 11. Quick glossary
+## 10. Quick glossary
 
 | Term | Meaning in this project |
 |------|-------------------------|
