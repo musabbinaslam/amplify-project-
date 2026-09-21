@@ -27,15 +27,11 @@ export function deskUnreadFromConversation(conversation) {
   const hasMessage = Boolean(conversation.lastMessagePreview)
     || Number(conversation.messageCount || 0) > 0;
   if (!hasMessage) return 0;
-  const explicit = Number(conversation.unreadForSupport || 0);
-  if (explicit > 0) return explicit;
-  const lastMs = conversation.lastMessageAt ? new Date(conversation.lastMessageAt).getTime() : 0;
-  if (!lastMs || Number.isNaN(lastMs)) return 0;
-  const readMs = conversation.supportLastReadAt
-    ? new Date(conversation.supportLastReadAt).getTime()
-    : 0;
-  if (!readMs || Number.isNaN(readMs) || lastMs > readMs) return 1;
-  return 0;
+  const staffReply = conversation.lastSenderRole === 'support'
+    || conversation.lastSenderRole === 'admin';
+  if (staffReply) return 0;
+  if (conversation.clearUnread) return 0;
+  return Math.max(Number(conversation.unreadForSupport || 0), 0);
 }
 
 const useSupportChatStore = create((set, get) => ({
@@ -87,40 +83,23 @@ const useSupportChatStore = create((set, get) => ({
   },
 
   syncDeskUnreadFromRows: (rows = []) => {
-    const prevById = get().deskUnreadById || {};
     const activeId = get()._activeDeskConversationId
       ? String(get()._activeDeskConversationId)
       : null;
     const byId = {};
     let total = 0;
-    const seen = new Set();
     (Array.isArray(rows) ? rows : []).forEach((row) => {
       if (!row?.id) return;
       const id = String(row.id);
-      seen.add(id);
       if (activeId && id === activeId) return; // open thread is never unread
+      if (row.clearUnread) return; // explicitly marked read
+      const staffReply = row.lastSenderRole === 'support' || row.lastSenderRole === 'admin';
+      if (staffReply) return; // staff sent the last message
       const rowUnread = Number(row.unreadForSupport || 0);
-      const prevUnread = Number(prevById[row.id] || prevById[id] || 0);
-      // Explicit zero from a read/clear must win over a sticky previous count.
-      const cleared = row.clearUnread
-        || (rowUnread <= 0 && (
-          row.supportLastReadAt
-          || row.lastSenderRole === 'support'
-          || row.lastSenderRole === 'admin'
-        ));
-      const n = cleared ? 0 : Math.max(rowUnread, prevUnread);
-      if (n > 0) {
-        byId[row.id] = n;
-        total += n;
+      if (rowUnread > 0) {
+        byId[row.id] = rowUnread;
+        total += rowUnread;
       }
-    });
-    Object.entries(prevById).forEach(([id, n]) => {
-      if (seen.has(String(id))) return;
-      if (activeId && String(id) === activeId) return;
-      const count = Number(n || 0);
-      if (count <= 0) return;
-      byId[id] = count;
-      total += count;
     });
     set({ deskUnreadById: byId, deskUnreadTotal: total });
   },
@@ -144,22 +123,21 @@ const useSupportChatStore = create((set, get) => ({
     const inferred = deskUnreadFromConversation(conversation);
     const staffReply = conversation.lastSenderRole === 'support'
       || conversation.lastSenderRole === 'admin';
-    const explicitClear = incoming <= 0 && Boolean(
-      conversation.supportLastReadAt
+    const explicitClear = viewingOpen
+      || conversation.clearUnread
       || staffReply
-      || conversation.clearUnread,
-    );
+      || incoming <= 0;
 
     const counted = get()._deskCountedMessageIds || {};
     const msgKey = messageId ? String(messageId) : null;
     const alreadyCounted = Boolean(msgKey && counted[msgKey]);
 
     let effective;
-    if (viewingOpen) {
+    if (viewingOpen || explicitClear) {
       effective = 0;
     } else if (fromUserMessage && !alreadyCounted) {
       // Each new message increments; prefer server count when it's ahead.
-      effective = Math.max(incoming, prevCount + 1);
+      effective = Math.max(incoming, prevCount + 1, 1);
       if (msgKey) {
         set({
           _deskCountedMessageIds: {
@@ -170,16 +148,8 @@ const useSupportChatStore = create((set, get) => ({
       }
     } else if (fromUserMessage && alreadyCounted) {
       effective = Math.max(incoming, prevCount);
-    } else if (explicitClear) {
-      effective = 0;
-    } else if (incoming > prevCount) {
-      effective = incoming;
-    } else if (inferred > 0) {
-      effective = Math.max(incoming, inferred, prevCount);
-    } else if (incoming >= prevCount) {
-      effective = incoming;
     } else {
-      effective = prevCount;
+      effective = incoming;
     }
 
     // Re-read in case messageId set() happened above

@@ -179,6 +179,7 @@ function setupSupportSockets(io) {
         const out = await supportConversationService.markRead(
           conversationId,
           actorFromSocket(socket),
+          { asStaff: isSupportStaffRole(socket.role) },
         );
         if (out.changed) broadcastConversation(out.conversation, 'support:read');
         if (typeof ack === 'function') ack({ ok: true, conversation: out.conversation, changed: out.changed });

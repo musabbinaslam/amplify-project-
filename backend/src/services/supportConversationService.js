@@ -237,7 +237,7 @@ async function assertUserCanAccess(conversation, uid, role) {
   }
 }
 
-async function getMessages(conversationId, actor, { cursor, limit, markRead: shouldMarkRead = false } = {}) {
+async function getMessages(conversationId, actor, { cursor, limit, markRead: shouldMarkRead = false, asStaff: asStaffOpt } = {}) {
   const db = ensureDb();
   const snap = await convRef(db, conversationId).get();
   if (!snap.exists) {
@@ -264,7 +264,10 @@ async function getMessages(conversationId, actor, { cursor, limit, markRead: sho
   const page = await listRecentMessages(db, conversationId, { cursor, limit });
   let conversation = serializeConversation(convo.id, convo);
   if (shouldMarkRead) {
-    const marked = await markRead(conversationId, actor, { conversation: convo });
+    const marked = await markRead(conversationId, actor, {
+      conversation: convo,
+      asStaff: asStaffOpt !== undefined ? Boolean(asStaffOpt) : undefined,
+    });
     conversation = marked.conversation;
     return {
       conversation,
@@ -400,16 +403,18 @@ async function postMessage(conversationId, actor, text, extra = {}) {
   };
 }
 
-async function markRead(conversationId, actor, { force = false, conversation: preloaded = null } = {}) {
+async function markRead(conversationId, actor, { conversation: existingConvo, force = false, asStaff: asStaffOpt } = {}) {
   const db = ensureDb();
-  let convo = preloaded;
+  let convo = existingConvo;
   if (!convo) {
     const snap = await convRef(db, conversationId).get();
     if (!snap.exists) {
       if (String(conversationId) === String(actor.uid)) {
         return {
-          conversation: serializeConversation(conversationId, {
-            userId: conversationId,
+          conversation: serializeConversation(actor.uid, {
+            userId: actor.uid,
+            userName: actor.name || actor.displayName || actor.email || 'User',
+            userEmail: actor.email || '',
             status: 'idle',
             unreadForUser: 0,
             unreadForSupport: 0,
@@ -426,9 +431,9 @@ async function markRead(conversationId, actor, { force = false, conversation: pr
   const now = admin.firestore.Timestamp.now();
   const nowIso = now.toDate().toISOString();
   // If the actor owns the conversation, they are reading as the customer —
-  // even when their platform role is admin/support (common in local testing).
+  // unless explicitly requested asStaff (e.g. admin reviewing their own thread on Support Desk).
   const isOwner = String(convo.userId || conversationId) === String(actor.uid);
-  const asStaff = isStaffRole(actor.role) && !isOwner;
+  const asStaff = asStaffOpt !== undefined ? Boolean(asStaffOpt) : (isStaffRole(actor.role) && !isOwner);
   const unreadKey = asStaff ? 'unreadForSupport' : 'unreadForUser';
   const readKey = asStaff ? 'supportLastReadAt' : 'userLastReadAt';
   const unread = Number(convo[unreadKey] || 0);
