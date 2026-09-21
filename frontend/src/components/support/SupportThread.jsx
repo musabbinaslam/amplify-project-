@@ -36,10 +36,19 @@ function isStaffRole(role) {
 }
 
 function isOwnMessage(msg, alignRole, selfId) {
-  if (selfId && msg?.senderId) return String(msg.senderId) === String(selfId);
   const role = msg?.senderRole || msg?.role;
-  if (alignRole === 'support' || alignRole === 'staff') return isStaffRole(role);
-  return role === 'user';
+  if (alignRole === 'support' || alignRole === 'staff') {
+    // In Support Desk: all support and admin replies are on the right (our side)
+    if (isStaffRole(role)) return true;
+    if (role === 'user') return false;
+    if (selfId && msg?.senderId && String(msg.senderId) === String(selfId)) return true;
+    return false;
+  }
+  // In user / customer chat view:
+  if (isStaffRole(role)) return false;
+  if (role === 'user') return true;
+  if (selfId && msg?.senderId) return String(msg.senderId) === String(selfId);
+  return false;
 }
 
 function staffLabel(msg) {
@@ -49,7 +58,12 @@ function staffLabel(msg) {
   return '';
 }
 
-function quoteAuthor(msg, selfId) {
+function quoteAuthor(msg, selfId, alignRole) {
+  const role = msg?.senderRole || msg?.role;
+  if (alignRole === 'support' || alignRole === 'staff') {
+    if (isStaffRole(role)) return 'You';
+    return msg?.senderName || 'User';
+  }
   if (selfId && msg?.senderId && String(msg.senderId) === String(selfId)) return 'You';
   if (msg?.senderRole === 'admin') return 'Admin';
   if (msg?.senderRole === 'support') return 'Support agent';
@@ -113,21 +127,32 @@ function toReplyPayload(msg) {
   };
 }
 
-function sameSender(a, b) {
+function sameSender(a, b, alignRole) {
   if (!a || !b) return false;
+  if (alignRole === 'support' || alignRole === 'staff') {
+    const aStaff = isStaffRole(a.senderRole || a.role);
+    const bStaff = isStaffRole(b.senderRole || b.role);
+    if (aStaff && bStaff) return true;
+    if (aStaff !== bStaff) return false;
+    return String(a.senderId || '') === String(b.senderId || '');
+  }
+  const aStaff = isStaffRole(a.senderRole || a.role);
+  const bStaff = isStaffRole(b.senderRole || b.role);
+  if (aStaff && bStaff) return true;
+  if (aStaff !== bStaff) return false;
   if (a.senderId && b.senderId) return String(a.senderId) === String(b.senderId);
   return (a.senderRole || '') === (b.senderRole || '');
 }
 
-function decorateTimeline(items) {
+function decorateTimeline(items, alignRole) {
   return items.map((item, i) => {
     if (item.type !== 'msg') return item;
     const prev = items[i - 1]?.type === 'msg' ? items[i - 1].msg : null;
     const next = items[i + 1]?.type === 'msg' ? items[i + 1].msg : null;
     return {
       ...item,
-      stacked: sameSender(prev, item.msg),
-      clusterEnd: !sameSender(next, item.msg),
+      stacked: sameSender(prev, item.msg, alignRole),
+      clusterEnd: !sameSender(next, item.msg, alignRole),
     };
   });
 }
@@ -468,8 +493,8 @@ export default function SupportThread({
   const [recordMs, setRecordMs] = useState(0);
 
   const timeline = useMemo(
-    () => decorateTimeline(withDaySeparators(messages, timeZone)),
-    [messages, timeZone]
+    () => decorateTimeline(withDaySeparators(messages, timeZone), alignRole),
+    [messages, timeZone, alignRole]
   );
 
   const convoId = conversationId || messages[0]?.conversationId || '';
@@ -850,7 +875,7 @@ export default function SupportThread({
                           }
                         }}
                       >
-                        <span className={classes.quoteName}>{quoteAuthor(quoted, selfId)}</span>
+                        <span className={classes.quoteName}>{quoteAuthor(quoted, selfId, alignRole)}</span>
                         <span className={classes.quoteText}>
                           {quotePreview(quoted.text) || 'Message'}
                         </span>
@@ -935,7 +960,7 @@ export default function SupportThread({
           {replyTo ? (
             <div className={classes.replyDock}>
               <div className={classes.replyDockBody}>
-                <span className={classes.quoteName}>{quoteAuthor(replyTo, selfId)}</span>
+                <span className={classes.quoteName}>{quoteAuthor(replyTo, selfId, alignRole)}</span>
                 <span className={classes.quoteText}>{quotePreview(replyTo.text)}</span>
               </div>
               <button
