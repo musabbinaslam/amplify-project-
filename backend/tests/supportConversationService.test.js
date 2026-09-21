@@ -138,3 +138,46 @@ test('listConversations excludes conversations with zero messages and no preview
     restore();
   }
 });
+
+test('listConversations sorts conversations with newest lastMessageAt on top', async () => {
+  const { service, store, restore } = setupTest();
+  try {
+    const nowMs = Date.now();
+    store.set('supportConversations/older_convo', {
+      userId: 'older_convo',
+      userName: 'Darrell Griffey Jr',
+      status: 'open',
+      messageCount: 5,
+      lastMessagePreview: 'Older message from 1 hour ago',
+      lastMessageAt: new Date(nowMs - 3600000).toISOString(),
+    });
+
+    store.set('supportConversations/newest_convo', {
+      userId: 'newest_convo',
+      userName: 'Mohamed Kamel',
+      status: 'waiting',
+      messageCount: 2,
+      lastMessagePreview: 'Latest message from 7 mins ago',
+      lastMessageAt: new Date(nowMs - 420000).toISOString(),
+    });
+
+    store.set('supportConversations/middle_convo', {
+      userId: 'middle_convo',
+      userName: 'Brandon Peebles',
+      status: 'waiting',
+      messageCount: 3,
+      lastMessagePreview: 'Middle message from 15 mins ago',
+      lastMessageAt: new Date(nowMs - 900000).toISOString(),
+    });
+
+    const rows = await service.listConversations({ status: 'inbox' });
+
+    assert.equal(rows.length, 3);
+    assert.equal(rows[0].id, 'newest_convo', 'Newest message conversation must be first');
+    assert.equal(rows[1].id, 'middle_convo', 'Middle message conversation must be second');
+    assert.equal(rows[2].id, 'older_convo', 'Older message conversation must be third');
+  } finally {
+    restore();
+  }
+});
+

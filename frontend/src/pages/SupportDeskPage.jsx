@@ -97,6 +97,29 @@ function mergeInboxConversation(prev, next, { fromUserMessage = false } = {}) {
   };
 }
 
+function getConversationTimestampMs(row) {
+  if (!row) return 0;
+  const val = row.lastMessageAt || row.updatedAt || row.createdAt;
+  if (!val) return 0;
+  if (typeof val === 'number') return val;
+  if (typeof val?.toMillis === 'function') return val.toMillis();
+  if (typeof val?.toDate === 'function') return val.toDate().getTime();
+  if (val instanceof Date) return val.getTime();
+  if (typeof val === 'string') {
+    const parsed = Date.parse(val);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+}
+
+function sortConversationsByLatest(rows = []) {
+  return [...rows].sort((a, b) => {
+    const diff = getConversationTimestampMs(b) - getConversationTimestampMs(a);
+    if (diff !== 0) return diff;
+    return String(b?.id || '').localeCompare(String(a?.id || ''));
+  });
+}
+
 function upsertRow(rows, conversation, options = {}) {
   if (!conversation?.id) return rows;
   const hasContent = Number(conversation.messageCount || 0) > 0 || Boolean(conversation.lastMessagePreview);
@@ -106,8 +129,8 @@ function upsertRow(rows, conversation, options = {}) {
   const prev = rows.find((r) => r.id === conversation.id);
   const merged = mergeInboxConversation(prev, conversation, options);
   const next = rows.filter((r) => r.id !== conversation.id);
-  next.unshift(merged);
-  return next;
+  next.push(merged);
+  return sortConversationsByLatest(next);
 }
 
 function mergeConversation(prev, next) {
@@ -361,7 +384,7 @@ const SupportDeskPage = () => {
       const out = await listSupportDeskConversations({
         status: nextTab === 'closed' ? 'closed' : 'inbox',
       });
-      const nextRows = Array.isArray(out?.rows) ? out.rows : [];
+      const nextRows = sortConversationsByLatest(Array.isArray(out?.rows) ? out.rows : []);
       setRows(nextRows);
       if (nextTab !== 'closed') {
         const activeId = selectedIdRef.current ? String(selectedIdRef.current) : null;
@@ -613,9 +636,10 @@ const SupportDeskPage = () => {
     const validRows = rows.filter(
       (row) => Number(row.messageCount || 0) > 0 || Boolean(row.lastMessagePreview),
     );
+    const sorted = sortConversationsByLatest(validRows);
     const q = search.trim().toLowerCase();
-    if (!q) return validRows;
-    return validRows.filter((row) => (
+    if (!q) return sorted;
+    return sorted.filter((row) => (
       [row.userName, row.userEmail, row.lastMessagePreview, row.id]
         .some((v) => String(v || '').toLowerCase().includes(q))
     ));

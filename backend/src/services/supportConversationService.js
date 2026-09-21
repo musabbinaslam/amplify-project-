@@ -507,6 +507,21 @@ async function closeConversation(conversationId, actor) {
   });
 }
 
+function getConversationTimestampMs(c) {
+  if (!c) return 0;
+  const val = c.lastMessageAt || c.updatedAt || c.createdAt;
+  if (!val) return 0;
+  if (typeof val === 'number') return val;
+  if (typeof val?.toMillis === 'function') return val.toMillis();
+  if (typeof val?.toDate === 'function') return val.toDate().getTime();
+  if (val instanceof Date) return val.getTime();
+  if (typeof val === 'string') {
+    const parsed = Date.parse(val);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+}
+
 function mapQueryDocs(snap) {
   return snap.docs.map((d) => serializeConversation(d.id, d.data()));
 }
@@ -521,9 +536,13 @@ async function listConversations({ status } = {}) {
       .orderBy('lastMessageAt', 'desc')
       .limit(80)
       .get();
-    return mapQueryDocs(snap).filter(
-      (c) => Number(c.messageCount || 0) > 0 || Boolean(c.lastMessagePreview),
-    );
+    return mapQueryDocs(snap)
+      .filter((c) => Number(c.messageCount || 0) > 0 || Boolean(c.lastMessagePreview))
+      .sort((a, b) => {
+        const diff = getConversationTimestampMs(b) - getConversationTimestampMs(a);
+        if (diff !== 0) return diff;
+        return String(b.id || '').localeCompare(String(a.id || ''));
+      });
   }
 
   const [waitingSnap, openSnap] = await Promise.all([
@@ -532,7 +551,11 @@ async function listConversations({ status } = {}) {
   ]);
   return [...mapQueryDocs(waitingSnap), ...mapQueryDocs(openSnap)]
     .filter((c) => Number(c.messageCount || 0) > 0 || Boolean(c.lastMessagePreview))
-    .sort((a, b) => String(b.lastMessageAt || '').localeCompare(String(a.lastMessageAt || '')))
+    .sort((a, b) => {
+      const diff = getConversationTimestampMs(b) - getConversationTimestampMs(a);
+      if (diff !== 0) return diff;
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    })
     .slice(0, 80);
 }
 
