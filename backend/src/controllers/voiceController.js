@@ -15,6 +15,7 @@ const { redisClient } = require('../config/redis');
 const { isCampaignPaused, notifyAgent } = require('../services/notificationService');
 const socketRegistry = require('../sockets/socketRegistry');
 const { normalizeAgencyId, isAgencyAdminRole } = require('../utils/tenancy');
+const integrationService = require('../services/integrationService');
 
 /** Absolute URL for Twilio webhooks (relative URLs break statusCallback on some hosts). */
 function voiceWebhookUrl(req, pathWithQuery) {
@@ -713,6 +714,13 @@ exports.handleRecordingComplete = async (req, res) => {
             FromState: req.body?.FromState || null,
         });
         console.log(`[Twilio] QA audio review dispatched from recording-complete for Call ${latest.id}`);
+
+        if (latest.agencyId === 'HvW0TTa2qBMW8B4j968z' && latest.isBillable === true) {
+            integrationService.sendToObjectionly({
+                ...latest,
+                recordingUrl: recordingUrl || latest.recordingUrl || null,
+            }).catch(err => console.error('[Objectionly] async handler failed:', err));
+        }
     } catch (err) {
         console.error('[Twilio] recording-complete handler failed:', err.message);
     }
