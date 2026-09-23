@@ -1,4 +1,5 @@
 const axios = require('axios');
+const FormData = require('form-data');
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 
@@ -16,6 +17,11 @@ class IntegrationService {
                 return;
             }
 
+            if (!callLog.recordingUrl) {
+                console.warn('[Objectionly] Integration skipped: No recordingUrl available.');
+                return;
+            }
+
             // 2. Fetch the agent's details from Firestore
             const agentDoc = await getDb().collection('users').doc(callLog.agentId).get();
             const agentData = agentDoc.exists ? agentDoc.data() : {};
@@ -23,37 +29,47 @@ class IntegrationService {
             const repName = agentData.name || `Agent ${callLog.agentId}`;
             const repEmail = agentData.email || `${callLog.agentId}@callsflow-agent.local`;
 
-            // 3. Prepare the exact payload Objectionly requires
-            const payload = {
-                title: `Inbound Call - ${callLog.from}`,
-                repEmail: repEmail,
-                repName: repName,
-                callDate: callLog.timestamp || new Date().toISOString(),
-                mediaUrl: callLog.recordingUrl,
-                callDuration: Math.max(1, Math.round(Number(callLog.duration || 0) / 60)), // Objectionly expects duration in minutes
-                externalMeetingId: callLog.callSid,
-                source: "custom_api",
-                forceImport: true,
-                attendees: [
-                    {
-                        phone: callLog.from,
-                        uniqueId: callLog.from
-                    }
-                ]
-            };
+            console.log(`[Objectionly] Downloading Twilio recording for Call ${callLog.callSid}...`);
+
+            // Fetch the recording from Twilio using HTTP Basic Auth
+            const audioResponse = await axios.get(callLog.recordingUrl, {
+                responseType: 'stream',
+                auth: {
+                    username: process.env.TWILIO_ACCOUNT_SID,
+                    password: process.env.TWILIO_AUTH_TOKEN
+                }
+            });
+
+            // 3. Prepare the payload as FormData
+            const form = new FormData();
+            form.append('title', `Inbound Call - ${callLog.from}`);
+            form.append('repEmail', repEmail);
+            form.append('repName', repName);
+            form.append('callDate', callLog.timestamp || new Date().toISOString());
+            form.append('callDuration', String(Math.max(1, Math.round(Number(callLog.duration || 0) / 60))));
+            form.append('externalMeetingId', callLog.callSid);
+            form.append('source', 'custom_api');
+            form.append('forceImport', 'true');
+            form.append('attendees', JSON.stringify([{ phone: callLog.from, uniqueId: callLog.from }]));
+            
+            // Append the audio stream
+            form.append('file', audioResponse.data, {
+                filename: `${callLog.callSid}.mp3`,
+                contentType: 'audio/mpeg'
+            });
 
             // 4. Send to Objectionly
-            console.log(`[Objectionly] Dispatching Call ${callLog.callSid} to Objectionly queue...`);
+            console.log(`[Objectionly] Dispatching Call ${callLog.callSid} to Objectionly queue as multipart...`);
             
             const response = await axios.post(
                 'https://api.objectionly.com/api/call-processing/queue',
-                payload,
+                form,
                 {
                     headers: {
-                        'Content-Type': 'application/json',
+                        ...form.getHeaders(),
                         'X-Workspace-API-Key': apiKey
                     },
-                    timeout: 10000 // 10 second timeout so we don't hang
+                    timeout: 30000 // 30 second timeout for large uploads
                 }
             );
 
