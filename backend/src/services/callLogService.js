@@ -242,29 +242,6 @@ class CallLogService {
         }
     }
 
-    async attachQaInsight(uid, callLogId, qaInsight) {
-        if (!admin || !uid || !callLogId) return false;
-        try {
-            const db = getDb();
-            await db
-                .collection('users')
-                .doc(uid)
-                .collection('callLogs')
-                .doc(callLogId)
-                .set({
-                    qaInsight: {
-                        ...qaInsight,
-                        generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                    },
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                }, { merge: true });
-            return true;
-        } catch (err) {
-            console.error(`[Firestore] Failed to attach QA insight for ${uid}/${callLogId}:`, err.message);
-            return false;
-        }
-    }
-
     async claimQaAudioReview(uid, callLogId, { force = false } = {}) {
         if (!admin || !uid || !callLogId) return false;
         const db = getDb();
