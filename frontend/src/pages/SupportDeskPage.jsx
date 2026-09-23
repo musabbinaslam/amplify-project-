@@ -924,9 +924,9 @@ const SupportDeskPage = () => {
               <button
                 key={row.id}
                 type="button"
-                className={`${classes.row} ${selectedId === row.id ? classes.rowActive : ''} ${unread ? classes.rowUnread : ''}`}
+                className={`${classes.row} ${isSelected ? classes.rowActive : ''} ${unread ? classes.rowUnread : ''}`}
                 onClick={() => openConversation(row.id, row)}
-                disabled={threadLoading && selectedId === row.id}
+                disabled={threadLoading && isSelected}
               >
                 <span className={classes.rowAvatar}>{rowInitial(row)}</span>
                 <span className={classes.rowBody}>
