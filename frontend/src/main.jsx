@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import App from './App.jsx';
 import { useUIStore } from './store/uiStore';
@@ -29,7 +28,6 @@ async function initSentry() {
   });
 }
 
-const queryClient = new QueryClient();
 const MIN_SPLASH_MS = 1800;
 /** Extra time after auth so the first route can mount under the splash. */
 const POST_READY_BUFFER_MS = 500;
@@ -90,11 +88,9 @@ const AuthInit = ({ children }) => {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthInit>
-        <App />
-        <Toaster position="top-right" />
-      </AuthInit>
-    </QueryClientProvider>
+    <AuthInit>
+      <App />
+      <Toaster position="top-right" />
+    </AuthInit>
   </React.StrictMode>,
 );
