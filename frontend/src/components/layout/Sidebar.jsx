@@ -42,7 +42,6 @@ const navItems = [
   { path: '/app/script', label: 'Script', icon: FileText, group: 'work' },
   { path: '/app/notes', label: 'Notes', icon: FileEdit, group: 'work' },
   { path: '/app/billing', label: 'Billing', icon: DollarSign, group: 'business' },
-  { path: '/app/leads', label: 'Leads', icon: Box, badge: 'Beta', disabled: true, teaser: true, group: 'business' },
   { path: '/app/profile', label: 'Profile', icon: User, group: 'you' },
   { path: '/app/ai-training', label: 'AI Training', icon: HeadphonesIcon, group: 'you' },
   { path: '/app/support', label: 'Support', icon: MessageSquare, group: 'you', badgeKey: 'supportUnread' },
