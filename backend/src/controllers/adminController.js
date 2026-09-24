@@ -34,6 +34,7 @@ function getCampaigns(campaignControls = null) {
     buffer: cfg.buffer,
     price: cfg.price,
     allowRefunds: cfg.allowRefunds,
+    isRaw: cfg.isRaw === true,
     paused: Boolean(pausedMap[id]?.paused),
     pauseReason: pausedMap[id]?.reason || '',
   }));
@@ -49,7 +50,7 @@ const upsertCampaign = async (req, res) => {
     const db = getDb();
     if (!db) return res.status(503).json({ error: 'Database unavailable' });
 
-    const { id, label, buffer, price, allowRefunds } = req.body || {};
+    const { id, label, buffer, price, allowRefunds, isRaw } = req.body || {};
 
     // ── Validation ────────────────────────────────────────────────────────────
     if (!id || typeof id !== 'string' || !/^[a-z0-9_]+$/.test(id.trim())) {
@@ -68,6 +69,7 @@ const upsertCampaign = async (req, res) => {
     }
 
     const allowRefundsBool = typeof allowRefunds === 'boolean' ? allowRefunds : true;
+    const isRawBool = typeof isRaw === 'boolean' ? isRaw : false;
 
     const campaignId = id.trim().toLowerCase();
     const isNew = !Object.prototype.hasOwnProperty.call(CAMPAIGN_CONFIG, campaignId);
@@ -81,6 +83,7 @@ const upsertCampaign = async (req, res) => {
             buffer: bufferNum,
             price: priceNum,
             allowRefunds: allowRefundsBool,
+            isRaw: isRawBool,
           },
         },
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -90,7 +93,7 @@ const upsertCampaign = async (req, res) => {
     );
 
     console.log(`[Admin] Campaign "${campaignId}" ${isNew ? 'created' : 'updated'} by ${req.user?.uid}`);
-    res.json({ success: true, isNew, campaign: { id: campaignId, label: label.trim(), buffer: bufferNum, price: priceNum, allowRefunds: allowRefundsBool } });
+    res.json({ success: true, isNew, campaign: { id: campaignId, label: label.trim(), buffer: bufferNum, price: priceNum, allowRefunds: allowRefundsBool, isRaw: isRawBool } });
   } catch (err) {
     console.error('[Admin] upsertCampaign error:', err.message);
     res.status(500).json({ error: 'Failed to save campaign' });

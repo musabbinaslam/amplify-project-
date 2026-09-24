@@ -18,7 +18,7 @@ const BOX_VARIANTS = {
   exit: { opacity: 0, y: 16, scale: 0.97, transition: { duration: 0.15 } },
 };
 
-const EMPTY_FORM = { id: '', label: '', buffer: '', price: '', allowRefunds: true };
+const EMPTY_FORM = { id: '', label: '', buffer: '', price: '', allowRefunds: true, isRaw: false };
 
 /**
  * CampaignEditorModal
@@ -41,6 +41,7 @@ export default function CampaignEditorModal({ campaign, onClose, onSaved }) {
         buffer: String(campaign.buffer ?? ''),
         price: String(campaign.price ?? ''),
         allowRefunds: campaign.allowRefunds !== false,
+        isRaw: campaign.isRaw === true,
       });
     } else {
       setForm(EMPTY_FORM);
@@ -59,6 +60,7 @@ export default function CampaignEditorModal({ campaign, onClose, onSaved }) {
         buffer: Number(form.buffer),
         price: Number(form.price),
         allowRefunds: Boolean(form.allowRefunds),
+        isRaw: Boolean(form.isRaw),
       });
       toast.success(isEdit ? `"${result.campaign.label}" updated!` : `"${result.campaign.label}" created!`);
       onSaved?.(result.campaign);
@@ -159,9 +161,11 @@ export default function CampaignEditorModal({ campaign, onClose, onSaved }) {
                   min="0"
                   step="1"
                   placeholder="e.g. 90"
-                  value={form.buffer}
+                  value={form.isRaw ? '' : form.buffer}
                   onChange={set('buffer')}
-                  required
+                  disabled={form.isRaw}
+                  required={!form.isRaw}
+                  style={form.isRaw ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
                 />
               </div>
               <div className={classes.modalField}>
@@ -183,7 +187,20 @@ export default function CampaignEditorModal({ campaign, onClose, onSaved }) {
               </div>
             </div>
 
-            <div className={classes.modalField} style={{ flexDirection: 'row', alignItems: 'center', marginTop: '12px' }}>
+            <div className={classes.modalField} style={{ flexDirection: 'row', alignItems: 'center', marginTop: '8px' }}>
+              <input
+                id="campaign-is-raw"
+                type="checkbox"
+                checked={form.isRaw}
+                onChange={(e) => setForm((prev) => ({ ...prev, isRaw: e.target.checked, buffer: e.target.checked ? '0' : prev.buffer }))}
+                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+              />
+              <label htmlFor="campaign-is-raw" style={{ margin: 0, fontSize: '14px', cursor: 'pointer' }}>
+                Raw Call Mode (bill on connection — buffer ignored)
+              </label>
+            </div>
+
+            <div className={classes.modalField} style={{ flexDirection: 'row', alignItems: 'center', marginTop: '8px' }}>
               <input
                 id="campaign-allow-refunds"
                 type="checkbox"
