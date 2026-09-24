@@ -48,15 +48,10 @@ function laterIso(a, b) {
 function deskUnreadCount(row, selectedId) {
   if (!row?.id) return 0;
   if (selectedId && String(selectedId) === String(row.id)) return 0;
-  const explicit = Number(row.unreadForSupport || 0);
-  if (explicit > 0) return explicit;
-  const hasMessage = Boolean(row.lastMessagePreview) || Number(row.messageCount || 0) > 0;
-  if (!hasMessage) return 0;
-  const lastMs = row.lastMessageAt ? new Date(row.lastMessageAt).getTime() : 0;
-  if (!lastMs || Number.isNaN(lastMs)) return 0;
-  const readMs = row.supportLastReadAt ? new Date(row.supportLastReadAt).getTime() : 0;
-  if (!readMs || Number.isNaN(readMs) || lastMs > readMs) return 1;
-  return 0;
+  if (row.clearUnread) return 0;
+  const staffReply = row.lastSenderRole === 'support' || row.lastSenderRole === 'admin';
+  if (staffReply) return 0;
+  return Math.max(Number(row.unreadForSupport || 0), 0);
 }
 
 /** Keep unread counts from being wiped by stale inbox socket payloads. */
@@ -72,21 +67,35 @@ function mergeInboxConversation(prev, next, { fromUserMessage = false } = {}) {
       lastSenderRole: fromUserMessage ? 'user' : next.lastSenderRole,
     };
   }
+
+  // Explicit clear or zero unread must immediately zero out unread
+  if (next.clearUnread || next.unreadForSupport === 0) {
+    return {
+      ...prev,
+      ...next,
+      unreadForSupport: 0,
+      clearUnread: true,
+      lastSenderRole: fromUserMessage ? 'user' : (next.lastSenderRole || prev.lastSenderRole),
+      userLastReadAt: laterIso(prev.userLastReadAt, next.userLastReadAt),
+      supportLastReadAt: laterIso(prev.supportLastReadAt, next.supportLastReadAt),
+    };
+  }
+
   const prevUnread = Number(prev.unreadForSupport || 0);
   let nextUnread = Number(next.unreadForSupport || 0);
   const prevReadMs = prev.supportLastReadAt ? new Date(prev.supportLastReadAt).getTime() : 0;
   const nextReadMs = next.supportLastReadAt ? new Date(next.supportLastReadAt).getTime() : 0;
   const readAdvanced = nextReadMs > prevReadMs;
   const staffReply = next.lastSenderRole === 'support' || next.lastSenderRole === 'admin';
+
   if (fromUserMessage) {
     nextUnread = Math.max(nextUnread, prevUnread + 1, 1);
   } else if (staffReply || readAdvanced) {
-    nextUnread = Number(next.unreadForSupport || 0);
-  } else if (nextUnread < prevUnread) {
-    nextUnread = prevUnread;
-  } else if (next.lastSenderRole === 'user' && nextUnread <= 0) {
-    nextUnread = Math.max(prevUnread, 1);
+    nextUnread = 0;
+  } else {
+    nextUnread = Math.max(nextUnread, 0);
   }
+
   return {
     ...prev,
     ...next,
@@ -97,13 +106,40 @@ function mergeInboxConversation(prev, next, { fromUserMessage = false } = {}) {
   };
 }
 
+function getConversationTimestampMs(row) {
+  if (!row) return 0;
+  const val = row.lastMessageAt || row.updatedAt || row.createdAt;
+  if (!val) return 0;
+  if (typeof val === 'number') return val;
+  if (typeof val?.toMillis === 'function') return val.toMillis();
+  if (typeof val?.toDate === 'function') return val.toDate().getTime();
+  if (val instanceof Date) return val.getTime();
+  if (typeof val === 'string') {
+    const parsed = Date.parse(val);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+}
+
+function sortConversationsByLatest(rows = []) {
+  return [...rows].sort((a, b) => {
+    const diff = getConversationTimestampMs(b) - getConversationTimestampMs(a);
+    if (diff !== 0) return diff;
+    return String(b?.id || '').localeCompare(String(a?.id || ''));
+  });
+}
+
 function upsertRow(rows, conversation, options = {}) {
   if (!conversation?.id) return rows;
+  const hasContent = Number(conversation.messageCount || 0) > 0 || Boolean(conversation.lastMessagePreview);
+  if (!hasContent) {
+    return rows.filter((r) => r.id !== conversation.id);
+  }
   const prev = rows.find((r) => r.id === conversation.id);
   const merged = mergeInboxConversation(prev, conversation, options);
   const next = rows.filter((r) => r.id !== conversation.id);
-  next.unshift(merged);
-  return next;
+  next.push(merged);
+  return sortConversationsByLatest(next);
 }
 
 function mergeConversation(prev, next) {
@@ -270,7 +306,7 @@ const SupportDeskPage = () => {
     if (tab === 'closed') return undefined;
     const mapped = rows.map((row) => {
       const isOpen = selectedId && String(selectedId) === String(row.id);
-      if (isOpen) {
+      if (isOpen || row.clearUnread) {
         return { ...row, unreadForSupport: 0, clearUnread: true };
       }
       return {
@@ -278,7 +314,6 @@ const SupportDeskPage = () => {
         unreadForSupport: Math.max(
           Number(row.unreadForSupport || 0),
           Number(attentionById[String(row.id)] || attentionById[row.id] || 0),
-          deskUnreadCount(row, selectedId),
         ),
       };
     });
@@ -303,7 +338,9 @@ const SupportDeskPage = () => {
         : prev
     ));
     setRows((prev) => prev.map((row) => (
-      row.id === id ? { ...row, unreadForSupport: 0, supportLastReadAt: at } : row
+      String(row.id) === String(id)
+        ? { ...row, unreadForSupport: 0, supportLastReadAt: at, clearUnread: true }
+        : row
     )));
     applyDeskInboxUpdate({
       id,
@@ -314,18 +351,8 @@ const SupportDeskPage = () => {
     }, { silent: true });
     if (socket?.connected) {
       socket.emit('support:read', { conversationId: id });
-    } else {
-      markSupportDeskRead(id).then((res) => {
-        if (res?.conversation) {
-          setThread((prev) => (
-            prev.conversation?.id === id
-              ? { ...prev, conversation: res.conversation }
-              : prev
-          ));
-          setRows((prev) => upsertRow(prev, res.conversation));
-        }
-      }).catch(() => {});
     }
+    markSupportDeskRead(id).catch(() => {});
   }, [socket, clearAttention, applyDeskInboxUpdate]);
 
   const refreshActiveThread = useCallback(async (id, { markRead = false } = {}) => {
@@ -357,7 +384,7 @@ const SupportDeskPage = () => {
       const out = await listSupportDeskConversations({
         status: nextTab === 'closed' ? 'closed' : 'inbox',
       });
-      const nextRows = Array.isArray(out?.rows) ? out.rows : [];
+      const nextRows = sortConversationsByLatest(Array.isArray(out?.rows) ? out.rows : []);
       setRows(nextRows);
       if (nextTab !== 'closed') {
         const activeId = selectedIdRef.current ? String(selectedIdRef.current) : null;
@@ -432,6 +459,7 @@ const SupportDeskPage = () => {
           ...out.conversation,
           unreadForSupport: 0,
           supportLastReadAt: out.conversation.supportLastReadAt || at,
+          clearUnread: true,
         }));
         applyDeskInboxUpdate({
           ...out.conversation,
@@ -572,10 +600,12 @@ const SupportDeskPage = () => {
     const onRead = (payload = {}) => {
       const conversation = payload?.conversation || payload;
       if (!conversation?.id) return;
-      setRows((prev) => upsertRow(prev, mergeConversation(
-        prev.find((r) => r.id === conversation.id),
-        conversation,
-      )));
+      const isSelected = selectedIdRef.current && String(selectedIdRef.current) === String(conversation.id);
+      setRows((prev) => upsertRow(prev, {
+        ...mergeConversation(prev.find((r) => r.id === conversation.id), conversation),
+        unreadForSupport: isSelected ? 0 : Number(conversation.unreadForSupport || 0),
+        clearUnread: isSelected,
+      }));
       setThread((prev) => (
         prev.conversation?.id === conversation.id
           ? { ...prev, conversation: mergeConversation(prev.conversation, conversation) }
@@ -606,9 +636,13 @@ const SupportDeskPage = () => {
   }, [socket, tab, joinConversation, markConversationSeen, refreshActiveThread, applyDeskInboxUpdate, markAttention, myUid]);
 
   const filtered = useMemo(() => {
+    const validRows = rows.filter(
+      (row) => Number(row.messageCount || 0) > 0 || Boolean(row.lastMessagePreview),
+    );
+    const sorted = sortConversationsByLatest(validRows);
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((row) => (
+    if (!q) return sorted;
+    return sorted.filter((row) => (
       [row.userName, row.userEmail, row.lastMessagePreview, row.id]
         .some((v) => String(v || '').toLowerCase().includes(q))
     ));
@@ -877,7 +911,7 @@ const SupportDeskPage = () => {
               const isSelected = selectedId && String(selectedId) === String(row.id);
               const attention = Number(attentionById[rowKey] || attentionById[row.id] || 0);
               const storeUnread = Number(deskUnreadById?.[row.id] || deskUnreadById?.[rowKey] || 0);
-              const unreadCount = isSelected
+              const unreadCount = isSelected || row.clearUnread
                 ? 0
                 : Math.max(
                   attention,
@@ -890,9 +924,9 @@ const SupportDeskPage = () => {
               <button
                 key={row.id}
                 type="button"
-                className={`${classes.row} ${selectedId === row.id ? classes.rowActive : ''} ${unread ? classes.rowUnread : ''}`}
+                className={`${classes.row} ${isSelected ? classes.rowActive : ''} ${unread ? classes.rowUnread : ''}`}
                 onClick={() => openConversation(row.id, row)}
-                disabled={threadLoading && selectedId === row.id}
+                disabled={threadLoading && isSelected}
               >
                 <span className={classes.rowAvatar}>{rowInitial(row)}</span>
                 <span className={classes.rowBody}>

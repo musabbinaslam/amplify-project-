@@ -81,16 +81,21 @@ function broadcastMessage(conversation, message) {
 
 function broadcastConversation(conversation, event = 'support:inbox:updated') {
   if (!nsp || !conversation?.id) return;
-  const rooms = [convRoom(conversation.id), INBOX_ROOM];
+  const hasMessages = Number(conversation.messageCount || 0) > 0 || Boolean(conversation.lastMessagePreview);
+  const rooms = [convRoom(conversation.id)];
   if (conversation.userId) rooms.push(userRoom(conversation.userId));
+  if (hasMessages) rooms.push(INBOX_ROOM);
+
   if (event === 'support:read') {
     // Deliver read receipts to inbox + open thread + user in one shot.
     nsp.to(rooms).emit('support:read', { conversation });
-    nsp.to(INBOX_ROOM).emit('support:inbox:updated', conversation);
+    if (hasMessages) {
+      nsp.to(INBOX_ROOM).emit('support:inbox:updated', conversation);
+    }
     return;
   }
   nsp.to(rooms).emit(event, { conversation });
-  if (event !== 'support:inbox:updated') {
+  if (event !== 'support:inbox:updated' && hasMessages) {
     nsp.to(INBOX_ROOM).emit('support:inbox:updated', conversation);
   }
 }
@@ -122,7 +127,8 @@ function setupSupportSockets(io) {
       if (!isSupportStaffRole(socket.role) && payload.timeZone) {
         supportConversationService.stampUserTimeZone(conversationId, payload.timeZone)
           .then((conversation) => {
-            if (conversation) broadcastConversation(conversation);
+            const hasMessages = Number(conversation?.messageCount || 0) > 0 || Boolean(conversation?.lastMessagePreview);
+            if (conversation && hasMessages) broadcastConversation(conversation);
           })
           .catch(() => {});
       }
@@ -173,6 +179,7 @@ function setupSupportSockets(io) {
         const out = await supportConversationService.markRead(
           conversationId,
           actorFromSocket(socket),
+          { asStaff: isSupportStaffRole(socket.role) },
         );
         if (out.changed) broadcastConversation(out.conversation, 'support:read');
         if (typeof ack === 'function') ack({ ok: true, conversation: out.conversation, changed: out.changed });

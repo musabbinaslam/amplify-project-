@@ -81,7 +81,17 @@ async function markRead(req, res) {
 async function uploadMedia(req, res) {
   try {
     const actor = await actorFromReq(req);
-    const convo = await supportConversationService.getConversation(req.params.id);
+    let convo;
+    try {
+      convo = await supportConversationService.getConversation(req.params.id);
+    } catch (err) {
+      if (err?.status === 404 && String(req.params.id) === String(actor.uid)) {
+        const { getDb } = require('../config/firestoreDb');
+        convo = await supportConversationService.createConversation(getDb(), actor, { status: 'idle' });
+      } else {
+        throw err;
+      }
+    }
     await supportConversationService.assertUserCanAccess(convo, actor.uid, actor.role);
     const media = await supportChatMedia.saveMedia(req.params.id, req.file, {
       durationMs: req.body?.durationMs,

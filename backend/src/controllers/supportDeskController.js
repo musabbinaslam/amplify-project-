@@ -111,7 +111,7 @@ async function closeConversation(req, res) {
 async function markRead(req, res) {
   try {
     const actor = await actorFromReq(req);
-    const out = await supportConversationService.markRead(req.params.id, actor);
+    const out = await supportConversationService.markRead(req.params.id, actor, { asStaff: true });
     if (out.changed) {
       supportSockets.broadcastConversation(out.conversation, 'support:read');
     }
@@ -146,6 +146,7 @@ async function getMessages(req, res) {
       cursor: req.query.cursor,
       limit: req.query.limit,
       markRead: markReadFlag,
+      asStaff: true,
     });
     if (out.readChanged) {
       supportSockets.broadcastConversation(out.conversation, 'support:read');

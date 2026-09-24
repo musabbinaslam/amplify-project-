@@ -115,6 +115,12 @@ const startEngine = async () => {
   setupCallSockets(io);
   setupSupportSockets(io);
 
+  // Sweep legacy empty conversations from waiting state
+  const { cleanupEmptyWaitingConversations } = require('./services/supportConversationService');
+  cleanupEmptyWaitingConversations().catch((err) => {
+    console.warn('[Support] initial cleanup warning:', err.message);
+  });
+
   // ── Periodic Ghost Agent Cleanup ──────────────────────────────────────────
   // Agents whose browser crashed / network died stop sending heartbeats.
   // Their heartbeat key (TTL 60s) expires, but they stay in the sorted set
