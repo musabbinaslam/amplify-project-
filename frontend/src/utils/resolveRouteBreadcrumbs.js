@@ -104,13 +104,6 @@ export function resolveRouteBreadcrumbs(pathname) {
     ];
   }
 
-  if (normalized === '/app/admin/ops/agencies') {
-    return [
-      { label: 'Admin', href: ADMIN_HOME },
-      { label: 'Agencies', href: '/app/admin/agencies' },
-    ];
-  }
-
   if (normalized === '/app/admin/ops/teams') {
     return [
       { label: 'Admin', href: ADMIN_HOME },
