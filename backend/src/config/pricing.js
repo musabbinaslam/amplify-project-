@@ -102,6 +102,7 @@ function syncPricingConfig() {
                 agencyId: c.agencyId == null || c.agencyId === '' ? null : String(c.agencyId),
                 locked: Boolean(c.locked),
                 allowRefunds: c.allowRefunds !== false,
+                isRaw: c.isRaw === true,
               };
             });
 
