@@ -33,11 +33,3 @@ export function markAllNotificationsRead(params = {}) {
 export function getMaintenanceState() {
   return apiFetch('/api/users/me/maintenance', { method: 'GET' });
 }
-
-export function getAdminMaintenance() {
-  return apiFetch('/api/admin/maintenance', { method: 'GET' });
-}
-
-export function patchAdminMaintenance(body) {
-  return apiFetch('/api/admin/maintenance', { method: 'PATCH', body });
-}

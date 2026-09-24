@@ -96,10 +96,6 @@ export function listAdminBroadcasts({ limit = 50, cursor } = {}) {
   return apiFetch(`/api/admin/notifications/broadcasts${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
 }
 
-export function getAdminBroadcast(id) {
-  return apiFetch(`/api/admin/notifications/broadcasts/${encodeURIComponent(id)}`, { method: 'GET' });
-}
-
 export function patchAdminBroadcast(id, body) {
   return apiFetch(`/api/admin/notifications/broadcasts/${encodeURIComponent(id)}`, { method: 'PATCH', body });
 }
