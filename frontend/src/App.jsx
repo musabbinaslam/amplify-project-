@@ -60,7 +60,6 @@ const AdminCampaignsPage = lazy(() => import('./pages/admin/AdminCampaignsPage')
 const AdminPhoneRoutingPage = lazy(() => import('./pages/admin/AdminPhoneRoutingPage'));
 const AdminAgenciesPage = lazy(() => import('./pages/admin/AdminAgenciesPage'));
 const AdminManagersPage = lazy(() => import('./pages/admin/AdminManagersPage'));
-const AdminAgenciesOpsPage = lazy(() => import('./pages/admin/AdminAgenciesOpsPage'));
 const AdminTeamsOpsPage = lazy(() => import('./pages/admin/AdminTeamsOpsPage'));
 const AdminAITrainingPage = lazy(() => import('./pages/AdminAITrainingPage'));
 const AdminAiFlagsPage = lazy(() => import('./pages/admin/AdminAiFlagsPage'));
@@ -459,13 +458,6 @@ const AnimatedRoutes = () => {
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
                 <AdminManagersPage />
-              </AdminOnly>
-            </Suspense>
-          } />
-          <Route path="admin/ops/agencies" element={
-            <Suspense fallback={<PageLoader />}>
-              <AdminOnly>
-                <AdminAgenciesOpsPage />
               </AdminOnly>
             </Suspense>
           } />

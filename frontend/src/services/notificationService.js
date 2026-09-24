@@ -37,11 +37,3 @@ export function getMaintenanceState() {
 export function broadcastAdminNotification(body) {
   return apiFetch('/api/admin/notifications/broadcast', { method: 'POST', body });
 }
-
-export function getAdminMaintenance() {
-  return apiFetch('/api/admin/maintenance', { method: 'GET' });
-}
-
-export function patchAdminMaintenance(body) {
-  return apiFetch('/api/admin/maintenance', { method: 'PATCH', body });
-}
