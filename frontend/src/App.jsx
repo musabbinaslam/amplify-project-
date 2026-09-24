@@ -47,7 +47,6 @@ const SupportChatPopup = lazy(() => import('./components/support/SupportChatPopu
 const ScriptPage = lazy(() => import('./pages/ScriptPage'));
 const NotesPage = lazy(() => import('./pages/NotesPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
-const LeadsPage = lazy(() => import('./pages/LeadsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ReferralProgramPage = lazy(() => import('./pages/ReferralProgramPage'));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
@@ -368,9 +367,6 @@ const AnimatedRoutes = () => {
           } />
           <Route path="licensed-states" element={
             <Suspense fallback={<PageLoader />}><LicensedStatesPage /></Suspense>
-          } />
-          <Route path="leads" element={
-            <Suspense fallback={<PageLoader />}><LeadsPage /></Suspense>
           } />
           <Route path="profile" element={
             <Suspense fallback={<PageLoader />}><ProfilePage /></Suspense>
