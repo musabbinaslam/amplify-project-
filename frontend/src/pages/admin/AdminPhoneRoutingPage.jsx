@@ -5,11 +5,11 @@ import toast from 'react-hot-toast';
 import {
   getAdminOverviewLite,
   listAdminDids,
-  listAdminAgencies,
   createAdminDid,
   patchAdminDid,
   deleteAdminDid,
 } from '../../services/adminService';
+import { listAdminAgencies } from '../../services/agencyService';
 import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
 import AdminPageShell from '../../components/admin/AdminPageShell';
