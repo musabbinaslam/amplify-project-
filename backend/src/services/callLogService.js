@@ -80,8 +80,8 @@ class CallLogService {
         const walletService = require('./walletService');
 
         // AUTOMATED BILLING LOGIC
-        // isRaw campaigns bill on connection (>= 1s). Standard campaigns use the configured buffer.
-        const isBillable = (config.isRaw === true ? durationSec >= 1 : durationSec >= config.buffer) && status === 'completed';
+        // isRaw campaigns bill on connection (>= 0s). Standard campaigns use the configured buffer.
+        const isBillable = (config.isRaw === true ? durationSec >= 0 : durationSec >= config.buffer) && status === 'completed';
         const cost = isBillable ? config.price : 0;
 
         // Auto-deduct credits from wallet
