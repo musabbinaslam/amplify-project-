@@ -36,7 +36,6 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const CallLogsPage = lazy(() => import('./pages/CallLogsPage'));
 const AITrainingPage = lazy(() => import('./pages/AITrainingPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
-const LicensedStatesPage = lazy(() => import('./pages/LicensedStatesPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
 const SupportHubPage = lazy(() => import('./pages/SupportHubPage'));
@@ -363,9 +362,6 @@ const AnimatedRoutes = () => {
           } />
           <Route path="billing" element={
             <Suspense fallback={<PageLoader />}><BillingPage /></Suspense>
-          } />
-          <Route path="licensed-states" element={
-            <Suspense fallback={<PageLoader />}><LicensedStatesPage /></Suspense>
           } />
           <Route path="profile" element={
             <Suspense fallback={<PageLoader />}><ProfilePage /></Suspense>
