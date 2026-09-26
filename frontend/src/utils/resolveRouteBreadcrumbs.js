@@ -13,7 +13,6 @@ const TOP_LEVEL_ROUTES = {
   '/app/script': 'Script',
   '/app/notes': 'Notes',
   '/app/billing': 'Billing',
-  '/app/licensed-states': 'Licensed States',
   '/app/leads': 'Leads',
   '/app/profile': 'Profile',
   '/app/support': 'Support',
