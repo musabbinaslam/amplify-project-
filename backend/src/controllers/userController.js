@@ -1056,17 +1056,6 @@ async function patchScript(req, res) {
   }
 }
 
-async function postApiKey(req, res) {
-  if (!ensureAdmin(req, res)) return;
-  try {
-    const apiKey = await getOrCreateApiKey(req.user.uid);
-    res.json({ apiKey });
-  } catch (err) {
-    console.error('[Users] postApiKey:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to create API key' });
-  }
-}
-
 async function postRegenerateApiKey(req, res) {
   if (!ensureAdmin(req, res)) return;
   try {
@@ -2029,7 +2018,6 @@ module.exports = {
   postWelcomeEmail,
   patchSettings,
   patchScript,
-  postApiKey,
   postRegenerateApiKey,
   getSlugAvailability,
   getActivity,

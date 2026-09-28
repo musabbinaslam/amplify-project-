@@ -50,7 +50,6 @@ router.post('/referrals/revoke-discount', adminController.revokeDiscount);
 router.post('/notifications/broadcast', adminController.postBroadcastNotification);
 router.post('/notifications/targeted', adminController.postTargetedNotification);
 router.get('/notifications/broadcasts', adminController.getBroadcastNotifications);
-router.get('/notifications/broadcasts/:id', adminController.getBroadcastNotification);
 router.patch('/notifications/broadcasts/:id', adminController.patchBroadcastNotification);
 router.delete('/notifications/broadcasts/:id', adminController.deleteBroadcastNotification);
 router.get('/maintenance', adminController.getMaintenance);
@@ -62,8 +61,6 @@ router.delete('/campaigns/:campaignId', adminController.deleteCampaign);
 
 
 
-// Pool debug — dumps full Redis routing state for diagnosis
-router.get('/pool-debug', adminController.getPoolDebug);
 router.get('/call-contests', adminController.listCallContests);
 router.get('/call-contests/:contestId', adminController.getCallContest);
 router.post('/call-contests/:contestId/approve', adminController.approveCallContest);

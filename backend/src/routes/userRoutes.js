@@ -8,7 +8,6 @@ const {
   postWelcomeEmail,
   patchSettings,
   patchScript,
-  postApiKey,
   postRegenerateApiKey,
   getSlugAvailability,
   getActivity,
@@ -80,7 +79,6 @@ router.get('/me/notes', listNotes);
 router.post('/me/notes', createNote);
 router.put('/me/notes/:noteId', updateNote);
 router.delete('/me/notes/:noteId', deleteNote);
-router.post('/me/api-key', postApiKey);
 router.post('/me/api-key/regenerate', postRegenerateApiKey);
 
 router.get('/me/custom-scripts', listCustomScripts);
