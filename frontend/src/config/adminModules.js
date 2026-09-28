@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   Bell,
   CircleDollarSign,
+  FileSpreadsheet,
   Flag,
   HeadphonesIcon,
   Phone,
@@ -37,6 +38,14 @@ export const ADMIN_MODULES = [
     description: 'Call trends, campaign and agent performance, and drilldown reports.',
     route: '/app/admin/analytics',
     icon: TrendingUp,
+    category: 'operations',
+  },
+  {
+    id: 'export',
+    title: 'Data & Excel Export',
+    description: 'Download formatted Excel (.xlsx) workbooks for calls, campaigns, and agent rosters.',
+    route: '/app/admin/export',
+    icon: FileSpreadsheet,
     category: 'operations',
   },
   {

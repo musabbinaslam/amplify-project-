@@ -98,3 +98,61 @@ export async function apiFetchWithRetry(path, options = {}, getIdToken) {
     return apiFetch(path, options, getIdToken);
   }
 }
+
+/**
+ * Authenticated API call returning raw Blob and Content-Disposition filename for downloads.
+ */
+export async function apiFetchBlob(path, options = {}, getIdToken, _isRetry = false) {
+  const token = await getBearerToken(getIdToken);
+  if (!token) throw new Error('Not signed in');
+
+  const url = `${baseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
+  const { headers: optHeaders, body, ...rest } = options;
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    ...optHeaders,
+  };
+
+  const isJsonBody =
+    body != null &&
+    typeof body === 'object' &&
+    !(body instanceof FormData) &&
+    !(body instanceof Blob) &&
+    !(body instanceof ArrayBuffer);
+
+  if (isJsonBody && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const res = await fetch(url, {
+    ...rest,
+    headers,
+    body: isJsonBody ? JSON.stringify(body) : body,
+  });
+
+  if (!res.ok) {
+    if (res.status === 401 && !_isRetry) {
+      const u = auth?.currentUser;
+      if (u) {
+        try {
+          await u.getIdToken(true);
+          return await apiFetchBlob(path, options, getIdToken, true);
+        } catch {
+          /* noop */
+        }
+      }
+    }
+    const errorJson = await res.json().catch(() => ({}));
+    const msg = errorJson.error || `Request failed with status ${res.status}`;
+    const err = new Error(msg);
+    err.status = res.status;
+    throw err;
+  }
+
+  const blob = await res.blob();
+  const disposition = res.headers.get('content-disposition') || '';
+  const match = disposition.match(/filename="?([^";]+)"?/i);
+  const filename = match ? match[1] : null;
+
+  return { blob, filename };
+}
