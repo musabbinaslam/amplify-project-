@@ -41,12 +41,6 @@ router.patch('/users/:uid/call-logs/:callLogId/disposition', adminController.pat
 router.patch('/dids/:id', adminController.patchDid);
 router.delete('/dids/:id', adminController.deleteDid);
 
-// Referral admin
-router.get('/referrals', adminController.getReferralOverview);
-router.get('/referrals/search', adminController.searchReferrals);
-router.patch('/referrals/:referralId/status', adminController.updateReferralStatus);
-router.post('/referrals/grant-discount', adminController.grantDiscount);
-router.post('/referrals/revoke-discount', adminController.revokeDiscount);
 router.post('/notifications/broadcast', adminController.postBroadcastNotification);
 router.post('/notifications/targeted', adminController.postTargetedNotification);
 router.get('/notifications/broadcasts', adminController.getBroadcastNotifications);
