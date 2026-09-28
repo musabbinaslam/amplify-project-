@@ -101,7 +101,6 @@ const useSupportDeskStore = create((set, get) => ({
   /* selected thread */
   selectedId: null,
   thread: { conversation: null, messages: [] },
-  threadLoading: false,
 
   /* unread */
   unreadById: {},
@@ -185,80 +184,6 @@ const useSupportDeskStore = create((set, get) => ({
 
     set({ rows: sorted, unreadById: byId, unreadTotal: total });
   },
-
-  /* ── Thread ── */
-  openThread: (id, preview) => {
-    const state = get();
-    set({
-      selectedId: id,
-      threadLoading: true,
-      thread: {
-        conversation: preview || state.thread.conversation || { id },
-        messages: state.thread.conversation?.id === id ? state.thread.messages : [],
-      },
-    });
-
-    // Clear unread for this thread
-    const byId = { ...state.unreadById };
-    delete byId[id];
-    const total = Object.values(byId).reduce((s, n) => s + Number(n || 0), 0);
-    set({ unreadById: byId, unreadTotal: total });
-
-    // Update row unread
-    set((s) => ({
-      rows: s.rows.map((r) =>
-        String(r.id) === String(id)
-          ? { ...r, unreadForSupport: 0, clearUnread: true }
-          : r,
-      ),
-    }));
-  },
-
-  applyThreadMessages: (id, messages, conversation) => {
-    if (String(get().selectedId) !== String(id)) return;
-    set((s) => ({
-      thread: {
-        conversation: mergeConvo(s.thread.conversation, conversation),
-        messages: mergeMessages(
-          s.thread.conversation?.id === id ? s.thread.messages : [],
-          messages,
-        ),
-      },
-      threadLoading: false,
-    }));
-  },
-
-  appendOptimistic: (msg) => {
-    set((s) => ({
-      thread: {
-        ...s.thread,
-        messages: [...s.thread.messages, msg],
-      },
-    }));
-  },
-
-  reconcileMessage: (tempId, confirmed) => {
-    set((s) => ({
-      thread: {
-        conversation: mergeConvo(s.thread.conversation, confirmed.conversation),
-        messages: mergeMessages(
-          s.thread.messages.filter((m) => m.id !== tempId && m.id !== confirmed.message?.id),
-          confirmed.message ? [confirmed.message] : [],
-        ),
-      },
-    }));
-  },
-
-  removeOptimistic: (tempId) => {
-    set((s) => ({
-      thread: {
-        ...s.thread,
-        messages: s.thread.messages.filter((m) => m.id !== tempId),
-      },
-    }));
-  },
-
-  setThreadLoading: (loading) => set({ threadLoading: loading }),
 
   /* ── Socket event handlers ── */
   handleInboxMessage: (payload) => {
@@ -431,23 +356,6 @@ const useSupportDeskStore = create((set, get) => ({
     const socket = get()._socket;
     if (!conversationId || !socket?.connected) return;
     socket.emit('support:typing', { conversationId, typing: Boolean(typing) });
-  },
-
-  /* ── Reset ── */
-  reset: () => {
-    if (get()._typingTimeout) clearTimeout(get()._typingTimeout);
-    set({
-      rows: [],
-      inboxLoading: false,
-      selectedId: null,
-      thread: { conversation: null, messages: [] },
-      threadLoading: false,
-      unreadById: {},
-      unreadTotal: 0,
-      userTyping: false,
-      _typingTimeout: null,
-      _joinedConversationId: null,
-    });
   },
 }));
 

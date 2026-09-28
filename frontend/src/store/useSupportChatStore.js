@@ -74,10 +74,6 @@ const useSupportChatStore = create((set, get) => ({
   setViewingThread: (v) => set({ viewingThread: Boolean(v) }),
 
   /* ── Desk delegation helpers (backward compat for Sidebar/Topbar) ── */
-  setActiveDeskConversation: (id) => {
-    // When a desk thread opens, clear its unread in the desk store
-    if (id) useSupportDeskStore.getState().markThreadRead(id);
-  },
   syncDeskUnreadFromRows: (rows) => useSupportDeskStore.getState().syncUnreadFromRows(rows),
   applyDeskInboxUpdate: (conversation) => useSupportDeskStore.getState().upsertRow(conversation),
 
