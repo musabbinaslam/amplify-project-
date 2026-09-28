@@ -59,6 +59,7 @@ const RANGE_PRESETS = [
   { value: 'yesterday', label: 'Yesterday' },
   { value: '7d', label: 'Last 7 Days' },
   { value: '30d', label: 'Last 30 Days' },
+  { value: '90d', label: 'Last 90 Days' },
   { value: 'month', label: 'This Month' },
   { value: 'custom', label: 'Custom Range' },
 ];
@@ -88,6 +89,10 @@ function computeRangeDates(preset, customStart, customEnd) {
   }
   if (preset === '30d') {
     const start = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
+    return { from: start.toISOString(), to: now.toISOString() };
+  }
+  if (preset === '90d') {
+    const start = new Date(now.getTime() - 90 * 24 * 3600 * 1000);
     return { from: start.toISOString(), to: now.toISOString() };
   }
   if (preset === 'month') {
