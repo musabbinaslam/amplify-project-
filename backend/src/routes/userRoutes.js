@@ -15,10 +15,6 @@ const {
   patchNotificationRead,
   patchNotificationsReadAll,
   getMaintenance,
-  getQaSummary,
-  getQaTrend,
-  getQaScorecards,
-  getQaPatterns,
   getAiTrainingSummary,
   getAiTrainingTrend,
   getAiTrainingScorecards,
@@ -61,10 +57,6 @@ router.get('/me/notifications', getNotifications);
 router.patch('/me/notifications/read-all', patchNotificationsReadAll);
 router.patch('/me/notifications/:id/read', patchNotificationRead);
 router.get('/me/maintenance', getMaintenance);
-router.get('/me/qa/summary', getQaSummary);
-router.get('/me/qa/trend', getQaTrend);
-router.get('/me/qa/scorecards', getQaScorecards);
-router.get('/me/qa/patterns', getQaPatterns);
 router.get('/me/ai-training/summary', aiTrainingReadLimiter, getAiTrainingSummary);
 router.get('/me/ai-training/trend', aiTrainingReadLimiter, getAiTrainingTrend);
 router.get('/me/ai-training/scorecards', aiTrainingReadLimiter, getAiTrainingScorecards);
