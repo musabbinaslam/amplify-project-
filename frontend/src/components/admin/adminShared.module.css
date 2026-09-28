@@ -433,6 +433,8 @@
   font-size: 34px;
   font-weight: 800;
   letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
   color: var(--text-primary);
   margin-top: 6px;
   line-height: 1.05;

@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import {
   Users, Phone, Radio, CircleDollarSign, RefreshCw, Search,
   ChevronLeft, ChevronRight, AlertTriangle, Activity,
@@ -6,6 +7,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import PageLoader from '../ui/PageLoader';
+import NumberPopIn from '../ui/NumberPopIn';
 import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
 import { RecordingModal } from '../../pages/CallLogsPage';
 import { useOpsDashboard } from '../../hooks/useOpsDashboard';
@@ -151,25 +153,25 @@ export default function TeamDashboardLayout({
         <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
           <Users size={18} className={shared.statIcon} />
           <span className={shared.statLabel}>Team Size</span>
-          <span className={shared.statValue}>{ops.agents.length}</span>
+          <span className={shared.statValue}><NumberPopIn value={ops.agents.length} /></span>
         </motion.div>
         <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
           <Radio size={18} className={shared.statIcon} />
           <span className={shared.statLabel}>Online Now</span>
-          <span className={shared.statValue}>{ops.onlineCount}</span>
+          <span className={shared.statValue}><NumberPopIn value={ops.onlineCount} /></span>
         </motion.div>
         <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
           <Phone size={18} className={shared.statIcon} />
           <span className={shared.statLabel}>Total Calls</span>
           <span className={shared.statValue}>
-            {ops.analyticsLoading ? <span className={shared.skeletonNum} /> : s.totalCalls}
+            {ops.analyticsLoading ? <span className={shared.skeletonNum} /> : <NumberPopIn value={s.totalCalls} />}
           </span>
         </motion.div>
         <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
           <CircleDollarSign size={18} className={shared.statIcon} />
           <span className={shared.statLabel}>Earnings</span>
           <span className={shared.statValue}>
-            {ops.analyticsLoading ? <span className={shared.skeletonNumWide} /> : `$${(s.totalCost || 0).toFixed(2)}`}
+            {ops.analyticsLoading ? <span className={shared.skeletonNumWide} /> : <NumberPopIn value={`$${(s.totalCost || 0).toFixed(2)}`} />}
           </span>
         </motion.div>
       </motion.div>

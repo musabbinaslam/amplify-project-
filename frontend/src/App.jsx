@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -77,12 +77,15 @@ const AgencyDashboardPage = lazy(() => import('./pages/AgencyDashboardPage'));
 
 
 const ProtectedRouteInner = ({ useAuthStore, auth }) => {
+  const location = useLocation();
   const token = useAuthStore((s) => s.token);
   const loading = useAuthStore((s) => s.loading);
   const hasFirebaseSession = Boolean(auth?.currentUser);
   
   if (loading) return <PageLoader fullScreen />;
-  if (!token || !hasFirebaseSession) return <Navigate to="/login" replace />;
+  if (!token || !hasFirebaseSession) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
   
   return (
     <Suspense fallback={<PageLoader fullScreen />}>
@@ -110,12 +113,18 @@ const ProtectedRoute = () => {
 };
 
 const GuestRouteInner = ({ useAuthStore, auth, children }) => {
+  const location = useLocation();
   const token = useAuthStore((s) => s.token);
   const loading = useAuthStore((s) => s.loading);
   const hasFirebaseSession = Boolean(auth?.currentUser);
   
   if (loading) return <PageLoader fullScreen />;
-  if (token && hasFirebaseSession) return <Navigate to="/app" replace />;
+  if (token && hasFirebaseSession) {
+    const fromPath = location.state?.from?.pathname;
+    const fromSearch = location.state?.from?.search || '';
+    const destination = fromPath ? `${fromPath}${fromSearch}` : '/app';
+    return <Navigate to={destination} replace />;
+  }
   
   return children;
 };
@@ -338,6 +347,9 @@ const AnimatedRoutes = () => {
         {/* Public Terms and Privacy */}
         <Route path="/terms" element={<Suspense fallback={<PageLoader />}><TermsPage /></Suspense>} />
         <Route path="/privacy" element={<Suspense fallback={<PageLoader />}><TermsPage /></Suspense>} />
+        {/* Direct redirects */}
+        <Route path="/calls" element={<Navigate to="/app/call-logs" replace />} />
+        <Route path="/call-logs" element={<Navigate to="/app/call-logs" replace />} />
 
         {/* Authenticated app under /app */}
         <Route path="/app" element={<ProtectedRoute />}>
@@ -553,6 +565,8 @@ const AnimatedRoutes = () => {
 
           <Route path="*" element={<div><h2 style={{color: 'white'}}>404 Not Found</h2></div>} />
         </Route>
+        {/* Top-level catch-all redirect to /app */}
+        <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>
     </>
   );

@@ -70,6 +70,11 @@
   display: flex;
   flex-direction: column;
   scrollbar-width: thin;
+  /* Linear & WhatsApp command-center chat background */
+  background:
+    radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--brand-solid) 7%, transparent) 0%, transparent 45%),
+    radial-gradient(circle at 88% 82%, color-mix(in srgb, var(--accent-cyan, #00e3fd) 5%, transparent) 0%, transparent 50%),
+    linear-gradient(180deg, #0d0f14 0%, #11141c 100%);
 }
 
 .messageListInner {
@@ -163,18 +168,21 @@
   justify-content: center;
   width: 100%;
   max-width: none;
-  margin: 10px 0 8px;
+  margin: 14px 0 10px;
   pointer-events: none;
 }
 
 .daySep span {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   color: var(--text-secondary);
-  background: color-mix(in srgb, var(--surface-container-high) 88%, transparent);
-  border-radius: 8px;
-  padding: 5px 12px;
-  box-shadow: 0 1px 2px color-mix(in srgb, #000 25%, transparent);
+  background: color-mix(in srgb, var(--surface-container-high) 92%, transparent);
+  border-radius: var(--radius-full);
+  padding: 5px 14px;
+  box-shadow: 0 1px 3px color-mix(in srgb, #000 22%, transparent);
+  backdrop-filter: blur(4px);
 }
 
 .messageRow {
@@ -307,19 +315,28 @@
 }
 
 .roleLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 0 2px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  width: fit-content;
 }
 
 .roleAdmin {
+  background: color-mix(in srgb, var(--accent-yellow, #f5c84c) 16%, transparent);
   color: var(--accent-yellow, #f5c84c);
+  border: 1px solid color-mix(in srgb, var(--accent-yellow, #f5c84c) 35%, transparent);
 }
 
 .roleSupport {
+  background: color-mix(in srgb, var(--brand-text) 16%, transparent);
   color: var(--brand-text);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 35%, transparent);
 }
 
 .compact .messageRow {
@@ -368,7 +385,20 @@
   line-height: 1.45;
   word-break: break-word;
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible;
+  /* Slide-in animation for new messages */
+  animation: bubbleSlideIn var(--duration-fast, 250ms) var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+@keyframes bubbleSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .compact .bubble {
@@ -406,36 +436,78 @@
   justify-content: center;
   opacity: 0.78;
   transform: translateY(0.5px);
+  transition: color var(--duration-fast, 250ms) ease, opacity var(--duration-fast, 250ms) ease;
 }
 
-.receiptSeen {
-  color: #53bdeb;
+.checkSent,
+.checkDelivered {
+  color: color-mix(in srgb, var(--brand-on) 65%, transparent);
+}
+
+.receiptSeen,
+.checkSeen {
+  color: #53bdeb !important;
   opacity: 1;
 }
 
-.userBubble .receiptSeen {
-  color: #ffffff;
-  filter: drop-shadow(0 0 0.5px rgba(0, 0, 0, 0.25));
+.userBubble .receiptSeen,
+.userBubble .checkSeen {
+  color: #53bdeb !important;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.4));
 }
 
+/* WhatsApp-style bubbles */
 .botBubble {
-  background: color-mix(in srgb, var(--surface-container-high) 88%, #1a1a1a);
+  background: var(--surface-container-high);
   color: var(--text-primary);
-  border-radius: 12px 12px 12px 12px;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px color-mix(in srgb, #000 18%, transparent);
+}
+
+.stacked .botBubble {
+  border-radius: 8px 10px 10px 8px;
 }
 
 .userBubble {
   background: var(--brand-solid);
   color: var(--brand-on);
-  border-radius: 12px 12px 12px 12px;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px color-mix(in srgb, #000 18%, transparent);
+}
+
+.stacked .userBubble {
+  border-radius: 10px 8px 8px 10px;
+}
+
+/* Bubble tails — last message in a cluster */
+.clusterEnd .botBubble::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: -6px;
+  width: 12px;
+  height: 12px;
+  background: var(--surface-container-high);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.clusterEnd .userBubble::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: -6px;
+  width: 12px;
+  height: 12px;
+  background: var(--brand-solid);
+  clip-path: polygon(0 0, 100% 100%, 0 100%);
 }
 
 .clusterEnd .botBubble {
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: 0;
 }
 
 .clusterEnd .userBubble {
-  border-bottom-right-radius: 4px;
+  border-bottom-right-radius: 0;
 }
 
 .systemBubble {
@@ -467,6 +539,67 @@
 @keyframes bounce {
   0%, 60%, 100% { transform: translateY(0); }
   30% { transform: translateY(-6px); }
+}
+
+/* Canned Responses Bar */
+.cannedBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: color-mix(in srgb, var(--surface-container-low, #12141a) 85%, transparent);
+  border-top: 1px solid var(--glass-border);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.cannedLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--brand-text);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cannedScroll {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 0;
+}
+
+.cannedScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.cannedChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.cannedChip:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--brand-text) 50%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
 }
 
 .composer {
@@ -649,23 +782,23 @@
 .mediaImageLink {
   position: relative;
   display: block;
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   padding: 0;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  background: color-mix(in srgb, #000 28%, transparent);
+  background: color-mix(in srgb, #000 35%, transparent);
   cursor: zoom-in;
-  width: 180px;
-  min-height: 120px;
+  width: 100%;
+  max-width: 280px;
+  aspect-ratio: 16 / 10;
+  min-height: 140px;
 }
 
 .mediaImage {
   display: block;
   width: 100%;
-  max-width: 260px;
-  max-height: 240px;
-  height: auto;
+  height: 100%;
   object-fit: cover;
 }
 

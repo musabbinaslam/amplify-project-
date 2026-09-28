@@ -1,0 +1,68 @@
+.successCheck {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center;
+  opacity: 0;
+  will-change: transform, opacity, filter;
+  vertical-align: middle;
+}
+
+.successCheck svg {
+  display: block;
+  overflow: visible;
+}
+
+.successCheck svg path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+}
+
+.successCheck[data-state="in"] {
+  animation:
+    checkFade   var(--check-opacity-dur, 500ms) var(--check-ease-opacity, cubic-bezier(0.22, 1, 0.36, 1)) forwards,
+    checkRotate var(--check-rotate-dur, 500ms)  var(--check-ease-rotate, cubic-bezier(0.22, 1, 0.36, 1))  forwards,
+    checkBlur   var(--check-blur-dur, 500ms)    var(--check-ease-out, cubic-bezier(0.22, 1, 0.36, 1))     forwards,
+    checkBob    var(--check-bob-dur, 500ms)     var(--check-ease-bob, cubic-bezier(0.34, 1.35, 0.64, 1))  forwards;
+}
+
+.successCheck[data-state="in"] svg path {
+  animation: checkDraw var(--check-path-dur, 500ms) var(--check-ease-path, cubic-bezier(0.22, 1, 0.36, 1)) var(--check-path-delay, 80ms) forwards;
+}
+
+@keyframes checkFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes checkRotate {
+  from { transform: rotate(var(--check-rotate-from, 80deg)); }
+  to   { transform: rotate(0deg); }
+}
+
+@keyframes checkBlur {
+  from { filter: blur(var(--check-blur-from, 10px)); }
+  to   { filter: blur(0); }
+}
+
+@keyframes checkBob {
+  from { translate: 0 calc(var(--check-y-amount, 40px) * 0.25); }
+  to   { translate: 0 0; }
+}
+
+@keyframes checkDraw {
+  to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .successCheck {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  .successCheck svg path {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+}

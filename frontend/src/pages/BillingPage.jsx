@@ -8,6 +8,8 @@ import classes from './BillingPage.module.css';
 import { stripeService } from '../services/stripeService';
 import { referralService } from '../services/referralService';
 import PageLoader from '../components/ui/PageLoader';
+import NumberPopIn from '../components/ui/NumberPopIn';
+import CardTilt from '../components/ui/CardTilt';
 import AddCreditsModal from '../components/modals/AddCreditsModal';
 
 /* eslint-disable react/prop-types -- local stat card helper */
@@ -24,7 +26,13 @@ const StatCard = ({ label, value, icon: Icon, variants, valueClassName }) => {
         <Icon size={18} />
       </div>
       <div className={classes.statLabel}>{label}</div>
-      <div className={`${classes.statValue} ${valueClassName || ''}`}>{value}</div>
+      <div className={`${classes.statValue} ${valueClassName || ''}`}>
+        {typeof value === 'number' || typeof value === 'string' ? (
+          <NumberPopIn value={value} />
+        ) : (
+          value
+        )}
+      </div>
     </motion.div>
   );
 };
@@ -220,15 +228,19 @@ const BillingPage = () => {
             </button>
           </div>
 
-          <div className={classes.balanceHero}>
-            <div className={classes.balanceAmount}>{formatMoney(balance)}</div>
-            {balance < 5000 && (
-              <div className={classes.lowBalanceWarning}>
-                <AlertCircle size={14} />
-                Low balance — add credits to continue taking calls
+          <CardTilt maxTilt={8}>
+            <div className={classes.balanceHero}>
+              <div className={classes.balanceAmount}>
+                <NumberPopIn value={formatMoney(balance)} />
               </div>
-            )}
-          </div>
+              {balance < 5000 && (
+                <div className={classes.lowBalanceWarning}>
+                  <AlertCircle size={14} />
+                  Low balance — add credits to continue taking calls
+                </div>
+              )}
+            </div>
+          </CardTilt>
 
           <motion.div className={classes.statsRow} variants={presets.statsStrip}>
             <StatCard

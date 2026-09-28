@@ -1,4 +1,6 @@
+/* eslint-disable react/prop-types */
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Download, Upload, X, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -10,6 +12,10 @@ import { EASE_SMOOTH } from '../motion/appMotion';
 import { auth } from '../config/firebase';
 import CustomSelect from '../components/ui/CustomSelect';
 import PageLoader from '../components/ui/PageLoader';
+import NumberPopIn from '../components/ui/NumberPopIn';
+import IconSwap from '../components/ui/IconSwap';
+import SlidingTabs from '../components/ui/SlidingTabs';
+import ShimmerText from '../components/ui/ShimmerText';
 import { CallLogDispositionBadge, CallLogStatusBadge } from '../components/callLogs/CallLogStatusCells';
 import classes from './CallLogsPage.module.css';
 
@@ -124,7 +130,13 @@ const StatCard = ({ label, value, icon: Icon, variants }) => {
         <Icon size={18} />
       </div>
       <div className={classes.statLabel}>{label}</div>
-      <div className={classes.statValue}>{value}</div>
+      <div className={classes.statValue}>
+        {typeof value === 'number' || typeof value === 'string' ? (
+          <NumberPopIn value={value} />
+        ) : (
+          value
+        )}
+      </div>
     </motion.div>
   );
 };
@@ -767,7 +779,12 @@ export const RecordingModal = ({ log, onClose }) => {
                   onClick={togglePlay}
                   aria-label={playing ? 'Pause' : 'Play'}
                 >
-                  {playing ? <Pause size={22} /> : <Play size={22} />}
+                  <IconSwap
+                    state={playing ? 'a' : 'b'}
+                    iconA={<Pause size={22} />}
+                    iconB={<Play size={22} />}
+                    ariaLabel={playing ? 'Pause' : 'Play'}
+                  />
                 </button>
                 <button
                   type="button"
@@ -832,7 +849,21 @@ export const RecordingModal = ({ log, onClose }) => {
 
 const CallLogsPage = () => {
   const presets = useSubtlePageMotion();
-  const [search, setSearch] = useState('');
+  const location = useLocation();
+  const initialSearch = useMemo(() => {
+    try {
+      return new URLSearchParams(location.search).get('search') || '';
+    } catch {
+      return '';
+    }
+  }, [location.search]);
+  const [search, setSearch] = useState(initialSearch);
+
+  useEffect(() => {
+    if (initialSearch) {
+      setSearch(initialSearch);
+    }
+  }, [initialSearch]);
   const [typeFilter, setTypeFilter] = useState('All');
   const [callLogs, setCallLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -915,7 +946,7 @@ const CallLogsPage = () => {
       await updateMyCallLogDisposition(logId, newDisposition);
       setCallLogs(prev => prev.map(log => log.id === logId ? { ...log, disposition: newDisposition } : log));
       toast.success('Disposition updated');
-    } catch (err) {
+    } catch {
       toast.error('Failed to update disposition');
     } finally {
       setUpdatingDisposition(null);
@@ -1015,7 +1046,13 @@ const CallLogsPage = () => {
     >
       <motion.div className={classes.header} variants={presets.child}>
         <div>
-          <h2>All Call Logs</h2>
+          <div className={classes.titleRow}>
+            <h2>All Call Logs</h2>
+            <span className={classes.liveBadge}>
+              <span className={classes.liveDot} />
+              <ShimmerText text="Live Sync" variant="brand" />
+            </span>
+          </div>
           <p className={classes.subtitle}>Review and manage your recent calls</p>
         </div>
         <div className={classes.searchBox}>
@@ -1038,17 +1075,12 @@ const CallLogsPage = () => {
 
       <motion.div className={classes.filters} variants={presets.child}>
         <div className={classes.filterGroup}>
-          <div className={`glass ${classes.filterTabs}`}>
-            {FILTER_OPTIONS.map((opt) => (
-              <button
-                key={opt}
-                className={`${classes.filterTab} ${typeFilter === opt ? classes.filterActive : ''}`}
-                onClick={() => setTypeFilter(opt)}
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
+          <SlidingTabs
+            tabs={FILTER_OPTIONS}
+            activeKey={typeFilter}
+            onChange={setTypeFilter}
+            ariaLabel="Filter calls by type"
+          />
 
           <div className={classes.dateSwitch}>
             <CustomSelect
@@ -1081,7 +1113,7 @@ const CallLogsPage = () => {
         {loading ? (
           <div className={classes.emptyState}>
             <Loader size={20} className={classes.spinner} />
-            Loading call logs...
+            <ShimmerText text="Loading call logs…" />
           </div>
         ) : error ? (
           <div className={classes.emptyState}>{error}</div>

@@ -13,6 +13,7 @@ import {
 import CustomSelect from '../components/ui/CustomSelect';
 import UnsavedChangesBar from '../components/ui/UnsavedChangesBar';
 import PageLoader from '../components/ui/PageLoader';
+import SuccessCheck from '../components/ui/SuccessCheck';
 import RegenerateApiKeyModal from '../components/modals/RegenerateApiKeyModal';
 import AvatarEditorModal from '../components/modals/AvatarEditorModal';
 import classes from './ProfilePage.module.css';
@@ -517,7 +518,7 @@ const ProfilePage = () => {
             <div className={classes.integrationField}>
               <input type="text" readOnly value={webhookUrl} className={classes.readonlyInput} />
               <button type="button" className={classes.copyBtn} onClick={() => handleCopy(webhookUrl, 'webhook')} aria-label="Copy webhook URL">
-                {copiedField === 'webhook' ? <Check size={16} /> : <Copy size={16} />}
+                {copiedField === 'webhook' ? <SuccessCheck size={16} color="var(--brand, #25f425)" /> : <Copy size={16} />}
               </button>
             </div>
           </div>
@@ -533,7 +534,7 @@ const ProfilePage = () => {
                 {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
               <button type="button" className={classes.copyBtn} onClick={() => handleCopy(apiKey, 'apikey')} aria-label="Copy API key">
-                {copiedField === 'apikey' ? <Check size={16} /> : <Copy size={16} />}
+                {copiedField === 'apikey' ? <SuccessCheck size={16} color="var(--brand, #25f425)" /> : <Copy size={16} />}
               </button>
             </div>
             <div className={classes.apiMetaRow}>

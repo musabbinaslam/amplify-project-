@@ -13,7 +13,14 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { getSupportDeskKpis } from '../services/supportLiveService';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
+import NumberPopIn from '../components/ui/NumberPopIn';
+import SlidingTabs from '../components/ui/SlidingTabs';
 import classes from './SupportAnalyticsPage.module.css';
+
+const PERIOD_TABS = [
+  { key: 'today', label: 'Today' },
+  { key: '7d', label: '7 days' },
+];
 
 /* eslint-disable react/prop-types */
 
@@ -28,7 +35,13 @@ function KpiCard({ title, value, icon: Icon, hint, className = '', size, loading
         {loading ? (
           <span className={classes.skeletonValue} aria-hidden="true" />
         ) : (
-          <div className={classes.value}>{value ?? '—'}</div>
+          <div className={classes.value}>
+            {value !== null && value !== undefined && value !== '—' ? (
+              <NumberPopIn value={value} />
+            ) : (
+              '—'
+            )}
+          </div>
         )}
         {hint ? (
           loading ? <span className={classes.skeletonHint} aria-hidden="true" /> : <div className={classes.hint}>{hint}</div>
@@ -81,26 +94,12 @@ export default function SupportAnalyticsPage() {
             <p>Queue health, volume, and your replies.</p>
           </div>
         </div>
-        <div className={classes.switcher} role="tablist" aria-label="Period">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={isToday}
-            className={`${classes.switchBtn} ${isToday ? classes.switchBtnActive : ''}`}
-            onClick={() => setPeriod('today')}
-          >
-            Today
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={!isToday}
-            className={`${classes.switchBtn} ${!isToday ? classes.switchBtnActive : ''}`}
-            onClick={() => setPeriod('7d')}
-          >
-            7 days
-          </button>
-        </div>
+        <SlidingTabs
+          tabs={PERIOD_TABS}
+          activeKey={period}
+          onChange={setPeriod}
+          ariaLabel="Period"
+        />
       </motion.div>
 
       <motion.div className={classes.bento} variants={presets.child} aria-busy={loading}>

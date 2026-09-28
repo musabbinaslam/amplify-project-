@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import AuthShell from '../components/auth/AuthShell';
+import shakeClasses from '../components/ui/FormShake.module.css';
 import classes from './LoginPage.module.css';
 
 const FIREBASE_ERROR_MAP = {
@@ -34,13 +35,26 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [fieldError, setFieldError] = useState(null);
+  const [shakingField, setShakingField] = useState(null);
+
+  const triggerShake = (field) => {
+    setFieldError(field);
+    setShakingField(field);
+    setTimeout(() => setShakingField(null), 300);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!email.trim() || !/\S+@\S+\.\S+/.test(email))
+    if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
+      triggerShake('email');
       return toast.error('Enter a valid email address');
-    if (!password) return toast.error('Password is required');
+    }
+    if (!password) {
+      triggerShake('password');
+      return toast.error('Password is required');
+    }
 
     setSubmitting(true);
     try {
@@ -48,6 +62,7 @@ const LoginPage = () => {
       toast.success('Welcome back!');
       navigate('/app');
     } catch (err) {
+      triggerShake('all');
       toast.error(getFirebaseErrorMessage(err));
     } finally {
       setSubmitting(false);
@@ -148,12 +163,19 @@ const LoginPage = () => {
             <label className={classes.label} htmlFor="login-email">Email</label>
             <input
               id="login-email"
-              className={classes.input}
+              className={`${classes.input} ${shakeClasses.shakeTarget} ${
+                (fieldError === 'email' || fieldError === 'all') ? shakeClasses.isError : ''
+              } ${
+                (shakingField === 'email' || shakingField === 'all') ? shakeClasses.isShaking : ''
+              }`}
               type="email"
               autoComplete="email"
               placeholder="you@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (fieldError === 'email' || fieldError === 'all') setFieldError(null);
+              }}
             />
           </div>
 
@@ -170,12 +192,19 @@ const LoginPage = () => {
             </div>
             <input
               id="login-password"
-              className={classes.input}
+              className={`${classes.input} ${shakeClasses.shakeTarget} ${
+                (fieldError === 'password' || fieldError === 'all') ? shakeClasses.isError : ''
+              } ${
+                (shakingField === 'password' || shakingField === 'all') ? shakeClasses.isShaking : ''
+              }`}
               type="password"
               autoComplete="current-password"
               placeholder="••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (fieldError === 'password' || fieldError === 'all') setFieldError(null);
+              }}
             />
           </div>
 

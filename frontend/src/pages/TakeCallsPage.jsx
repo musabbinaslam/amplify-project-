@@ -19,6 +19,7 @@ import { stripeService } from '../services/stripeService';
 import { getProfile, saveProfile, updateMyCallLogDisposition } from '../services/profileService';
 import { fetchCampaignPricing } from '../services/dashboardService';
 import { CallLogDispositionBadge } from '../components/callLogs/CallLogStatusCells';
+import ShimmerText from '../components/ui/ShimmerText';
 
 // All 50 US States
 const US_STATES = [
@@ -1175,7 +1176,7 @@ const TakeCallsPage = () => {
           <div className={classes.liveCommandStatus}>
             <div className={`${classes.liveBadge} ${callState === 'active' ? classes.liveBadgeOnCall : ''}`}>
               <div className={classes.liveDot} />
-              {callState === 'active' ? 'On Call' : pendingDispositionCall ? 'Disposition' : 'Dialer Active'}
+              {callState === 'active' ? 'On Call' : pendingDispositionCall ? 'Disposition' : <ShimmerText text="Dialer Active" variant="brand" />}
             </div>
             <div className={classes.liveCommandCopy}>
               <h2>
@@ -1183,7 +1184,7 @@ const TakeCallsPage = () => {
                   ? 'Currently On Call'
                   : pendingDispositionCall
                     ? 'Complete Disposition'
-                    : 'Listening for Calls'}
+                    : <ShimmerText text="Listening for Calls" variant="accent" />}
               </h2>
               <p>
                 {callState === 'active'

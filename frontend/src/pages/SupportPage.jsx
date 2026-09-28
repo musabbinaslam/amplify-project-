@@ -79,10 +79,9 @@ const SupportPage = () => {
 
   useEffect(() => {
     if (isEmail || !messages.length) return undefined;
-    const hasStaffMessage = messages.some((m) => m?.senderRole === 'support' || m?.senderRole === 'admin');
-    if (hasStaffMessage) markRead();
+    markRead();
     return undefined;
-  }, [isEmail, messages, markRead]);
+  }, [isEmail, messages.length, markRead]);
 
   const handleAddFiles = (fileList) => {
     const incoming = Array.from(fileList || []);
@@ -131,7 +130,7 @@ const SupportPage = () => {
 
   const handleInputChange = (value) => {
     setInput(value);
-    const convoId = conversation?.id;
+    const convoId = conversation?.id || user?.uid;
     if (!convoId) return;
     emitTyping(convoId, true);
     clearTimeout(typingTimer.current);

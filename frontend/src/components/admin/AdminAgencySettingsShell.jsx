@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Search } from 'lucide-react';
 import AdminCreateRailPanel from './AdminCreateRailPanel';
+import SlidingTabs from '../ui/SlidingTabs';
 import classes from './AdminAgencySettingsShell.module.css';
 
 const DIRECTORY_VISIBLE_CAP = 7;
@@ -211,19 +212,13 @@ export default function AdminAgencySettingsShell({
                 ) : null}
 
                 {tabs.length > 0 ? (
-                  <div className={classes.tabBar} role="tablist" aria-label={settingsSectionsAriaLabel}>
-                    {tabs.map((tab) => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={activeTab === tab.id}
-                        className={`${classes.tab} ${activeTab === tab.id ? classes.tabActive : ''}`}
-                        onClick={() => onTabChange?.(tab.id)}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
+                  <div className={classes.tabBar}>
+                    <SlidingTabs
+                      tabs={tabs}
+                      activeKey={activeTab}
+                      onChange={(key) => onTabChange?.(key)}
+                      ariaLabel={settingsSectionsAriaLabel}
+                    />
                   </div>
                 ) : null}
 

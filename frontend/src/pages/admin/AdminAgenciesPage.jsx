@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { usePageBreadcrumbs } from '../../hooks/usePageBreadcrumbs';
@@ -38,6 +39,7 @@ import AgencyDashboardLayout from '../../components/ops/AgencyDashboardLayout';
 import CustomSelect from '../../components/ui/CustomSelect';
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
 import PageLoader from '../../components/ui/PageLoader';
+import NumberPopIn from '../../components/ui/NumberPopIn';
 import shared from '../../components/admin/adminShared.module.css';
 import classes from './AdminAgenciesPage.module.css';
 
@@ -854,11 +856,11 @@ export default function AdminAgenciesPage() {
                     </div>
                     <div className={classes.agencyCardStats}>
                       <div className={classes.agencyCardStat}>
-                        <span className={classes.agencyCardStatValue}>{agency.agentCount ?? 0}</span>
+                        <span className={classes.agencyCardStatValue}><NumberPopIn value={agency.agentCount ?? 0} /></span>
                         <span className={classes.agencyCardStatLabel}>Agents</span>
                       </div>
                       <div className={classes.agencyCardStat}>
-                        <span className={classes.agencyCardStatValue}>{live}</span>
+                        <span className={classes.agencyCardStatValue}><NumberPopIn value={live} /></span>
                         <span className={classes.agencyCardStatLabel}>Live calls</span>
                       </div>
                     </div>

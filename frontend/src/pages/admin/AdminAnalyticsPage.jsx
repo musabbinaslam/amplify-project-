@@ -22,6 +22,8 @@ import { AdminActionModal } from '../../components/admin/ContestReviewCard';
 import { getAgentName, getAgentId } from '../../components/admin/adminUtils';
 import PageLoader from '../../components/ui/PageLoader';
 import CustomSelect from '../../components/ui/CustomSelect';
+import SlidingTabs from '../../components/ui/SlidingTabs';
+import ShimmerText from '../../components/ui/ShimmerText';
 import { RecordingModal } from '../CallLogsPage';
 import { CallLogDispositionBadge } from '../../components/callLogs/CallLogStatusCells';
 import classes from '../../components/admin/adminShared.module.css';
@@ -233,7 +235,7 @@ export default function AdminAnalyticsPage() {
         recentLogs: prev.recentLogs.map(l => l.id === logId ? { ...l, disposition: val } : l),
       }));
       toast.success('Disposition updated');
-    } catch (err) {
+    } catch {
       toast.error('Failed to update disposition');
     } finally {
       setUpdatingDispositionId(null);
@@ -322,20 +324,12 @@ export default function AdminAnalyticsPage() {
               rangePreset === '30d' ? 'Last 30 days' : 'Last 7 days'
             })</h2>
             <div className={`glass ${classes.toolbar} ${classes.summaryToolbar}`}>
-              <div className={classes.filterRow} role="tablist" aria-label="Date range">
-                {RANGE_PRESETS.map(({ key, label }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    role="tab"
-                    aria-selected={rangePreset === key}
-                    className={`${classes.filterBtn} ${rangePreset === key ? classes.filterBtnActive : ''}`}
-                    onClick={() => setRangePreset(key)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <SlidingTabs
+                tabs={RANGE_PRESETS}
+                activeKey={rangePreset}
+                onChange={setRangePreset}
+                ariaLabel="Date range"
+              />
 
               {rangePreset === 'custom' ? (
                 <div className={classes.customRangeRow}>
@@ -420,7 +414,7 @@ export default function AdminAnalyticsPage() {
                 </thead>
                 <tbody>
                   {analyticsLoading ? (
-                    <tr><td colSpan={6} className={classes.muted}>Loading analytics…</td></tr>
+                    <tr><td colSpan={6} className={classes.muted}><ShimmerText text="Loading analytics…" /></td></tr>
                   ) : campaignStats.length === 0 ? (
                     <tr><td colSpan={6}>
                       <div className={classes.emptyPanel}>
@@ -480,7 +474,7 @@ export default function AdminAnalyticsPage() {
                 </thead>
                 <tbody>
                   {analyticsLoading ? (
-                    <tr><td colSpan={7} className={classes.muted}>Loading analytics…</td></tr>
+                    <tr><td colSpan={7} className={classes.muted}><ShimmerText text="Loading analytics…" /></td></tr>
                   ) : filteredAgentStats.length === 0 ? (
                     <tr><td colSpan={7} className={classes.muted}>No agent stats match this filter</td></tr>
                   ) : (

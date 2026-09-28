@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -16,6 +17,7 @@ import {
   Send,
   Square,
   X,
+  Zap,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import classes from './SupportThread.module.css';
@@ -31,24 +33,39 @@ import {
 
 const WELCOME = 'Message our team here. Someone will pick this up live.';
 
+const CANNED_RESPONSES = [
+  { label: '👋 Greeting', text: 'Hello! Thanks for reaching out. How can I assist you today?' },
+  { label: '🔍 Checking', text: 'I am checking your account details right now, please give me a moment.' },
+  { label: '🔓 Unflagged', text: 'Your account has been unflagged. Please refresh your browser.' },
+  { label: '💰 Credit Added', text: 'Courtesy credit has been added to your live wallet balance.' },
+  { label: '✅ Resolved', text: 'The issue has been resolved. Please let me know if there is anything else I can help with!' },
+  { label: '🙏 Thank You', text: 'Thank you for reaching out to CallsFlow support! Have a wonderful day.' },
+];
+
 function isStaffRole(role) {
   return role === 'admin' || role === 'support';
 }
 
 function isOwnMessage(msg, alignRole, selfId) {
   const role = msg?.senderRole || msg?.role;
+  const isStaff = isStaffRole(role);
+
+  // In Support Desk view:
   if (alignRole === 'support' || alignRole === 'staff') {
-    // In Support Desk: all support and admin replies are on the right (our side)
-    if (isStaffRole(role)) return true;
-    if (role === 'user') return false;
-    if (selfId && msg?.senderId && String(msg.senderId) === String(selfId)) return true;
-    return false;
+    // All staff/admin replies are on the right (our side)
+    // Customer messages are always on the left
+    return isStaff;
   }
+
   // In user / customer chat view:
-  if (isStaffRole(role)) return false;
-  if (role === 'user') return true;
-  if (selfId && msg?.senderId) return String(msg.senderId) === String(selfId);
-  return false;
+  // All staff/admin replies are ALWAYS on the left (the support team responding)
+  if (isStaff) return false;
+
+  // Customer messages are on the right
+  if (selfId && msg?.senderId) {
+    return String(msg.senderId) === String(selfId);
+  }
+  return true;
 }
 
 function staffLabel(msg) {
@@ -60,14 +77,18 @@ function staffLabel(msg) {
 
 function quoteAuthor(msg, selfId, alignRole) {
   const role = msg?.senderRole || msg?.role;
+  const isStaff = isStaffRole(role);
   if (alignRole === 'support' || alignRole === 'staff') {
-    if (isStaffRole(role)) return 'You';
-    return msg?.senderName || 'User';
+    if (isStaff) {
+      if (selfId && msg?.senderId && String(msg.senderId) === String(selfId)) return 'You';
+      return msg?.senderRole === 'admin' ? 'Admin' : 'Support';
+    }
+    return msg?.senderName || 'Customer';
   }
-  if (selfId && msg?.senderId && String(msg.senderId) === String(selfId)) return 'You';
-  if (msg?.senderRole === 'admin') return 'Admin';
-  if (msg?.senderRole === 'support') return 'Support agent';
-  return msg?.senderName || 'User';
+  if (isStaff) {
+    return msg?.senderRole === 'admin' ? 'Admin' : 'Support agent';
+  }
+  return 'You';
 }
 
 function quotePreview(text, max = 80) {
@@ -78,12 +99,12 @@ function quotePreview(text, max = 80) {
 
 function receiptState(msg, peerLastReadAt) {
   if (!msg?.id || String(msg.id).startsWith('tmp-')) return 'pending';
-  if (!peerLastReadAt || !msg.createdAt) return 'sent';
+  if (!peerLastReadAt || !msg.createdAt) return 'delivered';
   const readMs = new Date(peerLastReadAt).getTime();
   const createdMs = new Date(msg.createdAt).getTime();
-  if (Number.isNaN(readMs) || Number.isNaN(createdMs)) return 'sent';
+  if (Number.isNaN(readMs) || Number.isNaN(createdMs)) return 'delivered';
   // Require read cursor to be at/after the message, with a tiny skew buffer.
-  return readMs + 50 >= createdMs ? 'seen' : 'sent';
+  return readMs + 50 >= createdMs ? 'seen' : 'delivered';
 }
 
 function MessageMeta({ when, receipt, mine }) {
@@ -94,15 +115,17 @@ function MessageMeta({ when, receipt, mine }) {
       {mine ? (
         <span
           className={`${classes.receipt} ${receipt === 'seen' ? classes.receiptSeen : ''}`}
-          aria-label={receipt === 'seen' ? 'Seen' : receipt === 'pending' ? 'Sending' : 'Sent'}
-          title={receipt === 'seen' ? 'Seen' : receipt === 'pending' ? 'Sending' : 'Sent'}
+          aria-label={receipt === 'seen' ? 'Read' : receipt === 'delivered' ? 'Delivered' : receipt === 'pending' ? 'Sending' : 'Sent'}
+          title={receipt === 'seen' ? 'Read' : receipt === 'delivered' ? 'Delivered' : receipt === 'pending' ? 'Sending' : 'Sent'}
         >
           {receipt === 'pending' ? (
-            <Clock size={12} strokeWidth={2.4} />
+            <Clock size={11} strokeWidth={2.4} />
           ) : receipt === 'seen' ? (
-            <CheckCheck size={14} strokeWidth={2.4} />
+            <CheckCheck size={14} strokeWidth={2.6} className={classes.checkSeen} />
+          ) : receipt === 'delivered' ? (
+            <CheckCheck size={14} strokeWidth={2.4} className={classes.checkDelivered} />
           ) : (
-            <Check size={13} strokeWidth={2.4} />
+            <Check size={13} strokeWidth={2.4} className={classes.checkSent} />
           )}
         </span>
       ) : null}
@@ -452,7 +475,6 @@ export default function SupportThread({
   onSend,
   typing = false,
   online = false,
-  userInitial = 'U',
   compact = false,
   title = 'Callsflow Support',
   emptyHint = WELCOME,
@@ -854,7 +876,8 @@ export default function SupportThread({
                 <div className={classes.bubbleCol}>
                   {showLabel ? (
                     <span className={`${classes.roleLabel} ${msg.senderRole === 'admin' ? classes.roleAdmin : classes.roleSupport}`}>
-                      {label}
+                      <Check size={10} strokeWidth={2.8} />
+                      <span>{label}</span>
                     </span>
                   ) : null}
                   <div
@@ -930,6 +953,31 @@ export default function SupportThread({
           <div ref={messagesEndRef} />
         </div>
       </div>
+
+      {desk && !disabled ? (
+        <div className={classes.cannedBar}>
+          <span className={classes.cannedLabel}>
+            <Zap size={11} />
+            <span>Quick Replies</span>
+          </span>
+          <div className={classes.cannedScroll}>
+            {CANNED_RESPONSES.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                className={classes.cannedChip}
+                onClick={() => {
+                  onInputChange?.(item.text);
+                  textareaRef.current?.focus();
+                }}
+                title={item.text}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className={classes.composer}>
         <input

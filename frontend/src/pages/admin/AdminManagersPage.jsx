@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { usePageBreadcrumbs } from '../../hooks/usePageBreadcrumbs';
@@ -24,6 +25,7 @@ import AdminAgencySettingsShell from '../../components/admin/AdminAgencySettings
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
 import { AdminCallTrendChart } from '../../components/admin/AdminCharts';
 import PageLoader from '../../components/ui/PageLoader';
+import NumberPopIn from '../../components/ui/NumberPopIn';
 import shared from '../../components/admin/adminShared.module.css';
 import classes from './AdminManagersPage.module.css';
 
@@ -861,17 +863,17 @@ export default function AdminManagersPage() {
                 <div className={classes.performanceStrip}>
                   <div className={classes.perfCard}>
                     <span className={classes.perfLabel}>Total calls</span>
-                    <span className={classes.perfValue}>{detail.summary?.totalCalls ?? 0}</span>
+                    <span className={classes.perfValue}><NumberPopIn value={detail.summary?.totalCalls ?? 0} /></span>
                   </div>
                   <div className={classes.perfCard}>
                     <span className={classes.perfLabel}>Billable rate</span>
                     <span className={classes.perfValue}>
-                      {Math.round((detail.summary?.billableRate ?? 0) * 100)}%
+                      <NumberPopIn value={`${Math.round((detail.summary?.billableRate ?? 0) * 100)}%`} />
                     </span>
                   </div>
                   <div className={classes.perfCard}>
                     <span className={classes.perfLabel}>Earnings</span>
-                    <span className={classes.perfValue}>{formatMoney(detail.summary?.totalCost)}</span>
+                    <span className={classes.perfValue}><NumberPopIn value={formatMoney(detail.summary?.totalCost)} /></span>
                   </div>
                 </div>
                 <div className={classes.chartSection}>

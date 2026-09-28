@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { isAgencyAdminUser } from '../../utils/authRoles';
 import useSupportChatStore from '../../store/useSupportChatStore';
+import useSupportDeskStore from '../../store/useSupportDeskStore';
 import classes from './Sidebar.module.css';
 
 const NAV_GROUP_LABELS = {
@@ -56,7 +57,7 @@ const Sidebar = () => {
   const user = useAuthStore((s) => s.user);
   const role = user?.role;
   const supportUnread = useSupportChatStore((s) => s.unreadForUser);
-  const deskUnread = useSupportChatStore((s) => s.deskUnreadTotal);
+  const deskUnread = useSupportDeskStore((s) => s.unreadTotal);
   const navigate = useNavigate();
   const location = useLocation();
   const navRef = useRef(null);
@@ -191,7 +192,7 @@ const Sidebar = () => {
       {!isSidebarCollapsed && (
         <>
           <span className={classes.label}>{item.label}</span>
-          {item.badgeKey === 'supportUnread' && supportUnread > 0 && (
+          {item.badgeKey === 'supportUnread' && supportUnread > 0 && !location.pathname.startsWith('/app/support') && (
             <span className={`${classes.badge} ${classes.unreadCount}`}>
               {supportUnread > 99 ? '99+' : supportUnread}
             </span>
