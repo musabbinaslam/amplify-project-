@@ -36,7 +36,6 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const CallLogsPage = lazy(() => import('./pages/CallLogsPage'));
 const AITrainingPage = lazy(() => import('./pages/AITrainingPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
-const LicensedStatesPage = lazy(() => import('./pages/LicensedStatesPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
 const SupportHubPage = lazy(() => import('./pages/SupportHubPage'));
@@ -47,7 +46,6 @@ const SupportChatPopup = lazy(() => import('./components/support/SupportChatPopu
 const ScriptPage = lazy(() => import('./pages/ScriptPage'));
 const NotesPage = lazy(() => import('./pages/NotesPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
-const LeadsPage = lazy(() => import('./pages/LeadsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ReferralProgramPage = lazy(() => import('./pages/ReferralProgramPage'));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
@@ -60,7 +58,6 @@ const AdminCampaignsPage = lazy(() => import('./pages/admin/AdminCampaignsPage')
 const AdminPhoneRoutingPage = lazy(() => import('./pages/admin/AdminPhoneRoutingPage'));
 const AdminAgenciesPage = lazy(() => import('./pages/admin/AdminAgenciesPage'));
 const AdminManagersPage = lazy(() => import('./pages/admin/AdminManagersPage'));
-const AdminAgenciesOpsPage = lazy(() => import('./pages/admin/AdminAgenciesOpsPage'));
 const AdminTeamsOpsPage = lazy(() => import('./pages/admin/AdminTeamsOpsPage'));
 const AdminAITrainingPage = lazy(() => import('./pages/AdminAITrainingPage'));
 const AdminAiFlagsPage = lazy(() => import('./pages/admin/AdminAiFlagsPage'));
@@ -378,12 +375,6 @@ const AnimatedRoutes = () => {
           <Route path="billing" element={
             <Suspense fallback={<PageLoader />}><BillingPage /></Suspense>
           } />
-          <Route path="licensed-states" element={
-            <Suspense fallback={<PageLoader />}><LicensedStatesPage /></Suspense>
-          } />
-          <Route path="leads" element={
-            <Suspense fallback={<PageLoader />}><LeadsPage /></Suspense>
-          } />
           <Route path="profile" element={
             <Suspense fallback={<PageLoader />}><ProfilePage /></Suspense>
           } />
@@ -471,13 +462,6 @@ const AnimatedRoutes = () => {
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
                 <AdminManagersPage />
-              </AdminOnly>
-            </Suspense>
-          } />
-          <Route path="admin/ops/agencies" element={
-            <Suspense fallback={<PageLoader />}>
-              <AdminOnly>
-                <AdminAgenciesOpsPage />
               </AdminOnly>
             </Suspense>
           } />

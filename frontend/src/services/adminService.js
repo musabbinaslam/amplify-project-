@@ -65,10 +65,6 @@ export function listAdminDids() {
   return apiFetch('/api/admin/dids', { method: 'GET' });
 }
 
-export function listAdminAgencies() {
-  return apiFetch('/api/admin/agencies', { method: 'GET' });
-}
-
 export function createAdminDid(body) {
   return apiFetch('/api/admin/dids', { method: 'POST', body });
 }
@@ -94,10 +90,6 @@ export function listAdminBroadcasts({ limit = 50, cursor } = {}) {
   if (limit) qs.set('limit', String(limit));
   if (cursor) qs.set('cursor', cursor);
   return apiFetch(`/api/admin/notifications/broadcasts${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
-}
-
-export function getAdminBroadcast(id) {
-  return apiFetch(`/api/admin/notifications/broadcasts/${encodeURIComponent(id)}`, { method: 'GET' });
 }
 
 export function patchAdminBroadcast(id, body) {

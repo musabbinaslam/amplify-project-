@@ -13,8 +13,6 @@ const TOP_LEVEL_ROUTES = {
   '/app/script': 'Script',
   '/app/notes': 'Notes',
   '/app/billing': 'Billing',
-  '/app/licensed-states': 'Licensed States',
-  '/app/leads': 'Leads',
   '/app/profile': 'Profile',
   '/app/support': 'Support',
   '/app/support-desk': 'Support Desk',
@@ -101,13 +99,6 @@ export function resolveRouteBreadcrumbs(pathname) {
     return [
       { label: 'Admin', href: ADMIN_HOME },
       { label: adminModule.title },
-    ];
-  }
-
-  if (normalized === '/app/admin/ops/agencies') {
-    return [
-      { label: 'Admin', href: ADMIN_HOME },
-      { label: 'Agencies', href: '/app/admin/agencies' },
     ];
   }
 

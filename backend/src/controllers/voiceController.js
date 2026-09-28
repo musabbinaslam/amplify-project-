@@ -1023,28 +1023,6 @@ exports.initiateAcaTransfer = async (req, res) => {
     }
 };
 
-/**
- * Send DTMF digits to the broker leg using Twilio REST API.
- * DEPRECATED: We now use the frontend Twilio Device to send DTMF directly.
- */
-exports.sendDtmfToConference = async (req, res) => {
-    try {
-        const { brokerCallSid, digit } = req.body;
-        if (!brokerCallSid || !digit) {
-            return res.status(400).json({ error: 'brokerCallSid and digit are required' });
-        }
-
-        await twilioClientObj.calls(brokerCallSid).update({
-            sendDigits: String(digit)
-        });
-
-        res.json({ success: true });
-    } catch (err) {
-        console.error('[ACA Transfer] Failed to send DTMF:', err);
-        res.status(500).json({ error: err.message });
-    }
-};
-
 exports.killCall = async (req, res) => {
     try {
         const agentId = req.user.uid;
