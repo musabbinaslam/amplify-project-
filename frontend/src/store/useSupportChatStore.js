@@ -148,7 +148,9 @@ const useSupportChatStore = create((set, get) => ({
     const isViewing = state.viewingThread || (state.popupOpen && !state.popupMinimized);
     const nextUnread = isViewing
       ? 0
-      : Math.max(Number(nextConvo?.unreadForUser || 0), Number(state.unreadForUser || 0) + 1, 1);
+      : isOwn
+        ? Math.max(Number(nextConvo?.unreadForUser || 0), Number(state.unreadForUser || 0))
+        : Math.max(Number(nextConvo?.unreadForUser || 0), Number(state.unreadForUser || 0) + 1, 1);
 
     if (fromSupport && state._typingTimeout) {
       clearTimeout(state._typingTimeout);

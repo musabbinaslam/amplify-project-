@@ -238,6 +238,7 @@ async function issueCourtesyCredit(req, res) {
       actor,
       req.body?.amountCents,
       req.body?.reason,
+      req.body?.idempotencyKey,
     );
     res.json(out);
   } catch (err) {

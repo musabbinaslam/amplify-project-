@@ -29,6 +29,6 @@ router.post('/conversations/:id/close', supportDeskController.closeConversation)
 router.get('/conversations/:id/customer-summary', supportDeskController.getCustomerSummary);
 router.post('/conversations/:id/notes', supportDeskController.addInternalNote);
 router.delete('/conversations/:id/notes/:noteId', supportDeskController.deleteInternalNote);
-router.post('/conversations/:id/credit', supportDeskController.issueCourtesyCredit);
+router.post('/conversations/:id/credit', supportLiveLimiter, supportDeskController.issueCourtesyCredit);
 
 module.exports = router;

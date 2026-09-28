@@ -305,10 +305,10 @@ export function deleteSupportDeskInternalNote(conversationId, noteId) {
   });
 }
 
-export function issueSupportCourtesyCredit(conversationId, { amountCents, reason } = {}) {
+export function issueSupportCourtesyCredit(conversationId, { amountCents, reason, idempotencyKey } = {}) {
   return apiFetch(`/api/support-desk/conversations/${encodeURIComponent(conversationId)}/credit`, {
     method: 'POST',
-    body: { amountCents, reason },
+    body: { amountCents, reason, idempotencyKey },
   });
 }
 

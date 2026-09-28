@@ -1074,7 +1074,7 @@ async function deleteInternalNote(conversationId, noteId) {
   return { ok: true, notes: updatedNotes };
 }
 
-async function issueCourtesyCredit(conversationId, actor, amountCents, reason) {
+async function issueCourtesyCredit(conversationId, actor, amountCents, reason, idempotencyKey) {
   const db = ensureDb();
   const cents = Math.round(Number(amountCents));
   if (!cents || cents <= 0 || cents > 10000) {
@@ -1085,10 +1085,15 @@ async function issueCourtesyCredit(conversationId, actor, amountCents, reason) {
   const convoData = snap.exists ? snap.data() : {};
   const userId = convoData.userId || conversationId;
 
+  const safeIdempotencyKey = (typeof idempotencyKey === 'string' && idempotencyKey.trim())
+    ? idempotencyKey.trim()
+    : `courtesy_${conversationId}_${actor?.uid || 'support'}_${Date.now()}`;
+
   await walletService.addCredits(userId, cents, 'manual', {
-    issuedBy: actor.uid,
+    issuedBy: actor?.uid || 'support',
     reason: reason || 'Support desk adjustment',
     conversationId,
+    idempotencyKey: safeIdempotencyKey,
   });
 
   const wallet = await walletService.getWallet(userId);

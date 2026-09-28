@@ -205,9 +205,11 @@ export default function CustomerIntelligencePanel({
     const cents = Math.round(dollars * 100);
     setIssuingCredit(true);
     try {
+      const idempotencyKey = `courtesy_${conversationId}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
       const res = await issueSupportCourtesyCredit(conversationId, {
         amountCents: cents,
         reason: creditReason.trim() || 'Support adjustment',
+        idempotencyKey,
       });
       setSummary((prev) => ({
         ...prev,
