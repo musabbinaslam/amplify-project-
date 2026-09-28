@@ -12,27 +12,22 @@ import NumberPopIn from '../components/ui/NumberPopIn';
 import CardTilt from '../components/ui/CardTilt';
 import AddCreditsModal from '../components/modals/AddCreditsModal';
 
-/* eslint-disable react/prop-types -- local stat card helper */
 const StatCard = ({ label, value, icon: Icon, variants, valueClassName }) => {
-  const reduceMotion = useReducedMotion();
   return (
-    <motion.div
-      className={`glass ${classes.statCard}`}
-      variants={variants}
-      whileHover={reduceMotion ? undefined : { y: -3 }}
-      transition={{ duration: 0.2, ease: EASE_SMOOTH }}
-    >
-      <div className={classes.statIconBox}>
-        <Icon size={18} />
-      </div>
-      <div className={classes.statLabel}>{label}</div>
-      <div className={`${classes.statValue} ${valueClassName || ''}`}>
-        {typeof value === 'number' || typeof value === 'string' ? (
-          <NumberPopIn value={value} />
-        ) : (
-          value
-        )}
-      </div>
+    <motion.div variants={variants} style={{ height: '100%' }}>
+      <CardTilt maxTilt={8} className={classes.statCardTiltWrap} cardClassName={`glass ${classes.statCard}`}>
+        <div className={classes.statIconBox}>
+          <Icon size={18} />
+        </div>
+        <div className={classes.statLabel}>{label}</div>
+        <div className={`${classes.statValue} ${valueClassName || ''}`}>
+          {typeof value === 'number' || typeof value === 'string' ? (
+            <NumberPopIn value={value} />
+          ) : (
+            value
+          )}
+        </div>
+      </CardTilt>
     </motion.div>
   );
 };
@@ -228,19 +223,17 @@ const BillingPage = () => {
             </button>
           </div>
 
-          <CardTilt maxTilt={8}>
-            <div className={classes.balanceHero}>
-              <div className={classes.balanceAmount}>
-                <NumberPopIn value={formatMoney(balance)} />
-              </div>
-              {balance < 5000 && (
-                <div className={classes.lowBalanceWarning}>
-                  <AlertCircle size={14} />
-                  Low balance — add credits to continue taking calls
-                </div>
-              )}
+          <div className={classes.balanceHero}>
+            <div className={classes.balanceAmount}>
+              <NumberPopIn value={formatMoney(balance)} />
             </div>
-          </CardTilt>
+            {balance < 5000 && (
+              <div className={classes.lowBalanceWarning}>
+                <AlertCircle size={14} />
+                Low balance — add credits to continue taking calls
+              </div>
+            )}
+          </div>
 
           <motion.div className={classes.statsRow} variants={presets.statsStrip}>
             <StatCard
