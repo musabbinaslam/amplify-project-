@@ -203,8 +203,16 @@
   gap: 18px;
 }
 
+.statCardTiltWrap {
+  height: 100%;
+  border-radius: var(--radius-xl);
+}
+
 .statCard {
   padding: 20px;
+  height: 100%;
+  border-radius: var(--radius-xl);
+  box-sizing: border-box;
 }
 
 .statCard > * {
