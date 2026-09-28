@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  TrendingUp, Phone, Radio, RefreshCw, Activity, CircleDollarSign, Play,
+  TrendingUp, Phone, Radio, RefreshCw, Activity, CircleDollarSign, Play, FileSpreadsheet,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -19,6 +19,7 @@ import AdminPageShell from '../../components/admin/AdminPageShell';
 import AdminStatCard from '../../components/admin/AdminStatCard';
 import { AdminCallTrendChart, AdminDrilldownTrendChart } from '../../components/admin/AdminCharts';
 import { AdminActionModal } from '../../components/admin/ContestReviewCard';
+import AdminExportModal from '../../components/admin/AdminExportModal';
 import { getAgentName, getAgentId } from '../../components/admin/adminUtils';
 import PageLoader from '../../components/ui/PageLoader';
 import CustomSelect from '../../components/ui/CustomSelect';
@@ -59,6 +60,7 @@ export default function AdminAnalyticsPage() {
   });
   const [customStart, setCustomStart] = useState(() => new Date().toISOString().slice(0, 10));
   const [customEnd, setCustomEnd] = useState(() => new Date().toISOString().slice(0, 10));
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [overview, setOverview] = useState(null);
@@ -358,6 +360,15 @@ export default function AdminAnalyticsPage() {
                   onChange={setTimezone}
                   menuAlign="right"
                 />
+                <button
+                  type="button"
+                  className={classes.refreshBtn}
+                  onClick={() => setExportModalOpen(true)}
+                  title="Export to Excel (.xlsx)"
+                >
+                  <FileSpreadsheet size={16} />
+                  Export Excel
+                </button>
                 <button
                   type="button"
                   className={classes.refreshBtn}
@@ -766,6 +777,14 @@ export default function AdminAnalyticsPage() {
         submitting={actionSubmitting}
         onClose={closeActionModal}
         onSubmit={submitActionModal}
+      />
+
+      <AdminExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        initialScope="all"
+        initialCampaign={selectedCampaign || 'all'}
+        initialRange={rangePreset}
       />
     </>
   );

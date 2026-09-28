@@ -17,6 +17,10 @@ router.get('/live-calls', adminController.getLiveCalls);
 router.get('/agents', adminController.listAgentsDirectory);
 router.post('/agents/:agentId/force-remove', adminController.forceRemoveAgent);
 
+// Data & Excel Report Export
+router.get('/export/excel', adminController.exportExcelReport);
+router.post('/export/excel', adminController.exportExcelReport);
+
 // Manager role administration — list all users + set role/managedAgents allowlist
 router.get('/users', adminController.getAllUsers);
 router.get('/managers', adminController.listManagerTeams);

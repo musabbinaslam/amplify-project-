@@ -64,6 +64,7 @@ const AdminAiFlagsPage = lazy(() => import('./pages/admin/AdminAiFlagsPage'));
 const AdminQaRulesPage = lazy(() => import('./pages/admin/AdminQaRulesPage'));
 const AdminNotificationSettingsPage = lazy(() => import('./pages/AdminNotificationSettingsPage'));
 const AdminSuspiciousPage = lazy(() => import('./pages/admin/AdminSuspiciousPage'));
+const AdminExportPage = lazy(() => import('./pages/admin/AdminExportPage'));
 
 const QaDashboardPage = lazy(() => import('./pages/QaDashboardPage'));
 const QaAITrainingPage = lazy(() => import('./pages/QaAITrainingPage'));
@@ -413,6 +414,13 @@ const AnimatedRoutes = () => {
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
                 <AdminAnalyticsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/export" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminExportPage />
               </AdminOnly>
             </Suspense>
           } />

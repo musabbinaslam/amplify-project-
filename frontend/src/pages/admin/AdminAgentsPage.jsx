@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Users, Trash2, X, Flag, ShieldCheck, ChevronLeft, ChevronRight, Pause, Play, HeadphonesIcon } from 'lucide-react';
+import { Users, Trash2, X, Flag, ShieldCheck, ChevronLeft, ChevronRight, Pause, Play, HeadphonesIcon, FileSpreadsheet } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -13,6 +13,7 @@ import {
 import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
 import AdminPageShell from '../../components/admin/AdminPageShell';
+import AdminExportModal from '../../components/admin/AdminExportModal';
 import { getAgentName, getAgentId } from '../../components/admin/adminUtils';
 import PageLoader from '../../components/ui/PageLoader';
 import classes from '../../components/admin/adminShared.module.css';
@@ -81,6 +82,7 @@ export default function AdminAgentsPage() {
   const [flagModal, setFlagModal] = useState(null);
   const [flagReason, setFlagReason] = useState('Low billable rate — below 30% threshold');
   const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   const getRange = useCallback(() => {
     const now = new Date();
@@ -270,6 +272,17 @@ export default function AdminAgentsPage() {
         description="All signed-up agents with performance, search, filters, and pagination."
         icon={Users}
         category={ADMIN_CATEGORIES.agents}
+        actions={
+          <button
+            type="button"
+            className={classes.refreshBtn}
+            onClick={() => setExportModalOpen(true)}
+            title="Export Agent Directory to Excel"
+          >
+            <FileSpreadsheet size={16} />
+            Export Directory (.xlsx)
+          </button>
+        }
       >
         <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
           <div className={classes.cardTopRow}>
@@ -637,6 +650,13 @@ export default function AdminAgentsPage() {
           </motion.div>
         </div>
       )}
+
+      <AdminExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        initialScope="agents"
+        initialRange={rangePreset}
+      />
     </>
   );
 }

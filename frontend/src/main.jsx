@@ -90,7 +90,40 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <AuthInit>
       <App />
-      <Toaster position="top-right" />
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: 'color-mix(in srgb, var(--surface-container-highest, #202020) 90%, #000000)',
+            color: 'var(--text-primary, #ffffff)',
+            border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.12))',
+            borderRadius: 'var(--radius-lg, 12px)',
+            padding: '12px 16px',
+            fontSize: '13px',
+            fontWeight: 500,
+            backdropFilter: 'blur(16px)',
+            boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
+          },
+          success: {
+            iconTheme: {
+              primary: 'var(--brand-solid, #25f425)',
+              secondary: 'var(--brand-on, #0b0b0b)',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: 'var(--accent-red, #ff7351)',
+              secondary: '#ffffff',
+            },
+          },
+          loading: {
+            iconTheme: {
+              primary: 'var(--brand-text, #25f425)',
+              secondary: 'transparent',
+            },
+          },
+        }}
+      />
     </AuthInit>
   </React.StrictMode>,
 );

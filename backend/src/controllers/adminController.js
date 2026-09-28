@@ -20,6 +20,7 @@ const { getDb } = require('../config/firestoreDb');
 const { mergeUserDoc, getUserDoc } = require('../services/userDataService');
 const callLogService = require('../services/callLogService');
 const { flagAgentAccount } = require('../services/agentFlagService');
+const { generateExcelReport } = require('../services/excelExportService');
 const ANALYTICS_CACHE_TTL_MS = 30000;
 const READ_CONCURRENCY = 10;
 const analyticsCache = new Map();
@@ -2053,6 +2054,47 @@ async function patchSupportRole(req, res) {
   }
 }
 
+async function exportExcelReport(req, res) {
+  try {
+    const params = {
+      ...(req.query || {}),
+      ...(req.body || {}),
+    };
+
+    const reportType = String(params.reportType || 'all').toLowerCase();
+    const campaign = String(params.campaign || 'all');
+    const from = params.from || null;
+    const to = params.to || null;
+    const agentId = params.agentId || 'all';
+    const status = String(params.status || 'all').toLowerCase();
+    const tz = String(params.tz || 'America/New_York');
+    const adminEmail = req.user?.email || 'admin@callsflow.io';
+
+    const result = await generateExcelReport({
+      reportType,
+      campaign,
+      from,
+      to,
+      agentId,
+      status,
+      tz,
+      adminEmail,
+    });
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const safeCampaign = campaign && campaign !== 'all' ? campaign.replace(/[^a-zA-Z0-9_-]/g, '_') : 'All_Campaigns';
+    const filename = `CallsFlow_Export_${reportType}_${safeCampaign}_${dateStr}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    return res.status(200).send(result.buffer);
+  } catch (err) {
+    console.error('[Admin] exportExcelReport:', err);
+    return res.status(500).json({ error: err.message || 'Failed to generate Excel report' });
+  }
+}
+
 module.exports = {
   getOverviewLite,
   getAnalyticsBundle,
@@ -2092,4 +2134,5 @@ module.exports = {
   denyCallContest,
   refundCall: refundCallHandler,
   patchSupportRole,
+  exportExcelReport,
 };
