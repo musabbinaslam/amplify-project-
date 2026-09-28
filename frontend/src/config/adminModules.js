@@ -140,17 +140,6 @@ export const ADMIN_MODULES = [
   },
 ];
 
-export function getAdminModulesByCategory() {
-  const order = Object.keys(ADMIN_CATEGORIES);
-  return order
-    .map((categoryId) => ({
-      id: categoryId,
-      label: ADMIN_CATEGORIES[categoryId],
-      modules: ADMIN_MODULES.filter((m) => m.category === categoryId),
-    }))
-    .filter((group) => group.modules.length > 0);
-}
-
 export function getAdminModuleByRoute(pathname) {
   return ADMIN_MODULES.find((m) => pathname === m.route || pathname.startsWith(`${m.route}/`));
 }
