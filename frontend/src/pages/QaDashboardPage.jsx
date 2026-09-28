@@ -25,6 +25,8 @@ import {
 import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
 import PageLoader from '../components/ui/PageLoader';
+import NumberPopIn from '../components/ui/NumberPopIn';
+import SlidingTabs from '../components/ui/SlidingTabs';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { RecordingModal } from './CallLogsPage';
 import classes from './QaDashboardPage.module.css';
@@ -325,9 +327,16 @@ const QaDashboardPage = () => {
         <div className={classes.cardTopRow}>
           <h2 className={classes.cardTitle}>Summary ({rangePreset === 'today' ? 'Today' : rangePreset === '30d' ? 'Last 30 days' : 'Last 7 days'})</h2>
           <div className={classes.filterRow}>
-            <button type="button" className={`${classes.filterBtn} ${rangePreset === 'today' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('today')}>Today</button>
-            <button type="button" className={`${classes.filterBtn} ${rangePreset === '7d' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('7d')}>Last 7 days</button>
-            <button type="button" className={`${classes.filterBtn} ${rangePreset === '30d' ? classes.filterBtnActive : ''}`} onClick={() => setRangePreset('30d')}>Last 30 days</button>
+            <SlidingTabs
+              tabs={[
+                { key: 'today', label: 'Today' },
+                { key: '7d', label: 'Last 7 days' },
+                { key: '30d', label: 'Last 30 days' },
+              ]}
+              activeKey={rangePreset}
+              onChange={setRangePreset}
+              ariaLabel="Date range"
+            />
             <button
               type="button"
               className={classes.refreshBtn}
@@ -346,22 +355,22 @@ const QaDashboardPage = () => {
           <div className={classes.statCard}>
             <Phone size={18} className={classes.statIcon} />
             <span className={classes.statLabel}>Total calls</span>
-            <span className={classes.statValue}>{analyticsLoading ? <span className={classes.skeletonNum} /> : statsSummary.totalCalls}</span>
+            <span className={classes.statValue}>{analyticsLoading ? <span className={classes.skeletonNum} /> : <NumberPopIn value={statsSummary.totalCalls} />}</span>
           </div>
           <div className={classes.statCard}>
             <Activity size={18} className={classes.statIcon} />
             <span className={classes.statLabel}>Answer rate</span>
-            <span className={classes.statValue}>{analyticsLoading ? <span className={classes.skeletonNum} /> : `${Math.round((statsSummary.answerRate || 0) * 100)}%`}</span>
+            <span className={classes.statValue}>{analyticsLoading ? <span className={classes.skeletonNum} /> : <NumberPopIn value={`${Math.round((statsSummary.answerRate || 0) * 100)}%`} />}</span>
           </div>
           <div className={classes.statCard}>
             <Radio size={18} className={classes.statIcon} />
             <span className={classes.statLabel}>Billable rate</span>
-            <span className={classes.statValue}>{analyticsLoading ? <span className={classes.skeletonNum} /> : `${Math.round((statsSummary.billableRate || 0) * 100)}%`}</span>
+            <span className={classes.statValue}>{analyticsLoading ? <span className={classes.skeletonNum} /> : <NumberPopIn value={`${Math.round((statsSummary.billableRate || 0) * 100)}%`} />}</span>
           </div>
           <div className={classes.statCard}>
             <CircleDollarSign size={18} className={classes.statIcon} />
             <span className={classes.statLabel}>Total cost</span>
-            <span className={classes.statValue}>{analyticsLoading ? <span className={classes.skeletonNumWide} /> : `$${(statsSummary.totalCost || 0).toFixed(2)}`}</span>
+            <span className={classes.statValue}>{analyticsLoading ? <span className={classes.skeletonNumWide} /> : <NumberPopIn value={`$${(statsSummary.totalCost || 0).toFixed(2)}`} />}</span>
           </div>
         </div>
         <div className={classes.metaRow}>
@@ -378,22 +387,22 @@ const QaDashboardPage = () => {
         <motion.div className={classes.statCard} variants={presets.child}>
           <Users size={18} className={classes.statIcon} />
           <span className={classes.statLabel}>Live agents</span>
-          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (overview?.totalAgents ?? 0)}</span>
+          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : <NumberPopIn value={overview?.totalAgents ?? 0} />}</span>
         </motion.div>
         <motion.div className={classes.statCard} variants={presets.child}>
           <Radio size={18} className={classes.statIcon} />
           <span className={classes.statLabel}>Available</span>
-          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (overview?.agents || []).filter(a => a.status === 'AVAILABLE' || a.status === 'RESERVED').length}</span>
+          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : <NumberPopIn value={(overview?.agents || []).filter(a => a.status === 'AVAILABLE' || a.status === 'RESERVED').length} />}</span>
         </motion.div>
         <motion.div className={classes.statCard} variants={presets.child}>
           <Phone size={18} className={classes.statIcon} />
           <span className={classes.statLabel}>Ringing</span>
-          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (overview?.agents || []).filter(a => a.status === 'RINGING').length}</span>
+          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : <NumberPopIn value={(overview?.agents || []).filter(a => a.status === 'RINGING').length} />}</span>
         </motion.div>
         <motion.div className={classes.statCard} variants={presets.child}>
           <Phone size={18} className={classes.statIcon} />
           <span className={classes.statLabel}>Busy</span>
-          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : (pool.busy?.length ?? 0)}</span>
+          <span className={classes.statValue}>{loading ? <span className={classes.skeletonNum} /> : <NumberPopIn value={pool.busy?.length ?? 0} />}</span>
         </motion.div>
       </motion.div>
 
@@ -721,15 +730,15 @@ const QaDashboardPage = () => {
             <div className={classes.grid}>
               <div className={classes.statCard}>
                 <span className={classes.statLabel}>Calls</span>
-                <span className={classes.statValue}>{drilldown.summary?.calls ?? 0}</span>
+                <span className={classes.statValue}><NumberPopIn value={drilldown.summary?.calls ?? 0} /></span>
               </div>
               <div className={classes.statCard}>
                 <span className={classes.statLabel}>Answer Rate</span>
-                <span className={classes.statValue}>{Math.round((drilldown.summary?.answerRate || 0) * 100)}%</span>
+                <span className={classes.statValue}><NumberPopIn value={`${Math.round((drilldown.summary?.answerRate || 0) * 100)}%`} /></span>
               </div>
               <div className={classes.statCard}>
                 <span className={classes.statLabel}>Billable Rate</span>
-                <span className={classes.statValue}>{Math.round((drilldown.summary?.billableRate || 0) * 100)}%</span>
+                <span className={classes.statValue}><NumberPopIn value={`${Math.round((drilldown.summary?.billableRate || 0) * 100)}%`} /></span>
               </div>
             </div>
             <div className={classes.metaRow}>

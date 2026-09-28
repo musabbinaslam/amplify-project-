@@ -61,7 +61,12 @@ async function startOutbound(req, res) {
       userId,
       actor,
       req.body?.text,
-      { replyTo: req.body?.replyTo, attachments: req.body?.attachments },
+      {
+        replyTo: req.body?.replyTo,
+        attachments: req.body?.attachments,
+        asStaff: true,
+        asCustomer: false,
+      },
     );
     supportSockets.broadcastMessage(out.conversation, out.message);
     res.json(out);
@@ -77,7 +82,12 @@ async function postMessage(req, res) {
       req.params.id,
       actor,
       req.body?.text,
-      { replyTo: req.body?.replyTo, attachments: req.body?.attachments },
+      {
+        replyTo: req.body?.replyTo,
+        attachments: req.body?.attachments,
+        asStaff: true,
+        asCustomer: false,
+      },
     );
     supportSockets.broadcastMessage(out.conversation, out.message);
     res.json(out);
@@ -185,6 +195,56 @@ async function getMedia(req, res) {
   }
 }
 
+async function getCustomerSummary(req, res) {
+  try {
+    const summary = await supportConversationService.getCustomerSummary(req.params.id);
+    res.json(summary);
+  } catch (err) {
+    sendErr(res, err, 'Failed to fetch customer summary');
+  }
+}
+
+async function addInternalNote(req, res) {
+  try {
+    const actor = await actorFromReq(req);
+    const out = await supportConversationService.addInternalNote(
+      req.params.id,
+      actor,
+      req.body?.text,
+    );
+    res.json(out);
+  } catch (err) {
+    sendErr(res, err, 'Failed to add note');
+  }
+}
+
+async function deleteInternalNote(req, res) {
+  try {
+    const out = await supportConversationService.deleteInternalNote(
+      req.params.id,
+      req.params.noteId,
+    );
+    res.json(out);
+  } catch (err) {
+    sendErr(res, err, 'Failed to delete note');
+  }
+}
+
+async function issueCourtesyCredit(req, res) {
+  try {
+    const actor = await actorFromReq(req);
+    const out = await supportConversationService.issueCourtesyCredit(
+      req.params.id,
+      actor,
+      req.body?.amountCents,
+      req.body?.reason,
+    );
+    res.json(out);
+  } catch (err) {
+    sendErr(res, err, 'Failed to issue credit');
+  }
+}
+
 module.exports = {
   listConversations,
   searchUsers,
@@ -197,4 +257,8 @@ module.exports = {
   getMessages,
   uploadMedia,
   getMedia,
+  getCustomerSummary,
+  addInternalNote,
+  deleteInternalNote,
+  issueCourtesyCredit,
 };

@@ -8,27 +8,38 @@
 .shell {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  display: flex;
+  flex-direction: row;
   overflow: hidden;
   padding: 0;
   border-radius: 0;
 }
 
-.inbox,
+.inbox {
+  border-right: 1px solid color-mix(in srgb, var(--glass-border) 60%, transparent);
+  width: 280px;
+  min-width: 280px;
+  max-width: 280px;
+  flex-shrink: 0;
+  background: var(--surface-container-low);
+  display: flex;
+  flex-direction: column;
+}
+
 .chatPane {
+  flex: 1;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
-.inbox {
-  border-right: 1px solid var(--glass-border);
-  max-width: 260px;
-  background: color-mix(in srgb, var(--surface-container-low) 88%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  backdrop-filter: blur(18px) saturate(140%);
+.intelWrap {
+  height: 100%;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .inboxHead {
@@ -75,10 +86,10 @@
 
 .tabs {
   display: flex;
-  gap: 2px;
-  padding: 0 10px;
+  align-items: center;
+  padding: 4px 12px 10px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--glass-border);
+  border-bottom: 1px solid color-mix(in srgb, var(--glass-border) 70%, transparent);
 }
 
 .tab {
@@ -110,7 +121,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 8px 10px;
+  margin: 10px 12px 8px;
   padding: 0 10px;
   min-height: 36px;
   border-radius: var(--radius-lg);
@@ -255,6 +266,7 @@
 .rowActive {
   border-color: color-mix(in srgb, var(--brand-text) 45%, transparent);
   background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  border-left: 3px solid var(--brand-text);
 }
 
 .rowAvatar {
@@ -465,6 +477,34 @@
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.intelToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  min-height: 32px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.intelToggleBtn:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--brand-text) 35%, var(--glass-border));
+  background: color-mix(in srgb, var(--surface-container-high) 60%, transparent);
+}
+
+.intelToggleBtnActive {
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 40%, transparent);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
 }
 
 .closeBtn {

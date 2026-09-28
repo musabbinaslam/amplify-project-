@@ -36,3 +36,7 @@ frontend/.vercel/
 
 # Markdown docs stay local (never commit)
 *.md
+
+# Local agent skill directory and lock
+.agents/
+skills-lock.json

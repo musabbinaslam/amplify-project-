@@ -4,8 +4,6 @@ import {
   motion,
   AnimatePresence,
   useReducedMotion,
-  useMotionValue,
-  animate,
 } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import {
@@ -27,6 +25,7 @@ import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { dropdownPanelMotion, EASE_SMOOTH } from '../motion/appMotion';
 import { fetchLeaderboard } from '../services/leaderboardService';
 import PageLoader from '../components/ui/PageLoader';
+import NumberPopIn from '../components/ui/NumberPopIn';
 import classes from './LeaderboardPage.module.css';
 
 const PERIOD_OPTIONS = [
@@ -66,25 +65,8 @@ function initialsFrom(name = '') {
 }
 
 const CountUp = ({ value, decimals = 0, prefix = '', suffix = '' }) => {
-  const reduceMotion = useReducedMotion();
-  const mv = useMotionValue(0);
-  const [display, setDisplay] = useState(() => `${prefix}${(0).toFixed(decimals)}${suffix}`);
-
-  useEffect(() => {
-    const format = (v) => `${prefix}${Number(v).toFixed(decimals)}${suffix}`;
-    if (reduceMotion) {
-      setDisplay(format(value));
-      return undefined;
-    }
-    const controls = animate(mv, value, {
-      duration: 1.6,
-      ease: EASE_SMOOTH,
-      onUpdate: (v) => setDisplay(format(v)),
-    });
-    return () => controls.stop();
-  }, [value, decimals, prefix, suffix, reduceMotion, mv]);
-
-  return <span>{display}</span>;
+  const formatted = typeof value === 'number' && decimals > 0 ? value.toFixed(decimals) : value;
+  return <NumberPopIn value={formatted} prefix={prefix} suffix={suffix} />;
 };
 
 const Avatar = ({ name, size = 44, className = '' }) => (
@@ -531,11 +513,11 @@ const LeaderboardPage = () => {
               </div>
               <div className={classes.meBannerStats}>
                 <div>
-                  <span className={classes.meStatValue}>{me.policiesClosed}</span>
+                  <span className={classes.meStatValue}><NumberPopIn value={me.policiesClosed} /></span>
                   <span className={classes.meStatLabel}>Policies</span>
                 </div>
                 <div>
-                  <span className={classes.meStatValue}>{me.policyClosedRate}%</span>
+                  <span className={classes.meStatValue}><NumberPopIn value={me.policyClosedRate} suffix="%" /></span>
                   <span className={classes.meStatLabel}>Rate</span>
                 </div>
                 <div>

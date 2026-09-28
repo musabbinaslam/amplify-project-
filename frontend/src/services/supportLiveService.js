@@ -24,20 +24,22 @@ export function getSupportMessages(conversationId, { cursor, limit, markRead } =
   });
 }
 
-export function postSupportMessage(conversationId, text, { replyTo, attachments } = {}) {
+export function postSupportMessage(conversationId, text, { replyTo, attachments, asCustomer = true } = {}) {
   return apiFetch(`/api/support/conversations/${encodeURIComponent(conversationId)}/messages`, {
     method: 'POST',
     body: {
       text,
+      asCustomer,
       ...(replyTo ? { replyTo } : {}),
       ...(attachments?.length ? { attachments } : {}),
     },
   });
 }
 
-export function markSupportRead(conversationId) {
+export function markSupportRead(conversationId, { asStaff = false } = {}) {
   return apiFetch(`/api/support/conversations/${encodeURIComponent(conversationId)}/read`, {
     method: 'POST',
+    body: { asStaff },
   });
 }
 
@@ -75,11 +77,13 @@ export function getSupportDeskMessages(conversationId, { cursor, limit, markRead
   });
 }
 
-export function postSupportDeskMessage(conversationId, text, { replyTo, attachments } = {}) {
+export function postSupportDeskMessage(conversationId, text, { replyTo, attachments, asStaff = true, asCustomer = false } = {}) {
   return apiFetch(`/api/support-desk/conversations/${encodeURIComponent(conversationId)}/messages`, {
     method: 'POST',
     body: {
       text,
+      asStaff,
+      asCustomer,
       ...(replyTo ? { replyTo } : {}),
       ...(attachments?.length ? { attachments } : {}),
     },
@@ -94,12 +98,14 @@ export function searchSupportDeskUsers({ q, limit = 20 } = {}) {
   return apiFetch(`/api/support-desk/users/search${suffix}`, { method: 'GET' });
 }
 
-export function startSupportDeskOutbound({ userId, text, replyTo, attachments } = {}) {
+export function startSupportDeskOutbound({ userId, text, replyTo, attachments, asStaff = true, asCustomer = false } = {}) {
   return apiFetch('/api/support-desk/conversations/outbound', {
     method: 'POST',
     body: {
       userId,
       text,
+      asStaff,
+      asCustomer,
       ...(replyTo ? { replyTo } : {}),
       ...(attachments?.length ? { attachments } : {}),
     },
@@ -279,3 +285,30 @@ export function closeSupportConversation(conversationId) {
     method: 'POST',
   });
 }
+
+export function getSupportCustomerSummary(conversationId) {
+  return apiFetch(`/api/support-desk/conversations/${encodeURIComponent(conversationId)}/customer-summary`, {
+    method: 'GET',
+  });
+}
+
+export function addSupportDeskInternalNote(conversationId, text) {
+  return apiFetch(`/api/support-desk/conversations/${encodeURIComponent(conversationId)}/notes`, {
+    method: 'POST',
+    body: { text },
+  });
+}
+
+export function deleteSupportDeskInternalNote(conversationId, noteId) {
+  return apiFetch(`/api/support-desk/conversations/${encodeURIComponent(conversationId)}/notes/${encodeURIComponent(noteId)}`, {
+    method: 'DELETE',
+  });
+}
+
+export function issueSupportCourtesyCredit(conversationId, { amountCents, reason } = {}) {
+  return apiFetch(`/api/support-desk/conversations/${encodeURIComponent(conversationId)}/credit`, {
+    method: 'POST',
+    body: { amountCents, reason },
+  });
+}
+

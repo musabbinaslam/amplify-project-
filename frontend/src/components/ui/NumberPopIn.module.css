@@ -1,0 +1,61 @@
+/* ── Number Pop-in Transition (Transitions.dev) ── */
+@keyframes tDigitPopIn {
+  0% {
+    transform: translate3d(
+      calc(var(--digit-distance, 8px) * var(--digit-dir-x, 0)),
+      calc(var(--digit-distance, 8px) * var(--digit-dir-y, 1)),
+      0
+    );
+    opacity: 0;
+    filter: blur(var(--digit-blur, 2px));
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.digitGroup {
+  display: inline-flex;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  white-space: nowrap;
+  letter-spacing: inherit;
+  vertical-align: baseline;
+}
+
+.digit {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+  line-height: inherit;
+  font-variant-numeric: tabular-nums;
+  animation: tDigitPopIn var(--digit-dur, 480ms) var(--digit-ease, cubic-bezier(0.34, 1.45, 0.64, 1)) both;
+}
+
+.digit[data-stagger="1"] {
+  animation-delay: var(--digit-stagger, 60ms);
+}
+
+.digit[data-stagger="2"] {
+  animation-delay: calc(var(--digit-stagger, 60ms) * 2);
+}
+
+.digit[data-stagger="3"] {
+  animation-delay: calc(var(--digit-stagger, 60ms) * 3);
+}
+
+.digit[data-stagger="4"] {
+  animation-delay: calc(var(--digit-stagger, 60ms) * 4);
+}
+
+/* Reduced motion guard */
+@media (prefers-reduced-motion: reduce) {
+  .digitGroup .digit {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+  }
+}

@@ -26,5 +26,9 @@ router.post('/conversations/:id/messages', supportLiveLimiter, supportDeskContro
 router.post('/conversations/:id/read', supportDeskController.markRead);
 router.post('/conversations/:id/claim', supportDeskController.claimConversation);
 router.post('/conversations/:id/close', supportDeskController.closeConversation);
+router.get('/conversations/:id/customer-summary', supportDeskController.getCustomerSummary);
+router.post('/conversations/:id/notes', supportDeskController.addInternalNote);
+router.delete('/conversations/:id/notes/:noteId', supportDeskController.deleteInternalNote);
+router.post('/conversations/:id/credit', supportDeskController.issueCourtesyCredit);
 
 module.exports = router;

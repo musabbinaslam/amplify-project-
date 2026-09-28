@@ -39,6 +39,7 @@ async function getMessages(req, res) {
       cursor: req.query.cursor,
       limit: req.query.limit,
       markRead: markReadFlag,
+      asStaff: false,
     });
     if (out.readChanged) {
       supportSockets.broadcastConversation(out.conversation, 'support:read');
@@ -52,11 +53,16 @@ async function getMessages(req, res) {
 async function postMessage(req, res) {
   try {
     const actor = await actorFromReq(req);
+    const asCustomer = req.body?.asCustomer !== undefined ? Boolean(req.body.asCustomer) : true;
     const out = await supportConversationService.postMessage(
       req.params.id,
       actor,
       req.body?.text,
-      { replyTo: req.body?.replyTo, attachments: req.body?.attachments },
+      {
+        replyTo: req.body?.replyTo,
+        attachments: req.body?.attachments,
+        asCustomer,
+      },
     );
     supportSockets.broadcastMessage(out.conversation, out.message);
     res.json(out);
@@ -68,7 +74,8 @@ async function postMessage(req, res) {
 async function markRead(req, res) {
   try {
     const actor = await actorFromReq(req);
-    const out = await supportConversationService.markRead(req.params.id, actor);
+    const asStaff = req.body?.asStaff !== undefined ? Boolean(req.body.asStaff) : false;
+    const out = await supportConversationService.markRead(req.params.id, actor, { asStaff });
     if (out.changed) {
       supportSockets.broadcastConversation(out.conversation, 'support:read');
     }

@@ -9,6 +9,7 @@ import Topbar from './Topbar';
 import useAuthStore from '../../store/authStore';
 import useDialerStore from '../../store/useDialerStore';
 import useSupportChatStore, { deskUnreadFromConversation } from '../../store/useSupportChatStore';
+import useSupportDeskStore from '../../store/useSupportDeskStore';
 import { useUIStore } from '../../store/uiStore';
 import { getApiBaseUrl } from '../../config/apiBase';
 import {
@@ -302,83 +303,30 @@ const AppShell = () => {
     if (!isStaffViewer || !user?.uid) return undefined;
 
     let cancelled = false;
-    let detachSocket = null;
 
     const refreshFromApi = async () => {
       try {
         const { listSupportDeskConversations } = await import('../../services/supportLiveService');
         const out = await listSupportDeskConversations({ status: 'inbox' });
         if (cancelled) return;
-        const state = useSupportChatStore.getState();
-        const prev = state.deskUnreadById || {};
-        const activeId = state._activeDeskConversationId
-          ? String(state._activeDeskConversationId)
-          : null;
+        const deskStore = useSupportDeskStore.getState();
+        const activeId = deskStore.selectedId ? String(deskStore.selectedId) : null;
         const rows = (out?.rows || []).map((row) => {
           if (activeId && String(row.id) === activeId) {
             return { ...row, unreadForSupport: 0, clearUnread: true };
           }
-          const serverUnread = Math.max(
-            Number(row.unreadForSupport || 0),
-            deskUnreadFromConversation(row),
-          );
-          // Once server says read, drop sticky client count for that thread.
-          if (serverUnread <= 0) {
-            return { ...row, unreadForSupport: 0, clearUnread: true };
-          }
-          return {
-            ...row,
-            unreadForSupport: Math.max(
-              serverUnread,
-              Number(prev[row.id] || prev[String(row.id)] || 0),
-            ),
-          };
+          return row;
         });
-        state.syncDeskUnreadFromRows(rows);
+        deskStore.syncUnreadFromRows(rows);
       } catch {
         /* ignore */
       }
     };
 
-    const onMessage = (payload = {}) => {
-      const conversation = payload?.conversation;
-      const message = payload?.message;
-      if (!conversation?.id) return;
-      useSupportChatStore.getState().applyDeskInboxUpdate(conversation, {
-        fromUserMessage: Boolean(message?.id),
-        silent: false,
-        messageId: message?.id || null,
-      });
-    };
-    const onInbox = (conversation) => {
-      if (!conversation?.id) return;
-      useSupportChatStore.getState().applyDeskInboxUpdate(conversation, { silent: true });
-    };
-
-    const attach = (socket) => {
-      if (!socket) return null;
-      socket.on('support:message:new', onMessage);
-      socket.on('support:inbox:updated', onInbox);
-      return () => {
-        socket.off('support:message:new', onMessage);
-        socket.off('support:inbox:updated', onInbox);
-      };
-    };
-
-    detachSocket = attach(useSupportChatStore.getState()._socket);
-    let prevSocket = useSupportChatStore.getState()._socket;
-    const unsub = useSupportChatStore.subscribe((state) => {
-      if (state._socket === prevSocket) return;
-      prevSocket = state._socket;
-      if (typeof detachSocket === 'function') detachSocket();
-      detachSocket = attach(state._socket);
-    });
-
     // Ensure staff socket exists even after HMR wiped the store.
     useSupportChatStore.getState().connect(getIdToken, { isStaffViewer: true })
-      .then((socket) => {
+      .then(() => {
         if (cancelled) return;
-        if (!detachSocket) detachSocket = attach(socket);
         refreshFromApi();
       })
       .catch(() => {});
@@ -391,8 +339,6 @@ const AppShell = () => {
 
     return () => {
       cancelled = true;
-      if (typeof detachSocket === 'function') detachSocket();
-      unsub();
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', onVis);
     };
@@ -410,7 +356,7 @@ const AppShell = () => {
       const detail = event?.detail || {};
       const name = detail.conversation?.userName || detail.conversation?.userEmail || 'User';
       const preview = String(detail.preview || 'New message').slice(0, 72);
-      const unreadTotal = Number(useSupportChatStore.getState().deskUnreadTotal || detail.unread || 1);
+      const unreadTotal = Number(useSupportDeskStore.getState().unreadTotal || detail.unread || 1);
       const initial = String(name).charAt(0).toUpperCase() || '?';
       const toastId = `support-desk-${detail.conversation?.id || 'msg'}`;
 

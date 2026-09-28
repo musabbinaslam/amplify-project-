@@ -436,6 +436,22 @@
   border-color: color-mix(in srgb, var(--brand-text) 18%, var(--glass-border));
 }
 
+.inboxTabsWrap {
+  padding: 8px 10px 0;
+  display: flex;
+}
+
+.inboxTabsWrap > div {
+  width: 100%;
+  display: flex;
+}
+
+.inboxTabsWrap button {
+  flex: 1;
+  display: inline-flex;
+  justify-content: center;
+}
+
 .inboxTabs {
   display: flex;
   gap: 4px;

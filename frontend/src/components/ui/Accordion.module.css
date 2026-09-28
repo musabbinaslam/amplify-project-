@@ -1,0 +1,98 @@
+.accordionItem {
+  position: relative;
+  border-radius: var(--radius-lg, 12px);
+  background: color-mix(in srgb, var(--surface-container-low, #131313) 65%, transparent);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+  overflow: hidden;
+  transition: border-color var(--acc-expand, 250ms) var(--acc-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+              background var(--acc-expand, 250ms) var(--acc-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.accordionItem[data-open="true"] {
+  border-color: color-mix(in srgb, var(--brand, #25f425) 30%, transparent);
+  background: color-mix(in srgb, var(--surface-container, #1a1a1a) 80%, transparent);
+}
+
+.accordionHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary, #ffffff);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+
+.accordionHeader:hover {
+  color: var(--brand, #25f425);
+}
+
+.chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: scaleY(1);
+  transform-origin: center;
+  transition: transform var(--acc-chevron, 250ms) var(--acc-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  color: var(--text-secondary, #adaaaa);
+  flex-shrink: 0;
+}
+
+.chevron svg path {
+  vector-effect: non-scaling-stroke;
+}
+
+.accordionItem[data-open="true"] .chevron {
+  transform: scaleY(-1);
+  color: var(--brand, #25f425);
+}
+
+.accordionPanel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--acc-collapse, 250ms) var(--acc-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.accordionItem[data-open="true"] .accordionPanel {
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--acc-expand, 250ms) var(--acc-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.accordionInner {
+  overflow: hidden;
+  opacity: 0;
+  filter: blur(2px);
+  transition:
+    opacity var(--acc-collapse, 250ms) var(--acc-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    filter  var(--acc-collapse, 250ms) var(--acc-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.accordionItem[data-open="true"] .accordionInner {
+  opacity: 1;
+  filter: blur(0);
+  transition:
+    opacity var(--acc-expand, 250ms) var(--acc-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    filter  var(--acc-expand, 250ms) var(--acc-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.accordionContent {
+  padding: 0 20px 16px 20px;
+  color: var(--text-secondary, #adaaaa);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accordionPanel,
+  .accordionInner,
+  .chevron {
+    transition: none !important;
+  }
+}

@@ -1,0 +1,56 @@
+.inputWrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.shakeTarget {
+  transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
+  will-change: transform;
+}
+
+.shakeTarget.isError {
+  border-color: var(--accent-red, #ff5c5c) !important;
+  box-shadow: 0 0 0 1px var(--accent-red, #ff5c5c), 0 0 12px rgba(255, 92, 92, 0.25) !important;
+  transition: border-color var(--revert-dur, 280ms) ease-out, box-shadow var(--revert-dur, 280ms) ease-out;
+}
+
+.shakeTarget.isShaking {
+  animation: inputShake calc(
+    var(--shake-dur-a, 80ms) * 2 + var(--shake-dur-b, 60ms) * 2
+  ) linear;
+}
+
+@keyframes inputShake {
+  0%      { transform: translateX(0);                                  animation-timing-function: var(--shake-ease, cubic-bezier(0.22, 1, 0.36, 1)); }
+  28.57%  { transform: translateX(var(--shake-distance, 6px));         animation-timing-function: var(--shake-ease, cubic-bezier(0.22, 1, 0.36, 1)); }
+  57.14%  { transform: translateX(calc(var(--shake-distance, 6px) * -1)); animation-timing-function: var(--shake-ease, cubic-bezier(0.22, 1, 0.36, 1)); }
+  78.57%  { transform: translateX(var(--shake-overshoot, 4px));        animation-timing-function: var(--shake-ease, cubic-bezier(0.22, 1, 0.36, 1)); }
+  100%    { transform: translateX(0); }
+}
+
+.errorMsg {
+  opacity: 0;
+  visibility: hidden;
+  font-size: 0.75rem;
+  color: var(--accent-red, #ff5c5c);
+  margin-top: 4px;
+  transition:
+    opacity    var(--revert-dur, 280ms) ease-out,
+    visibility 0s linear var(--revert-dur, 280ms);
+}
+
+.inputWrap.isError .errorMsg {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity    var(--revert-dur, 280ms) ease-out,
+    visibility 0s linear 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shakeTarget {
+    animation: none !important;
+    transform: none !important;
+  }
+}

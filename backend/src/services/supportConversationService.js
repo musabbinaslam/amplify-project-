@@ -1,6 +1,7 @@
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const { mergeUserDoc, getUserDoc } = require('./userDataService');
+const walletService = require('./walletService');
 const { buildUserMetaMap, displayNameFromUserData } = require('../utils/managerAnalytics');
 const {
   resolveAttachments,
@@ -289,13 +290,20 @@ async function postMessage(conversationId, actor, text, extra = {}) {
     throw Object.assign(new Error(`Message exceeds ${MAX_TEXT} characters`), { status: 400 });
   }
 
-  const isStaff = isStaffRole(actor.role);
-  // Preserve admin vs support so the user chat can label who replied.
-  const senderRole = isStaff ? (actor.role === 'admin' ? 'admin' : 'support') : 'user';
+  const isOwnerInit = String(conversationId) === String(actor.uid);
+  let isStaff;
+  if (extra.asStaff !== undefined) {
+    isStaff = Boolean(extra.asStaff) && isStaffRole(actor.role);
+  } else if (extra.asCustomer !== undefined) {
+    isStaff = !Boolean(extra.asCustomer) && isStaffRole(actor.role);
+  } else {
+    isStaff = isStaffRole(actor.role) && !isOwnerInit;
+  }
+
   const ref = convRef(db, conversationId);
   const snap = await ref.get();
   if (!snap.exists) {
-    if (!isStaff && String(conversationId) === String(actor.uid)) {
+    if (!isStaff && isOwnerInit) {
       await createConversation(db, actor, { status: 'waiting' });
     } else {
       throw Object.assign(new Error('Conversation not found'), { status: 404 });
@@ -304,6 +312,18 @@ async function postMessage(conversationId, actor, text, extra = {}) {
   const convoSnap = snap.exists ? snap : await ref.get();
   const convo = { id: convoSnap.id, ...convoSnap.data() };
   await assertUserCanAccess(convo, actor.uid, actor.role);
+
+  const isOwner = String(convo.userId || conversationId) === String(actor.uid);
+  if (extra.asStaff !== undefined) {
+    isStaff = Boolean(extra.asStaff) && isStaffRole(actor.role);
+  } else if (extra.asCustomer !== undefined) {
+    isStaff = !Boolean(extra.asCustomer) && isStaffRole(actor.role);
+  } else {
+    isStaff = isStaffRole(actor.role) && !isOwner;
+  }
+
+  // Preserve admin vs support so the user chat can label who replied.
+  const senderRole = isStaff ? (actor.role === 'admin' ? 'admin' : 'support') : 'user';
 
   const attachments = await resolveAttachments(conversationId, extra.attachments);
   if (!body && !attachments.length) {
@@ -315,8 +335,10 @@ async function postMessage(conversationId, actor, text, extra = {}) {
   const now = admin.firestore.Timestamp.now();
   const nowIso = now.toDate().toISOString();
   const msgRef = ref.collection('messages').doc();
-  const senderName = actor.name || actor.displayName || actor.email
-    || (senderRole === 'admin' ? 'Admin' : isStaff ? 'Support' : 'User');
+  const senderName = isStaff
+    ? (actor.name || actor.displayName || (senderRole === 'admin' ? 'Admin' : 'Support agent'))
+    : (convo.userName || actor.name || actor.displayName || 'User');
+
   const message = {
     senderId: actor.uid,
     senderRole,
@@ -330,7 +352,7 @@ async function postMessage(conversationId, actor, text, extra = {}) {
   if (replyTo) message.replyTo = replyTo;
 
   const unreadForUser = isStaff ? Number(convo.unreadForUser || 0) + 1 : 0;
-  const unreadForSupport = senderRole === 'user' ? Number(convo.unreadForSupport || 0) + 1 : 0;
+  const unreadForSupport = isStaff ? 0 : Number(convo.unreadForSupport || 0) + 1;
 
   let status = convo.status || 'waiting';
   let firstResponseAt = convo.firstResponseAt || null;
@@ -651,7 +673,7 @@ async function startOutboundConversation(targetUserId, actor, text, extra = {}) 
     });
   }
 
-  return postMessage(uid, actor, text, extra);
+  return postMessage(uid, actor, text, { ...extra, asStaff: true, asCustomer: false });
 }
 
 function startOfDay(dateStr) {
@@ -916,6 +938,167 @@ async function cleanupEmptyWaitingConversations() {
   }
 }
 
+async function getCustomerSummary(conversationId) {
+  const db = ensureDb();
+  const snap = await convRef(db, conversationId).get();
+  const convoData = snap.exists ? snap.data() : {};
+  const userId = convoData.userId || conversationId;
+
+  let userDoc = null;
+  try {
+    userDoc = await getUserDoc(userId);
+  } catch {
+    /* noop */
+  }
+
+  let wallet = { balance: 0 };
+  try {
+    wallet = await walletService.getWallet(userId);
+  } catch {
+    /* noop */
+  }
+
+  let recentCalls = [];
+  try {
+    const logsSnap = await db.collection('users')
+      .doc(userId)
+      .collection('callLogs')
+      .orderBy('createdAt', 'desc')
+      .limit(5)
+      .get();
+
+    recentCalls = logsSnap.docs.map((d) => {
+      const data = d.data() || {};
+      return {
+        id: d.id,
+        createdAt: toIso(data.createdAt) || toIso(data.timestamp) || null,
+        durationSeconds: Number(data.durationSeconds || data.duration || 0),
+        duration: Number(data.durationSeconds || data.duration || 0),
+        status: data.status || 'completed',
+        caller: data.caller || data.from || data.to || 'Direct',
+        direction: data.direction || 'outbound',
+        title: data.title || data.summary || null,
+        recordingSid: data.recordingSid || null,
+        recordingUrl: data.recordingUrl || null,
+        callSid: data.callSid || data.sid || null,
+      };
+    });
+  } catch {
+    try {
+      const fallbackSnap = await db.collection('users')
+        .doc(userId)
+        .collection('callLogs')
+        .limit(5)
+        .get();
+      recentCalls = fallbackSnap.docs.map((d) => {
+        const data = d.data() || {};
+        return {
+          id: d.id,
+          createdAt: toIso(data.createdAt) || toIso(data.timestamp) || null,
+          durationSeconds: Number(data.durationSeconds || data.duration || 0),
+          duration: Number(data.durationSeconds || data.duration || 0),
+          status: data.status || 'completed',
+          caller: data.caller || data.from || data.to || 'Direct',
+          direction: data.direction || 'outbound',
+          title: data.title || data.summary || null,
+          recordingSid: data.recordingSid || null,
+          recordingUrl: data.recordingUrl || null,
+          callSid: data.callSid || data.sid || null,
+        };
+      });
+    } catch {
+      recentCalls = [];
+    }
+  }
+
+  const notes = Array.isArray(convoData.notes) ? convoData.notes : [];
+
+  return {
+    user: {
+      id: userId,
+      name: userDoc?.displayName || userDoc?.name || convoData.userName || 'Customer',
+      email: userDoc?.email || convoData.userEmail || '',
+      role: userDoc?.role || 'user',
+      createdAt: toIso(userDoc?.createdAt) || toIso(convoData.createdAt) || null,
+      avatarUrl: userDoc?.photoURL || userDoc?.avatarUrl || null,
+    },
+    wallet: {
+      balanceCents: Number(wallet.balance || 0),
+      balanceFormatted: `$${((Number(wallet.balance || 0)) / 100).toFixed(2)}`,
+    },
+    recentCalls,
+    internalNotes: notes,
+  };
+}
+
+async function addInternalNote(conversationId, actor, noteText) {
+  const db = ensureDb();
+  const text = String(noteText || '').trim();
+  if (!text) {
+    throw Object.assign(new Error('Note text is required'), { status: 400 });
+  }
+  const note = {
+    id: `note-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    text,
+    authorId: actor.uid,
+    authorName: actor.name || actor.email || 'Staff',
+    authorRole: actor.role === 'admin' ? 'admin' : 'support',
+    createdAt: new Date().toISOString(),
+  };
+
+  const ref = convRef(db, conversationId);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    throw Object.assign(new Error('Conversation not found'), { status: 404 });
+  }
+
+  const existingNotes = Array.isArray(snap.data()?.notes) ? snap.data().notes : [];
+  const updatedNotes = [note, ...existingNotes];
+
+  await ref.set({ notes: updatedNotes }, { merge: true });
+  return { note, notes: updatedNotes };
+}
+
+async function deleteInternalNote(conversationId, noteId) {
+  const db = ensureDb();
+  const ref = convRef(db, conversationId);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    throw Object.assign(new Error('Conversation not found'), { status: 404 });
+  }
+
+  const existingNotes = Array.isArray(snap.data()?.notes) ? snap.data().notes : [];
+  const updatedNotes = existingNotes.filter((n) => String(n.id) !== String(noteId));
+
+  await ref.set({ notes: updatedNotes }, { merge: true });
+  return { ok: true, notes: updatedNotes };
+}
+
+async function issueCourtesyCredit(conversationId, actor, amountCents, reason) {
+  const db = ensureDb();
+  const cents = Math.round(Number(amountCents));
+  if (!cents || cents <= 0 || cents > 10000) {
+    throw Object.assign(new Error('Invalid credit amount (max $100.00)'), { status: 400 });
+  }
+
+  const snap = await convRef(db, conversationId).get();
+  const convoData = snap.exists ? snap.data() : {};
+  const userId = convoData.userId || conversationId;
+
+  await walletService.addCredits(userId, cents, 'manual', {
+    issuedBy: actor.uid,
+    reason: reason || 'Support desk adjustment',
+    conversationId,
+  });
+
+  const wallet = await walletService.getWallet(userId);
+  return {
+    ok: true,
+    newBalanceCents: wallet.balance,
+    newBalanceFormatted: `$${(wallet.balance / 100).toFixed(2)}`,
+  };
+}
+
 module.exports = {
   COLLECTION,
   serializeConversation,
@@ -935,4 +1118,8 @@ module.exports = {
   startOutboundConversation,
   getKpis,
   assertUserCanAccess,
+  getCustomerSummary,
+  addInternalNote,
+  deleteInternalNote,
+  issueCourtesyCredit,
 };

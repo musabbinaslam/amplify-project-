@@ -144,11 +144,25 @@ function setupSupportSockets(io) {
     socket.on('support:message', async (payload = {}, ack) => {
       try {
         const conversationId = String(payload.conversationId || socket.conversationId || '').trim();
+        let isStaff;
+        if (payload.asStaff !== undefined) {
+          isStaff = Boolean(payload.asStaff) && isSupportStaffRole(socket.role);
+        } else if (payload.asCustomer !== undefined) {
+          isStaff = !Boolean(payload.asCustomer) && isSupportStaffRole(socket.role);
+        } else {
+          isStaff = isSupportStaffRole(socket.role) && String(conversationId) !== String(socket.uid);
+        }
+
         const out = await supportConversationService.postMessage(
           conversationId,
           actorFromSocket(socket),
           payload.text,
-          { replyTo: payload.replyTo, attachments: payload.attachments },
+          {
+            replyTo: payload.replyTo,
+            attachments: payload.attachments,
+            asStaff: isStaff,
+            asCustomer: !isStaff,
+          },
         );
         socket.join(convRoom(out.conversation.id));
         broadcastMessage(out.conversation, out.message);
@@ -162,10 +176,17 @@ function setupSupportSockets(io) {
     socket.on('support:typing', (payload = {}) => {
       const conversationId = String(payload.conversationId || socket.conversationId || '').trim();
       if (!conversationId) return;
-      socket.to(convRoom(conversationId)).emit('support:typing', {
+      const isStaff = isSupportStaffRole(socket.role) && String(conversationId) !== String(socket.uid);
+      const rooms = [convRoom(conversationId)];
+      if (isStaff) {
+        rooms.push(userRoom(conversationId));
+      } else {
+        rooms.push(INBOX_ROOM);
+      }
+      socket.to(rooms).emit('support:typing', {
         conversationId,
         uid: socket.uid,
-        role: isSupportStaffRole(socket.role)
+        role: isStaff
           ? (socket.role === 'admin' ? 'admin' : 'support')
           : 'user',
         typing: payload.typing !== false,
@@ -176,10 +197,13 @@ function setupSupportSockets(io) {
       try {
         const conversationId = String(payload.conversationId || socket.conversationId || '').trim();
         if (!conversationId) return;
+        const asStaff = payload.asStaff !== undefined
+          ? Boolean(payload.asStaff)
+          : (isSupportStaffRole(socket.role) && String(conversationId) !== String(socket.uid));
         const out = await supportConversationService.markRead(
           conversationId,
           actorFromSocket(socket),
-          { asStaff: isSupportStaffRole(socket.role) },
+          { asStaff },
         );
         if (out.changed) broadcastConversation(out.conversation, 'support:read');
         if (typeof ack === 'function') ack({ ok: true, conversation: out.conversation, changed: out.changed });

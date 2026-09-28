@@ -15,6 +15,7 @@ import {
 } from '../services/aiTrainingService';
 import { useUIStore } from '../store/uiStore';
 import PageLoader from '../components/ui/PageLoader';
+import NumberPopIn from '../components/ui/NumberPopIn';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import classes from './AITrainingPage.module.css';
 
@@ -47,7 +48,11 @@ function StatCard({ icon: Icon, label, value, suffix, variants }) {
       <div className={classes.statIconBox}><Icon size={20} /></div>
       <div className={classes.statLabel}>{label}</div>
       <div className={classes.statValue}>
-        {value ?? '—'}
+        {value !== null && value !== undefined && value !== '—' ? (
+          <NumberPopIn value={value} />
+        ) : (
+          '—'
+        )}
         {suffix ? <span className={classes.statMax}>{suffix}</span> : null}
       </div>
     </motion.div>
