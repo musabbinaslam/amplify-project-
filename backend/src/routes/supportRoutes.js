@@ -1,10 +1,8 @@
 const express = require('express');
 const { verifyFirebaseToken } = require('../middleware/auth');
-const { postSupportChat } = require('../controllers/supportChatController');
 const { postSupportEmail } = require('../controllers/supportEmailController');
 const supportLiveController = require('../controllers/supportLiveController');
 const {
-  supportChatLimiter,
   supportEmailLimiter,
   supportLiveLimiter,
 } = require('../middleware/security');
@@ -12,8 +10,6 @@ const { handleSupportUpload } = require('../middleware/supportUpload');
 const { handleSupportChatUpload } = require('../middleware/supportChatUpload');
 
 const router = express.Router();
-
-router.post('/chat', verifyFirebaseToken, supportChatLimiter, postSupportChat);
 router.post(
   '/email',
   verifyFirebaseToken,
