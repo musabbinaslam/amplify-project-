@@ -11,7 +11,7 @@ const AppShell = lazy(() => import('./components/layout/AppShell'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
-const TermsGatewayModal = lazy(() => import('./components/TermsGatewayModal'));
+const TermsGatewayModal = lazy(() => import('./components/modals/TermsGatewayModal'));
 const DialerOverlay = lazy(() => import('./components/ui/DialerOverlay'));
 
 let authStoreModule = null;
