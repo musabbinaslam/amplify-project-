@@ -1,8 +1,6 @@
 const {
-    generateQaInsight,
     generateQaAudioReview,
     classifyGeminiError,
-    isQaInsightGeminiEnabled,
     isAiFlagsGeminiEnabled,
 } = require('../services/qaInsightService');
 const callLogService = require('../services/callLogService');
@@ -29,28 +27,6 @@ async function runWithRetry(label, callId, fn, maxAttempts = 3) {
         }
     }
     return null;
-}
-
-async function runQaInsightJob({ savedLog, agentId, FromState = null }, maxAttempts = 3) {
-    const callId = savedLog?.id || 'unknown';
-    if (!isQaInsightGeminiEnabled()) {
-        console.log(`[QA] Skip insight for Call ${callId} — QA_INSIGHT_GEMINI_ENABLED is off`);
-        return;
-    }
-    try {
-        const qaInsight = await runWithRetry('insight', callId, async () => (
-            generateQaInsight({
-                ...savedLog,
-                state: FromState,
-            })
-        ), maxAttempts);
-        if (qaInsight) {
-            await callLogService.attachQaInsight(agentId, callId, qaInsight);
-            console.log(`[QA] ✅ Insight attached to Call ${callId}`);
-        }
-    } catch (err) {
-        console.error(`[QA] Insight job aborted for Call ${callId}:`, err.message);
-    }
 }
 
 async function runQaAudioReviewJob({ savedLog, agentId, FromState = null, force = false }, maxAttempts = 3) {
@@ -149,16 +125,6 @@ async function runQaAudioReviewJob({ savedLog, agentId, FromState = null, force 
     }
 }
 
-function dispatchQaInsightJob(jobData) {
-    if (!isQaInsightGeminiEnabled()) {
-        console.log('[QA] Skip insight dispatch — QA_INSIGHT_GEMINI_ENABLED is off');
-        return;
-    }
-    runQaInsightJob(jobData).catch((err) => {
-        console.error('[QA] Unhandled error in QA insight runner:', err.message);
-    });
-}
-
 function dispatchQaAudioReviewJob(jobData) {
     if (!isAiFlagsGeminiEnabled()) {
         console.log('[AI Flags] Skip audio dispatch — AI Flags is off');
@@ -170,9 +136,7 @@ function dispatchQaAudioReviewJob(jobData) {
 }
 
 module.exports = {
-    dispatchQaInsightJob,
     dispatchQaAudioReviewJob,
     runQaAudioReviewJob,
-    isQaInsightGeminiEnabled,
     isAiFlagsGeminiEnabled,
 };

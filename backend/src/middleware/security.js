@@ -21,8 +21,6 @@ const LIMIT_AI_READ_WINDOW_MS = envInt('RATE_LIMIT_AI_READ_WINDOW_MS', 60 * 1000
 const LIMIT_AI_READ_MAX = envInt('RATE_LIMIT_AI_READ_MAX', 60);
 const LIMIT_AI_WRITE_WINDOW_MS = envInt('RATE_LIMIT_AI_WRITE_WINDOW_MS', 60 * 1000);
 const LIMIT_AI_WRITE_MAX = envInt('RATE_LIMIT_AI_WRITE_MAX', 20);
-const LIMIT_SUPPORT_CHAT_WINDOW_MS = envInt('RATE_LIMIT_SUPPORT_CHAT_WINDOW_MS', 60 * 1000);
-const LIMIT_SUPPORT_CHAT_MAX = envInt('RATE_LIMIT_SUPPORT_CHAT_MAX', 12);
 const LIMIT_SUPPORT_EMAIL_WINDOW_MS = envInt('RATE_LIMIT_SUPPORT_EMAIL_WINDOW_MS', 10 * 60 * 1000);
 const LIMIT_SUPPORT_EMAIL_MAX = envInt('RATE_LIMIT_SUPPORT_EMAIL_MAX', 5);
 const LIMIT_SUPPORT_LIVE_WINDOW_MS = envInt('RATE_LIMIT_SUPPORT_LIVE_WINDOW_MS', 60 * 1000);
@@ -56,15 +54,6 @@ const aiTrainingWriteLimiter = rateLimit({
     legacyHeaders: false,
     keyGenerator: (req) => getRequestKey(req, 'ai-write'),
     message: { error: 'Too many AI training updates. Please wait a minute before retrying.' }
-});
-
-const supportChatLimiter = rateLimit({
-    windowMs: LIMIT_SUPPORT_CHAT_WINDOW_MS,
-    max: LIMIT_SUPPORT_CHAT_MAX,
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: (req) => getRequestKey(req, 'support-chat'),
-    message: { error: 'Support AI rate limit reached. Please slow down and retry in a minute.' }
 });
 
 const supportEmailLimiter = rateLimit({
@@ -157,7 +146,6 @@ module.exports = {
     globalRateLimiter,
     aiTrainingReadLimiter,
     aiTrainingWriteLimiter,
-    supportChatLimiter,
     supportEmailLimiter,
     supportLiveLimiter,
     voiceTokenLimiter,
