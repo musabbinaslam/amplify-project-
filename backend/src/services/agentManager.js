@@ -522,14 +522,6 @@ class AgentManager {
     */
    async clearPendingCall(agentId, callSid = null) {
       if (!agentId) return;
-      const pendingRaw = await redisClient.get(`agent:pendingcall:${agentId}`);
-      if (pendingRaw) {
-         try {
-            const pending = JSON.parse(pendingRaw);
-            if (pending?.callSid) await redisClient.del(`call:route:${pending.callSid}`);
-         } catch { /* ignore */ }
-      }
-      if (callSid) await redisClient.del(`call:route:${callSid}`);
       await redisClient.del(`agent:pendingcall:${agentId}`);
    }
 
@@ -545,6 +537,7 @@ class AgentManager {
          from: String(payload.from || ''),
          to: String(payload.to || ''),
          campaignId: String(payload.campaignId || ''),
+         agencyId: payload.agencyId || null,
          startedAt: String(payload.startedAt || new Date().toISOString()),
          retryCount: Number(payload.retryCount || 0),
       };
@@ -554,7 +547,18 @@ class AgentManager {
          JSON.stringify(pending),
       );
       if (callSid) {
-         await redisClient.setEx(`call:route:${callSid}`, PENDING_CALL_TTL_SEC, agentId);
+         // Long-lived route and dialed tracking so webhooks and logging always find the agent
+         await redisClient.setEx(`call:route:${callSid}`, 7200, agentId);
+         await redisClient.sAdd(`call:dialed_agents:${callSid}`, agentId);
+         await redisClient.expire(`call:dialed_agents:${callSid}`, 7200);
+         await redisClient.setEx(`call:info:${callSid}`, 7200, JSON.stringify({
+            from: pending.from,
+            to: pending.to,
+            campaignId: pending.campaignId,
+            agencyId: pending.agencyId,
+            agentId,
+            startedAt: pending.startedAt,
+         }));
       }
    }
 
@@ -778,6 +782,18 @@ class AgentManager {
       const owner = await redisClient.get(`call:owner:${target}`);
       if (owner && owner === id) return true;
 
+      if (await redisClient.sIsMember(`call:dialed_agents:${target}`, id)) return true;
+
+      if (await redisClient.sIsMember(`call:rejected:${target}`, id)) return true;
+
+      const infoRaw = await redisClient.get(`call:info:${target}`);
+      if (infoRaw) {
+         try {
+            const info = JSON.parse(infoRaw);
+            if (info?.agentId && String(info.agentId).trim() === id) return true;
+         } catch { /* ignore */ }
+      }
+
       const pending = await this.getPendingCall(id);
       if (pending?.callSid && String(pending.callSid).trim() === target) return true;
 
@@ -785,6 +801,20 @@ class AgentManager {
       if (active?.callSid && String(active.callSid).trim() === target) return true;
 
       return false;
+   }
+
+   /**
+    * Get stored call info (campaign, numbers, agency) for a CallSid.
+    */
+   async getCallInfo(callSid) {
+      const target = String(callSid || '').trim();
+      if (!target) return null;
+      try {
+         const raw = await redisClient.get(`call:info:${target}`);
+         return raw ? JSON.parse(raw) : null;
+      } catch {
+         return null;
+      }
    }
 
    /**
@@ -805,6 +835,15 @@ class AgentManager {
       let fromRoute = target ? await redisClient.get(`call:route:${target}`) : null;
       if (!fromRoute && target) {
          fromRoute = await redisClient.get(`call:owner:${target}`);
+      }
+      if (!fromRoute && target) {
+         const infoRaw = await redisClient.get(`call:info:${target}`);
+         if (infoRaw) {
+            try {
+               const info = JSON.parse(infoRaw);
+               if (info?.agentId) fromRoute = info.agentId;
+            } catch { /* ignore */ }
+         }
       }
       const query = String(queryAgentId || '').trim();
       if (fromRoute && query && fromRoute !== query) {
