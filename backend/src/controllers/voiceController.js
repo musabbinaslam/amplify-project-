@@ -159,6 +159,7 @@ exports.handleIncomingCall = async (req, res) => {
                 from: fromNumber,
                 to: toNumber,
                 campaignId: campaign,
+                agencyId: routeAgencyId,
                 startedAt: new Date().toISOString(),
                 retryCount,
             });
@@ -408,7 +409,9 @@ exports.handleCallCompleted = async (req, res) => {
     // ── Missed Call Handling ────────────────────────────────────────────────
     // If the agent dial failed, wasn't answered, or agent rejected the call,
     // we must kick them offline. We no longer re-route the call; it will naturally drop.
-    const isRerouteable = ['failed', 'no-answer', 'busy'].includes(DialCallStatus);
+    const MISSED_DIAL_STATUSES = ['busy', 'no-answer', 'failed', 'cancel', 'canceled', 'cancelled'];
+    const isRejectedOrMissed = MISSED_DIAL_STATUSES.includes(String(DialCallStatus || '').toLowerCase());
+    const isRerouteable = ['failed', 'no-answer', 'busy'].includes(String(DialCallStatus || '').toLowerCase());
     
     let responseSent = false;
 
@@ -423,6 +426,9 @@ exports.handleCallCompleted = async (req, res) => {
         // Kick the agent offline if they missed the call, rejected it, or their browser failed.
         // We do NOT want to put them back into the AVAILABLE pool if they are asleep.
         if (agentId) {
+            if (CallSid) {
+                await agentManager.markAgentRejectedCall(agentId, CallSid);
+            }
             try {
                 const active = await agentManager.getActiveCall(agentId);
                 const agentState = await agentManager.getAgentState(agentId);
@@ -446,24 +452,35 @@ exports.handleCallCompleted = async (req, res) => {
         }
     }
 
-
-    const isRejectedOrMissed = ['busy', 'no-answer', 'failed', 'cancel'].includes(DialCallStatus);
-
     console.log(`[Twilio] Call Completed: ${CallSid}. DialSid: ${DialCallSid}. Duration: ${DialCallDuration}s. Status: ${DialCallStatus}${isRejectedOrMissed ? ' (agent rejected/missed)' : ''}. Recording: ${RecordingUrl ? 'Yes' : 'No'}`);
 
     let savedLog = null;
+    let effectiveStatus = 'missed';
     let resolvedAgentId = await agentManager.resolveCallOwner(CallSid, agentId);
 
     const recordingSid = parseRecordingSid(RecordingUrl);
+    const callInfo = CallSid ? await agentManager.getCallInfo(CallSid) : null;
+    const effectiveCampaign = campaign || callInfo?.campaignId || 'fe_inbounds_short';
+    const effectiveFrom = From || callInfo?.from || '';
+    const effectiveTo = To || callInfo?.to || '';
 
     try {
         if (!resolvedAgentId && CallSid) {
             resolvedAgentId = await agentManager.findAgentIdByCallSid(CallSid);
         }
-        const shouldLog = resolvedAgentId
-            && CallSid
-            && (await agentManager.wasDialedForCall(resolvedAgentId, CallSid));
-        if (resolvedAgentId && CallSid && !shouldLog) {
+        if (!resolvedAgentId && callInfo?.agentId) {
+            resolvedAgentId = callInfo.agentId;
+        }
+        if (!resolvedAgentId && agentId) {
+            resolvedAgentId = agentId;
+        }
+
+        const wasDialed = (resolvedAgentId && CallSid)
+            ? await agentManager.wasDialedForCall(resolvedAgentId, CallSid)
+            : false;
+        const isConfirmedTarget = Boolean(resolvedAgentId && (wasDialed || (agentId && resolvedAgentId === agentId)));
+
+        if (resolvedAgentId && CallSid && !isConfirmedTarget) {
             console.warn(
                 `[Twilio] Skip call log for ${resolvedAgentId} — never dialed for ${CallSid} (phantom missed)`,
             );
@@ -486,33 +503,31 @@ exports.handleCallCompleted = async (req, res) => {
             // For conference calls or forcefully killed calls, Twilio might omit duration.
             let effectiveDuration = DialCallDuration || req.body.CallDuration || computedDuration || 0;
 
-            // If we still have 0 duration but the call theoretically completed, fetch true duration from Twilio API directly
-            if (Number(effectiveDuration) === 0 && CallSid) {
-                try {
-                    const twilioCall = await twilioClientObj.calls(CallSid).fetch();
-                    if (twilioCall && twilioCall.duration) {
-                        effectiveDuration = twilioCall.duration;
-                        console.log(`[Twilio] Fetched true duration from REST API for ${CallSid}: ${effectiveDuration}s`);
-                    }
-                } catch (apiErr) {
-                    console.warn(`[Twilio] Failed to fetch true duration from API for ${CallSid}:`, apiErr.message);
-                }
-            }
-
-            // If Twilio explicitly says the call was missed/canceled, force duration to 0 and status to missed.
-            // Otherwise, for conference calls where Twilio omits status, use duration > 0 as a bridge indicator.
-            const isExplicitlyMissed = ['busy', 'no-answer', 'failed', 'cancel'].includes(DialCallStatus);
-            if (isExplicitlyMissed) {
+            if (isRejectedOrMissed) {
                 effectiveDuration = 0;
-            }
+                effectiveStatus = 'missed';
+            } else {
+                // If we still have 0 duration but the call theoretically completed, fetch true duration from Twilio API directly
+                if (Number(effectiveDuration) === 0 && CallSid) {
+                    try {
+                        const twilioCall = await twilioClientObj.calls(CallSid).fetch();
+                        if (twilioCall && twilioCall.duration) {
+                            effectiveDuration = twilioCall.duration;
+                            console.log(`[Twilio] Fetched true duration from REST API for ${CallSid}: ${effectiveDuration}s`);
+                        }
+                    } catch (apiErr) {
+                        console.warn(`[Twilio] Failed to fetch true duration from API for ${CallSid}:`, apiErr.message);
+                    }
+                }
 
-            const isCompleted = DialCallStatus === 'completed' || req.body.CallStatus === 'completed';
-            const effectiveStatus = (isCompleted || (!isExplicitlyMissed && Number(effectiveDuration) > 0)) ? 'completed' : 'missed';
+                const isCompleted = DialCallStatus === 'completed' || (!DialCallStatus && Number(effectiveDuration) > 0);
+                effectiveStatus = isCompleted ? 'completed' : 'missed';
+            }
 
             let finalRecordingUrl = RecordingUrl || null;
 
             // Wait slightly and attempt to fetch the conference recording if it's missing (for ACA transfers)
-            if (!finalRecordingUrl && effectiveDuration > 0 && campaign === 'aca_transfers') {
+            if (!finalRecordingUrl && effectiveDuration > 0 && effectiveCampaign === 'aca_transfers') {
                 setTimeout(async () => {
                     try {
                         const recordings = await twilioClientObj.recordings.list({ callSid: CallSid, limit: 1 });
@@ -542,15 +557,16 @@ exports.handleCallCompleted = async (req, res) => {
                 callSid: CallSid,
                 dialCallSid: DialCallSid || null,
                 agentId: resolvedAgentId,
-                campaignId: campaign,
-                from: From || '',
-                to: To || '',
+                campaignId: effectiveCampaign,
+                from: effectiveFrom,
+                to: effectiveTo,
                 duration: effectiveDuration,
                 status: effectiveStatus,
                 recordingUrl: finalRecordingUrl,
                 recordingSid,
                 disposition: '',
-                isBillable: effectiveDuration >= (process.env.BILLING_DURATION_THRESHOLD || 60)
+                isBillable: effectiveStatus === 'completed' && (Number(effectiveDuration) >= (process.env.BILLING_DURATION_THRESHOLD || 60)),
+                agencyId: callInfo?.agencyId || null,
             });
         }
     } catch (err) {
@@ -568,16 +584,14 @@ exports.handleCallCompleted = async (req, res) => {
                         `[Router] Skip stale completion release for ${resolvedAgentId}: callback sid ${CallSid} != active sid ${activeRow.callSid} / ${activeRow.parentCallSid || 'none'}`,
                     );
                 } else {
-                    let _effectiveStatus = 'missed';
-                    try { _effectiveStatus = effectiveStatus; } catch (_) { }
-                    if (_effectiveStatus === 'completed') {
+                    if (effectiveStatus === 'completed') {
                         // Fallback if browser never emitted agent:call_incoming before hangup.
                         if (!activeRow) {
                             await agentManager.upsertActiveCall(resolvedAgentId, {
                                 callSid: CallSid,
-                                from: From,
-                                to: To,
-                                campaignId: campaign,
+                                from: effectiveFrom,
+                                to: effectiveTo,
+                                campaignId: effectiveCampaign,
                                 startedAt: new Date().toISOString(),
                                 state: 'in_call',
                             });
