@@ -21,12 +21,12 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { getApiBaseUrl } from '../config/apiBase';
 import useAuthStore from '../store/authStore';
 import PageLoader from '../components/ui/PageLoader';
 import DeleteNoteModal from '../components/modals/DeleteNoteModal';
 import LinkNoteModal from '../components/modals/LinkNoteModal';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
+import { listNotes, createNote as createNoteService, deleteNote as deleteNoteService, updateNote } from '../services/notesService';
 import classes from './NotesPage.module.css';
 
 const EMPTY_EDITOR_HTML = '<p><br></p>';
@@ -104,11 +104,7 @@ const NotesPage = () => {
 
   const fetchNotes = async () => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/users/me/notes`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to load notes');
-      const data = await res.json();
+      const data = await listNotes();
       const hydrated = (data.notes || []).map((note) => {
         const text = note.text || '';
         const textHtml = note.textHtml || plainTextToHtml(text);
@@ -142,19 +138,7 @@ const NotesPage = () => {
 
   const createNote = async () => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/users/me/notes`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Failed to create note: ${res.status} ${text}`);
-      }
-      const newNote = await res.json();
+      const newNote = await createNoteService();
       setNotes((prev) => [{ ...newNote, textHtml: newNote.textHtml || EMPTY_EDITOR_HTML }, ...prev]);
       setActiveNoteId(newNote.id);
     } catch (err) {
@@ -166,11 +150,7 @@ const NotesPage = () => {
   const deleteNote = async (id) => {
     setIsDeleting(true);
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/users/me/notes/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to delete note');
+      await deleteNoteService(id);
 
       setNotes((prev) => prev.filter((n) => n.id !== id));
       if (activeNoteId === id) {
@@ -189,15 +169,7 @@ const NotesPage = () => {
   const saveNoteToServer = async (id, title, text, textHtml) => {
     setIsSaving(true);
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/users/me/notes/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ title, text, textHtml }),
-      });
-      if (!res.ok) throw new Error('Failed to save note');
+      await updateNote(id, title, text, textHtml);
 
       setNotes((prev) =>
         prev.map((n) =>

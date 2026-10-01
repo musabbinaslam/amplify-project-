@@ -8,7 +8,7 @@ const contestProofStorage = require('../services/contestProofStorage');
 const { getUserDoc } = require('../services/userDataService');
 const phoneRouteService = require('../services/phoneRouteService');
 const { normalizeCallerState } = require('../utils/phoneUtils');
-const { dispatchQaInsightJob, dispatchQaAudioReviewJob } = require('../queues/qaQueue');
+const { dispatchQaAudioReviewJob } = require('../queues/qaQueue');
 const { parseRecordingSid, recordingMp3Url } = require('../utils/recordingSid');
 const twilioClientObj = require('../config/twilio').twilioClient;
 const { redisClient } = require('../config/redis');
@@ -550,7 +550,6 @@ exports.handleCallCompleted = async (req, res) => {
                 recordingUrl: finalRecordingUrl,
                 recordingSid,
                 disposition: '',
-                qaInsight: null,
                 isBillable: effectiveDuration >= (process.env.BILLING_DURATION_THRESHOLD || 60)
             });
         }
@@ -619,23 +618,15 @@ exports.handleCallCompleted = async (req, res) => {
         }
     }
 
-    // Non-blocking QA insight generation — runs in-process with exponential backoff retries.
+    // Non-blocking AI Flags audio review — runs in-process with exponential backoff retries.
     // Dispatched AFTER the HTTP response is already sent, so call handling is never delayed.
-    if (resolvedAgentId && savedLog?.id && !isRejectedOrMissed) {
-        dispatchQaInsightJob({
+    if (resolvedAgentId && savedLog?.id && !isRejectedOrMissed && recordingSid) {
+        dispatchQaAudioReviewJob({
             savedLog,
             agentId: resolvedAgentId,
             FromState: FromState || null,
         });
-        console.log(`[Twilio] QA Insight dispatched (async) for Call ${savedLog.id}`);
-        if (recordingSid) {
-            dispatchQaAudioReviewJob({
-                savedLog,
-                agentId: resolvedAgentId,
-                FromState: FromState || null,
-            });
-            console.log(`[Twilio] QA audio review dispatched (async) for Call ${savedLog.id}`);
-        }
+        console.log(`[Twilio] AI Flags audio review dispatched (async) for Call ${savedLog.id}`);
     }
 
     // ── Referral Stage 3: Check if this agent just "went live" ──────────────
@@ -1019,28 +1010,6 @@ exports.initiateAcaTransfer = async (req, res) => {
         res.json({ success: true, brokerCallSid: participant.callSid, conferenceName: confName });
     } catch (err) {
         console.error('[ACA Transfer] Failed to initiate:', err);
-        res.status(500).json({ error: err.message });
-    }
-};
-
-/**
- * Send DTMF digits to the broker leg using Twilio REST API.
- * DEPRECATED: We now use the frontend Twilio Device to send DTMF directly.
- */
-exports.sendDtmfToConference = async (req, res) => {
-    try {
-        const { brokerCallSid, digit } = req.body;
-        if (!brokerCallSid || !digit) {
-            return res.status(400).json({ error: 'brokerCallSid and digit are required' });
-        }
-
-        await twilioClientObj.calls(brokerCallSid).update({
-            sendDigits: String(digit)
-        });
-
-        res.json({ success: true });
-    } catch (err) {
-        console.error('[ACA Transfer] Failed to send DTMF:', err);
         res.status(500).json({ error: err.message });
     }
 };

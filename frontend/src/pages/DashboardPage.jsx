@@ -1,17 +1,20 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Activity, Phone, PhoneCall, CheckCircle2, DollarSign, Clock, Loader2, ChevronDown, TrendingUp, TrendingDown, Minus, PhoneIncoming } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Activity, Phone, PhoneCall, CheckCircle2, DollarSign, Clock, Loader2, TrendingUp, TrendingDown, Minus, PhoneIncoming } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadialBarChart, RadialBar, PolarAngleAxis, PieChart, Pie, Cell,
 } from 'recharts';
-import { motion, AnimatePresence, useReducedMotion, useMotionValue, animate } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import { getProfile } from '../services/profileService';
 import { fetchDashboardLogs, fetchCampaignPricing } from '../services/dashboardService';
 import PageLoader from '../components/ui/PageLoader';
+import NumberPopIn from '../components/ui/NumberPopIn';
+import ShimmerText from '../components/ui/ShimmerText';
+import SlidingTabs from '../components/ui/SlidingTabs';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
-import { dropdownPanelMotion, EASE_SMOOTH } from '../motion/appMotion';
+import { EASE_SMOOTH } from '../motion/appMotion';
 import classes from './DashboardPage.module.css';
 
 /* eslint-disable react/prop-types -- presentational helpers are local to this page */
@@ -142,29 +145,10 @@ function trendDelta(current, previous) {
   return { dir: 'flat', pct: 0 };
 }
 
-/** Animated number that counts up to `value` on mount/update (respects reduced motion). */
+/** Animated number that uses Transitions.dev NumberPopIn on mount/update (respects reduced motion). */
 const CountUp = ({ value, decimals = 0, prefix = '', suffix = '' }) => {
-  const reduceMotion = useReducedMotion();
-  const mv = useMotionValue(0);
-  const [display, setDisplay] = useState(() =>
-    `${prefix}${(0).toFixed(decimals)}${suffix}`,
-  );
-
-  useEffect(() => {
-    const format = (v) => `${prefix}${Number(v).toFixed(decimals)}${suffix}`;
-    if (reduceMotion) {
-      setDisplay(format(value));
-      return undefined;
-    }
-    const controls = animate(mv, value, {
-      duration: 0.9,
-      ease: EASE_SMOOTH,
-      onUpdate: (v) => setDisplay(format(v)),
-    });
-    return () => controls.stop();
-  }, [value, decimals, prefix, suffix, reduceMotion, mv]);
-
-  return <span>{display}</span>;
+  const formatted = typeof value === 'number' && decimals > 0 ? value.toFixed(decimals) : value;
+  return <NumberPopIn value={formatted} prefix={prefix} suffix={suffix} />;
 };
 
 const TrendPill = ({ delta }) => {
@@ -284,7 +268,13 @@ const StatTile = ({ title, value, icon: Icon, sub }) => (
       <span className={classes.statTileTitle}>{title}</span>
       <div className={classes.statTileIcon}><Icon size={18} /></div>
     </div>
-    <div className={classes.statTileValue}>{value}</div>
+    <div className={classes.statTileValue}>
+      {typeof value === 'number' || typeof value === 'string' ? (
+        <NumberPopIn value={value} />
+      ) : (
+        value
+      )}
+    </div>
     {sub && <div className={classes.statTileSub}>{sub}</div>}
   </div>
 );
@@ -336,10 +326,7 @@ const DashboardPage = () => {
   const user = useAuthStore((s) => s.user);
   const reduceMotion = useReducedMotion();
   const presets = useSubtlePageMotion();
-  const dropdownMotion = useMemo(() => dropdownPanelMotion(reduceMotion), [reduceMotion]);
   const [period, setPeriod] = useState('This Week');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -347,16 +334,6 @@ const DashboardPage = () => {
   const [prevLogs, setPrevLogs] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [campaignsLoading, setCampaignsLoading] = useState(true);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -572,40 +549,19 @@ const DashboardPage = () => {
       </motion.div>
 
       <motion.div className={classes.performanceHeader} variants={presets.child}>
-        <h3><Activity size={18} /> Performance Stats</h3>
-        <div className={classes.customDropdown} ref={dropdownRef}>
-          <button
-            type="button"
-            className={classes.dropdownTrigger}
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            aria-expanded={isDropdownOpen}
-            aria-haspopup="listbox"
-          >
-            {period}
-            <ChevronDown size={16} className={`${classes.dropdownIcon} ${isDropdownOpen ? classes.open : ''}`} />
-          </button>
-
-          <AnimatePresence>
-            {isDropdownOpen && (
-              <motion.div className={classes.dropdownMenu} role="listbox" {...dropdownMotion}>
-                {PERIOD_OPTIONS.map((opt) => (
-                  <div
-                    key={opt}
-                    role="option"
-                    aria-selected={period === opt}
-                    className={`${classes.dropdownItem} ${period === opt ? classes.activeItem : ''}`}
-                    onClick={() => {
-                      setPeriod(opt);
-                      setIsDropdownOpen(false);
-                    }}
-                  >
-                    {opt}
-                  </div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        <h3>
+          <Activity size={18} /> Performance Stats
+          <span className={classes.livePulseBadge}>
+            <span className={classes.liveDot} />
+            <ShimmerText text="Live Sync" variant="brand" />
+          </span>
+        </h3>
+        <SlidingTabs
+          tabs={PERIOD_OPTIONS}
+          activeKey={period}
+          onChange={setPeriod}
+          ariaLabel="Performance period"
+        />
       </motion.div>
 
       <motion.div className={classes.perfBand} variants={presets.child}>
@@ -720,7 +676,7 @@ const DashboardPage = () => {
         </div>
         {campaignsLoading ? (
           <div className={classes.sectionLoading}>
-            <Loader2 size={16} className={classes.spinner} /> Loading campaign pricing…
+            <Loader2 size={16} className={classes.spinner} /> <ShimmerText text="Loading campaign pricing…" />
           </div>
         ) : (
           <motion.div className={classes.campaignGrid} variants={presets.grid}>

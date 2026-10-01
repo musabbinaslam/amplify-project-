@@ -1,4 +1,4 @@
-import { apiFetch } from './apiClient';
+import { apiFetch, apiFetchBlob } from './apiClient';
 
 export function getAdminOverviewLite() {
   return apiFetch('/api/admin/overview-lite', { method: 'GET' });
@@ -65,10 +65,6 @@ export function listAdminDids() {
   return apiFetch('/api/admin/dids', { method: 'GET' });
 }
 
-export function listAdminAgencies() {
-  return apiFetch('/api/admin/agencies', { method: 'GET' });
-}
-
 export function createAdminDid(body) {
   return apiFetch('/api/admin/dids', { method: 'POST', body });
 }
@@ -94,10 +90,6 @@ export function listAdminBroadcasts({ limit = 50, cursor } = {}) {
   if (limit) qs.set('limit', String(limit));
   if (cursor) qs.set('cursor', cursor);
   return apiFetch(`/api/admin/notifications/broadcasts${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
-}
-
-export function getAdminBroadcast(id) {
-  return apiFetch(`/api/admin/notifications/broadcasts/${encodeURIComponent(id)}`, { method: 'GET' });
 }
 
 export function patchAdminBroadcast(id, body) {
@@ -317,3 +309,22 @@ export function forceChargeSuspiciousAgent(agentId, campaignId) {
     body: campaignId ? { campaignId } : {},
   });
 }
+
+export async function downloadAdminExcelReport(params = {}) {
+  const { blob, filename } = await apiFetchBlob('/api/admin/export/excel', {
+    method: 'POST',
+    body: params,
+  });
+  const fallbackName = `CallsFlow_Export_${params.reportType || 'all'}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const resolvedName = filename || fallbackName;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = resolvedName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  return { filename: resolvedName };
+}
+

@@ -18,13 +18,3 @@ export const SUPPORT_MODULES = [
     category: 'Insights',
   },
 ];
-
-export const SUPPORT_DESK_HOME = '/app/support-desk';
-
-export function isSupportDeskPath(pathname = '') {
-  return pathname === SUPPORT_DESK_HOME || pathname.startsWith(`${SUPPORT_DESK_HOME}/`);
-}
-
-export function getSupportModuleByRoute(pathname = '') {
-  return SUPPORT_MODULES.find((mod) => mod.route === pathname) || null;
-}

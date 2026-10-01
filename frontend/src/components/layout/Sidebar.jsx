@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { isAgencyAdminUser } from '../../utils/authRoles';
 import useSupportChatStore from '../../store/useSupportChatStore';
+import useSupportDeskStore from '../../store/useSupportDeskStore';
 import classes from './Sidebar.module.css';
 
 const NAV_GROUP_LABELS = {
@@ -42,7 +43,6 @@ const navItems = [
   { path: '/app/script', label: 'Script', icon: FileText, group: 'work' },
   { path: '/app/notes', label: 'Notes', icon: FileEdit, group: 'work' },
   { path: '/app/billing', label: 'Billing', icon: DollarSign, group: 'business' },
-  { path: '/app/leads', label: 'Leads', icon: Box, badge: 'Beta', disabled: true, teaser: true, group: 'business' },
   { path: '/app/profile', label: 'Profile', icon: User, group: 'you' },
   { path: '/app/ai-training', label: 'AI Training', icon: HeadphonesIcon, group: 'you' },
   { path: '/app/support', label: 'Support', icon: MessageSquare, group: 'you', badgeKey: 'supportUnread' },
@@ -56,7 +56,7 @@ const Sidebar = () => {
   const user = useAuthStore((s) => s.user);
   const role = user?.role;
   const supportUnread = useSupportChatStore((s) => s.unreadForUser);
-  const deskUnread = useSupportChatStore((s) => s.deskUnreadTotal);
+  const deskUnread = useSupportDeskStore((s) => s.unreadTotal);
   const navigate = useNavigate();
   const location = useLocation();
   const navRef = useRef(null);
@@ -191,7 +191,7 @@ const Sidebar = () => {
       {!isSidebarCollapsed && (
         <>
           <span className={classes.label}>{item.label}</span>
-          {item.badgeKey === 'supportUnread' && supportUnread > 0 && (
+          {item.badgeKey === 'supportUnread' && supportUnread > 0 && !location.pathname.startsWith('/app/support') && (
             <span className={`${classes.badge} ${classes.unreadCount}`}>
               {supportUnread > 99 ? '99+' : supportUnread}
             </span>

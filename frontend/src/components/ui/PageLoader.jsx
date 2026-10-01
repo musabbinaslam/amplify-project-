@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+import ShimmerText from './ShimmerText';
 import classes from './PageLoader.module.css';
 
 const PageLoader = ({ fullScreen = false, message }) => (
@@ -21,12 +23,19 @@ const PageLoader = ({ fullScreen = false, message }) => (
         />
       </div>
       <p className={classes.wordmark}>CALLSFLOW</p>
-      <p className={classes.status}>{message || 'Preparing your workspace'}</p>
+      <p className={classes.status}>
+        <ShimmerText text={message || 'Preparing your workspace'} />
+      </p>
       <div className={classes.rail} aria-hidden="true">
         <div className={classes.railFill} />
       </div>
     </div>
   </div>
 );
+
+PageLoader.propTypes = {
+  fullScreen: PropTypes.bool,
+  message: PropTypes.string,
+};
 
 export default PageLoader;

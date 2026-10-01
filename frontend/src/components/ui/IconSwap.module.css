@@ -1,0 +1,39 @@
+.iconSwap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+
+.icon {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    opacity   var(--icon-swap-dur, 250ms) var(--icon-swap-ease, ease-in-out),
+    filter    var(--icon-swap-dur, 250ms) var(--icon-swap-ease, ease-in-out),
+    transform var(--icon-swap-dur, 250ms) var(--icon-swap-ease, ease-in-out);
+  will-change: opacity, filter, transform;
+}
+
+.iconSwap[data-state="a"] .iconA,
+.iconSwap[data-state="b"] .iconB {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.iconSwap[data-state="a"] .iconB,
+.iconSwap[data-state="b"] .iconA {
+  opacity: 0;
+  filter: blur(var(--icon-swap-blur, 2px));
+  transform: scale(var(--icon-swap-start-scale, 0.25));
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon {
+    transition: none !important;
+  }
+}

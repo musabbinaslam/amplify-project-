@@ -1,0 +1,52 @@
+.tiltWrap {
+  position: relative;
+  touch-action: none;
+}
+
+.tiltCard {
+  position: relative;
+  border-radius: inherit;
+  transform:
+    perspective(var(--tilt-perspective, 1000px))
+    rotateX(var(--tilt-rx, 0deg))
+    rotateY(var(--tilt-ry, 0deg));
+  transform-style: preserve-3d;
+  transition: transform var(--tilt-return, 1000ms) var(--tilt-return-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  will-change: transform;
+}
+
+.tiltCard.isTilting {
+  transition: transform var(--tilt-follow, 400ms) var(--tilt-follow-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.tiltGlare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(circle 95px at var(--tilt-gx, 50%) var(--tilt-gy, 50%),
+      rgba(255, 255, 255, 0.40), rgba(255, 255, 255, 0.05) 52%, rgba(255, 255, 255, 0) 84%),
+    radial-gradient(circle 200px at var(--tilt-gx, 50%) var(--tilt-gy, 50%),
+      rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.03) 58%, rgba(255, 255, 255, 0) 78%),
+    radial-gradient(circle 360px at var(--tilt-gx, 50%) var(--tilt-gy, 50%),
+      rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 88%);
+  transition: opacity var(--tilt-glare-fade, 300ms) var(--tilt-glare-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  z-index: 5;
+}
+
+.tiltWrap.isHover .tiltGlare {
+  opacity: var(--tilt-glare-opacity, 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tiltCard {
+    transform: none !important;
+    transition: none !important;
+  }
+  .tiltGlare {
+    display: none !important;
+  }
+}

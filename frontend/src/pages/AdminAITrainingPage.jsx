@@ -13,6 +13,7 @@ import {
   getAdminAiCoachingOverview,
 } from '../services/adminService';
 import PageLoader from '../components/ui/PageLoader';
+import NumberPopIn from '../components/ui/NumberPopIn';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { ADMIN_CATEGORIES } from '../config/adminModules';
 import AdminPageShell from '../components/admin/AdminPageShell';
@@ -72,7 +73,13 @@ const StatCard = ({ label, value, icon: Icon, variants }) => {
         <Icon size={18} />
       </div>
       <div className={classes.statLabel}>{label}</div>
-      <div className={classes.statValue}>{value ?? '—'}</div>
+      <div className={classes.statValue}>
+        {value !== null && value !== undefined && value !== '—' ? (
+          <NumberPopIn value={value} />
+        ) : (
+          '—'
+        )}
+      </div>
     </motion.div>
   );
 };

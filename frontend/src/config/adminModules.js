@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   Bell,
   CircleDollarSign,
+  FileSpreadsheet,
   Flag,
   HeadphonesIcon,
   Phone,
@@ -37,6 +38,14 @@ export const ADMIN_MODULES = [
     description: 'Call trends, campaign and agent performance, and drilldown reports.',
     route: '/app/admin/analytics',
     icon: TrendingUp,
+    category: 'operations',
+  },
+  {
+    id: 'export',
+    title: 'Data & Excel Export',
+    description: 'Download formatted Excel (.xlsx) workbooks for calls, campaigns, and agent rosters.',
+    route: '/app/admin/export',
+    icon: FileSpreadsheet,
     category: 'operations',
   },
   {
@@ -139,17 +148,6 @@ export const ADMIN_MODULES = [
     category: 'quality',
   },
 ];
-
-export function getAdminModulesByCategory() {
-  const order = Object.keys(ADMIN_CATEGORIES);
-  return order
-    .map((categoryId) => ({
-      id: categoryId,
-      label: ADMIN_CATEGORIES[categoryId],
-      modules: ADMIN_MODULES.filter((m) => m.category === categoryId),
-    }))
-    .filter((group) => group.modules.length > 0);
-}
 
 export function getAdminModuleByRoute(pathname) {
   return ADMIN_MODULES.find((m) => pathname === m.route || pathname.startsWith(`${m.route}/`));

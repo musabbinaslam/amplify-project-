@@ -6,9 +6,15 @@ import useAuthStore from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
 import useDialerStore from '../../store/useDialerStore';
 import useSupportChatStore from '../../store/useSupportChatStore';
+import useSupportDeskStore from '../../store/useSupportDeskStore';
 import { dropdownPanelMotion } from '../../motion/appMotion';
 import NotificationDetailModal from '../modals/NotificationDetailModal';
 import { resolveRouteBreadcrumbs } from '../../utils/resolveRouteBreadcrumbs';
+import NumberPopIn from '../ui/NumberPopIn';
+import IconSwap from '../ui/IconSwap';
+import NotificationBadge from '../ui/NotificationBadge';
+import ShimmerText from '../ui/ShimmerText';
+import SlidingTabs from '../ui/SlidingTabs';
 import classes from './Topbar.module.css';
 
 /* eslint-disable react/prop-types -- topbar props wired from AppShell */
@@ -39,7 +45,7 @@ const Topbar = ({
   const prepareUserChat = useSupportChatStore((s) => s.prepareUserChat);
   const markSupportRead = useSupportChatStore((s) => s.markRead);
   const supportUnread = useSupportChatStore((s) => s.unreadForUser);
-  const deskUnread = useSupportChatStore((s) => s.deskUnreadTotal);
+  const deskUnread = useSupportDeskStore((s) => s.unreadTotal);
   const supportPopupOpen = useSupportChatStore((s) => s.popupOpen);
   const supportPopupMinimized = useSupportChatStore((s) => s.popupMinimized);
   const showPersonaWarning = Boolean(
@@ -52,7 +58,7 @@ const Topbar = ({
   const onSupportDesk = path.startsWith('/app/support-desk');
   const showSupportChat = Boolean(user) && !isSupportRole && !onSupportDesk;
   const supportChatActive = supportPopupOpen && !supportPopupMinimized;
-  const bellUnread = isStaffViewer ? (Number(deskUnread) || 0) + Number(unreadCount || 0) : Number(unreadCount || 0);
+  const bellUnread = Number(unreadCount || 0);
 
   const isOnline = callState !== 'offline' && callState !== 'error';
   const inboxMotion = dropdownPanelMotion(reduceMotion);
@@ -280,7 +286,7 @@ const Topbar = ({
           >
             <MessageSquare size={16} aria-hidden="true" />
             <span className={classes.chatPillLabel}>Support Chat</span>
-            {supportUnread > 0 ? (
+            {supportUnread > 0 && !onUserSupportPage ? (
               <span className={classes.chatPillBadge}>
                 {supportUnread > 99 ? '99+' : supportUnread}
               </span>
@@ -297,7 +303,9 @@ const Topbar = ({
             title="Verify identity to take calls"
           >
             <span className={classes.personaWarningIcon} aria-hidden="true">⚠</span>
-            <span className={classes.personaWarningText}>Verify identity to take calls</span>
+            <span className={classes.personaWarningText}>
+              <ShimmerText text="Verify identity to take calls" />
+            </span>
           </button>
         ) : null}
 
@@ -311,11 +319,7 @@ const Topbar = ({
             aria-haspopup="dialog"
           >
             <Bell size={18} className={classes.bellIcon} />
-            {bellUnread > 0 ? (
-              <span className={`${classes.unreadBadge} ${isBellAnimating ? classes.badgeAnimated : ''}`}>
-                {bellUnread > 99 ? '99+' : bellUnread}
-              </span>
-            ) : null}
+            <NotificationBadge count={bellUnread} />
           </button>
 
           <AnimatePresence>
@@ -344,47 +348,51 @@ const Topbar = ({
                 </div>
 
                 {isAdmin ? (
-                  <div className={classes.inboxTabs} role="tablist" aria-label="Notification sections">
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={inboxTab === 'general'}
-                      className={`${classes.inboxTab} ${inboxTab === 'general' ? classes.inboxTabActive : ''}`}
-                      onClick={() => setInboxTab('general')}
-                    >
-                      Updates
-                      {generalUnread > 0 ? (
-                        <span className={classes.inboxTabBadge}>{generalUnread > 99 ? '99+' : generalUnread}</span>
-                      ) : null}
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={inboxTab === 'admin'}
-                      className={`${classes.inboxTab} ${inboxTab === 'admin' ? classes.inboxTabActiveAdmin : ''}`}
-                      onClick={() => setInboxTab('admin')}
-                    >
-                      Admin
-                      {adminUnread > 0 ? (
-                        <span className={`${classes.inboxTabBadge} ${classes.inboxTabBadgeAdmin}`}>
-                          {adminUnread > 99 ? '99+' : adminUnread}
-                        </span>
-                      ) : null}
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={inboxTab === 'ai_flags'}
-                      className={`${classes.inboxTab} ${inboxTab === 'ai_flags' ? classes.inboxTabActiveAdmin : ''}`}
-                      onClick={() => setInboxTab('ai_flags')}
-                    >
-                      AI Flags
-                      {aiFlagUnread > 0 ? (
-                        <span className={`${classes.inboxTabBadge} ${classes.inboxTabBadgeAdmin}`}>
-                          {aiFlagUnread > 99 ? '99+' : aiFlagUnread}
-                        </span>
-                      ) : null}
-                    </button>
+                  <div className={classes.inboxTabsWrap}>
+                    <SlidingTabs
+                      tabs={[
+                        {
+                          key: 'general',
+                          label: (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              Updates
+                              {generalUnread > 0 ? (
+                                <span className={classes.inboxTabBadge}>{generalUnread > 99 ? '99+' : generalUnread}</span>
+                              ) : null}
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'admin',
+                          label: (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              Admin
+                              {adminUnread > 0 ? (
+                                <span className={`${classes.inboxTabBadge} ${classes.inboxTabBadgeAdmin}`}>
+                                  {adminUnread > 99 ? '99+' : adminUnread}
+                                </span>
+                              ) : null}
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'ai_flags',
+                          label: (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              AI Flags
+                              {aiFlagUnread > 0 ? (
+                                <span className={`${classes.inboxTabBadge} ${classes.inboxTabBadgeAdmin}`}>
+                                  {aiFlagUnread > 99 ? '99+' : aiFlagUnread}
+                                </span>
+                              ) : null}
+                            </span>
+                          ),
+                        },
+                      ]}
+                      activeKey={inboxTab}
+                      onChange={setInboxTab}
+                      ariaLabel="Notification sections"
+                    />
                   </div>
                 ) : null}
 
@@ -419,7 +427,9 @@ const Topbar = ({
             title="View billing"
           >
             <Wallet size={16} className={classes.walletIcon} />
-            <span className={classes.balance}>{formatBalance(balanceCents)}</span>
+            <span className={classes.balance}>
+              {balanceCents === null ? '...' : <NumberPopIn value={formatBalance(balanceCents)} />}
+            </span>
             {balanceCents !== null && balanceCents < 5000 && (
               <span className={classes.noCreditsBadge}>Low Credits</span>
             )}
@@ -432,13 +442,18 @@ const Topbar = ({
           onClick={toggleTheme}
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
-          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          <IconSwap
+            state={theme === 'dark' ? 'a' : 'b'}
+            iconA={<Sun size={18} />}
+            iconB={<Moon size={18} />}
+            ariaLabel={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          />
         </button>
 
         {isSupportRole ? null : (
           <div className={`${classes.statusBadge} ${isOnline ? classes.statusOnline : ''}`}>
             <span className={classes.statusDot} />
-            {isOnline ? 'Online' : 'Offline'}
+            {isOnline ? <ShimmerText text="Online" variant="brand" /> : 'Offline'}
           </div>
         )}
       </div>

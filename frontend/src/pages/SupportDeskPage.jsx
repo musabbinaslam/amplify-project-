@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { HeadphonesIcon, Loader2, MessageSquarePlus, Search, X } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { HeadphonesIcon, Loader2, MessageSquarePlus, PanelRight, Search, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import useSupportChatStore from '../store/useSupportChatStore';
+import useSupportDeskStore from '../store/useSupportDeskStore';
 import SupportThread from '../components/support/SupportThread';
+import CustomerIntelligencePanel from '../components/support/CustomerIntelligencePanel';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
+import SlidingTabs from '../components/ui/SlidingTabs';
 import {
   listSupportDeskConversations,
   getSupportDeskMessages,
@@ -220,14 +223,16 @@ function threadIsBehind(conversation, messages = []) {
 const SupportDeskPage = () => {
   const presets = useSubtlePageMotion();
   const user = useAuthStore((s) => s.user);
-  const socket = useSupportChatStore((s) => s._socket);
-  const deskUnreadById = useSupportChatStore((s) => s.deskUnreadById);
-  const joinConversation = useSupportChatStore((s) => s.joinConversation);
-  const emitTyping = useSupportChatStore((s) => s.emitTyping);
-  const userTyping = useSupportChatStore((s) => s.userTyping);
-  const syncDeskUnreadFromRows = useSupportChatStore((s) => s.syncDeskUnreadFromRows);
-  const applyDeskInboxUpdate = useSupportChatStore((s) => s.applyDeskInboxUpdate);
-  const setActiveDeskConversation = useSupportChatStore((s) => s.setActiveDeskConversation);
+  const socket = useSupportDeskStore((s) => s._socket);
+  const deskUnreadById = useSupportDeskStore((s) => s.unreadById);
+  const joinConversation = useSupportDeskStore((s) => s.joinConversation);
+  const leaveConversation = useSupportDeskStore((s) => s.leaveConversation);
+  const emitTyping = useSupportDeskStore((s) => s.emitTyping);
+  const userTyping = useSupportDeskStore((s) => s.userTyping);
+  const syncDeskUnreadFromRows = useSupportDeskStore((s) => s.syncUnreadFromRows);
+  const applyDeskInboxUpdate = useSupportDeskStore((s) => s.upsertRow);
+  const setSelectedIdInStore = useSupportDeskStore((s) => s.setSelectedId);
+  const markThreadRead = useSupportDeskStore((s) => s.markThreadRead);
 
   const [tab, setTab] = useState('inbox');
   const [rows, setRows] = useState([]);
@@ -246,6 +251,7 @@ const SupportDeskPage = () => {
   const [composeSelected, setComposeSelected] = useState(null);
   const [composeText, setComposeText] = useState('');
   const [composeSending, setComposeSending] = useState(false);
+  const [showIntelligence, setShowIntelligence] = useState(true);
   const typingTimer = useRef(null);
   const openReq = useRef(0);
   const selectedIdRef = useRef(null);
@@ -292,14 +298,19 @@ const SupportDeskPage = () => {
   }, []);
 
   useEffect(() => {
+    if (myUid) useSupportDeskStore.getState().setMyUid(myUid);
+  }, [myUid]);
+
+  useEffect(() => {
     selectedIdRef.current = selectedId;
-    setActiveDeskConversation(selectedId || null);
-  }, [selectedId, setActiveDeskConversation]);
+    setSelectedIdInStore(selectedId || null);
+    if (selectedId) markThreadRead(selectedId);
+  }, [selectedId, setSelectedIdInStore, markThreadRead]);
 
   useEffect(() => () => {
     // Leaving Inbox must not leave a sticky "viewing" id (blocks Analytics badges).
-    setActiveDeskConversation(null);
-  }, [setActiveDeskConversation]);
+    setSelectedIdInStore(null);
+  }, [setSelectedIdInStore]);
 
   // Keep sidebar/bell badges in sync from row timestamps (works even when server unread=0).
   useEffect(() => {
@@ -419,7 +430,8 @@ const SupportDeskPage = () => {
     const req = ++openReq.current;
     // Clear badges immediately (before the selectedId effect) so refresh/socket
     // cannot re-inflate unread while the thread is opening.
-    setActiveDeskConversation(id);
+    setSelectedIdInStore(id);
+    markThreadRead(id);
     setSelectedId(id);
     clearAttention(id);
     const at = new Date().toISOString();
@@ -442,6 +454,9 @@ const SupportDeskPage = () => {
       conversation: preview || prev.conversation || { id },
       messages: prev.conversation?.id === id ? prev.messages : [],
     }));
+    if (selectedIdRef.current && String(selectedIdRef.current) !== String(id)) {
+      leaveConversation(selectedIdRef.current);
+    }
     joinConversation(id);
     import('../services/supportLiveService').then(({ warmSupportMediaToken }) => {
       warmSupportMediaToken();
@@ -474,7 +489,7 @@ const SupportDeskPage = () => {
     } finally {
       if (openReq.current === req) setThreadLoading(false);
     }
-  }, [joinConversation, clearAttention, applyDeskInboxUpdate, setActiveDeskConversation]);
+  }, [joinConversation, leaveConversation, clearAttention, applyDeskInboxUpdate, setSelectedIdInStore, markThreadRead]);
 
   useEffect(() => {
     loadQueue('inbox');
@@ -509,7 +524,7 @@ const SupportDeskPage = () => {
           return prev.filter((r) => r.id !== conversation.id);
         }
         const storeCount = Number(
-          useSupportChatStore.getState().deskUnreadById?.[conversation.id] || 0,
+          useSupportDeskStore.getState().unreadById?.[conversation.id] || 0,
         );
         return upsertRow(prev, {
           ...conversation,
@@ -546,8 +561,9 @@ const SupportDeskPage = () => {
       );
       const senderId = message?.senderId ? String(message.senderId) : '';
       const isOwnStaffSend = Boolean(myUid && senderId && senderId === String(myUid));
-      // Any message on a thread you are not viewing = attention (shared inbox).
-      const bumpUnread = Boolean(conversation?.id && !isActive && message?.id);
+      const fromUser = message?.senderRole === 'user';
+      // Any customer message on a thread you are not viewing = attention (shared inbox).
+      const bumpUnread = Boolean(conversation?.id && !isActive && message?.id && fromUser);
       if (conversation) {
         if (bumpUnread) {
           markAttention(conversation.id, {
@@ -563,7 +579,7 @@ const SupportDeskPage = () => {
           const prevRow = prev.find((r) => String(r.id) === String(conversation.id));
           const prevUnread = Number(prevRow?.unreadForSupport || 0);
           const storeCount = Number(
-            useSupportChatStore.getState().deskUnreadById?.[conversation.id] || 0,
+            useSupportDeskStore.getState().unreadById?.[conversation.id] || 0,
           );
           const serverCount = Number(conversation.unreadForSupport || 0);
           return upsertRow(prev, {
@@ -612,13 +628,20 @@ const SupportDeskPage = () => {
           : prev
       ));
     };
+    const onTyping = (payload = {}) => {
+      useSupportDeskStore.getState().handleTyping(payload);
+    };
     const onConnect = () => {
       const id = selectedIdRef.current;
       if (id) joinConversation(id);
     };
+    if (socket.connected) {
+      onConnect();
+    }
     socket.on('connect', onConnect);
     socket.on('support:inbox:updated', onInbox);
     socket.on('support:message:new', onMessage);
+    socket.on('support:typing', onTyping);
     socket.on('support:read', onRead);
     const onClaimed = (p) => p?.conversation && onInbox(p.conversation);
     const onClosed = (p) => p?.conversation && onInbox(p.conversation);
@@ -629,6 +652,7 @@ const SupportDeskPage = () => {
       socket.off('connect', onConnect);
       socket.off('support:inbox:updated', onInbox);
       socket.off('support:message:new', onMessage);
+      socket.off('support:typing', onTyping);
       socket.off('support:read', onRead);
       socket.off('support:claimed', onClaimed);
       socket.off('support:closed', onClosed);
@@ -660,6 +684,8 @@ const SupportDeskPage = () => {
     const replyTo = meta.replyTo || null;
     if ((!text && !attachments.length) || !id) return;
     setInput('');
+    clearTimeout(typingTimer.current);
+    emitTyping(id, false);
     const tempId = `tmp-${Date.now()}`;
     const preview = text
       || (attachments[0]?.kind === 'audio' ? 'Voice message' : '')
@@ -716,6 +742,8 @@ const SupportDeskPage = () => {
         {
           conversationId: id,
           text,
+          asStaff: true,
+          asCustomer: false,
           ...(replyTo ? { replyTo } : {}),
           ...(attachments.length ? { attachments } : {}),
         },
@@ -735,6 +763,8 @@ const SupportDeskPage = () => {
       const out = await postSupportDeskMessage(id, text, {
         replyTo,
         attachments,
+        asStaff: true,
+        asCustomer: false,
       });
       applyResult(out);
     } catch (err) {
@@ -849,7 +879,10 @@ const SupportDeskPage = () => {
 
   return (
     <motion.div className={classes.page} variants={presets.root} initial="hidden" animate="visible">
-      <motion.div className={classes.shell} variants={presets.child}>
+      <motion.div
+        className={`${classes.shell} ${convo && showIntelligence ? classes.shellWithIntel : ''}`}
+        variants={presets.child}
+      >
         <aside className={classes.inbox}>
           <div className={classes.inboxHead}>
             <div className={classes.inboxTitleRow}>
@@ -867,18 +900,16 @@ const SupportDeskPage = () => {
             </div>
           </div>
 
-          <div className={classes.tabs} role="tablist">
-            {['inbox', 'closed'].map((id) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                className={`${classes.tab} ${tab === id ? classes.tabActive : ''}`}
-                onClick={() => handleTab(id)}
-              >
-                {id}
-              </button>
-            ))}
+          <div className={classes.tabs}>
+            <SlidingTabs
+              tabs={[
+                { key: 'inbox', label: 'Inbox' },
+                { key: 'closed', label: 'Closed' },
+              ]}
+              activeKey={tab}
+              onChange={(nextTab) => handleTab(nextTab)}
+              ariaLabel="Support desk queue tabs"
+            />
           </div>
 
           <label className={classes.searchWrap}>
@@ -979,6 +1010,16 @@ const SupportDeskPage = () => {
                       <Loader2 size={16} className={classes.spin} />
                     </span>
                   ) : null}
+                  <button
+                    type="button"
+                    className={`${classes.intelToggleBtn} ${showIntelligence ? classes.intelToggleBtnActive : ''}`}
+                    onClick={() => setShowIntelligence((prev) => !prev)}
+                    title={showIntelligence ? 'Hide customer intelligence' : 'Show customer intelligence'}
+                    aria-label="Toggle customer intelligence panel"
+                  >
+                    <PanelRight size={14} />
+                    <span>Info</span>
+                  </button>
                   {convo.status !== 'closed' ? (
                     <button type="button" className={classes.closeBtn} onClick={handleClose} disabled={busy || threadLoading}>
                       {busy ? 'Closing…' : 'Close'}
@@ -1021,6 +1062,25 @@ const SupportDeskPage = () => {
             </div>
           )}
         </section>
+
+        <AnimatePresence initial={false}>
+          {convo && showIntelligence ? (
+            <motion.div
+              key="customer-intelligence-drawer"
+              className={classes.intelWrap}
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 320, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <CustomerIntelligencePanel
+                conversation={convo}
+                isOpen={showIntelligence}
+                onClose={() => setShowIntelligence(false)}
+              />
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </motion.div>
 
       {composeOpen ? (

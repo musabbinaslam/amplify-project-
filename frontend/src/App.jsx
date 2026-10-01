@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -11,7 +11,7 @@ const AppShell = lazy(() => import('./components/layout/AppShell'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
-const TermsGatewayModal = lazy(() => import('./components/TermsGatewayModal'));
+const TermsGatewayModal = lazy(() => import('./components/modals/TermsGatewayModal'));
 const DialerOverlay = lazy(() => import('./components/ui/DialerOverlay'));
 
 let authStoreModule = null;
@@ -36,7 +36,6 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const CallLogsPage = lazy(() => import('./pages/CallLogsPage'));
 const AITrainingPage = lazy(() => import('./pages/AITrainingPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
-const LicensedStatesPage = lazy(() => import('./pages/LicensedStatesPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
 const SupportHubPage = lazy(() => import('./pages/SupportHubPage'));
@@ -47,7 +46,6 @@ const SupportChatPopup = lazy(() => import('./components/support/SupportChatPopu
 const ScriptPage = lazy(() => import('./pages/ScriptPage'));
 const NotesPage = lazy(() => import('./pages/NotesPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
-const LeadsPage = lazy(() => import('./pages/LeadsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ReferralProgramPage = lazy(() => import('./pages/ReferralProgramPage'));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
@@ -60,13 +58,13 @@ const AdminCampaignsPage = lazy(() => import('./pages/admin/AdminCampaignsPage')
 const AdminPhoneRoutingPage = lazy(() => import('./pages/admin/AdminPhoneRoutingPage'));
 const AdminAgenciesPage = lazy(() => import('./pages/admin/AdminAgenciesPage'));
 const AdminManagersPage = lazy(() => import('./pages/admin/AdminManagersPage'));
-const AdminAgenciesOpsPage = lazy(() => import('./pages/admin/AdminAgenciesOpsPage'));
 const AdminTeamsOpsPage = lazy(() => import('./pages/admin/AdminTeamsOpsPage'));
 const AdminAITrainingPage = lazy(() => import('./pages/AdminAITrainingPage'));
 const AdminAiFlagsPage = lazy(() => import('./pages/admin/AdminAiFlagsPage'));
 const AdminQaRulesPage = lazy(() => import('./pages/admin/AdminQaRulesPage'));
 const AdminNotificationSettingsPage = lazy(() => import('./pages/AdminNotificationSettingsPage'));
 const AdminSuspiciousPage = lazy(() => import('./pages/admin/AdminSuspiciousPage'));
+const AdminExportPage = lazy(() => import('./pages/admin/AdminExportPage'));
 
 const QaDashboardPage = lazy(() => import('./pages/QaDashboardPage'));
 const QaAITrainingPage = lazy(() => import('./pages/QaAITrainingPage'));
@@ -77,12 +75,15 @@ const AgencyDashboardPage = lazy(() => import('./pages/AgencyDashboardPage'));
 
 
 const ProtectedRouteInner = ({ useAuthStore, auth }) => {
+  const location = useLocation();
   const token = useAuthStore((s) => s.token);
   const loading = useAuthStore((s) => s.loading);
   const hasFirebaseSession = Boolean(auth?.currentUser);
   
   if (loading) return <PageLoader fullScreen />;
-  if (!token || !hasFirebaseSession) return <Navigate to="/login" replace />;
+  if (!token || !hasFirebaseSession) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
   
   return (
     <Suspense fallback={<PageLoader fullScreen />}>
@@ -110,12 +111,18 @@ const ProtectedRoute = () => {
 };
 
 const GuestRouteInner = ({ useAuthStore, auth, children }) => {
+  const location = useLocation();
   const token = useAuthStore((s) => s.token);
   const loading = useAuthStore((s) => s.loading);
   const hasFirebaseSession = Boolean(auth?.currentUser);
   
   if (loading) return <PageLoader fullScreen />;
-  if (token && hasFirebaseSession) return <Navigate to="/app" replace />;
+  if (token && hasFirebaseSession) {
+    const fromPath = location.state?.from?.pathname;
+    const fromSearch = location.state?.from?.search || '';
+    const destination = fromPath ? `${fromPath}${fromSearch}` : '/app';
+    return <Navigate to={destination} replace />;
+  }
   
   return children;
 };
@@ -338,6 +345,9 @@ const AnimatedRoutes = () => {
         {/* Public Terms and Privacy */}
         <Route path="/terms" element={<Suspense fallback={<PageLoader />}><TermsPage /></Suspense>} />
         <Route path="/privacy" element={<Suspense fallback={<PageLoader />}><TermsPage /></Suspense>} />
+        {/* Direct redirects */}
+        <Route path="/calls" element={<Navigate to="/app/call-logs" replace />} />
+        <Route path="/call-logs" element={<Navigate to="/app/call-logs" replace />} />
 
         {/* Authenticated app under /app */}
         <Route path="/app" element={<ProtectedRoute />}>
@@ -365,12 +375,6 @@ const AnimatedRoutes = () => {
           } />
           <Route path="billing" element={
             <Suspense fallback={<PageLoader />}><BillingPage /></Suspense>
-          } />
-          <Route path="licensed-states" element={
-            <Suspense fallback={<PageLoader />}><LicensedStatesPage /></Suspense>
-          } />
-          <Route path="leads" element={
-            <Suspense fallback={<PageLoader />}><LeadsPage /></Suspense>
           } />
           <Route path="profile" element={
             <Suspense fallback={<PageLoader />}><ProfilePage /></Suspense>
@@ -410,6 +414,13 @@ const AnimatedRoutes = () => {
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
                 <AdminAnalyticsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/export" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminExportPage />
               </AdminOnly>
             </Suspense>
           } />
@@ -459,13 +470,6 @@ const AnimatedRoutes = () => {
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
                 <AdminManagersPage />
-              </AdminOnly>
-            </Suspense>
-          } />
-          <Route path="admin/ops/agencies" element={
-            <Suspense fallback={<PageLoader />}>
-              <AdminOnly>
-                <AdminAgenciesOpsPage />
               </AdminOnly>
             </Suspense>
           } />
@@ -553,6 +557,8 @@ const AnimatedRoutes = () => {
 
           <Route path="*" element={<div><h2 style={{color: 'white'}}>404 Not Found</h2></div>} />
         </Route>
+        {/* Top-level catch-all redirect to /app */}
+        <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>
     </>
   );

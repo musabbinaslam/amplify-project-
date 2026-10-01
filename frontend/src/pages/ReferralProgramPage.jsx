@@ -1,13 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Gift, Copy, CheckCircle2, Share2, Users, TrendingUp,
+  Gift, Copy, Share2, Users, TrendingUp,
   Clock, ExternalLink, MessageCircle, Mail, Link2,
-  Award, ChevronDown, AlertCircle,
+  Award, AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { referralService } from '../services/referralService';
 import PageLoader from '../components/ui/PageLoader';
+import NumberPopIn from '../components/ui/NumberPopIn';
+import SuccessCheck from '../components/ui/SuccessCheck';
+import AccordionItem from '../components/ui/Accordion';
+import CardTilt from '../components/ui/CardTilt';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { EASE_SMOOTH } from '../motion/appMotion';
 import classes from './ReferralProgramPage.module.css';
@@ -53,40 +57,26 @@ const StatCard = ({ label, value, icon: Icon, variants }) => {
         <Icon size={18} />
       </div>
       <div className={classes.statLabel}>{label}</div>
-      <div className={classes.statValue}>{value}</div>
+      <div className={classes.statValue}>
+        {typeof value === 'number' || typeof value === 'string' ? (
+          <NumberPopIn value={value} />
+        ) : (
+          value
+        )}
+      </div>
     </motion.div>
   );
 };
 
 /* eslint-disable react/prop-types -- local FAQ accordion helper */
-const FaqAccordionItem = ({ question, answer, isOpen, onToggle, reduceMotion }) => (
-  <div className={classes.faqItem}>
-    <button
-      type="button"
-      className={`${classes.faqQuestion} ${isOpen ? classes.faqQuestionOpen : ''}`}
-      onClick={onToggle}
-      aria-expanded={isOpen}
-    >
-      <span>{question}</span>
-      <ChevronDown
-        size={18}
-        className={`${classes.faqChevron} ${isOpen ? classes.faqChevronOpen : ''}`}
-      />
-    </button>
-    <AnimatePresence initial={false}>
-      {isOpen && (
-        <motion.div
-          className={classes.faqAnswerWrap}
-          initial={reduceMotion ? false : { height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
-          transition={{ duration: reduceMotion ? 0 : 0.28, ease: EASE_SMOOTH }}
-        >
-          <p className={classes.faqAnswer}>{answer}</p>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  </div>
+const FaqAccordionItem = ({ question, answer, isOpen, onToggle }) => (
+  <AccordionItem
+    title={question}
+    isOpen={isOpen}
+    onToggle={onToggle}
+  >
+    {answer}
+  </AccordionItem>
 );
 
 const ReferralProgramPage = () => {
@@ -199,83 +189,85 @@ const ReferralProgramPage = () => {
         </div>
       </motion.div>
 
-      <motion.section className={`glass ${classes.heroSection}`} variants={presets.child}>
-        <div className={classes.heroContent}>
-          <div className={classes.heroTextBlock}>
-            <p className={classes.heroSubtitle}>
-              Share your code with a fellow agent. When they sign up, top up at least{' '}
-              <strong>$500</strong>, and complete their first call —{' '}
-              <strong>you earn a {config.discountPercent}% discount</strong> on your next purchase.
-            </p>
+      <CardTilt maxTilt={5}>
+        <motion.section className={`glass ${classes.heroSection}`} variants={presets.child}>
+          <div className={classes.heroContent}>
+            <div className={classes.heroTextBlock}>
+              <p className={classes.heroSubtitle}>
+                Share your code with a fellow agent. When they sign up, top up at least{' '}
+                <strong>$500</strong>, and complete their first call —{' '}
+                <strong>you earn a {config.discountPercent}% discount</strong> on your next purchase.
+              </p>
 
-            <div className={classes.limitBanner}>
-              <AlertCircle size={18} />
-              <div className={classes.limitBannerText}>
-                <strong>
-                  Monthly Limit: {stats.monthCount} / {config.maxReferralsPerMonth} Referrals Used
-                </strong>
+              <div className={classes.limitBanner}>
+                <AlertCircle size={18} />
+                <div className={classes.limitBannerText}>
+                  <strong>
+                    Monthly Limit: {stats.monthCount} / {config.maxReferralsPerMonth} Referrals Used
+                  </strong>
+                  <span>
+                    You can successfully refer up to {config.maxReferralsPerMonth} new agents per calendar month.
+                  </span>
+                </div>
+              </div>
+
+              <div className={classes.chainNotice}>
+                <Link2 size={18} className={classes.chainIcon} />
                 <span>
-                  You can successfully refer up to {config.maxReferralsPerMonth} new agents per calendar month.
+                  <strong>One referral, one reward.</strong> Each person you refer earns you one{' '}
+                  {config.discountPercent}% discount. Once that discount is used, share your link with the next person to
+                  keep the chain going!
                 </span>
               </div>
             </div>
 
-            <div className={classes.chainNotice}>
-              <Link2 size={18} className={classes.chainIcon} />
-              <span>
-                <strong>One referral, one reward.</strong> Each person you refer earns you one{' '}
-                {config.discountPercent}% discount. Once that discount is used, share your link with the next person to
-                keep the chain going!
-              </span>
+            <div className={classes.codeBlock}>
+              <label className={classes.fieldLabel} htmlFor="referral-code">Your Referral Code</label>
+              <div className={classes.codeRow}>
+                <span id="referral-code" className={classes.codeValue}>{code}</span>
+                <button
+                  type="button"
+                  className={`${classes.copyBtn} ${copied === 'code' ? classes.copyBtnDone : ''}`}
+                  onClick={() => copyToClipboard(code, 'code')}
+                >
+                  {copied === 'code' ? <SuccessCheck size={16} color="var(--brand, #25f425)" /> : <Copy size={16} />}
+                  {copied === 'code' ? 'Copied' : 'Copy'}
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div className={classes.codeBlock}>
-            <label className={classes.fieldLabel} htmlFor="referral-code">Your Referral Code</label>
-            <div className={classes.codeRow}>
-              <span id="referral-code" className={classes.codeValue}>{code}</span>
-              <button
-                type="button"
-                className={`${classes.copyBtn} ${copied === 'code' ? classes.copyBtnDone : ''}`}
-                onClick={() => copyToClipboard(code, 'code')}
-              >
-                {copied === 'code' ? <CheckCircle2 size={16} /> : <Copy size={16} />}
-                {copied === 'code' ? 'Copied' : 'Copy'}
+            <div className={classes.linkBlock}>
+              <label className={classes.fieldLabel} htmlFor="share-link">Share Link</label>
+              <div className={classes.codeRow}>
+                <span id="share-link" className={classes.linkValue}>{shareUrl}</span>
+                <button
+                  type="button"
+                  className={`${classes.copyBtn} ${copied === 'link' ? classes.copyBtnDone : ''}`}
+                  onClick={() => copyToClipboard(shareUrl, 'link')}
+                >
+                  {copied === 'link' ? <SuccessCheck size={16} color="var(--brand, #25f425)" /> : <Copy size={16} />}
+                  {copied === 'link' ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            <div className={classes.shareRow}>
+              <button type="button" className={`${classes.shareBtn} ${classes.whatsapp}`} onClick={() => shareVia('whatsapp')}>
+                <MessageCircle size={16} /> WhatsApp
+              </button>
+              <button type="button" className={`${classes.shareBtn} ${classes.emailShare}`} onClick={() => shareVia('email')}>
+                <Mail size={16} /> Email
+              </button>
+              <button type="button" className={`${classes.shareBtn} ${classes.xShare}`} onClick={() => shareVia('x')}>
+                <ExternalLink size={16} /> X
+              </button>
+              <button type="button" className={`${classes.shareBtn} ${classes.linkedinShare}`} onClick={() => shareVia('linkedin')}>
+                <ExternalLink size={16} /> LinkedIn
               </button>
             </div>
           </div>
-
-          <div className={classes.linkBlock}>
-            <label className={classes.fieldLabel} htmlFor="share-link">Share Link</label>
-            <div className={classes.codeRow}>
-              <span id="share-link" className={classes.linkValue}>{shareUrl}</span>
-              <button
-                type="button"
-                className={`${classes.copyBtn} ${copied === 'link' ? classes.copyBtnDone : ''}`}
-                onClick={() => copyToClipboard(shareUrl, 'link')}
-              >
-                {copied === 'link' ? <CheckCircle2 size={16} /> : <Copy size={16} />}
-                {copied === 'link' ? 'Copied' : 'Copy'}
-              </button>
-            </div>
-          </div>
-
-          <div className={classes.shareRow}>
-            <button type="button" className={`${classes.shareBtn} ${classes.whatsapp}`} onClick={() => shareVia('whatsapp')}>
-              <MessageCircle size={16} /> WhatsApp
-            </button>
-            <button type="button" className={`${classes.shareBtn} ${classes.emailShare}`} onClick={() => shareVia('email')}>
-              <Mail size={16} /> Email
-            </button>
-            <button type="button" className={`${classes.shareBtn} ${classes.xShare}`} onClick={() => shareVia('x')}>
-              <ExternalLink size={16} /> X
-            </button>
-            <button type="button" className={`${classes.shareBtn} ${classes.linkedinShare}`} onClick={() => shareVia('linkedin')}>
-              <ExternalLink size={16} /> LinkedIn
-            </button>
-          </div>
-        </div>
-      </motion.section>
+        </motion.section>
+      </CardTilt>
 
       <motion.section className={classes.statsRow} variants={presets.statsStrip}>
         <StatCard label="Total Signups" value={stats.signups} icon={Users} variants={presets.child} />

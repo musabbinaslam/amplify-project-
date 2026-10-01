@@ -8,7 +8,6 @@ const {
   setMaintenanceState,
   getMaintenanceState,
   listBroadcasts,
-  getBroadcast,
   updateBroadcast,
   revokeBroadcast,
   maintenanceDocRef,
@@ -21,6 +20,7 @@ const { getDb } = require('../config/firestoreDb');
 const { mergeUserDoc, getUserDoc } = require('../services/userDataService');
 const callLogService = require('../services/callLogService');
 const { flagAgentAccount } = require('../services/agentFlagService');
+const { generateExcelReport } = require('../services/excelExportService');
 const ANALYTICS_CACHE_TTL_MS = 30000;
 const READ_CONCURRENCY = 10;
 const analyticsCache = new Map();
@@ -1623,74 +1623,6 @@ async function getAiCoachingAgentPlans(req, res) {
   }
 }
 
-// ─── Referral Admin ──────────────────────────────────────────────────────────
-
-const referralService = require('../services/referralService');
-
-async function getReferralOverview(req, res) {
-  try {
-    const overview = await referralService.getAdminReferralOverview();
-    res.json(overview);
-  } catch (err) {
-    console.error('[Admin] getReferralOverview:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to load referral overview' });
-  }
-}
-
-async function searchReferralsHandler(req, res) {
-  try {
-    const results = await referralService.searchReferrals(req.query || {});
-    res.json({ referrals: results });
-  } catch (err) {
-    console.error('[Admin] searchReferrals:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to search referrals' });
-  }
-}
-
-async function updateReferralStatusHandler(req, res) {
-  try {
-    const { referralId } = req.params;
-    const { status, reason } = req.body || {};
-
-    if (!referralId || !referralId.includes('/')) {
-      return res.status(400).json({ error: 'referralId must be in format referrerUid/refereeUid' });
-    }
-    if (!status) return res.status(400).json({ error: 'status is required' });
-
-    const [referrerUid, refereeUid] = referralId.split('/');
-    await referralService.updateReferralStatus(referrerUid, refereeUid, status, reason);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('[Admin] updateReferralStatus:', err.message);
-    const code = err.message.includes('not found') ? 404 : 400;
-    res.status(code).json({ error: err.message || 'Failed to update referral status' });
-  }
-}
-
-async function grantDiscountHandler(req, res) {
-  try {
-    const { uid, percent } = req.body || {};
-    if (!uid) return res.status(400).json({ error: 'uid is required' });
-    await referralService.grantDiscount(uid, percent || undefined);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('[Admin] grantDiscount:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to grant discount' });
-  }
-}
-
-async function revokeDiscountHandler(req, res) {
-  try {
-    const { uid } = req.body || {};
-    if (!uid) return res.status(400).json({ error: 'uid is required' });
-    await referralService.revokeDiscount(uid);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('[Admin] revokeDiscount:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to revoke discount' });
-  }
-}
-
 async function postBroadcastNotification(req, res) {
   try {
     const payload = await broadcastNotificationToAllUsers(
@@ -1874,17 +1806,6 @@ async function getBroadcastNotifications(req, res) {
   }
 }
 
-async function getBroadcastNotification(req, res) {
-  try {
-    const out = await getBroadcast(req.params.id);
-    res.json(out);
-  } catch (err) {
-    console.error('[Admin] getBroadcastNotification:', err.message);
-    const status = /not found/i.test(err.message) ? 404 : 500;
-    res.status(status).json({ error: err.message || 'Failed to read broadcast' });
-  }
-}
-
 async function patchBroadcastNotification(req, res) {
   try {
     const out = await updateBroadcast(req.params.id, req.body || {}, req.user?.uid || null);
@@ -1973,61 +1894,6 @@ async function patchCampaignControls(req, res) {
     console.error('[Admin] patchCampaignControls:', err.message);
     const status = /required|Invalid campaignId/i.test(err.message) ? 400 : 500;
     res.status(status).json({ error: err.message || 'Failed to update campaign controls' });
-  }
-}
-
-async function getPoolDebug(req, res) {
-  try {
-    const { redisClient } = require('../config/redis');
-    const { CAMPAIGN_CONFIG } = require('../config/pricing');
-
-    const campaignIds = Object.keys(CAMPAIGN_CONFIG);
-    const allAgentsRaw = await redisClient.hGetAll('agents:data') || {};
-    const [ringing, busy] = await Promise.all([
-      redisClient.sMembers('agents:ringing'),
-      redisClient.sMembers('agents:busy'),
-    ]);
-
-    const poolsByCampaign = {};
-    for (const cId of campaignIds) {
-      const members = await redisClient.zRangeWithScores(`pool:${cId}`, 0, -1);
-      poolsByCampaign[cId] = members.map(({ value, score }) => ({ agentId: value, score }));
-    }
-
-    const agentDetails = {};
-    for (const [id, raw] of Object.entries(allAgentsRaw)) {
-      try {
-        const d = JSON.parse(raw);
-        const heartbeat = await redisClient.get(`agent:heartbeat:${id}`);
-        const voiceReady = await redisClient.get(`agent:voice_ready:${id}`);
-        const pending = await redisClient.get(`agent:pendingcall:${id}`);
-        agentDetails[id] = {
-          status: d.status,
-          campaign: d.campaignId,
-          states: JSON.parse(d.licensedStates || '[]'),
-          sessionId: d.sessionId,
-          lastSeenAt: d.lastSeenAt ? new Date(Number(d.lastSeenAt)).toISOString() : null,
-          hasHeartbeat: Boolean(heartbeat),
-          hasVoiceReady: Boolean(voiceReady),
-          hasPendingCall: Boolean(pending),
-          pendingCallSid: pending ? JSON.parse(pending).callSid : null,
-          inRinging: ringing.includes(id),
-          inBusy: busy.includes(id),
-          inPool: Object.entries(poolsByCampaign).some(([, members]) => members.some(m => m.agentId === id)),
-        };
-      } catch { /* ignore */ }
-    }
-
-    return res.json({
-      pools: poolsByCampaign,
-      ringing,
-      busy,
-      agents: agentDetails,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (err) {
-    console.error('[Admin] getPoolDebug:', err.message);
-    return res.status(500).json({ error: err.message });
   }
 }
 
@@ -2188,6 +2054,47 @@ async function patchSupportRole(req, res) {
   }
 }
 
+async function exportExcelReport(req, res) {
+  try {
+    const params = {
+      ...(req.query || {}),
+      ...(req.body || {}),
+    };
+
+    const reportType = String(params.reportType || 'all').toLowerCase();
+    const campaign = String(params.campaign || 'all');
+    const from = params.from || null;
+    const to = params.to || null;
+    const agentId = params.agentId || 'all';
+    const status = String(params.status || 'all').toLowerCase();
+    const tz = String(params.tz || 'America/New_York');
+    const adminEmail = req.user?.email || 'admin@callsflow.io';
+
+    const result = await generateExcelReport({
+      reportType,
+      campaign,
+      from,
+      to,
+      agentId,
+      status,
+      tz,
+      adminEmail,
+    });
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const safeCampaign = campaign && campaign !== 'all' ? campaign.replace(/[^a-zA-Z0-9_-]/g, '_') : 'All_Campaigns';
+    const filename = `CallsFlow_Export_${reportType}_${safeCampaign}_${dateStr}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    return res.status(200).send(result.buffer);
+  } catch (err) {
+    console.error('[Admin] exportExcelReport:', err);
+    return res.status(500).json({ error: err.message || 'Failed to generate Excel report' });
+  }
+}
+
 module.exports = {
   getOverviewLite,
   getAnalyticsBundle,
@@ -2209,15 +2116,9 @@ module.exports = {
   createDid,
   patchDid,
   deleteDid,
-  getReferralOverview,
-  searchReferrals: searchReferralsHandler,
-  updateReferralStatus: updateReferralStatusHandler,
-  grantDiscount: grantDiscountHandler,
-  revokeDiscount: revokeDiscountHandler,
   postBroadcastNotification,
   postTargetedNotification,
   getBroadcastNotifications,
-  getBroadcastNotification,
   patchBroadcastNotification,
   deleteBroadcastNotification,
   patchMaintenance,
@@ -2227,11 +2128,11 @@ module.exports = {
   patchCampaignControls,
   upsertCampaign,
   deleteCampaign,
-  getPoolDebug,
   listCallContests,
   getCallContest,
   approveCallContest,
   denyCallContest,
   refundCall: refundCallHandler,
   patchSupportRole,
+  exportExcelReport,
 };

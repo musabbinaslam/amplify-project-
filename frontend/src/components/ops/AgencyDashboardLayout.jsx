@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import {
   Building2, Users, Phone, Radio, CircleDollarSign, RefreshCw, Search,
   ChevronLeft, ChevronRight, AlertTriangle, Activity, PhoneIncoming, PhoneCall,
@@ -6,6 +7,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import PageLoader from '../ui/PageLoader';
+import NumberPopIn from '../ui/NumberPopIn';
 import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
 import { RecordingModal } from '../../pages/CallLogsPage';
 import { useOpsDashboard } from '../../hooks/useOpsDashboard';
@@ -168,12 +170,12 @@ export default function AgencyDashboardLayout({
         <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
           <Users size={18} className={shared.statIcon} />
           <span className={shared.statLabel}>Agents</span>
-          <span className={shared.statValue}>{ops.agents.length}</span>
+          <span className={shared.statValue}><NumberPopIn value={ops.agents.length} /></span>
         </motion.div>
         <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
           <Activity size={18} className={shared.statIcon} />
           <span className={shared.statLabel}>Online</span>
-          <span className={shared.statValue}>{ops.onlineCount}/{ops.agents.length || 0}</span>
+          <span className={shared.statValue}><NumberPopIn value={`${ops.onlineCount}/${ops.agents.length || 0}`} /></span>
           <span className={shared.statHint}>
             {ops.agents.length ? `${Math.round((ops.onlineCount / ops.agents.length) * 100)}% of team` : 'No agents yet'}
           </span>
@@ -181,33 +183,33 @@ export default function AgencyDashboardLayout({
         <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
           <Radio size={18} className={shared.statIcon} />
           <span className={shared.statLabel}>Live calls</span>
-          <span className={shared.statValue}>{ops.liveCalls.length}</span>
+          <span className={shared.statValue}><NumberPopIn value={ops.liveCalls.length} /></span>
         </motion.div>
         <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
           <Phone size={18} className={shared.statIcon} />
           <span className={shared.statLabel}>Calls</span>
-          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : s.totalCalls}</span>
+          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : <NumberPopIn value={s.totalCalls} />}</span>
         </motion.div>
         <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
           <PhoneIncoming size={18} className={shared.statIcon} />
           <span className={shared.statLabel}>Answer rate</span>
-          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : `${Math.round((s.answerRate || 0) * 100)}%`}</span>
+          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : <NumberPopIn value={`${Math.round((s.answerRate || 0) * 100)}%`} />}</span>
           <span className={shared.statHint}>{s.answeredCalls || 0} answered</span>
         </motion.div>
         <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
           <PhoneCall size={18} className={shared.statIcon} />
           <span className={shared.statLabel}>Billable rate</span>
-          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : `${Math.round((s.billableRate || 0) * 100)}%`}</span>
+          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : <NumberPopIn value={`${Math.round((s.billableRate || 0) * 100)}%`} />}</span>
         </motion.div>
         <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
           <Phone size={18} className={shared.statIcon} />
           <span className={shared.statLabel}>Billable calls</span>
-          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : (s.billableCalls || 0)}</span>
+          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : <NumberPopIn value={s.billableCalls || 0} />}</span>
         </motion.div>
         <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>
           <CircleDollarSign size={18} className={shared.statIcon} />
           <span className={shared.statLabel}>Earnings</span>
-          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : `$${(s.totalCost || 0).toFixed(2)}`}</span>
+          <span className={shared.statValue}>{ops.analyticsLoading ? '—' : <NumberPopIn value={`$${(s.totalCost || 0).toFixed(2)}`} />}</span>
         </motion.div>
       </motion.div>
 
@@ -290,7 +292,7 @@ export default function AgencyDashboardLayout({
                   if (agentObj?.licensedStates) {
                     let parsed = agentObj.licensedStates;
                     if (typeof parsed === 'string') {
-                      try { parsed = JSON.parse(parsed); } catch (e) { parsed = []; }
+                      try { parsed = JSON.parse(parsed); } catch { parsed = []; }
                     }
                     if (Array.isArray(parsed) && parsed.length > 0) {
                       statesStr = parsed.join(', ');

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  TrendingUp, Phone, Radio, RefreshCw, Activity, CircleDollarSign, Play,
+  TrendingUp, Phone, Radio, RefreshCw, Activity, CircleDollarSign, Play, FileSpreadsheet,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -19,9 +19,12 @@ import AdminPageShell from '../../components/admin/AdminPageShell';
 import AdminStatCard from '../../components/admin/AdminStatCard';
 import { AdminCallTrendChart, AdminDrilldownTrendChart } from '../../components/admin/AdminCharts';
 import { AdminActionModal } from '../../components/admin/ContestReviewCard';
+import AdminExportModal from '../../components/admin/AdminExportModal';
 import { getAgentName, getAgentId } from '../../components/admin/adminUtils';
 import PageLoader from '../../components/ui/PageLoader';
 import CustomSelect from '../../components/ui/CustomSelect';
+import SlidingTabs from '../../components/ui/SlidingTabs';
+import ShimmerText from '../../components/ui/ShimmerText';
 import { RecordingModal } from '../CallLogsPage';
 import { CallLogDispositionBadge } from '../../components/callLogs/CallLogStatusCells';
 import classes from '../../components/admin/adminShared.module.css';
@@ -57,6 +60,7 @@ export default function AdminAnalyticsPage() {
   });
   const [customStart, setCustomStart] = useState(() => new Date().toISOString().slice(0, 10));
   const [customEnd, setCustomEnd] = useState(() => new Date().toISOString().slice(0, 10));
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [overview, setOverview] = useState(null);
@@ -233,7 +237,7 @@ export default function AdminAnalyticsPage() {
         recentLogs: prev.recentLogs.map(l => l.id === logId ? { ...l, disposition: val } : l),
       }));
       toast.success('Disposition updated');
-    } catch (err) {
+    } catch {
       toast.error('Failed to update disposition');
     } finally {
       setUpdatingDispositionId(null);
@@ -322,20 +326,12 @@ export default function AdminAnalyticsPage() {
               rangePreset === '30d' ? 'Last 30 days' : 'Last 7 days'
             })</h2>
             <div className={`glass ${classes.toolbar} ${classes.summaryToolbar}`}>
-              <div className={classes.filterRow} role="tablist" aria-label="Date range">
-                {RANGE_PRESETS.map(({ key, label }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    role="tab"
-                    aria-selected={rangePreset === key}
-                    className={`${classes.filterBtn} ${rangePreset === key ? classes.filterBtnActive : ''}`}
-                    onClick={() => setRangePreset(key)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <SlidingTabs
+                tabs={RANGE_PRESETS}
+                activeKey={rangePreset}
+                onChange={setRangePreset}
+                ariaLabel="Date range"
+              />
 
               {rangePreset === 'custom' ? (
                 <div className={classes.customRangeRow}>
@@ -364,6 +360,15 @@ export default function AdminAnalyticsPage() {
                   onChange={setTimezone}
                   menuAlign="right"
                 />
+                <button
+                  type="button"
+                  className={classes.refreshBtn}
+                  onClick={() => setExportModalOpen(true)}
+                  title="Export to Excel (.xlsx)"
+                >
+                  <FileSpreadsheet size={16} />
+                  Export Excel
+                </button>
                 <button
                   type="button"
                   className={classes.refreshBtn}
@@ -420,7 +425,7 @@ export default function AdminAnalyticsPage() {
                 </thead>
                 <tbody>
                   {analyticsLoading ? (
-                    <tr><td colSpan={6} className={classes.muted}>Loading analytics…</td></tr>
+                    <tr><td colSpan={6} className={classes.muted}><ShimmerText text="Loading analytics…" /></td></tr>
                   ) : campaignStats.length === 0 ? (
                     <tr><td colSpan={6}>
                       <div className={classes.emptyPanel}>
@@ -480,7 +485,7 @@ export default function AdminAnalyticsPage() {
                 </thead>
                 <tbody>
                   {analyticsLoading ? (
-                    <tr><td colSpan={7} className={classes.muted}>Loading analytics…</td></tr>
+                    <tr><td colSpan={7} className={classes.muted}><ShimmerText text="Loading analytics…" /></td></tr>
                   ) : filteredAgentStats.length === 0 ? (
                     <tr><td colSpan={7} className={classes.muted}>No agent stats match this filter</td></tr>
                   ) : (
@@ -772,6 +777,14 @@ export default function AdminAnalyticsPage() {
         submitting={actionSubmitting}
         onClose={closeActionModal}
         onSubmit={submitActionModal}
+      />
+
+      <AdminExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        initialScope="all"
+        initialCampaign={selectedCampaign || 'all'}
+        initialRange={rangePreset}
       />
     </>
   );

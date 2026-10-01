@@ -3,10 +3,10 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { ShieldCheck } from 'lucide-react';
-import useAuthStore from '../store/authStore';
-import { apiFetch } from '../services/apiClient';
+import useAuthStore from '../../store/authStore';
+import { apiFetch } from '../../services/apiClient';
 // No external CSS module, styling adheres to DESIGN.md directly
-import { TOS_VERSION, TOS_HEADER, TOS_TEXT } from '../utils/legalText';
+import { TOS_VERSION, TOS_HEADER, TOS_TEXT } from '../../utils/legalText';
 
 const TermsGatewayModal = () => {
   const { user, initAuth } = useAuthStore();
