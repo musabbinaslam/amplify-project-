@@ -59,10 +59,10 @@ const AdminPhoneRoutingPage = lazy(() => import('./pages/admin/AdminPhoneRouting
 const AdminAgenciesPage = lazy(() => import('./pages/admin/AdminAgenciesPage'));
 const AdminManagersPage = lazy(() => import('./pages/admin/AdminManagersPage'));
 const AdminTeamsOpsPage = lazy(() => import('./pages/admin/AdminTeamsOpsPage'));
-const AdminAITrainingPage = lazy(() => import('./pages/AdminAITrainingPage'));
+const AdminAITrainingPage = lazy(() => import('./pages/admin/AdminAITrainingPage'));
 const AdminAiFlagsPage = lazy(() => import('./pages/admin/AdminAiFlagsPage'));
 const AdminQaRulesPage = lazy(() => import('./pages/admin/AdminQaRulesPage'));
-const AdminNotificationSettingsPage = lazy(() => import('./pages/AdminNotificationSettingsPage'));
+const AdminNotificationSettingsPage = lazy(() => import('./pages/admin/AdminNotificationSettingsPage'));
 const AdminSuspiciousPage = lazy(() => import('./pages/admin/AdminSuspiciousPage'));
 const AdminExportPage = lazy(() => import('./pages/admin/AdminExportPage'));
 
