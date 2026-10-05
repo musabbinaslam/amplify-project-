@@ -26,7 +26,7 @@ import { EASE_SMOOTH } from '../../motion/appMotion';
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
 import AdminPageShell from '../../components/admin/AdminPageShell';
 import PageLoader from '../../components/ui/PageLoader';
-import { RecordingModal } from '../CallLogsPage';
+import { RecordingModal } from '../../components/modals/RecordingModal';
 import shared from '../../components/admin/adminShared.module.css';
 import classes from './AdminSuspiciousPage.module.css';
 
