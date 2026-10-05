@@ -15,7 +15,7 @@ import {
   AdminActionModal,
   openContestProofUrl,
 } from '../../components/admin/ContestReviewCard';
-import { RecordingModal } from '../CallLogsPage';
+import { RecordingModal } from '../../components/modals/RecordingModal';
 import classes from '../../components/admin/adminShared.module.css';
 
 export default function AdminCallContestsPage() {
