@@ -706,6 +706,26 @@
   font-weight: 600;
 }
 
+/* ─── Modal Overlay (shared by ContestChargeModal) ─── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: modalOverlayFade 0.18s ease-out;
+}
+
+@keyframes modalOverlayFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .contestModal {
   background: var(--glass-bg);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
