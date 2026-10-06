@@ -1,6 +1,10 @@
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const { ratio } = require('../utils/managerAnalytics');
+const { cached } = require('../utils/readCache');
+const { getUserDoc } = require('./userDataService');
+
+const BOARD_CACHE_TTL_SEC = 60;
 
 const VALID_PERIODS = new Set(['today', 'week', 'month', 'all']);
 // Floor for "all-time" so we never enumerate an unbounded number of day keys.
@@ -133,6 +137,7 @@ async function countPoliciesClosedFromLogs(agentIds, fromStr, toStr) {
         .doc(agentId)
         .collection('callLogs')
         .orderBy('createdAt', 'desc')
+        .select('disposition', 'createdAt')
         .limit(500)
         .get();
 
@@ -253,21 +258,7 @@ function buildEntry(agentId, meta, totals) {
   };
 }
 
-/**
- * Build the platform-agent leaderboard for a period.
- * Ranks by Policies Closed (disposition === 'policy_closed'), counted directly
- * from each agent's callLogs — no adminMetrics dependency, no backfill needed,
- * accurate for all historical and future dispositions.
- *
- * @param {object} opts
- * @param {string} opts.period  today | week | month | all (default month)
- * @param {string} [opts.tz]    IANA timezone for period boundaries
- * @param {string} [opts.viewerUid]  requesting user's uid, for the `me` field
- */
-async function getLeaderboard({ period, tz, viewerUid } = {}) {
-  if (!admin) throw new Error('Database service unavailable');
-  const resolvedPeriod = normalizePeriod(period);
-  const resolvedTz = validateTz(tz);
+async function buildBoard(resolvedPeriod, resolvedTz) {
   const { from, to } = periodToRange(resolvedPeriod, resolvedTz);
 
   // Run adminMetrics read (calls/revenue) and platform agent load in parallel
@@ -284,12 +275,9 @@ async function getLeaderboard({ period, tz, viewerUid } = {}) {
   });
 
   // Count policies closed directly from callLogs — source of truth.
-  // This covers every historical disposition already submitted, plus all future
-  // ones, without any caching, backfills, or adminMetrics writes.
-  const platformAgentIds = [...platformAgents.keys()];
-  const policiesClosedMap = await countPoliciesClosedFromLogs(platformAgentIds, from, to);
+  // Only agents ranked on the board can carry a policiesClosed count for the period.
+  const policiesClosedMap = await countPoliciesClosedFromLogs(entries.map((e) => e.agentId), from, to);
 
-  // Patch entries with real policiesClosed counts
   entries.forEach((e) => {
     e.policiesClosed = policiesClosedMap.get(e.agentId) || 0;
     e.policyClosedRate = e.billableCalls
@@ -307,30 +295,62 @@ async function getLeaderboard({ period, tz, viewerUid } = {}) {
     e.rank = i + 1;
   });
 
-  let me = null;
-  if (viewerUid) {
-    const found = entries.find((e) => e.agentId === viewerUid);
-    if (found) {
-      me = found;
-    } else if (platformAgents.has(viewerUid)) {
-      me = { ...buildEntry(viewerUid, platformAgents.get(viewerUid), null), rank: null };
-      me.policiesClosed = policiesClosedMap.get(viewerUid) || 0;
-      me.policyClosedRate = me.billableCalls
-        ? Math.min(100, Number(((me.policiesClosed / me.billableCalls) * 100).toFixed(1)))
-        : 0;
-    }
-  }
-
-  await fillNamesFromAuth(me && !entries.includes(me) ? [...entries, me] : entries);
+  await fillNamesFromAuth(entries);
 
   return {
     period: resolvedPeriod,
     window: { from, to },
     totalAgents: entries.length,
     entries,
-    me,
     generatedAt: new Date().toISOString(),
   };
+}
+
+async function buildViewerEntry(viewerUid, window) {
+  const data = await getUserDoc(viewerUid).catch(() => null);
+  if (!data || data.agencyId) return null;
+  if ((data.role || 'agent') !== 'agent') return null;
+  const me = {
+    ...buildEntry(viewerUid, {
+      name: displayNameFromUserData(data),
+      photoURL: data.photoURL || data.avatarUrl || data.photoUrl || null,
+    }, null),
+    rank: null,
+  };
+  const policies = await countPoliciesClosedFromLogs([viewerUid], window.from, window.to);
+  me.policiesClosed = policies.get(viewerUid) || 0;
+  await fillNamesFromAuth([me]);
+  return me;
+}
+
+/**
+ * Build the platform-agent leaderboard for a period.
+ * Ranks by Policies Closed (disposition === 'policy_closed'), counted directly
+ * from each agent's callLogs. The ranked board is shared across viewers and cached briefly.
+ *
+ * @param {object} opts
+ * @param {string} opts.period  today | week | month | all (default month)
+ * @param {string} [opts.tz]    IANA timezone for period boundaries
+ * @param {string} [opts.viewerUid]  requesting user's uid, for the `me` field
+ */
+async function getLeaderboard({ period, tz, viewerUid } = {}) {
+  if (!admin) throw new Error('Database service unavailable');
+  const resolvedPeriod = normalizePeriod(period);
+  const resolvedTz = validateTz(tz);
+  const { value: board } = await cached(
+    'callMetrics',
+    `leaderboard|${resolvedPeriod}|${resolvedTz}|${todayStr(resolvedTz)}`,
+    BOARD_CACHE_TTL_SEC,
+    () => buildBoard(resolvedPeriod, resolvedTz),
+  );
+
+  let me = null;
+  if (viewerUid) {
+    me = board.entries.find((e) => e.agentId === viewerUid) || null;
+    if (!me) me = await buildViewerEntry(viewerUid, board.window);
+  }
+
+  return { ...board, me };
 }
 
 module.exports = {

@@ -3,6 +3,7 @@ const { getDb } = require('../config/firestoreDb');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const { parseRecordingSid, isMockCallLog } = require('../utils/recordingSid');
 const { getAiFlagsEligibility } = require('../utils/aiFlagsEligibility');
+const { invalidateNamespaceSoon } = require('../utils/readCache');
 
 const QA_CLAIMED_STATUSES = ['pending_review', 'confirmed', 'dismissed', 'processing'];
 const QA_BACKFILL_SKIP_CALL_STATUSES = new Set([
@@ -55,6 +56,7 @@ class CallLogService {
             },
         };
         await db.collection('adminMetrics').doc('daily').collection('days').doc(day).set(payload, { merge: true });
+        invalidateNamespaceSoon('callMetrics');
     }
     /**
      * Records a completed call and saves it to Firestore under the agent's user document.
