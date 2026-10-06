@@ -81,6 +81,8 @@ export const RecordingModal = ({ log, onClose }) => {
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const [downloading, setDownloading] = useState(false);
+  const resolvedSid = recordingSidDirect || extractRecordingSid(recordingUrl);
 
   useEffect(() => {
     durationRef.current = logDuration;
@@ -123,6 +125,32 @@ export const RecordingModal = ({ log, onClose }) => {
     loadAudio();
     return () => { isMounted = false; };
   }, [recordingSidDirect, recordingUrl]);
+
+  const handleDownload = useCallback(async () => {
+    if (!streamUrl || downloading) return;
+    const filename = `recording-${resolvedSid || 'call'}.mp3`;
+    setDownloading(true);
+    try {
+      // Cross-origin <a download> is ignored — fetch blob, or fall back to attachment navigation.
+      const downloadUrl = `${streamUrl}${streamUrl.includes('?') ? '&' : '?'}download=1`;
+      const res = await fetch(downloadUrl);
+      if (!res.ok) throw new Error(`Download failed (${res.status})`);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error('Recording download failed:', err);
+      window.open(`${streamUrl}${streamUrl.includes('?') ? '&' : '?'}download=1`, '_blank', 'noopener,noreferrer');
+    } finally {
+      setDownloading(false);
+    }
+  }, [streamUrl, downloading, resolvedSid]);
 
   const resolveDuration = useCallback((el) => {
     const fromAudio = el ? normalizeDuration(el.duration) : 0;
@@ -448,15 +476,16 @@ export const RecordingModal = ({ log, onClose }) => {
                 >
                   {speed}x
                 </button>
-                <a
+                <button
+                  type="button"
                   className={classes.downloadBtn}
-                  href={streamUrl}
-                  download={`recording-${recordingSidDirect || extractRecordingSid(recordingUrl) || 'call'}.mp3`}
+                  onClick={handleDownload}
+                  disabled={downloading}
                   aria-label="Download recording"
                   title="Download"
                 >
-                  <Download size={16} />
-                </a>
+                  {downloading ? <Loader size={16} className={classes.spinner} /> : <Download size={16} />}
+                </button>
               </div>
             </div>
           )}

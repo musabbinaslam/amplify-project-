@@ -511,3 +511,8 @@
   border-color: color-mix(in srgb, var(--brand-text) 35%, var(--border));
   background: var(--surface-container-highest);
 }
+
+.downloadBtn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
