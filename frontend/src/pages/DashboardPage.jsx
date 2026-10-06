@@ -8,7 +8,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { fetchDashboardLogs } from '../services/dashboardService';
+import { fetchDashboardSummary } from '../services/dashboardService';
 import { queryKeys, useCampaignPricingQuery } from '../queries';
 import PageSkeleton from '../components/ui/PageSkeleton';
 import NumberPopIn from '../components/ui/NumberPopIn';
@@ -39,6 +39,18 @@ function startOfDay(d) {
   x.setHours(0, 0, 0, 0);
   return x;
 }
+
+function localDayKey(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+const EMPTY_METRICS = {
+  todayCalls: 0, totalCalls: 0, answeredCalls: 0, sales: 0,
+  answerRate: 0, bufferHitRate: 0, spend: 0, totalTalkTimeSecs: 0,
+};
 
 function computePeriodRange(period) {
   const now = new Date();
@@ -334,47 +346,32 @@ const DashboardPage = () => {
   const campaigns = campaignsQuery.data || EMPTY_LIST;
   const campaignsLoading = campaignsQuery.isPending;
 
-  const logsQuery = useQuery({
-    queryKey: queryKeys.dashboardLogs(period),
-    queryFn: async () => {
+  const summaryQuery = useQuery({
+    queryKey: queryKeys.dashboardSummary(period),
+    queryFn: () => {
       const { startDate, endDate } = computePeriodRange(period);
       const prev = computePreviousPeriodRange(period);
-      const [logsRes, prevRes] = await Promise.all([
-        fetchDashboardLogs({ startDate, endDate, limit: 1000 }),
-        fetchDashboardLogs({ startDate: prev.startDate, endDate: prev.endDate, limit: 1000 }),
-      ]);
-      return {
-        logs: Array.isArray(logsRes) ? logsRes : [],
-        prevLogs: Array.isArray(prevRes) ? prevRes : [],
-      };
+      return fetchDashboardSummary({
+        startDate,
+        endDate,
+        prevStartDate: prev.startDate,
+        prevEndDate: prev.endDate,
+        todayStart: startOfDay(new Date()),
+      });
     },
     enabled: Boolean(user?.uid),
     placeholderData: keepPreviousData,
     staleTime: 15_000,
     refetchInterval: 60_000,
   });
-  const logs = logsQuery.data?.logs ?? EMPTY_LIST;
-  const prevLogs = logsQuery.data?.prevLogs ?? EMPTY_LIST;
-  const loading = logsQuery.isPending;
-  const error = logsQuery.isError && !logsQuery.data
-    ? (logsQuery.error?.message || 'Failed to load dashboard data')
+  const summary = summaryQuery.data;
+  const loading = summaryQuery.isPending;
+  const error = summaryQuery.isError && !summary
+    ? (summaryQuery.error?.message || 'Failed to load dashboard data')
     : null;
 
-  const computeMetrics = (source) => {
-    const startOfToday = startOfDay(new Date()).getTime();
-    const todayCalls = source.filter((l) => new Date(l.createdAt || 0).getTime() >= startOfToday).length;
-    const totalCalls = source.length;
-    const conversions = source.filter((l) => l.isBillable).length;
-    const answeredCalls = source.filter((l) => l.status === 'completed' && Number(l.duration) > 0).length;
-    const answerRate = totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100) : 0;
-    const bufferHitRate = answeredCalls > 0 ? Math.round((conversions / answeredCalls) * 100) : 0;
-    const spend = source.reduce((sum, l) => sum + (Number(l.cost) || 0), 0);
-    const totalTalkTimeSecs = source.reduce((sum, l) => sum + (Number(l.duration) || 0), 0);
-    return { todayCalls, totalCalls, answeredCalls, sales: conversions, answerRate, bufferHitRate, spend, totalTalkTimeSecs };
-  };
-
-  const metrics = useMemo(() => computeMetrics(logs), [logs]);
-  const prevMetrics = useMemo(() => computeMetrics(prevLogs), [prevLogs]);
+  const metrics = summary?.metrics ?? EMPTY_METRICS;
+  const prevMetrics = summary?.prevMetrics ?? EMPTY_METRICS;
 
   const deltas = useMemo(() => ({
     todayCalls: trendDelta(metrics.todayCalls, prevMetrics.todayCalls),
@@ -398,35 +395,29 @@ const DashboardPage = () => {
         calls: 0,
       });
     }
-    const byTs = new Map(buckets.map((b) => [b.ts, b]));
-    for (const l of logs) {
-      const ts = startOfDay(new Date(l.createdAt || 0)).getTime();
-      const bucket = byTs.get(ts);
-      if (!bucket) continue;
-      bucket.calls += 1;
-      const isSold = l.disposition === 'sold' || (!l.disposition && l.isBillable);
-      if (isSold) bucket.sales += 1;
+    const byDay = summary?.byDay || {};
+    for (const b of buckets) {
+      const day = byDay[localDayKey(new Date(b.ts))];
+      if (!day) continue;
+      b.calls = day.calls || 0;
+      b.sales = day.sales || 0;
     }
     return buckets;
-  }, [logs, period]);
+  }, [summary, period]);
 
   const dispositionData = useMemo(() => {
-    const counts = new Map();
-    for (const l of logs) {
-      const disp = getDisposition(l);
-      counts.set(disp, (counts.get(disp) || 0) + 1);
-    }
+    const counts = summary?.dispositions || {};
     return DONUT_SEGMENTS
-      .map((seg) => ({ name: seg.key, value: counts.get(seg.key) || 0, color: seg.color }))
+      .map((seg) => ({ name: seg.key, value: counts[seg.key] || 0, color: seg.color }))
       .filter((d) => d.value > 0);
-  }, [logs]);
+  }, [summary]);
 
   const dispositionTotal = useMemo(
     () => dispositionData.reduce((sum, d) => sum + d.value, 0),
     [dispositionData],
   );
 
-  const recentCalls = useMemo(() => logs.slice(0, 5), [logs]);
+  const recentCalls = summary?.recentCalls ?? EMPTY_LIST;
 
   const campaignCards = campaigns.length > 0
     ? campaigns

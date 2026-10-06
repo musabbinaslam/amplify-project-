@@ -1,5 +1,6 @@
 const express = require('express');
 const { verifyFirebaseToken } = require('../middleware/auth');
+const { getDashboardSummary } = require('../controllers/dashboardSummaryController');
 const { aiTrainingReadLimiter, aiTrainingWriteLimiter } = require('../middleware/security');
 const {
   getMe,
@@ -48,6 +49,7 @@ router.use(verifyFirebaseToken);
 router.get('/me/campaigns', getAvailableCampaigns);
 router.get('/me', getMe);
 router.get('/me/bootstrap', getMeBootstrap);
+router.get('/me/dashboard-summary', getDashboardSummary);
 router.patch('/me', patchMe);
 router.post('/me/welcome-email', postWelcomeEmail);
 router.get('/me/slug-availability', getSlugAvailability);
