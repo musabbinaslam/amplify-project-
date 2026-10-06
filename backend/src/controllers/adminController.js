@@ -274,12 +274,51 @@ function normalizeCall(doc) {
   };
 }
 
-async function readLogsInRange(from, end) {
-  if (!admin) throw new Error('Database service unavailable');
-  const db = getDb();
+const CALL_ROW_FIELDS = [
+  'agentId', 'callSid', 'campaign', 'campaignLabel', 'status', 'duration', 'isBillable', 'cost',
+  'disposition', 'recordingUrl', 'recordingSid', 'qaAudioReview.status', 'qaAudioReview.summary',
+  'qaAudioReview.violations', 'refunded', 'refundReason', 'contestId', 'contestStatus', 'from',
+  'createdAt', 'timestamp',
+];
+const RANGE_PAGE_SIZE = 2000;
+const RANGE_MAX_ROWS = 50000;
+let rangeIndexMissing = false;
+
+/**
+ * All call logs created in [from, end] across every agent, via one paged
+ * collection-group query (needs the callLogs.createdAt collection-group index).
+ */
+async function readLogsInRangeGroup(db, from, end) {
+  const out = [];
+  let last = null;
+  while (out.length < RANGE_MAX_ROWS) {
+    let q = db.collectionGroup('callLogs')
+      .where('createdAt', '>=', from)
+      .where('createdAt', '<=', end)
+      .orderBy('createdAt', 'desc')
+      .select(...CALL_ROW_FIELDS)
+      .limit(RANGE_PAGE_SIZE);
+    if (last) q = q.startAfter(last);
+    // eslint-disable-next-line no-await-in-loop
+    const snap = await q.get();
+    snap.docs.forEach((doc) => {
+      const row = normalizeCall(doc);
+      if (!row.agentId) row.agentId = doc.ref.parent.parent?.id || null;
+      if (row.createdAt) out.push(row);
+    });
+    if (snap.size < RANGE_PAGE_SIZE) break;
+    last = snap.docs[snap.docs.length - 1];
+  }
+  if (out.length >= RANGE_MAX_ROWS) {
+    console.warn(`[Admin] readLogsInRange hit ${RANGE_MAX_ROWS} row cap for ${from.toISOString()}..${end.toISOString()}`);
+  }
+  return out;
+}
+
+async function readLogsInRangeFanOut(db, from, end) {
   const fromMs = from.getTime();
   const endMs = end.getTime();
-  const usersSnap = await db.collection('users').get();
+  const usersSnap = await db.collection('users').select().get();
   const out = [];
   const docs = usersSnap.docs || [];
   let cursor = 0;
@@ -293,6 +332,7 @@ async function readLogsInRange(from, end) {
       const callsSnap = await userDoc.ref
         .collection('callLogs')
         .orderBy('createdAt', 'desc')
+        .select(...CALL_ROW_FIELDS)
         .limit(500)
         .get();
       callsSnap.docs.forEach((doc) => {
@@ -313,6 +353,21 @@ async function readLogsInRange(from, end) {
   await Promise.all(workers);
 
   return out;
+}
+
+async function readLogsInRange(from, end) {
+  if (!admin) throw new Error('Database service unavailable');
+  const db = getDb();
+  if (!rangeIndexMissing) {
+    try {
+      return await readLogsInRangeGroup(db, from, end);
+    } catch (err) {
+      if (err?.code !== 9 && !/index/i.test(err?.message || '')) throw err;
+      rangeIndexMissing = true;
+      console.warn('[Admin] callLogs createdAt collection-group index missing; using per-user fan-out. Deploy firestore.indexes.json.');
+    }
+  }
+  return readLogsInRangeFanOut(db, from, end);
 }
 
 function aggregateAnalytics(rows, from, end, tz) {
@@ -667,8 +722,17 @@ function buildDrilldownFromDailyDocs(type, id, docs = []) {
 async function readAllCoachingRows() {
   if (!admin) throw new Error('Database service unavailable');
   const db = getDb();
-  const usersSnap = await db.collection('users').select('fullName', 'name', 'email').get();
-  const docs = usersSnap.docs || [];
+  const planSnaps = await db.collectionGroup('aiCoachingPlan').get();
+  const plansByUid = new Map();
+  planSnaps.docs.forEach((d) => {
+    const userRef = d.ref.parent.parent;
+    if (d.id === 'current' && userRef && userRef.parent.id === 'users') plansByUid.set(userRef.id, d);
+  });
+  const docs = plansByUid.size
+    ? await db.getAll(...[...plansByUid.keys()].map((uid) => db.collection('users').doc(uid)), {
+      fieldMask: ['fullName', 'name', 'email'],
+    }).then((snaps) => snaps.filter((d) => d.exists))
+    : [];
   const rows = [];
   let cursor = 0;
 
@@ -684,8 +748,8 @@ async function readAllCoachingRows() {
       cursor += 1;
       const userDoc = docs[idx];
       // eslint-disable-next-line no-await-in-loop
-      const planSnap = await userDoc.ref.collection('aiCoachingPlan').doc('current').get();
-      if (!planSnap.exists) continue;
+      const planSnap = plansByUid.get(userDoc.id);
+      if (!planSnap) continue;
       // eslint-disable-next-line no-await-in-loop
       const [tasksSnap, metricsSnap] = await Promise.all([
         userDoc.ref.collection('aiCoachingPlan').doc('current').collection('tasks').get(),

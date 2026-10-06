@@ -136,9 +136,11 @@ async function countPoliciesClosedFromLogs(agentIds, fromStr, toStr) {
         .collection('users')
         .doc(agentId)
         .collection('callLogs')
+        .where('createdAt', '>=', new Date(fromMs))
+        .where('createdAt', '<=', new Date(toMs))
         .orderBy('createdAt', 'desc')
         .select('disposition', 'createdAt')
-        .limit(500)
+        .limit(5000)
         .get();
 
       let count = 0;

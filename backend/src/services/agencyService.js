@@ -134,8 +134,8 @@ async function deleteAgency(id) {
 async function countAgencyMembers(agencyId) {
   const db = getDb();
   if (!db) return 0;
-  const snap = await db.collection('users').where('agencyId', '==', String(agencyId)).get();
-  return snap.size;
+  const agg = await db.collection('users').where('agencyId', '==', String(agencyId)).count().get();
+  return agg.data().count || 0;
 }
 
 async function listAgencyMemberIds(agencyId) {

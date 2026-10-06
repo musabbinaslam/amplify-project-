@@ -69,9 +69,27 @@
       "fields": [
         { "fieldPath": "qaAudioReview.status", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "callLogs",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "qaAudioReview.status", "order": "ASCENDING" },
+        { "fieldPath": "qaAudioReview.generatedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [
+    {
+      "collectionGroup": "callLogs",
+      "fieldPath": "createdAt",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
     {
       "collectionGroup": "notifications",
       "fieldPath": "broadcastId",

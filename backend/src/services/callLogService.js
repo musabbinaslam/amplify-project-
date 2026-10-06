@@ -16,6 +16,34 @@ const QA_BACKFILL_SKIP_CALL_STATUSES = new Set([
     'missed',
 ]);
 
+const QA_STATUS_RECENT_SCAN = 25;
+const QA_STATUS_FIELDS = [
+    'agentId', 'campaign', 'campaignLabel', 'createdAt',
+    'qaAudioReview.status', 'qaAudioReview.source', 'qaAudioReview.summary',
+    'qaAudioReview.violations', 'qaAudioReview.generatedAt',
+];
+let qaOrderedIndexMissing = false;
+
+/**
+ * Newest-first QA reviews for one status. Needs the (qaAudioReview.status,
+ * qaAudioReview.generatedAt desc) collection-group index; until it is deployed
+ * this falls back to the unordered scan and callers sort in memory.
+ */
+async function queryQaByStatus(db, status, limit, fields = null) {
+    const base = db.collectionGroup('callLogs').where('qaAudioReview.status', '==', status);
+    const withFields = (q) => (fields ? q.select(...fields) : q);
+    if (!qaOrderedIndexMissing) {
+        try {
+            return await withFields(base.orderBy('qaAudioReview.generatedAt', 'desc')).limit(limit).get();
+        } catch (err) {
+            if (err?.code !== 9 && !/index/i.test(err?.message || '')) throw err;
+            qaOrderedIndexMissing = true;
+            console.warn('[Firestore] QA ordered index missing; falling back to unordered scan. Deploy firestore.indexes.json.');
+        }
+    }
+    return withFields(base).limit(fields ? 300 : limit).get();
+}
+
 class CallLogService {
     async upsertAdminDailyMetrics(log) {
         if (!admin) return;
@@ -335,12 +363,7 @@ class CallLogService {
 
         try {
             const db = getDb();
-            const snaps = await Promise.all(statuses.map((s) => (
-                db.collectionGroup('callLogs')
-                    .where('qaAudioReview.status', '==', s)
-                    .limit(scanCap)
-                    .get()
-            )));
+            const snaps = await Promise.all(statuses.map((s) => queryQaByStatus(db, s, scanCap)));
 
             const rows = [];
             snaps.forEach((snap) => {
@@ -415,50 +438,71 @@ class CallLogService {
     }
 
     async countQaAudioReviews(status = 'pending_review') {
-        const out = await this.listQaAudioReviews({ status, limit: 100, offset: 0 });
-        return Array.isArray(out) ? out.length : (out.total || out.reviews?.length || 0);
+        if (!admin) return 0;
+        try {
+            const snap = await getDb().collectionGroup('callLogs')
+                .where('qaAudioReview.status', '==', status)
+                .count()
+                .get();
+            return snap.data().count || 0;
+        } catch (err) {
+            console.warn('[Firestore] countQaAudioReviews aggregation failed:', err.message);
+            const out = await this.listQaAudioReviews({ status, limit: 100, offset: 0 });
+            return out.total || out.reviews?.length || 0;
+        }
     }
 
     async getQaAudioPipelineStatus() {
-        const [processingOut, pendingOut, clearOut, confirmedOut, dismissedOut] = await Promise.all([
-            this.listQaAudioReviews({ status: 'processing', limit: 50, offset: 0 }),
-            this.listQaAudioReviews({ status: 'pending_review', limit: 50, offset: 0 }),
-            this.listQaAudioReviews({ status: 'clear', limit: 50, offset: 0 }),
-            this.listQaAudioReviews({ status: 'confirmed', limit: 50, offset: 0 }),
-            this.listQaAudioReviews({ status: 'dismissed', limit: 50, offset: 0 }),
+        const statuses = ['processing', 'pending_review', 'clear', 'confirmed', 'dismissed'];
+        const db = admin ? getDb() : null;
+        const [counts, recentSnaps] = await Promise.all([
+            Promise.all(statuses.map((s) => this.countQaAudioReviews(s))),
+            db
+                ? Promise.all(statuses.map((s) => queryQaByStatus(db, s, QA_STATUS_RECENT_SCAN, QA_STATUS_FIELDS)
+                    .catch(() => ({ docs: [] }))))
+                : Promise.resolve([]),
         ]);
-        const processing = processingOut.reviews || [];
-        const pending = pendingOut.reviews || [];
-        const clear = clearOut.reviews || [];
-        const confirmed = confirmedOut.reviews || [];
-        const dismissed = dismissedOut.reviews || [];
-        const all = [...processing, ...pending, ...clear, ...confirmed, ...dismissed].sort((a, b) => {
-            const aTs = new Date(a.qaAudioReview?.generatedAt || a.createdAt || 0).getTime();
-            const bTs = new Date(b.qaAudioReview?.generatedAt || b.createdAt || 0).getTime();
+        const all = [];
+        recentSnaps.forEach((snap) => {
+            snap.docs.forEach((doc) => {
+                const data = doc.data() || {};
+                const review = data.qaAudioReview || {};
+                all.push({
+                    callLogId: doc.id,
+                    agentId: data.agentId || doc.ref.parent.parent.id,
+                    campaign: data.campaignLabel || data.campaign || 'unknown',
+                    createdAt: data.createdAt?.toDate?.() ? data.createdAt.toDate().toISOString() : data.createdAt || null,
+                    qa: {
+                        ...review,
+                        generatedAt: review.generatedAt?.toDate?.()
+                            ? review.generatedAt.toDate().toISOString()
+                            : review.generatedAt || null,
+                    },
+                });
+            });
+        });
+        all.sort((a, b) => {
+            const aTs = new Date(a.qa.generatedAt || a.createdAt || 0).getTime();
+            const bTs = new Date(b.qa.generatedAt || b.createdAt || 0).getTime();
             return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
         });
         const last = all[0] || null;
-        const lastGemini = all.find((row) => row.qaAudioReview?.source === 'gemini_audio') || null;
-        const qa = last?.qaAudioReview || {};
+        const lastGemini = all.find((row) => row.qa.source === 'gemini_audio') || null;
+        const qa = last?.qa || {};
+        const [processing, pending, clear, confirmed, dismissed] = counts;
         return {
-            counts: {
-                processing: processingOut.total ?? processing.length,
-                pending: pendingOut.total ?? pending.length,
-                clear: clearOut.total ?? clear.length,
-                confirmed: confirmedOut.total ?? confirmed.length,
-                dismissed: dismissedOut.total ?? dismissed.length,
-            },
+            counts: { processing, pending, clear, confirmed, dismissed },
             lastReview: last ? {
-                callLogId: last.callLogId || last.id,
+                callLogId: last.callLogId,
                 agentId: last.agentId,
-                campaign: last.campaignLabel || last.campaign,
+                campaign: last.campaign,
                 status: qa.status || null,
                 source: qa.source || null,
                 summary: qa.summary || '',
                 generatedAt: qa.generatedAt || last.createdAt || null,
                 violationCount: Array.isArray(qa.violations) ? qa.violations.length : 0,
             } : null,
-            lastGeminiAt: lastGemini?.qaAudioReview?.generatedAt || null,
+            lastGeminiAt: lastGemini?.qa.generatedAt || null,
         };
     }
 
