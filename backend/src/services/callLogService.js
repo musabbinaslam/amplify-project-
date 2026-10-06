@@ -4,6 +4,7 @@ const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const { parseRecordingSid, isMockCallLog } = require('../utils/recordingSid');
 const { getAiFlagsEligibility } = require('../utils/aiFlagsEligibility');
 const { invalidateNamespaceSoon } = require('../utils/readCache');
+const callTrace = require('./callTraceService');
 
 const QA_CLAIMED_STATUSES = ['pending_review', 'confirmed', 'dismissed', 'processing'];
 const QA_BACKFILL_SKIP_CALL_STATUSES = new Set([
@@ -120,6 +121,15 @@ class CallLogService {
                 const newBalance = await walletService.deductCredits(agentId, cost * 100, {
                    callSid, campaignId, campaignLabel: config.label || campaignId
                 });
+                callTrace.trace({
+                    type: 'wallet',
+                    phone: from,
+                    campaignId,
+                    agentId,
+                    callSid,
+                    costCents: cost * 100,
+                    detail: `balance $${(Number(newBalance || 0) / 100).toFixed(2)}`,
+                });
 
                 // If balance is now too low to take another call, notify the agent via their live socket.
                 // The call has already completed — this notification fires AFTER billing,
@@ -173,6 +183,16 @@ class CallLogService {
         }
 
         console.log(`[Billing] 💸 Call ${callSid}: ${durationSec}s. Billable: ${isBillable} ($${cost})`);
+        callTrace.trace({
+            type: 'billing',
+            phone: from,
+            campaignId,
+            agentId,
+            callSid,
+            costCents: Math.round(Number(cost || 0) * 100),
+            detail: `${durationSec}s ${isBillable ? 'billable' : 'not billable'}`,
+        });
+        if (from) callTrace.clearLiveSoon(from);
 
         // Save to Firestore under the agent's user document. Upserts by callSid so
         // an early disposition PATCH that created a stub doc merges into the same record.

@@ -5,6 +5,7 @@ const { expandOrigins } = require('../utils/corsOrigins');
 
 const router = express.Router();
 const metaConversionService = require('../services/metaConversionService');
+const callTrace = require('../services/callTraceService');
 const allowedFirebaseConfigOrigins = expandOrigins(
   (process.env.FIREBASE_CONFIG_ALLOWED_ORIGINS || process.env.CLIENT_URLS || process.env.CLIENT_URL || '')
     .split(',')
@@ -165,6 +166,9 @@ async function handlePing(req, res) {
     // would cause Ringba to route callers that no agent is licensed to handle.
     if (!phone && !state) {
       console.log(`[Public API] 📡 Ping for '${campaignId}' blocked — no valid phone or state (raw: ${rawPhone || 'N/A'})`);
+      callTrace.trace({
+        type: 'ping', phone: rawPhone, campaignId, agencyId, state, available: false, reason: 'no_state',
+      });
       return res.json({
         status: 0,
         campaign: campaignId,
@@ -176,6 +180,9 @@ async function handlePing(req, res) {
     // Execute the fast snapshot (Soft Ping)
     if (await isCampaignPaused(campaignId)) {
       console.log(`[Public API] 📡 Ping for '${campaignId}' blocked — campaign is paused`);
+      callTrace.trace({
+        type: 'ping', phone, campaignId, agencyId, state, available: false, reason: 'paused',
+      });
       return res.json({
         status: 0,
         campaign: campaignId,
@@ -187,6 +194,14 @@ async function handlePing(req, res) {
     const isAvailable = await agentManager.checkAvailableAgent(campaignId, state, { agencyId });
 
     console.log(`[Public API] 📡 Ping for '${campaignId}' | Agency: ${agencyId || 'platform'} | Phone: ${phone || 'N/A'} | State: ${state || 'ANY'} -> ${isAvailable ? 'AVAILABLE (1)' : 'BUSY (0)'}`);
+    callTrace.trace({
+      type: 'ping',
+      phone,
+      campaignId,
+      agencyId: agencyId || 'platform',
+      state,
+      available: Boolean(isAvailable),
+    });
 
     return res.json({
       status: isAvailable ? 1 : 0,
@@ -255,6 +270,9 @@ async function handleConfirm(req, res) {
       // Reject immediately if campaign is paused
       if (await isCampaignPaused(campaignId)) {
          console.log(`[Confirm API] 🚫 Confirm for '${campaignId}' blocked — campaign is paused`);
+         callTrace.trace({
+           type: 'confirm', phone, campaignId, agencyId, state, available: false, reason: 'paused',
+         });
          return res.json({ status: 0, campaign: campaignId, paused: true });
       }
 
@@ -265,6 +283,16 @@ async function handleConfirm(req, res) {
       console.log(
          `[Confirm API] ${accepted ? '✅ ACCEPT' : '❌ REJECT'} campaign='${campaignId}' agency=${agencyId || 'platform'} phone=${phone || 'N/A'} state=${state || 'ANY'}${accepted ? ` → agent=${agent.id}` : ''}`
       );
+      callTrace.trace({
+        type: 'confirm',
+        phone,
+        campaignId,
+        agencyId: agencyId || 'platform',
+        state,
+        available: accepted,
+        agentId: agent?.id,
+        detail: accepted ? 'accept' : 'reject',
+      });
 
       return res.json({
          status: accepted ? 1 : 0,

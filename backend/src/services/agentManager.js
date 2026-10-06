@@ -1,6 +1,7 @@
 const { redisClient } = require('../config/redis');
 const { CAMPAIGN_CONFIG } = require('../config/pricing');
 const { poolSegment, normalizeAgencyId } = require('../utils/tenancy');
+const callTrace = require('./callTraceService');
 const POOL_SCAN_LIMIT = 50;
 const PRESENCE_FRESHNESS_MS = 120 * 1000;
 const WRAPUP_MAX_AGE_MS = 10 * 60 * 1000;  // 10 min — WRAP_UP must not last longer
@@ -698,12 +699,15 @@ class AgentManager {
 
    async clearActiveCall(agentId) {
       if (!agentId) return;
+      const active = await this.getActiveCall(agentId);
+      if (active?.from) callTrace.clearLiveSoon(active.from);
       await redisClient.hDel('activecalls:data', agentId);
       await this.clearPendingCall(agentId);
    }
 
    async setAgentWrapUp(agentId) {
       if (!agentId) return;
+      const active = await this.getActiveCall(agentId);
       await redisClient.sRem('agents:ringing', agentId);
       await redisClient.sRem('agents:busy', agentId);
 
@@ -722,6 +726,17 @@ class AgentManager {
          }
       }
       console.log(`[Router] 📝 Agent ${agentId} entered WRAP_UP (disposition pending) — removed from routing pool`);
+      if (active?.from) {
+         callTrace.trace({
+            type: 'wrap_up',
+            phone: active.from,
+            to: active.to,
+            campaignId: active.campaignId,
+            agentId,
+            callSid: active.callSid || active.parentCallSid,
+         });
+         callTrace.clearLiveSoon(active.from);
+      }
    }
 
    async getActiveCall(agentId) {

@@ -52,6 +52,7 @@ const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 const AdminHubPage = lazy(() => import('./pages/admin/AdminHubPage'));
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
 const AdminLiveOpsPage = lazy(() => import('./pages/admin/AdminLiveOpsPage'));
+const AdminCallTracePage = lazy(() => import('./pages/admin/AdminCallTracePage'));
 const AdminCallContestsPage = lazy(() => import('./pages/admin/AdminCallContestsPage'));
 const AdminAgentsPage = lazy(() => import('./pages/admin/AdminAgentsPage'));
 const AdminCampaignsPage = lazy(() => import('./pages/admin/AdminCampaignsPage'));
@@ -428,6 +429,13 @@ const AnimatedRoutes = () => {
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
                 <AdminLiveOpsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/call-trace" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminCallTracePage />
               </AdminOnly>
             </Suspense>
           } />

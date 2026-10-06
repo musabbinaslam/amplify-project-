@@ -3,6 +3,7 @@ const { verifyFirebaseToken } = require('../middleware/auth');
 const { requireAdmin } = require('../middleware/requireAdmin');
 const adminController = require('../controllers/adminController');
 const qaReviewController = require('../controllers/qaReviewController');
+const { getCallTrace } = require('../controllers/callTraceController');
 
 const router = express.Router();
 
@@ -17,6 +18,7 @@ router.get('/perf/latency', (req, res) => {
 });
 
 router.get('/overview-lite', adminController.getOverviewLite);
+router.get('/call-trace', getCallTrace);
 router.get('/users/all-lite', adminController.listAllUsersLite);
 router.get('/analytics-bundle', adminController.getAnalyticsBundle);
 router.get('/analytics-drilldown', adminController.getAnalyticsDrilldown);

@@ -16,6 +16,7 @@ const { isCampaignPaused, notifyAgent } = require('../services/notificationServi
 const socketRegistry = require('../sockets/socketRegistry');
 const { normalizeAgencyId, isAgencyAdminRole } = require('../utils/tenancy');
 const integrationService = require('../services/integrationService');
+const callTrace = require('../services/callTraceService');
 
 /** Absolute URL for Twilio webhooks (relative URLs break statusCallback on some hosts). */
 function voiceWebhookUrl(req, pathWithQuery) {
@@ -106,6 +107,24 @@ exports.handleIncomingCall = async (req, res) => {
 
     console.log(`[Twilio Webhook] 🔔 Incoming call from: ${fromNumber} | Guaranteed Area Code State Lookup: ${callerState || 'Unknown'} | To: ${toNumber}`);
     console.log(`[Twilio Webhook] 🎯 Resolved Campaign: ${campaign} | Agency: ${routeAgencyId || 'platform'}`);
+    callTrace.trace({
+      type: 'incoming',
+      phone: fromNumber,
+      state: callerState,
+      to: toNumber,
+      campaignId: campaign,
+      agencyId: routeAgencyId || 'platform',
+      callSid: req.body?.CallSid || null,
+    });
+    callTrace.trace({
+      type: 'campaign_resolved',
+      phone: fromNumber,
+      state: callerState,
+      to: toNumber,
+      campaignId: campaign,
+      agencyId: routeAgencyId || 'platform',
+      callSid: req.body?.CallSid || null,
+    });
 
     try {
         if (await isCampaignPaused(campaign)) {
@@ -162,6 +181,23 @@ exports.handleIncomingCall = async (req, res) => {
                 agencyId: routeAgencyId,
                 startedAt: new Date().toISOString(),
                 retryCount,
+            });
+            callTrace.setLiveSoon(fromNumber, {
+                agentId: available.id,
+                callSid: parentCallSid,
+                campaignId: campaign,
+                to: toNumber,
+                startedAt: new Date().toISOString(),
+            });
+            callTrace.trace({
+                type: 'active_snapshot',
+                phone: fromNumber,
+                to: toNumber,
+                campaignId: campaign,
+                agencyId: routeAgencyId || 'platform',
+                agentId: available.id,
+                callSid: parentCallSid,
+                state: callerState,
             });
             if (parentCallSid) {
                 await agentManager.releaseStaleRingingForCall(parentCallSid, available.id);
@@ -372,6 +408,24 @@ exports.handleDialStatus = async (req, res) => {
 
                     const customerSid = active.parentCallSid || parentSid;
                     console.log(`[Twilio] DEBUG kill check: customerSid=${customerSid}, campaign=${campaign}, active=`, JSON.stringify(active));
+                    callTrace.trace({
+                        type: 'active_snapshot',
+                        phone: active.from,
+                        to: active.to,
+                        campaignId: campaign || active.campaignId,
+                        agentId,
+                        callSid: customerSid || active.callSid,
+                        detail: 'leg_ended',
+                    });
+                    callTrace.trace({
+                        type: 'agent_leg_ended',
+                        phone: active.from,
+                        to: active.to,
+                        campaignId: campaign || active.campaignId,
+                        agentId,
+                        callSid: customerSid || active.callSid,
+                        detail: String(event || callStatus || 'completed'),
+                    });
                     if (customerSid && customerSid !== callSid && campaign === 'aca_transfers') {
                         console.log(`[Twilio] Auto-killing ACA customer call ${customerSid} after agent disconnect.`);
                         await twilioClientObj.calls(customerSid).update({ status: 'completed' })
