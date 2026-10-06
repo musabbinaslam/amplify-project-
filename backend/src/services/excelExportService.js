@@ -95,8 +95,18 @@ function autoFitColumns(worksheet, minWidth = 12, maxWidth = 42) {
 }
 
 // ── Data Fetching ──────────────────────────────────────────────────────────────
+const EXPORT_USER_FIELDS = [
+  'displayName', 'name', 'firstName', 'lastName', 'email', 'phoneNumber', 'phone', 'onboarding.phone',
+  'role', 'agencyId', 'flagged', 'flagReason', 'paused', 'wallet.balance', 'createdAt', 'settings.mock',
+];
+const EXPORT_CALL_FIELDS = [
+  'createdAt', 'timestamp', 'campaign', 'campaignLabel', 'status', 'isBillable', 'callSid',
+  'from', 'customerPhone', 'to', 'inboundDid', 'duration', 'disposition', 'cost', 'recordingUrl',
+];
+const EXPORT_PER_AGENT_LIMIT = 5000;
+
 async function fetchExportUsers(db) {
-  const usersSnap = await db.collection('users').get();
+  const usersSnap = await db.collection('users').select(...EXPORT_USER_FIELDS).get();
   const docs = usersSnap.docs || [];
   const usersMap = new Map();
   const needAuthBackfill = [];
@@ -163,7 +173,9 @@ async function fetchExportUsers(db) {
 async function fetchExportCallLogs(db, usersMap, { from, end, campaign, agentId, status }) {
   const fromMs = from.getTime();
   const endMs = end.getTime();
-  const userDocs = Array.from(usersMap.keys());
+  const userDocs = agentId && agentId !== 'all'
+    ? Array.from(usersMap.keys()).filter((uid) => uid === agentId)
+    : Array.from(usersMap.keys());
   const allCalls = [];
   const concurrency = 10;
   let cursor = 0;
@@ -185,8 +197,11 @@ async function fetchExportCallLogs(db, usersMap, { from, end, campaign, agentId,
           .collection('users')
           .doc(uid)
           .collection('callLogs')
+          .where('createdAt', '>=', from)
+          .where('createdAt', '<=', end)
           .orderBy('createdAt', 'desc')
-          .limit(1000)
+          .select(...EXPORT_CALL_FIELDS)
+          .limit(EXPORT_PER_AGENT_LIMIT)
           .get();
 
         callsSnap.docs.forEach((doc) => {
