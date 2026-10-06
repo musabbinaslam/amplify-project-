@@ -839,6 +839,9 @@ exports.proxyRecording = async (req, res) => {
         const contentLength = response.headers.get('content-length');
         const contentRange = response.headers.get('content-range');
         const contentType = response.headers.get('content-type') || 'audio/mpeg';
+        const forceDownload = ['1', 'true', 'yes'].includes(
+            String(req.query.download || '').trim().toLowerCase(),
+        );
 
         // Preserve actual upstream status. Some CDNs ignore Range and still return 200.
         // Forcing 206 without Content-Range can make players show 0:00 and fail playback.
@@ -851,6 +854,10 @@ exports.proxyRecording = async (req, res) => {
         };
         if (contentLength) resHeaders['Content-Length'] = contentLength;
         if (contentRange) resHeaders['Content-Range'] = contentRange;
+        // Without attachment, Chrome plays the stream inline (and ignores <a download> cross-origin).
+        if (forceDownload) {
+            resHeaders['Content-Disposition'] = `attachment; filename="${recordingSid}.mp3"`;
+        }
 
         res.writeHead(statusCode, resHeaders);
 
