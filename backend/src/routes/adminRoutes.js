@@ -9,6 +9,13 @@ const router = express.Router();
 router.use(verifyFirebaseToken);
 router.use(requireAdmin);
 
+router.get('/perf/latency', (req, res) => {
+  const { getLatencySnapshot, resetLatencyStats } = require('../middleware/requestTiming');
+  const routes = getLatencySnapshot();
+  if (req.query.reset === '1') resetLatencyStats();
+  res.json({ pid: process.pid, uptimeSec: Math.round(process.uptime()), routes });
+});
+
 router.get('/overview-lite', adminController.getOverviewLite);
 router.get('/users/all-lite', adminController.listAllUsersLite);
 router.get('/analytics-bundle', adminController.getAnalyticsBundle);

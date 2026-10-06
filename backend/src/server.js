@@ -23,6 +23,7 @@ const supportDeskRoutes = require('./routes/supportDeskRoutes');
 const socketRegistry = require('./sockets/socketRegistry');
 const { verifyFirebaseToken } = require('./middleware/auth');
 const { globalRateLimiter } = require('./middleware/security');
+const { requestTiming } = require('./middleware/requestTiming');
 const { verifyMailer } = require('./config/mailer');
 
 // QA insight runner — in-process async, no Redis queue needed
@@ -48,7 +49,10 @@ const corsOptions = {
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true,
+  exposedHeaders: ['Server-Timing'],
 };
+
+app.use('/api', requestTiming);
 
 // Twilio sends data as x-www-form-urlencoded, so we must have this!
 app.use(cors(corsOptions));
