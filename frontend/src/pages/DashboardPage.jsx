@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Activity, Phone, PhoneCall, CheckCircle2, DollarSign, Clock, Loader2, TrendingUp, TrendingDown, Minus, PhoneIncoming } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -7,8 +7,10 @@ import {
 import { motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { fetchDashboardLogs, fetchCampaignPricing } from '../services/dashboardService';
-import PageLoader from '../components/ui/PageLoader';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { fetchDashboardLogs } from '../services/dashboardService';
+import { queryKeys, useCampaignPricingQuery } from '../queries';
+import PageSkeleton from '../components/ui/PageSkeleton';
 import NumberPopIn from '../components/ui/NumberPopIn';
 import ShimmerText from '../components/ui/ShimmerText';
 import SlidingTabs from '../components/ui/SlidingTabs';
@@ -18,6 +20,7 @@ import classes from './DashboardPage.module.css';
 
 /* eslint-disable react/prop-types -- presentational helpers are local to this page */
 const PERIOD_OPTIONS = ['This Week', 'This Month', 'Last 30 Days'];
+const EMPTY_LIST = [];
 
 const CAMPAIGN_DESCRIPTIONS = {
   fe_inbounds_short: 'FE Inbounds Short Duration',
@@ -327,38 +330,13 @@ const DashboardPage = () => {
   const presets = useSubtlePageMotion();
   const [period, setPeriod] = useState('This Week');
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [logs, setLogs] = useState([]);
-  const [prevLogs, setPrevLogs] = useState([]);
-  const [campaigns, setCampaigns] = useState([]);
-  const [campaignsLoading, setCampaignsLoading] = useState(true);
+  const campaignsQuery = useCampaignPricingQuery();
+  const campaigns = campaignsQuery.data || EMPTY_LIST;
+  const campaignsLoading = campaignsQuery.isPending;
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        setCampaignsLoading(true);
-        const camps = await fetchCampaignPricing();
-        if (!cancelled) setCampaigns(camps);
-      } catch (err) {
-        console.error('Failed to load campaigns:', err);
-        if (!cancelled) setCampaigns([]);
-      } finally {
-        if (!cancelled) setCampaignsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    if (!user?.uid) return undefined;
-    let cancelled = false;
-    let timerId = null;
-    const VISIBLE_MS = 60000;
-    const HIDDEN_MS = 180000;
-
-    const fetchLogs = async () => {
+  const logsQuery = useQuery({
+    queryKey: queryKeys.dashboardLogs(period),
+    queryFn: async () => {
       const { startDate, endDate } = computePeriodRange(period);
       const prev = computePreviousPeriodRange(period);
       const [logsRes, prevRes] = await Promise.all([
@@ -369,60 +347,18 @@ const DashboardPage = () => {
         logs: Array.isArray(logsRes) ? logsRes : [],
         prevLogs: Array.isArray(prevRes) ? prevRes : [],
       };
-    };
-
-    let lastLoadAt = 0;
-    const load = async ({ showSpinner = false } = {}) => {
-      lastLoadAt = Date.now();
-      try {
-        if (showSpinner) setLoading(true);
-        const { logs: nextLogs, prevLogs: nextPrevLogs } = await fetchLogs();
-        if (cancelled) return;
-        setLogs(nextLogs);
-        setPrevLogs(nextPrevLogs);
-        setError(null);
-      } catch (err) {
-        console.error('Dashboard load failed:', err);
-        // Only block the UI on the first load — keep showing stale data if a background refresh fails.
-        if (!cancelled && showSpinner) {
-          setError(err.message || 'Failed to load dashboard data');
-        }
-      } finally {
-        if (!cancelled && showSpinner) setLoading(false);
-      }
-    };
-
-    const schedule = () => {
-      if (timerId) window.clearTimeout(timerId);
-      const ms = document.visibilityState === 'visible' ? VISIBLE_MS : HIDDEN_MS;
-      timerId = window.setTimeout(() => {
-        load({ showSpinner: false }).finally(() => {
-          if (!cancelled) schedule();
-        });
-      }, ms);
-    };
-
-    load({ showSpinner: true }).then(() => {
-      if (!cancelled) schedule();
-    });
-
-    const handleWake = () => {
-      if (document.visibilityState !== 'visible') return;
-      if (Date.now() - lastLoadAt < 15000) return;
-      load({ showSpinner: false });
-      schedule();
-    };
-
-    document.addEventListener('visibilitychange', handleWake);
-    window.addEventListener('focus', handleWake);
-
-    return () => {
-      cancelled = true;
-      if (timerId) window.clearTimeout(timerId);
-      document.removeEventListener('visibilitychange', handleWake);
-      window.removeEventListener('focus', handleWake);
-    };
-  }, [user?.uid, period]);
+    },
+    enabled: Boolean(user?.uid),
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+    refetchInterval: 60_000,
+  });
+  const logs = logsQuery.data?.logs ?? EMPTY_LIST;
+  const prevLogs = logsQuery.data?.prevLogs ?? EMPTY_LIST;
+  const loading = logsQuery.isPending;
+  const error = logsQuery.isError && !logsQuery.data
+    ? (logsQuery.error?.message || 'Failed to load dashboard data')
+    : null;
 
   const computeMetrics = (source) => {
     const startOfToday = startOfDay(new Date()).getTime();
@@ -498,7 +434,7 @@ const DashboardPage = () => {
 
   const hasChartData = chartData.some((d) => d.sales !== 0 || d.calls !== 0);
 
-  if (loading) return <PageLoader />;
+  if (loading) return <PageSkeleton variant="dashboard" />;
 
   return (
     <motion.div

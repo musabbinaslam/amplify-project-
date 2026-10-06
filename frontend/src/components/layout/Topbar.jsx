@@ -15,6 +15,7 @@ import IconSwap from '../ui/IconSwap';
 import NotificationBadge from '../ui/NotificationBadge';
 import ShimmerText from '../ui/ShimmerText';
 import SlidingTabs from '../ui/SlidingTabs';
+import { useWalletQuery } from '../../queries';
 import classes from './Topbar.module.css';
 
 /* eslint-disable react/prop-types -- topbar props wired from AppShell */
@@ -34,7 +35,6 @@ const Topbar = ({
   const reduceMotion = useReducedMotion();
   const user = useAuthStore((s) => s.user);
   const { theme, toggleTheme, pageBreadcrumbs } = useUIStore();
-  const [balanceCents, setBalanceCents] = useState(null);
   const [isInboxOpen, setIsInboxOpen] = useState(false);
   const [isBellAnimating, setIsBellAnimating] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState(null);
@@ -63,38 +63,8 @@ const Topbar = ({
   const isOnline = callState !== 'offline' && callState !== 'error';
   const inboxMotion = dropdownPanelMotion(reduceMotion);
 
-  useEffect(() => {
-    const fetchBalance = async () => {
-      try {
-        const { stripeService } = await import('../../services/stripeService');
-        const wallet = await stripeService.getWallet();
-        if (wallet) setBalanceCents(wallet.balance);
-      } catch (err) {
-        console.error('Failed to fetch balance', err);
-      }
-    };
-
-    const handleWalletUpdate = (e) => {
-      if (e.detail !== undefined) {
-        setBalanceCents(e.detail);
-      } else {
-        fetchBalance();
-      }
-    };
-
-    if (user) {
-      if (user.role === 'support') return undefined;
-      fetchBalance();
-      const interval = setInterval(() => {
-        if (document.visibilityState === 'visible') fetchBalance();
-      }, 5 * 60 * 1000);
-      window.addEventListener('wallet_updated', handleWalletUpdate);
-      return () => {
-        clearInterval(interval);
-        window.removeEventListener('wallet_updated', handleWalletUpdate);
-      };
-    }
-  }, [user]);
+  const walletQuery = useWalletQuery({ enabled: Boolean(user) && user?.role !== 'support' });
+  const balanceCents = walletQuery.data ? Number(walletQuery.data.balance) || 0 : null;
 
   useEffect(() => {
     if (!isInboxOpen) return undefined;

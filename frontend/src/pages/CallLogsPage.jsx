@@ -5,12 +5,14 @@ import { createPortal } from 'react-dom';
 import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play, Upload, X, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, useReducedMotion } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../services/apiClient';
+import { queryKeys, useCallLogsQuery } from '../queries';
 import { updateMyCallLogDisposition } from '../services/profileService';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { EASE_SMOOTH } from '../motion/appMotion';
 import CustomSelect from '../components/ui/CustomSelect';
-import PageLoader from '../components/ui/PageLoader';
+import PageSkeleton from '../components/ui/PageSkeleton';
 import NumberPopIn from '../components/ui/NumberPopIn';
 import SlidingTabs from '../components/ui/SlidingTabs';
 import ShimmerText from '../components/ui/ShimmerText';
@@ -399,6 +401,31 @@ function BillingStatusCell({ log, onContest }) {
   return <span className={classes.scoreDash}>—</span>;
 }
 
+const EMPTY_LOGS = [];
+
+function buildLogsParams(dateFilter, startDate, endDate) {
+  const now = new Date();
+  if (dateFilter === 'today') {
+    return { startDate: new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString() };
+  }
+  if (dateFilter === 'last_7' || dateFilter === 'last_30') {
+    const from = new Date();
+    from.setDate(now.getDate() - (dateFilter === 'last_7' ? 7 : 30));
+    return { startDate: from.toISOString() };
+  }
+  if (dateFilter === 'custom') {
+    const params = {};
+    if (startDate) params.startDate = new Date(startDate).toISOString();
+    if (endDate) {
+      const endObj = new Date(endDate);
+      endObj.setDate(endObj.getDate() + 1);
+      params.endDate = endObj.toISOString();
+    }
+    return params;
+  }
+  return {};
+}
+
 const CallLogsPage = () => {
   const presets = useSubtlePageMotion();
   const location = useLocation();
@@ -417,10 +444,6 @@ const CallLogsPage = () => {
     }
   }, [initialSearch]);
   const [typeFilter, setTypeFilter] = useState('All');
-  const [callLogs, setCallLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [activeRecording, setActiveRecording] = useState(null);
   const [contestLog, setContestLog] = useState(null);
   const [updatingDisposition, setUpdatingDisposition] = useState(null);
@@ -434,71 +457,32 @@ const CallLogsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Fetch real call logs from backend
-  const fetchLogs = async (showLoader = false) => {
-    try {
-      if (showLoader) setLoading(true);
+  const logsParams = useMemo(
+    () => buildLogsParams(dateFilter, startDate, endDate),
+    [dateFilter, startDate, endDate],
+  );
+  // Pause background refresh while the recording player is open to avoid re-render jitter.
+  const logsQuery = useCallLogsQuery(logsParams, {
+    refetchInterval: activeRecording ? false : 30_000,
+    refetchOnWindowFocus: !activeRecording,
+  });
+  const callLogs = logsQuery.data ?? EMPTY_LOGS;
+  const initialLoading = logsQuery.isPending;
+  const loading = logsQuery.isFetching && logsQuery.isPlaceholderData;
+  const error = logsQuery.isError && !logsQuery.data ? 'Failed to load call logs' : null;
 
-      let queryUrl = '/api/voice/logs';
-      let params = new URLSearchParams();
-      
-      const now = new Date();
-      if (dateFilter === 'today') {
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        params.append('startDate', startOfToday.toISOString());
-      } else if (dateFilter === 'last_7') {
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(now.getDate() - 7);
-        params.append('startDate', sevenDaysAgo.toISOString());
-      } else if (dateFilter === 'last_30') {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(now.getDate() - 30);
-        params.append('startDate', thirtyDaysAgo.toISOString());
-      } else if (dateFilter === 'custom') {
-        if (startDate) params.append('startDate', new Date(startDate).toISOString());
-        if (endDate) {
-           const endObj = new Date(endDate);
-           endObj.setDate(endObj.getDate() + 1);
-           params.append('endDate', endObj.toISOString());
-        }
-      }
-      
-      const qs = params.toString();
-      if (qs) queryUrl += `?${qs}`;
-
-      const data = await apiFetch(queryUrl);
-      setCallLogs(data || []);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching call logs:', err);
-      setError('Failed to load call logs');
-    } finally {
-      if (showLoader) setLoading(false);
-      setInitialLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchLogs(true);
-    // Avoid re-render jitter while user is interacting with the audio controls.
-    if (activeRecording) return undefined;
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') fetchLogs(false);
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [dateFilter, startDate, endDate, activeRecording]);
-
-  useEffect(() => {
-    const onContestResolved = () => fetchLogs(false);
-    window.addEventListener('contest:resolved', onContestResolved);
-    return () => window.removeEventListener('contest:resolved', onContestResolved);
-  }, [dateFilter, startDate, endDate]);
+  const queryClient = useQueryClient();
+  const patchLog = useCallback((logId, patch) => {
+    queryClient.setQueryData(queryKeys.callLogs(logsParams), (prev) => (
+      Array.isArray(prev) ? prev.map((row) => (row.id === logId ? { ...row, ...patch } : row)) : prev
+    ));
+  }, [queryClient, logsParams]);
 
   const handleDispositionUpdate = async (logId, newDisposition) => {
     setUpdatingDisposition(logId);
     try {
       await updateMyCallLogDisposition(logId, newDisposition);
-      setCallLogs(prev => prev.map(log => log.id === logId ? { ...log, disposition: newDisposition } : log));
+      patchLog(logId, { disposition: newDisposition });
       toast.success('Disposition updated');
     } catch {
       toast.error('Failed to update disposition');
@@ -581,14 +565,10 @@ const CallLogsPage = () => {
   }, [filtered, currentPage, itemsPerPage]);
 
   const handleContestSubmitted = (callLogId) => {
-    setCallLogs((prev) =>
-      prev.map((row) =>
-        row.id === callLogId ? { ...row, contestStatus: 'pending' } : row,
-      ),
-    );
+    patchLog(callLogId, { contestStatus: 'pending' });
   };
 
-  if (initialLoading) return <PageLoader />;
+  if (initialLoading) return <PageSkeleton variant="table" rows={10} />;
 
   return (
     <>

@@ -23,8 +23,10 @@ import {
 import useAuthStore from '../store/authStore';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { dropdownPanelMotion, EASE_SMOOTH } from '../motion/appMotion';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { fetchLeaderboard } from '../services/leaderboardService';
-import PageLoader from '../components/ui/PageLoader';
+import { queryKeys } from '../queries';
+import PageSkeleton from '../components/ui/PageSkeleton';
 import NumberPopIn from '../components/ui/NumberPopIn';
 import classes from './LeaderboardPage.module.css';
 
@@ -43,7 +45,7 @@ const SORT_OPTIONS = [
 ];
 
 const VISIBLE_MS = 60000;
-const HIDDEN_MS = 180000;
+const EMPTY_BOARD = { entries: [], me: null, totalAgents: 0, generatedAt: null };
 const ROWS_PER_PAGE = 10;
 const HOT_RATIO = 20; // policy closed rate (%) that earns an "on fire" badge
 
@@ -168,17 +170,12 @@ const LeaderboardPage = () => {
   const user = useAuthStore((s) => s.user);
 
   const [periodKey, setPeriodKey] = useState('month');
-  const [data, setData] = useState({ entries: [], me: null, totalAgents: 0, generatedAt: null });
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
+  const [manualRefresh, setManualRefresh] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [sort, setSort] = useState({ key: 'rank', dir: 'asc' });
   const [page, setPage] = useState(1);
   const dropdownRef = useRef(null);
   const championRef = useRef(null);
-  // Once the first load completes, later loads (period switch, polling) update in place.
-  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -190,67 +187,29 @@ const LeaderboardPage = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const load = useCallback(
-    async ({ showSpinner = false, manual = false } = {}) => {
-      try {
-        if (showSpinner) setLoading(true);
-        if (manual) setRefreshing(true);
-        const next = await fetchLeaderboard({ period: periodKey });
-        setData(next);
-        setError(null);
-        hasLoadedRef.current = true;
-      } catch (err) {
-        console.error('Leaderboard load failed:', err);
-        if (showSpinner || manual) setError(err.message || 'Failed to load leaderboard');
-      } finally {
-        if (showSpinner) setLoading(false);
-        if (manual) setRefreshing(false);
-      }
-    },
-    [periodKey],
-  );
-
-  // Initial load + visibility-aware polling; refreshes on tab focus/visibility.
-  useEffect(() => {
-    if (!user?.uid) return undefined;
-    let cancelled = false;
-    let timerId = null;
-
-    const run = async (opts) => {
-      if (cancelled) return;
-      await load(opts);
-    };
-
-    const schedule = () => {
-      if (timerId) window.clearTimeout(timerId);
-      const ms = document.visibilityState === 'visible' ? VISIBLE_MS : HIDDEN_MS;
-      timerId = window.setTimeout(() => {
-        run({ showSpinner: false }).finally(() => {
-          if (!cancelled) schedule();
-        });
-      }, ms);
-    };
-
-    // Full-page loader only before the first data arrives; afterwards (e.g. on
-    // period change) fetch in the background and swap the entries in place.
-    run({ showSpinner: !hasLoadedRef.current, manual: hasLoadedRef.current }).then(() => {
-      if (!cancelled) schedule();
-    });
-
-    const handleWake = () => {
-      run({ showSpinner: false });
-      schedule();
-    };
-    document.addEventListener('visibilitychange', handleWake);
-    window.addEventListener('focus', handleWake);
-
-    return () => {
-      cancelled = true;
-      if (timerId) window.clearTimeout(timerId);
-      document.removeEventListener('visibilitychange', handleWake);
-      window.removeEventListener('focus', handleWake);
-    };
-  }, [user?.uid, load]);
+  const leaderboardQuery = useQuery({
+    queryKey: queryKeys.leaderboard({ period: periodKey }),
+    queryFn: () => fetchLeaderboard({ period: periodKey }),
+    enabled: Boolean(user?.uid),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchInterval: VISIBLE_MS,
+  });
+  const data = leaderboardQuery.data ?? EMPTY_BOARD;
+  const loading = leaderboardQuery.isPending;
+  const refreshing = leaderboardQuery.isFetching && !leaderboardQuery.isPending
+    && (leaderboardQuery.isPlaceholderData || manualRefresh);
+  const error = leaderboardQuery.isError && !leaderboardQuery.data
+    ? (leaderboardQuery.error?.message || 'Failed to load leaderboard')
+    : null;
+  const load = useCallback(async () => {
+    setManualRefresh(true);
+    try {
+      await leaderboardQuery.refetch();
+    } finally {
+      setManualRefresh(false);
+    }
+  }, [leaderboardQuery]);
 
   const entries = useMemo(() => data.entries || [], [data.entries]);
   const me = data.me || null;
@@ -375,7 +334,7 @@ const LeaderboardPage = () => {
     ? new Date(data.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : null;
 
-  if (loading) return <PageLoader />;
+  if (loading) return <PageSkeleton variant="table" rows={10} />;
 
   return (
     <motion.div
