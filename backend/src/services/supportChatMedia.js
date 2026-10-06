@@ -21,29 +21,59 @@ const ALLOWED_MIME_EXACT = new Set([
   'text/plain',
   'text/csv',
   'text/log',
-  'audio/webm',
-  'audio/mp4',
-  'audio/mpeg',
-  'audio/ogg',
-  'audio/wav',
-  'audio/x-wav',
-  'audio/mp4a-latm',
 ]);
 
-function isMimeAllowed(mimetype = '') {
-  const mime = String(mimetype || '').toLowerCase();
-  if (!mime) return false;
+const AUDIO_EXTENSIONS = new Set([
+  '.mp3', '.m4a', '.wav', '.wave', '.ogg', '.oga', '.webm',
+  '.aac', '.flac', '.caf', '.amr', '.3gp', '.mp4',
+]);
+
+function extensionOf(name = '') {
+  const base = String(name || '').split(/[\\/]/).pop() || '';
+  const i = base.lastIndexOf('.');
+  return i >= 0 ? base.slice(i).toLowerCase() : '';
+}
+
+function isMimeAllowed(mimetype = '', filename = '') {
+  const mime = String(mimetype || '').toLowerCase().split(';')[0].trim();
   if (mime.startsWith('image/')) return true;
+  // Accept any audio/* (browsers disagree on mp3/m4a/wav labels).
+  if (mime.startsWith('audio/')) return true;
   if (ALLOWED_MIME_EXACT.has(mime)) return true;
-  if (mime.startsWith('audio/webm') || mime.startsWith('audio/mp4')) return true;
+  // Some OS/browsers send empty or octet-stream — fall back to extension.
+  if (!mime || mime === 'application/octet-stream') {
+    return AUDIO_EXTENSIONS.has(extensionOf(filename));
+  }
   return false;
 }
 
-function kindFromMime(mimetype = '') {
-  const mime = String(mimetype || '').toLowerCase();
+function kindFromMime(mimetype = '', filename = '') {
+  const mime = String(mimetype || '').toLowerCase().split(';')[0].trim();
   if (mime.startsWith('image/')) return 'image';
   if (mime.startsWith('audio/')) return 'audio';
+  if ((!mime || mime === 'application/octet-stream') && AUDIO_EXTENSIONS.has(extensionOf(filename))) {
+    return 'audio';
+  }
   return 'file';
+}
+
+function mimeFromAudioExt(ext = '') {
+  switch (String(ext || '').toLowerCase()) {
+    case '.mp3': return 'audio/mpeg';
+    case '.m4a':
+    case '.mp4': return 'audio/mp4';
+    case '.wav':
+    case '.wave': return 'audio/wav';
+    case '.ogg':
+    case '.oga': return 'audio/ogg';
+    case '.webm': return 'audio/webm';
+    case '.aac': return 'audio/aac';
+    case '.flac': return 'audio/flac';
+    case '.caf': return 'audio/x-caf';
+    case '.amr': return 'audio/amr';
+    case '.3gp': return 'audio/3gpp';
+    default: return null;
+  }
 }
 
 function safeFilename(name = 'file') {
@@ -107,8 +137,9 @@ async function saveMedia(conversationId, file, { durationMs } = {}) {
     throw Object.assign(new Error('Firebase Storage is not configured'), { status: 503, code: 'STORAGE_UNAVAILABLE' });
   }
   const mimeType = file.mimetype || 'application/octet-stream';
-  if (!isMimeAllowed(mimeType)) {
-    throw Object.assign(new Error(`Unsupported file type: ${mimeType}`), { status: 415 });
+  const originalName = file.originalname || '';
+  if (!isMimeAllowed(mimeType, originalName)) {
+    throw Object.assign(new Error(`Unsupported file type: ${mimeType || extensionOf(originalName) || 'unknown'}`), { status: 415 });
   }
   const size = file.buffer?.length || file.size || 0;
   if (size > MAX_FILE_BYTES) {
@@ -117,15 +148,20 @@ async function saveMedia(conversationId, file, { durationMs } = {}) {
       { status: 413 },
     );
   }
-  const kind = kindFromMime(mimeType);
+  const kind = kindFromMime(mimeType, originalName);
+  // Prefer a playable audio Content-Type when the OS sent octet-stream.
+  const storedMime = (kind === 'audio' && (!mimeType || mimeType === 'application/octet-stream'))
+    ? (mimeFromAudioExt(extensionOf(originalName)) || mimeType)
+    : mimeType;
   let duration = Number(durationMs) || 0;
+  // 5-minute cap is for in-app voice notes (durationMs sent by recorder), not file attachments.
   if (kind === 'audio' && duration > MAX_VOICE_MS) {
     throw Object.assign(new Error('Voice notes can be up to 5 minutes.'), { status: 413 });
   }
   if (kind !== 'audio') duration = 0;
 
   const mediaId = crypto.randomUUID();
-  const name = file.originalname || `${mediaId}${path.extname(file.originalname || '') || ''}`;
+  const name = originalName || `${mediaId}${path.extname(originalName || '') || ''}`;
   const storagePath = storageObjectPath(conversationId, mediaId, name);
   let thumbPath = null;
 
@@ -134,7 +170,7 @@ async function saveMedia(conversationId, file, { durationMs } = {}) {
       bucket.file(storagePath).save(file.buffer, {
         resumable: false,
         metadata: {
-          contentType: mimeType,
+          contentType: storedMime,
           metadata: {
             conversationId: String(conversationId),
             mediaId,
@@ -178,7 +214,7 @@ async function saveMedia(conversationId, file, { durationMs } = {}) {
 
   const record = {
     name,
-    mimeType,
+    mimeType: storedMime,
     size,
     kind,
     storagePath,

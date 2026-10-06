@@ -117,7 +117,8 @@ export const CHAT_MEDIA_LIMITS = {
   maxFileBytes: 10 * 1024 * 1024,
   maxTotalBytes: 20 * 1024 * 1024,
   maxVoiceMs: 5 * 60 * 1000,
-  accept: 'image/*,.pdf,.zip,.doc,.docx,.xls,.xlsx,.txt,.csv,.json,audio/webm,audio/mp4,audio/mpeg',
+  // audio/* + common extensions so OS pickers show mp3/m4a/wav (MIME labels vary by browser).
+  accept: 'image/*,audio/*,.mp3,.m4a,.wav,.ogg,.webm,.aac,.flac,.pdf,.zip,.doc,.docx,.xls,.xlsx,.txt,.csv,.json',
 };
 
 export function uploadSupportMedia(conversationId, file, { durationMs, desk = false } = {}) {
