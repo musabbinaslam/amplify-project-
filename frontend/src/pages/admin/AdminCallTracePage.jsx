@@ -4,10 +4,6 @@ import {
   Phone,
   Radio,
   Play,
-  Clock,
-  DollarSign,
-  User,
-  Hash,
   Activity,
   FileAudio,
   Loader2,
@@ -60,6 +56,13 @@ function formatDuration(sec) {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
+function shortSid(sid) {
+  if (!sid) return '';
+  const s = String(sid);
+  if (s.length <= 14) return s;
+  return `${s.slice(0, 6)}…${s.slice(-4)}`;
+}
+
 function eventTitle(e) {
   if (e.type === 'ping') return e.available ? 'AVAILABLE (1)' : 'BUSY (0)';
   if (e.type === 'confirm') return e.detail || (e.available ? 'Accept' : 'Reject');
@@ -74,15 +77,16 @@ function eventTitle(e) {
 }
 
 /* eslint-disable react/prop-types */
-function CopyButton({ value }) {
+function CopyButton({ value, label }) {
   const [copied, setCopied] = useState(false);
   if (!value) return null;
   return (
     <button
       type="button"
       className={classes.copyBtn}
-      title="Copy"
-      onClick={async () => {
+      title={label || 'Copy'}
+      onClick={async (e) => {
+        e.stopPropagation();
         try {
           await navigator.clipboard.writeText(String(value));
           setCopied(true);
@@ -146,6 +150,7 @@ export default function AdminCallTracePage() {
   const agentMeta = result?.agentMeta || {};
   const query = result?.query || {};
   const hasResults = timeline.length > 0 || logs.length > 0 || Boolean(live);
+  const showTimelineCol = timeline.length > 0;
 
   return (
     <AdminPageShell
@@ -162,10 +167,6 @@ export default function AdminCallTracePage() {
           runSearch();
         }}
       >
-        <div className={classes.searchIntro}>
-          <h3>Look up a call path</h3>
-          <p>Same story as PM2 grep — pings, route, wrap-up, billing — without SSH.</p>
-        </div>
         <div className={classes.searchRow}>
           <div className={classes.inputWrap}>
             <Search size={16} className={classes.inputIcon} aria-hidden="true" />
@@ -174,7 +175,7 @@ export default function AdminCallTracePage() {
               className={classes.searchField}
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="7133808988 or CA4948d2…"
+              placeholder="Phone or CallSid — e.g. 7133808988 or CA4948d2…"
               autoComplete="off"
               spellCheck={false}
             />
@@ -195,15 +196,12 @@ export default function AdminCallTracePage() {
         {loading ? (
           <motion.div
             key="loading"
-            className={classes.skeletonGrid}
+            className={classes.skeletonBlock}
             initial={reduceMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18, ease: EASE_SMOOTH }}
-          >
-            <div className={`glass ${classes.skeletonBlock}`} />
-            <div className={`glass ${classes.skeletonBlock}`} />
-          </motion.div>
+          />
         ) : null}
 
         {!loading && searched && result && hasResults ? (
@@ -215,13 +213,9 @@ export default function AdminCallTracePage() {
             transition={{ duration: 0.28, ease: EASE_SMOOTH }}
           >
             <div className={classes.summaryRow}>
-              <StatPill icon={Activity} label="Timeline events" value={timeline.length} />
+              <StatPill icon={Activity} label="Timeline" value={timeline.length} />
               <StatPill icon={FileAudio} label="Call logs" value={logs.length} />
-              <StatPill
-                icon={Radio}
-                label="Live"
-                value={live ? 'In call' : 'Idle'}
-              />
+              <StatPill icon={Radio} label="Live" value={live ? 'In call' : 'Idle'} />
               <StatPill
                 icon={Phone}
                 label="Normalized"
@@ -244,55 +238,55 @@ export default function AdminCallTracePage() {
               </div>
             ) : null}
 
-            <div className={classes.split}>
-              <section className={`glass ${shared.sectionCard} ${classes.panel}`}>
-                <div className={classes.panelHead}>
-                  <h3>Timeline</h3>
-                  <span className={classes.panelCount}>{timeline.length}</span>
-                </div>
-                {timeline.length === 0 ? (
-                  <div className={classes.panelEmpty}>
-                    No Redis events yet for this number. Pings/routes appear after this build is live on the API.
-                    Call logs below still come from Firestore.
+            {!showTimelineCol ? (
+              <p className={classes.timelineHint}>
+                No Redis timeline yet for this number — events fill in after live traffic hits this API build.
+                Showing Firestore call logs.
+              </p>
+            ) : null}
+
+            <div className={`${classes.split} ${showTimelineCol ? '' : classes.splitLogsOnly}`}>
+              {showTimelineCol ? (
+                <section className={`glass ${shared.sectionCard} ${classes.panel}`}>
+                  <div className={classes.panelHead}>
+                    <h3>Timeline</h3>
+                    <span className={classes.panelCount}>{timeline.length}</span>
                   </div>
-                ) : (
                   <ol className={classes.timeline}>
                     {timeline.map((e, idx) => {
                       const meta = TYPE_META[e.type] || { label: e.type, tone: 'muted' };
+                      const bits = [
+                        e.campaignId,
+                        e.state,
+                        e.agencyId,
+                        e.agentId ? (agentMeta[e.agentId] || e.agentId) : null,
+                        e.reason,
+                      ].filter(Boolean);
                       return (
-                        <li key={e.id || `${e.type}-${e.at}-${idx}`} className={classes.event}>
-                          <div className={classes.rail}>
-                            <span className={`${classes.dot} ${classes[`dot_${meta.tone}`]}`} />
-                            {idx < timeline.length - 1 ? <span className={classes.line} /> : null}
-                          </div>
-                          <div className={classes.eventCard}>
-                            <div className={classes.eventTop}>
-                              <span className={`${classes.badge} ${classes[`tone_${meta.tone}`]}`}>
-                                {meta.label}
-                              </span>
-                              <time className={classes.eventTime}>{formatTime(e.at)}</time>
-                            </div>
-                            <p className={classes.eventTitle}>{eventTitle(e)}</p>
-                            <div className={classes.eventMeta}>
-                              {e.campaignId ? <span>{e.campaignId}</span> : null}
-                              {e.state ? <span>{e.state}</span> : null}
-                              {e.agencyId ? <span>{e.agencyId}</span> : null}
-                              {e.agentId ? <span>{agentMeta[e.agentId] || e.agentId}</span> : null}
-                              {e.reason ? <span>{e.reason}</span> : null}
-                            </div>
-                            {e.callSid ? (
-                              <div className={classes.sidRow}>
-                                <code className={classes.sid}>{e.callSid}</code>
-                                <CopyButton value={e.callSid} />
-                              </div>
-                            ) : null}
-                          </div>
+                        <li key={e.id || `${e.type}-${e.at}-${idx}`} className={classes.eventRow}>
+                          <span className={`${classes.dot} ${classes[`dot_${meta.tone}`]}`} />
+                          <span className={`${classes.badge} ${classes[`tone_${meta.tone}`]}`}>
+                            {meta.label}
+                          </span>
+                          <span className={classes.eventTitle}>{eventTitle(e)}</span>
+                          <span className={classes.eventBits} title={bits.join(' · ')}>
+                            {bits.join(' · ') || '—'}
+                          </span>
+                          {e.callSid ? (
+                            <span className={classes.sidInline}>
+                              <code title={e.callSid}>{shortSid(e.callSid)}</code>
+                              <CopyButton value={e.callSid} />
+                            </span>
+                          ) : (
+                            <span />
+                          )}
+                          <time className={classes.eventTime}>{formatTime(e.at)}</time>
                         </li>
                       );
                     })}
                   </ol>
-                )}
-              </section>
+                </section>
+              ) : null}
 
               <section className={`glass ${shared.sectionCard} ${classes.panel}`}>
                 <div className={classes.panelHead}>
@@ -302,65 +296,70 @@ export default function AdminCallTracePage() {
                 {logs.length === 0 ? (
                   <div className={classes.panelEmpty}>No completed call logs matched this From / CallSid.</div>
                 ) : (
-                  <div className={classes.logList}>
-                    {logs.map((log) => (
-                      <article key={log.id} className={classes.logCard}>
-                        <div className={classes.logTop}>
-                          <div className={classes.logIdentity}>
-                            <Phone size={15} aria-hidden="true" />
-                            <div>
-                              <strong className={classes.logPhone}>{log.from || '—'}</strong>
-                              <span className={classes.logCampaign}>
-                                {log.campaignLabel || log.campaign || 'Unknown campaign'}
-                              </span>
-                            </div>
-                          </div>
-                          <span className={`${classes.statusChip} ${log.isBillable ? classes.statusPaid : ''}`}>
-                            {log.isBillable ? 'Billable' : log.status || '—'}
-                          </span>
-                        </div>
-
-                        <div className={classes.metricGrid}>
-                          <div className={classes.metric}>
-                            <Clock size={13} />
-                            <span>{formatDuration(log.duration)}</span>
-                          </div>
-                          <div className={classes.metric}>
-                            <DollarSign size={13} />
-                            <span>${Number(log.cost || 0).toFixed(2)}</span>
-                          </div>
-                          <div className={classes.metric}>
-                            <User size={13} />
-                            <span>{agentMeta[log.agentId] || log.agentId || '—'}</span>
-                          </div>
-                          {log.disposition ? (
-                            <div className={classes.metric}>
-                              <Hash size={13} />
-                              <span>{log.disposition}</span>
-                            </div>
-                          ) : null}
-                        </div>
-
-                        <div className={classes.logFoot}>
-                          <span className={classes.logWhen}>{formatTime(log.createdAt)}</span>
-                          {log.callSid ? (
-                            <span className={classes.sidRow}>
-                              <code className={classes.sid}>{log.callSid}</code>
-                              <CopyButton value={log.callSid} />
-                            </span>
-                          ) : null}
-                          {(log.recordingSid || log.recordingUrl) ? (
-                            <button
-                              type="button"
-                              className={classes.playBtn}
-                              onClick={() => setPlayLog(log)}
-                            >
-                              <Play size={14} /> Play
-                            </button>
-                          ) : null}
-                        </div>
-                      </article>
-                    ))}
+                  <div className={classes.tableWrap}>
+                    <table className={classes.logTable}>
+                      <thead>
+                        <tr>
+                          <th>When</th>
+                          <th>Campaign</th>
+                          <th>Dur</th>
+                          <th>Cost</th>
+                          <th>Agent</th>
+                          <th>Disposition</th>
+                          <th>Status</th>
+                          <th>CallSid</th>
+                          <th aria-label="Actions" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {logs.map((log) => {
+                          const hasRec = Boolean(log.recordingSid || log.recordingUrl);
+                          return (
+                            <tr key={log.id}>
+                              <td className={classes.colWhen}>{formatTime(log.createdAt)}</td>
+                              <td className={classes.colCampaign} title={log.campaignLabel || log.campaign || ''}>
+                                {log.campaignLabel || log.campaign || '—'}
+                              </td>
+                              <td className={classes.colNum}>{formatDuration(log.duration)}</td>
+                              <td className={classes.colNum}>${Number(log.cost || 0).toFixed(2)}</td>
+                              <td className={classes.colAgent} title={agentMeta[log.agentId] || log.agentId || ''}>
+                                {agentMeta[log.agentId] || log.agentId || '—'}
+                              </td>
+                              <td className={classes.colDisp}>{log.disposition || '—'}</td>
+                              <td>
+                                <span
+                                  className={`${classes.statusChip} ${log.isBillable ? classes.statusPaid : ''}`}
+                                >
+                                  {log.isBillable ? 'Billable' : log.status || '—'}
+                                </span>
+                              </td>
+                              <td className={classes.colSid}>
+                                {log.callSid ? (
+                                  <span className={classes.sidInline}>
+                                    <code title={log.callSid}>{shortSid(log.callSid)}</code>
+                                    <CopyButton value={log.callSid} />
+                                  </span>
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                              <td className={classes.colAct}>
+                                {hasRec ? (
+                                  <button
+                                    type="button"
+                                    className={classes.playBtn}
+                                    onClick={() => setPlayLog(log)}
+                                    title="Play recording"
+                                  >
+                                    <Play size={13} />
+                                  </button>
+                                ) : null}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </section>
