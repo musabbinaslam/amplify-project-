@@ -1,0 +1,61 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  padding: 4px 0;
+}
+
+.row {
+  display: grid;
+  gap: 16px;
+}
+
+.kpis {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.charts {
+  grid-template-columns: 2fr 1fr;
+}
+
+.block {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
+  border: 1px solid var(--glass-border);
+}
+
+.block::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--text-primary) 6%, transparent),
+    transparent
+  );
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  to { transform: translateX(100%); }
+}
+
+.kpi { height: 112px; }
+.chartLg { height: 300px; }
+.chartSm { height: 300px; }
+.toolbar { height: 52px; }
+.tableRow { height: 48px; }
+
+@media (max-width: 900px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .charts { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .block::after { animation: none; }
+}

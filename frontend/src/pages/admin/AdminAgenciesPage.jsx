@@ -472,11 +472,11 @@ export default function AdminAgenciesPage() {
       const [ov, userOut] = await Promise.all([
         getAdminOverviewLite(),
         listAdminUsers(),
+        loadAgencies(),
       ]);
       setCampaigns(ov?.campaigns || []);
       setLiveCallsRaw(ov?.liveCalls || []);
       setAllUsers(dedupeUsers(userOut?.users || []));
-      await loadAgencies();
     } catch (e) {
       toast.error(e.message || 'Failed to load agencies');
     } finally {
@@ -528,7 +528,7 @@ export default function AdminAgenciesPage() {
     let timer = null;
     const schedule = () => {
       if (timer) window.clearInterval(timer);
-      const ms = document.visibilityState === 'visible' ? 15000 : 60000;
+      const ms = document.visibilityState === 'visible' ? 30000 : 120000;
       timer = window.setInterval(refreshLiveCalls, ms);
     };
     schedule();

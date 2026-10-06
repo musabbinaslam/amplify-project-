@@ -49,13 +49,14 @@ const AppShell = () => {
 
   const loadInbox = useCallback(async () => {
     try {
-      const out = await getMyNotifications({ limit: 30, scope: 'general' });
+      const isAdminUser = user?.role === 'admin';
+      const [out, adminOut, aiFlagsOut] = await Promise.all([
+        getMyNotifications({ limit: 30, scope: 'general' }),
+        isAdminUser ? getMyAdminNotifications({ limit: 20 }) : null,
+        isAdminUser ? getMyAiFlagNotifications({ limit: 20 }) : null,
+      ]);
       setNotifications(Array.isArray(out?.rows) ? out.rows : []);
-      if (user?.role === 'admin') {
-        const [adminOut, aiFlagsOut] = await Promise.all([
-          getMyAdminNotifications({ limit: 20 }),
-          getMyAiFlagNotifications({ limit: 20 }),
-        ]);
+      if (isAdminUser) {
         setAdminNotifications(Array.isArray(adminOut?.rows) ? adminOut.rows : []);
         setAiFlagNotifications(Array.isArray(aiFlagsOut?.rows) ? aiFlagsOut.rows : []);
       } else {
@@ -331,7 +332,9 @@ const AppShell = () => {
       })
       .catch(() => {});
 
-    const interval = window.setInterval(refreshFromApi, 15000);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refreshFromApi();
+    }, 60000);
     const onVis = () => {
       if (document.visibilityState === 'visible') refreshFromApi();
     };

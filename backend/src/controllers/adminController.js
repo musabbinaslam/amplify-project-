@@ -21,10 +21,11 @@ const { mergeUserDoc, getUserDoc } = require('../services/userDataService');
 const callLogService = require('../services/callLogService');
 const { flagAgentAccount } = require('../services/agentFlagService');
 const { generateExcelReport } = require('../services/excelExportService');
-const ANALYTICS_CACHE_TTL_MS = 30000;
+const { cached, invalidateNamespace, stableKey } = require('../utils/readCache');
+
+const ANALYTICS_CACHE_TTL_SEC = 30;
+const COACHING_CACHE_TTL_SEC = 120;
 const READ_CONCURRENCY = 10;
-const analyticsCache = new Map();
-const coachingCache = new Map();
 
 function getCampaigns(campaignControls = null) {
   const pausedMap = campaignControls?.campaigns || {};
@@ -273,12 +274,51 @@ function normalizeCall(doc) {
   };
 }
 
-async function readLogsInRange(from, end) {
-  if (!admin) throw new Error('Database service unavailable');
-  const db = getDb();
+const CALL_ROW_FIELDS = [
+  'agentId', 'callSid', 'campaign', 'campaignLabel', 'status', 'duration', 'isBillable', 'cost',
+  'disposition', 'recordingUrl', 'recordingSid', 'qaAudioReview.status', 'qaAudioReview.summary',
+  'qaAudioReview.violations', 'refunded', 'refundReason', 'contestId', 'contestStatus', 'from',
+  'createdAt', 'timestamp',
+];
+const RANGE_PAGE_SIZE = 2000;
+const RANGE_MAX_ROWS = 50000;
+let rangeIndexMissing = false;
+
+/**
+ * All call logs created in [from, end] across every agent, via one paged
+ * collection-group query (needs the callLogs.createdAt collection-group index).
+ */
+async function readLogsInRangeGroup(db, from, end) {
+  const out = [];
+  let last = null;
+  while (out.length < RANGE_MAX_ROWS) {
+    let q = db.collectionGroup('callLogs')
+      .where('createdAt', '>=', from)
+      .where('createdAt', '<=', end)
+      .orderBy('createdAt', 'desc')
+      .select(...CALL_ROW_FIELDS)
+      .limit(RANGE_PAGE_SIZE);
+    if (last) q = q.startAfter(last);
+    // eslint-disable-next-line no-await-in-loop
+    const snap = await q.get();
+    snap.docs.forEach((doc) => {
+      const row = normalizeCall(doc);
+      if (!row.agentId) row.agentId = doc.ref.parent.parent?.id || null;
+      if (row.createdAt) out.push(row);
+    });
+    if (snap.size < RANGE_PAGE_SIZE) break;
+    last = snap.docs[snap.docs.length - 1];
+  }
+  if (out.length >= RANGE_MAX_ROWS) {
+    console.warn(`[Admin] readLogsInRange hit ${RANGE_MAX_ROWS} row cap for ${from.toISOString()}..${end.toISOString()}`);
+  }
+  return out;
+}
+
+async function readLogsInRangeFanOut(db, from, end) {
   const fromMs = from.getTime();
   const endMs = end.getTime();
-  const usersSnap = await db.collection('users').get();
+  const usersSnap = await db.collection('users').select().get();
   const out = [];
   const docs = usersSnap.docs || [];
   let cursor = 0;
@@ -292,6 +332,7 @@ async function readLogsInRange(from, end) {
       const callsSnap = await userDoc.ref
         .collection('callLogs')
         .orderBy('createdAt', 'desc')
+        .select(...CALL_ROW_FIELDS)
         .limit(500)
         .get();
       callsSnap.docs.forEach((doc) => {
@@ -312,6 +353,21 @@ async function readLogsInRange(from, end) {
   await Promise.all(workers);
 
   return out;
+}
+
+async function readLogsInRange(from, end) {
+  if (!admin) throw new Error('Database service unavailable');
+  const db = getDb();
+  if (!rangeIndexMissing) {
+    try {
+      return await readLogsInRangeGroup(db, from, end);
+    } catch (err) {
+      if (err?.code !== 9 && !/index/i.test(err?.message || '')) throw err;
+      rangeIndexMissing = true;
+      console.warn('[Admin] callLogs createdAt collection-group index missing; using per-user fan-out. Deploy firestore.indexes.json.');
+    }
+  }
+  return readLogsInRangeFanOut(db, from, end);
 }
 
 function aggregateAnalytics(rows, from, end, tz) {
@@ -449,12 +505,17 @@ function ratio(a, b) {
   return b ? Number((a / b).toFixed(4)) : 0;
 }
 
+const USER_META_FIELDS = [
+  'fullName', 'displayName', 'name', 'agentName', 'firstName', 'lastName', 'email',
+  'phoneNumber', 'phone', 'onboarding.phone', 'wallet.balance', 'flagged', 'flagReason', 'agencyId',
+];
+
 async function buildUserMetaMap(agentIds = []) {
   const ids = [...new Set((agentIds || []).filter(Boolean))];
   if (!ids.length) return new Map();
   const db = getDb();
   const refs = ids.map((id) => db.collection('users').doc(id));
-  const snaps = await db.getAll(...refs);
+  const snaps = await db.getAll(...refs, { fieldMask: USER_META_FIELDS });
   const map = new Map();
   snaps.forEach((snap) => {
     if (!snap.exists) return;
@@ -484,28 +545,22 @@ async function buildUserMetaMap(agentIds = []) {
     return !entry || !entry.name || !entry.phone;
   });
   if (missing.length) {
-    const chunks = [];
-    for (let i = 0; i < missing.length; i += 100) {
-      chunks.push(missing.slice(i, i + 100));
-    }
-    for (const chunk of chunks) {
-      // eslint-disable-next-line no-await-in-loop
-      const out = await admin.auth().getUsers(chunk.map((uid) => ({ uid })));
-      out.users.forEach((u) => {
-        const existing = map.get(u.uid) || {};
-        map.set(u.uid, {
-          ...existing,
-          name: existing.name || u.displayName || u.email || null,
-          phone: existing.phone || u.phoneNumber || null,
-          balanceCents: existing.balanceCents ?? null,
-        });
+    const authInfo = await fetchAuthInfo(missing);
+    authInfo.forEach((u, uid) => {
+      if (u.notFound) return;
+      const existing = map.get(uid) || {};
+      map.set(uid, {
+        ...existing,
+        name: existing.name || u.displayName || u.email || null,
+        phone: existing.phone || u.phoneNumber || null,
+        balanceCents: existing.balanceCents ?? null,
       });
-      chunk.forEach((uid) => {
-        const existing = map.get(uid) || {};
-        if (!existing.name) existing.name = uid;
-        map.set(uid, existing);
-      });
-    }
+    });
+    missing.forEach((uid) => {
+      const existing = map.get(uid) || {};
+      if (!existing.name) existing.name = uid;
+      map.set(uid, existing);
+    });
   }
   return map;
 }
@@ -664,36 +719,20 @@ function buildDrilldownFromDailyDocs(type, id, docs = []) {
   };
 }
 
-function coachingCacheKey(scope, query = {}) {
-  const normalized = {};
-  Object.keys(query || {}).sort().forEach((k) => {
-    normalized[k] = String(query[k]);
-  });
-  return `${scope}|${JSON.stringify(normalized)}`;
-}
-
-function readCoachingCache(key) {
-  const hit = coachingCache.get(key);
-  if (!hit) return null;
-  if (hit.expiresAt <= Date.now()) {
-    coachingCache.delete(key);
-    return null;
-  }
-  return hit.payload;
-}
-
-function writeCoachingCache(key, payload) {
-  coachingCache.set(key, {
-    payload,
-    expiresAt: Date.now() + ANALYTICS_CACHE_TTL_MS,
-  });
-}
-
-async function readCoachingRows(query = {}) {
+async function readAllCoachingRows() {
   if (!admin) throw new Error('Database service unavailable');
   const db = getDb();
-  const usersSnap = await db.collection('users').get();
-  const docs = usersSnap.docs || [];
+  const planSnaps = await db.collectionGroup('aiCoachingPlan').get();
+  const plansByUid = new Map();
+  planSnaps.docs.forEach((d) => {
+    const userRef = d.ref.parent.parent;
+    if (d.id === 'current' && userRef && userRef.parent.id === 'users') plansByUid.set(userRef.id, d);
+  });
+  const docs = plansByUid.size
+    ? await db.getAll(...[...plansByUid.keys()].map((uid) => db.collection('users').doc(uid)), {
+      fieldMask: ['fullName', 'name', 'email'],
+    }).then((snaps) => snaps.filter((d) => d.exists))
+    : [];
   const rows = [];
   let cursor = 0;
 
@@ -709,8 +748,8 @@ async function readCoachingRows(query = {}) {
       cursor += 1;
       const userDoc = docs[idx];
       // eslint-disable-next-line no-await-in-loop
-      const planSnap = await userDoc.ref.collection('aiCoachingPlan').doc('current').get();
-      if (!planSnap.exists) continue;
+      const planSnap = plansByUid.get(userDoc.id);
+      if (!planSnap) continue;
       // eslint-disable-next-line no-await-in-loop
       const [tasksSnap, metricsSnap] = await Promise.all([
         userDoc.ref.collection('aiCoachingPlan').doc('current').collection('tasks').get(),
@@ -764,7 +803,11 @@ async function readCoachingRows(query = {}) {
     }
   }
   await Promise.all(Array.from({ length: Math.min(READ_CONCURRENCY, Math.max(1, docs.length)) }, () => worker()));
+  return rows;
+}
 
+async function readCoachingRows(query = {}) {
+  const { value: rows } = await cached('coaching', 'rows', COACHING_CACHE_TTL_SEC, readAllCoachingRows);
   const qStatus = String(query.status || '').trim().toLowerCase();
   const qRisk = String(query.risk || '').trim().toLowerCase();
   const qSearch = String(query.search || '').trim().toLowerCase();
@@ -776,70 +819,61 @@ async function readCoachingRows(query = {}) {
   });
 }
 
+async function computeAnalyticsBundle(from, end, tz) {
+  const db = getDb();
+  const keys = enumerateDayKeys(from, end);
+  const dayRefs = keys.map((k) => db.collection('adminMetrics').doc('daily').collection('days').doc(k));
+  const snaps = await db.getAll(...dayRefs);
+  const existing = snaps.filter((s) => s.exists);
+  let payload;
+  const durationMs = end.getTime() - from.getTime();
+  const isShortQuery = durationMs <= 2 * 24 * 3600 * 1000; // <= 48 hours
+
+  // Only use pre-aggregated daily docs if the query aligns with UTC or is a long multi-day trend
+  // For "Today" / "Yesterday" queries in local timezones, always read raw logs to prevent boundary leaks.
+  if (existing.length > 0 && (!tz || tz === 'UTC' || !isShortQuery)) {
+    payload = aggregateFromDailyDocs(existing, from, end);
+  } else {
+    const rows = await readLogsInRange(from, end);
+    payload = {
+      ...aggregateAnalytics(rows, from, end, tz),
+      meta: {
+        generatedAt: new Date().toISOString(),
+        source: 'firestore.users.callLogs.fanout',
+        window: { from: from.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10) },
+      },
+    };
+  }
+  const metaMap = await buildUserMetaMap((payload.agents || []).map((a) => a.agentId));
+  return {
+    ...payload,
+    agents: (payload.agents || []).map((a) => ({
+      ...a,
+      agentName: metaMap.get(a.agentId)?.name || a.agentId,
+      phone: metaMap.get(a.agentId)?.phone || null,
+      walletBalanceCents: metaMap.get(a.agentId)?.balanceCents ?? null,
+      flagged: metaMap.get(a.agentId)?.flagged || false,
+      flagReason: metaMap.get(a.agentId)?.flagReason || null,
+    })),
+  };
+}
+
 async function getAnalyticsBundle(req, res) {
   try {
     const { from, end, tz } = parseRange(req.query || {});
-    const key = cacheKey(from, end);
-    const cached = analyticsCache.get(key);
-    if (cached && cached.expiresAt > Date.now()) {
-      return res.json({
-        ...cached.payload,
-        cached: true,
-        meta: {
-          ...(cached.payload.meta || {}),
-          generatedAt: cached.payload.meta?.generatedAt || new Date().toISOString(),
-          cacheAgeMs: Date.now() - (cached.createdAt || Date.now()),
-        },
-      });
-    }
-    const db = getDb();
-    const keys = enumerateDayKeys(from, end);
-    const dayRefs = keys.map((k) => db.collection('adminMetrics').doc('daily').collection('days').doc(k));
-    const snaps = await db.getAll(...dayRefs);
-    const existing = snaps.filter((s) => s.exists);
-    let payload;
-    const durationMs = end.getTime() - from.getTime();
-    const isShortQuery = durationMs <= 2 * 24 * 3600 * 1000; // <= 48 hours
-
-    // Only use pre-aggregated daily docs if the query aligns with UTC or is a long multi-day trend
-    // For "Today" / "Yesterday" queries in local timezones, always read raw logs to prevent boundary leaks.
-    if (existing.length > 0 && (!tz || tz === 'UTC' || !isShortQuery)) {
-      payload = aggregateFromDailyDocs(existing, from, end);
-    } else {
-      const rows = await readLogsInRange(from, end);
-      payload = {
-        ...aggregateAnalytics(rows, from, end, tz),
-        meta: {
-          generatedAt: new Date().toISOString(),
-          source: 'firestore.users.callLogs.fanout',
-          window: { from: from.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10) },
-        },
-      };
-    }
-    const metaMap = await buildUserMetaMap((payload.agents || []).map((a) => a.agentId));
-    const enrichedPayload = {
-      ...payload,
-      agents: (payload.agents || []).map((a) => ({
-        ...a,
-        agentName: metaMap.get(a.agentId)?.name || a.agentId,
-        phone: metaMap.get(a.agentId)?.phone || null,
-        walletBalanceCents: metaMap.get(a.agentId)?.balanceCents ?? null,
-        flagged: metaMap.get(a.agentId)?.flagged || false,
-        flagReason: metaMap.get(a.agentId)?.flagReason || null,
-      })),
-    };
-
-    analyticsCache.set(key, {
-      payload: enrichedPayload,
-      createdAt: Date.now(),
-      expiresAt: Date.now() + ANALYTICS_CACHE_TTL_MS,
-    });
+    const { value, hit, ageMs } = await cached(
+      'callMetrics',
+      `bundle|${cacheKey(from, end)}|${tz || 'UTC'}`,
+      ANALYTICS_CACHE_TTL_SEC,
+      () => computeAnalyticsBundle(from, end, tz),
+    );
     res.json({
-      ...enrichedPayload,
-      cached: false,
+      ...value,
+      cached: hit,
       meta: {
-        ...(enrichedPayload.meta || {}),
-        cacheAgeMs: 0,
+        ...(value.meta || {}),
+        generatedAt: value.meta?.generatedAt || new Date().toISOString(),
+        cacheAgeMs: ageMs,
       },
     });
   } catch (err) {
@@ -854,7 +888,10 @@ async function getOverviewLite(req, res) {
     const campaignControls = await getCampaignControlsState();
     const db = getDb();
     const usersCountPromise = db
-      ? db.collection('users').select().get().catch(() => ({ size: 0 }))
+      ? cached('users', 'signupCount', 60, async () => {
+        const agg = await db.collection('users').count().get();
+        return agg.data().count;
+      }).then(({ value }) => ({ size: value })).catch(() => ({ size: 0 }))
       : Promise.resolve({ size: 0 });
     const [overview, activeCalls, usersCountSnap, pausedAgentsArr] = await Promise.all([
       agentManager.getOverview(null),
@@ -1035,7 +1072,10 @@ async function getAllUsers(req, res) {
   try {
     const db = getDb();
     if (!db) return res.status(503).json({ error: 'Database unavailable' });
-    const snap = await db.collection('users').get();
+    const snap = await db.collection('users').select(
+      'fullName', 'displayName', 'name', 'agentName', 'firstName', 'lastName',
+      'email', 'role', 'agencyId', 'managedAgents', 'settings.mock',
+    ).get();
     const users = [];
     const missing = [];
     snap.docs.forEach((doc) => {
@@ -1066,24 +1106,20 @@ async function getAllUsers(req, res) {
     // Backfill display names from Firebase Auth for users with no Firestore name.
     if (missing.length && admin) {
       const byId = new Map(users.map((u) => [u.uid, u]));
-      for (let i = 0; i < missing.length; i += 100) {
-        const chunk = missing.slice(i, i + 100);
-        // eslint-disable-next-line no-await-in-loop
-        const out = await admin.auth().getUsers(chunk.map((uid) => ({ uid })));
-        out.users.forEach((u) => {
-          const entry = byId.get(u.uid);
-          if (!entry) return;
-          const authName = u.displayName || u.email || null;
-          if (authName && authName !== u.uid) {
-            entry.name = entry.name || authName;
-          }
-          if (!entry.email && u.email) entry.email = u.email;
-        });
-        (out.notFound || []).forEach((row) => {
-          const entry = byId.get(row.uid);
-          if (entry) entry.authMissing = true;
-        });
-      }
+      const authInfo = await fetchAuthInfo(missing);
+      authInfo.forEach((u, uid) => {
+        const entry = byId.get(uid);
+        if (!entry) return;
+        if (u.notFound) {
+          entry.authMissing = true;
+          return;
+        }
+        const authName = u.displayName || u.email || null;
+        if (authName && authName !== uid) {
+          entry.name = entry.name || authName;
+        }
+        if (!entry.email && u.email) entry.email = u.email;
+      });
     }
     users.forEach((u) => {
       if (u.name === u.uid) u.name = null;
@@ -1095,6 +1131,45 @@ async function getAllUsers(req, res) {
     console.error('[Admin] getAllUsers:', err.message);
     res.status(500).json({ error: 'Failed to list users' });
   }
+}
+
+const AUTH_INFO_TTL_MS = 10 * 60_000;
+const authInfoCache = new Map();
+
+/** Firebase Auth profile lookups, cached per uid so directory endpoints don't hit Auth on every request. */
+async function fetchAuthInfo(uids = []) {
+  const out = new Map();
+  const now = Date.now();
+  const missing = [];
+  uids.forEach((uid) => {
+    const hit = authInfoCache.get(uid);
+    if (hit && hit.expiresAt > now) out.set(uid, hit.info);
+    else missing.push(uid);
+  });
+  if (!missing.length || !admin) return out;
+  for (let i = 0; i < missing.length; i += 100) {
+    const chunk = missing.slice(i, i + 100);
+    // eslint-disable-next-line no-await-in-loop
+    const res = await admin.auth().getUsers(chunk.map((uid) => ({ uid })));
+    res.users.forEach((u) => {
+      const info = {
+        displayName: u.displayName || null,
+        email: u.email || null,
+        phoneNumber: u.phoneNumber || null,
+        creationTime: u.metadata?.creationTime || null,
+        notFound: false,
+      };
+      authInfoCache.set(u.uid, { info, expiresAt: now + AUTH_INFO_TTL_MS });
+      out.set(u.uid, info);
+    });
+    (res.notFound || []).forEach((row) => {
+      const info = { notFound: true };
+      authInfoCache.set(row.uid, { info, expiresAt: now + AUTH_INFO_TTL_MS });
+      out.set(row.uid, info);
+    });
+  }
+  if (authInfoCache.size > 20_000) authInfoCache.clear();
+  return out;
 }
 
 function resolveUserDisplayName(data = {}, fallbackId = null) {
@@ -1130,8 +1205,12 @@ async function listAgentsDirectory(req, res) {
 
     const { from, end, tz } = parseRange(req.query || {});
     const [usersSnap, statsPayload, pausedAgentsArr] = await Promise.all([
-      db.collection('users').get(),
-      (async () => {
+      db.collection('users').select(
+        'fullName', 'displayName', 'name', 'agentName', 'firstName', 'lastName',
+        'email', 'phoneNumber', 'phone', 'onboarding.phone', 'role', 'agencyId',
+        'flagged', 'flagReason', 'wallet.balance', 'createdAt', 'createdAtIso', 'settings.mock',
+      ).get(),
+      cached('callMetrics', `agentStats|${cacheKey(from, end)}|${tz || 'UTC'}`, ANALYTICS_CACHE_TTL_SEC, async () => {
         const keys = enumerateDayKeys(from, end);
         if (!keys.length) {
           return { agents: [] };
@@ -1140,11 +1219,13 @@ async function listAgentsDirectory(req, res) {
         const snaps = await db.getAll(...dayRefs);
         const existing = snaps.filter((s) => s.exists);
         if (existing.length > 0) {
-          return aggregateFromDailyDocs(existing, from, end);
+          const agg = aggregateFromDailyDocs(existing, from, end);
+          return { agents: agg.agents || [] };
         }
         const rows = await readLogsInRange(from, end);
-        return aggregateAnalytics(rows, from, end, tz);
-      })(),
+        const agg = aggregateAnalytics(rows, from, end, tz);
+        return { agents: agg.agents || [] };
+      }).then(({ value }) => value),
       agentManager.getPausedAgents(),
     ]);
 
@@ -1195,21 +1276,17 @@ async function listAgentsDirectory(req, res) {
 
     if (needAuthBackfill.length && admin) {
       const byId = new Map(agents.map((a) => [a.agentId, a]));
-      for (let i = 0; i < needAuthBackfill.length; i += 100) {
-        const chunk = needAuthBackfill.slice(i, i + 100);
-        // eslint-disable-next-line no-await-in-loop
-        const out = await admin.auth().getUsers(chunk.map((uid) => ({ uid })));
-        out.users.forEach((u) => {
-          const entry = byId.get(u.uid);
-          if (!entry) return;
-          if (!entry.agentName) entry.agentName = u.displayName || u.email || null;
-          if (!entry.email && u.email) entry.email = u.email;
-          if (!entry.phone && u.phoneNumber) entry.phone = u.phoneNumber;
-          if (!entry.createdAt && u.metadata?.creationTime) {
-            entry.createdAt = new Date(u.metadata.creationTime).toISOString();
-          }
-        });
-      }
+      const authInfo = await fetchAuthInfo(needAuthBackfill);
+      authInfo.forEach((u, uid) => {
+        const entry = byId.get(uid);
+        if (!entry || u.notFound) return;
+        if (!entry.agentName) entry.agentName = u.displayName || u.email || null;
+        if (!entry.email && u.email) entry.email = u.email;
+        if (!entry.phone && u.phoneNumber) entry.phone = u.phoneNumber;
+        if (!entry.createdAt && u.creationTime) {
+          entry.createdAt = new Date(u.creationTime).toISOString();
+        }
+      });
     }
 
     agents.forEach((a) => {
@@ -1340,6 +1417,7 @@ async function patchManagerSettings(req, res) {
     }
 
     await targetRef.set(update, { merge: true });
+    invalidateNamespace('callMetrics').catch(() => {});
 
     const savedTeamName = role === 'manager' && teamName !== undefined
       ? (String(teamName || '').trim().slice(0, 80) || null)
@@ -1398,8 +1476,7 @@ async function flagAgent(req, res) {
       notificationBody: `Your account was flagged by an admin: ${reason}`,
     });
 
-    analyticsCache.clear();
-    coachingCache.clear();
+    await Promise.all([invalidateNamespace('callMetrics'), invalidateNamespace('coaching')]);
 
     console.log(`[Admin] 🚩 Flagged agent ${id} by admin ${req.user?.uid}`);
     res.json({ success: true, agentId: id, action: 'flagged' });
@@ -1431,8 +1508,7 @@ async function resumeAgent(req, res) {
     });
 
     // 4. Invalidate analytics cache
-    analyticsCache.clear();
-    coachingCache.clear();
+    await Promise.all([invalidateNamespace('callMetrics'), invalidateNamespace('coaching')]);
 
     console.log(`[Admin] ✅ Resumed agent ${id} by admin ${req.user?.uid}`);
     res.json({ success: true, agentId: id, action: 'resumed' });
@@ -1557,9 +1633,6 @@ async function getAnalyticsDrilldown(req, res) {
 
 async function getAiCoachingOverview(req, res) {
   try {
-    const key = coachingCacheKey('overview', req.query || {});
-    const cached = readCoachingCache(key);
-    if (cached) return res.json({ ...cached, cached: true });
     const rows = await readCoachingRows(req.query || {});
     const statusDistribution = rows.reduce((acc, row) => ({
       ...acc,
@@ -1595,8 +1668,7 @@ async function getAiCoachingOverview(req, res) {
         .sort((a, b) => a.recentScoreAvg - b.recentScoreAvg)
         .slice(0, 10),
     };
-    writeCoachingCache(key, payload);
-    res.json({ ...payload, cached: false });
+    res.json(payload);
   } catch (err) {
     console.error('[Admin] getAiCoachingOverview:', err.message);
     res.status(500).json({ error: err.message || 'Failed to load coaching overview' });
@@ -1605,9 +1677,6 @@ async function getAiCoachingOverview(req, res) {
 
 async function getAiCoachingAgentPlans(req, res) {
   try {
-    const key = coachingCacheKey('agent-plans', req.query || {});
-    const cached = readCoachingCache(key);
-    if (cached) return res.json({ ...cached, cached: true });
     const rows = await readCoachingRows(req.query || {});
     const payload = {
       rows: rows.sort((a, b) => {
@@ -1615,8 +1684,7 @@ async function getAiCoachingAgentPlans(req, res) {
         return b.completionRate - a.completionRate;
       }),
     };
-    writeCoachingCache(key, payload);
-    res.json({ ...payload, cached: false });
+    res.json(payload);
   } catch (err) {
     console.error('[Admin] getAiCoachingAgentPlans:', err.message);
     res.status(500).json({ error: err.message || 'Failed to load coaching agent plans' });
@@ -2046,6 +2114,7 @@ async function patchSupportRole(req, res) {
     }
 
     await targetRef.set(patch, { merge: true });
+    invalidateNamespace('callMetrics').catch(() => {});
     console.log(`[Admin] Set role=${role} on ${uid} by ${req.user?.uid || 'unknown'} (support-role)`);
     res.json({ uid, role });
   } catch (err) {

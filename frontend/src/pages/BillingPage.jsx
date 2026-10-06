@@ -70,14 +70,10 @@ const BillingPage = () => {
         }
       }
 
-      await fetchWallet();
-
-      try {
-        const discountData = await referralService.getDiscountStatus();
-        setDiscount(discountData);
-      } catch {
-        // non-blocking
-      }
+      const discountPromise = referralService.getDiscountStatus()
+        .then((discountData) => setDiscount(discountData))
+        .catch(() => {});
+      await Promise.all([fetchWallet(), discountPromise]);
     };
 
     initBilling();

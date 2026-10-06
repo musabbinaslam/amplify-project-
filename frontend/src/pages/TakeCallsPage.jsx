@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Mic, Volume2, Shield, HeartPulse, Umbrella, AlertCircle,
   ChevronLeft, ChevronDown, PhoneOff, Activity, ShieldCheck, Users,
@@ -15,9 +16,8 @@ import useDialerStore from '../store/useDialerStore';
 import useAuthStore from '../store/authStore';
 import { useAudioSettingsStore } from '../store/audioSettingsStore';
 import { apiFetch } from '../services/apiClient';
-import { stripeService } from '../services/stripeService';
 import { getProfile, saveProfile, updateMyCallLogDisposition } from '../services/profileService';
-import { fetchCampaignPricing } from '../services/dashboardService';
+import { queryKeys, useCallLogsQuery, useCampaignPricingQuery, useWalletQuery } from '../queries';
 import { CallLogDispositionBadge } from '../components/callLogs/CallLogStatusCells';
 import ShimmerText from '../components/ui/ShimmerText';
 
@@ -962,6 +962,10 @@ const AcaTransferPanel = () => {
 };
 
 
+const RECENT_LOGS_PARAMS = { limit: 25 };
+const EMPTY_LIST = [];
+const RECENT_LOGS_POLL_MS = 20000;
+
 // ─── Main Page Component ─────────────────────────────────────────────────────
 const TakeCallsPage = () => {
   const presets = useSubtlePageMotion();
@@ -973,10 +977,6 @@ const TakeCallsPage = () => {
   const [wizardStates, setWizardStates] = useState([]);
   const [wizardPresetId, setWizardPresetId] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [history, setHistory] = useState([]);
-  const [walletBalance, setWalletBalance] = useState(0);
-  const [pausedCampaigns, setPausedCampaigns] = useState({});
-  const [liveCampaigns, setLiveCampaigns] = useState([]);
   const [statePresets, setStatePresets] = useState([]);
   const reduceMotion = useReducedMotion();
 
@@ -994,34 +994,38 @@ const TakeCallsPage = () => {
 
   const titles = ['Microphone Test', 'Select Campaign', 'Licensed States', 'Review & Go Live'];
 
-  const fetchData = async () => {
-    try {
-      const logsData = await apiFetch('/api/voice/logs');
-      setHistory(logsData || []);
+  const queryClient = useQueryClient();
+  const recentLogsParams = RECENT_LOGS_PARAMS;
+  const recentLogsQuery = useCallLogsQuery(recentLogsParams, { refetchInterval: RECENT_LOGS_POLL_MS });
+  const history = recentLogsQuery.data ?? EMPTY_LIST;
+  const walletQuery = useWalletQuery({ enabled: Boolean(user?.uid) });
+  const walletBalance = Number(walletQuery.data?.balance) || 0;
+  const campaignsQuery = useCampaignPricingQuery();
+  const liveCampaigns = campaignsQuery.data ?? EMPTY_LIST;
+  const pausedCampaigns = useMemo(() => {
+    const pausedMap = {};
+    liveCampaigns.forEach((row) => {
+      if (row?.id) pausedMap[row.id] = Boolean(row.paused);
+    });
+    return pausedMap;
+  }, [liveCampaigns]);
 
-      const walletData = await stripeService.getWallet();
-      if (walletData) setWalletBalance(walletData.balance);
+  const refreshRecentLogs = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.callLogs(recentLogsParams) });
+  }, [queryClient, recentLogsParams]);
 
-      const profile = await getProfile(user?.uid);
-      if (profile && Array.isArray(profile.statePresets)) {
-        setStatePresets(profile.statePresets);
-      }
+  const setHistory = useCallback((updater) => {
+    queryClient.setQueryData(queryKeys.callLogs(recentLogsParams), (prev) => (
+      Array.isArray(prev) ? updater(prev) : prev
+    ));
+  }, [queryClient, recentLogsParams]);
 
-      try {
-        const campaigns = await fetchCampaignPricing();
-        const pausedMap = {};
-        campaigns.forEach((row) => {
-          if (row?.id) pausedMap[row.id] = Boolean(row.paused);
-        });
-        setPausedCampaigns(pausedMap);
-        setLiveCampaigns(campaigns);
-      } catch {
-        // Non-blocking: keep wizard usable even if pricing fetch fails.
-      }
-    } catch (err) {
-      console.error('Error fetching data:', err);
-    }
-  };
+  useEffect(() => {
+    if (!user?.uid) return;
+    getProfile(user.uid).then((profile) => {
+      if (profile && Array.isArray(profile.statePresets)) setStatePresets(profile.statePresets);
+    }).catch((err) => console.error('Error loading state presets:', err));
+  }, [user?.uid]);
 
   const persistPresets = async (next) => {
     setStatePresets(next);
@@ -1033,28 +1037,16 @@ const TakeCallsPage = () => {
     }
   };
 
-  const pollingTimerRef = useRef(null);
-
+  const prevCallStateRef = useRef(callState);
   useEffect(() => {
-    fetchData();
-    pollingTimerRef.current = setInterval(fetchData, 10000);
-
-    const onWalletUpdated = (e) => {
-      if (e.detail !== undefined && e.detail !== null) {
-        setWalletBalance(e.detail);
-        return;
-      }
-      stripeService.getWallet().then((walletData) => {
-        if (walletData) setWalletBalance(walletData.balance);
-      }).catch(() => { });
-    };
-    window.addEventListener('wallet_updated', onWalletUpdated);
-
-    return () => {
-      if (pollingTimerRef.current) clearInterval(pollingTimerRef.current);
-      window.removeEventListener('wallet_updated', onWalletUpdated);
-    };
-  }, []);
+    const prev = prevCallStateRef.current;
+    prevCallStateRef.current = callState;
+    if ((prev === 'active' || prev === 'ringing') && callState !== prev) {
+      const t = setTimeout(refreshRecentLogs, 1500);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [callState, refreshRecentLogs]);
 
   const handleGoLive = async () => {
     if (pausedCampaigns[campaign]) {
@@ -1256,7 +1248,7 @@ const TakeCallsPage = () => {
             callSid={pendingDispositionCall}
             onComplete={() => {
               clearPendingDisposition();
-              fetchData(); // refresh history to show disposition immediately
+              refreshRecentLogs();
             }}
           />
         )}
@@ -1395,7 +1387,7 @@ const TakeCallsPage = () => {
           callSid={pendingDispositionCall}
           onComplete={() => {
             clearPendingDisposition();
-            fetchData();
+            refreshRecentLogs();
           }}
         />
       )}
