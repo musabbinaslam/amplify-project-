@@ -3,6 +3,7 @@ require('../scripts/ensure-release').syncReleaseFile();
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
+const compression = require('compression');
 const { Server } = require('socket.io');
 const Sentry = require('@sentry/node');
 
@@ -49,10 +50,17 @@ const corsOptions = {
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true,
-  exposedHeaders: ['Server-Timing'],
+  exposedHeaders: ['Server-Timing', 'X-Next-Cursor'],
 };
 
 app.use('/api', requestTiming);
+app.use(compression({
+  threshold: 1024,
+  filter: (req, res) => {
+    if (req.headers.range) return false;
+    return compression.filter(req, res);
+  },
+}));
 
 // Twilio sends data as x-www-form-urlencoded, so we must have this!
 app.use(cors(corsOptions));

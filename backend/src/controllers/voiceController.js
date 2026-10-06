@@ -736,13 +736,19 @@ exports.handleRecordingComplete = async (req, res) => {
  */
 exports.getLogs = async (req, res) => {
     try {
-        const limit = Math.min(Number(req.query.limit || 500), 1000);
+        const requested = Number(req.query.limit);
+        const limit = Number.isFinite(requested) && requested > 0 ? Math.min(requested, 1000) : 500;
         let startDate = null;
         let endDate = null;
+        let before = null;
         if (req.query.startDate) startDate = new Date(req.query.startDate);
         if (req.query.endDate) endDate = new Date(req.query.endDate);
+        if (req.query.before) {
+            const parsed = new Date(req.query.before);
+            if (!Number.isNaN(parsed.getTime())) before = parsed;
+        }
 
-        const logs = await callLogService.getLogsByUser(req.user.uid, limit, startDate, endDate);
+        const logs = await callLogService.getLogsByUser(req.user.uid, limit, startDate, endDate, before);
         
         const { CAMPAIGN_CONFIG } = require('../config/pricing');
         const enrichedLogs = logs.map(log => ({
@@ -750,6 +756,10 @@ exports.getLogs = async (req, res) => {
             allowRefunds: CAMPAIGN_CONFIG[log.campaign]?.allowRefunds !== false
         }));
 
+        if (enrichedLogs.length === limit) {
+            const last = enrichedLogs[enrichedLogs.length - 1];
+            if (last?.createdAt) res.set('X-Next-Cursor', String(last.createdAt));
+        }
         res.json(enrichedLogs);
     } catch (err) {
         console.error('[Voice] getLogs error:', err.message);

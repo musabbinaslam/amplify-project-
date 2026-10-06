@@ -7,7 +7,6 @@ import {
 import { motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { getProfile } from '../services/profileService';
 import { fetchDashboardLogs, fetchCampaignPricing } from '../services/dashboardService';
 import PageLoader from '../components/ui/PageLoader';
 import NumberPopIn from '../components/ui/NumberPopIn';
@@ -372,12 +371,11 @@ const DashboardPage = () => {
       };
     };
 
-    const load = async ({ showSpinner = false, includeProfile = false } = {}) => {
+    let lastLoadAt = 0;
+    const load = async ({ showSpinner = false } = {}) => {
+      lastLoadAt = Date.now();
       try {
         if (showSpinner) setLoading(true);
-        if (includeProfile) {
-          await getProfile(user.uid);
-        }
         const { logs: nextLogs, prevLogs: nextPrevLogs } = await fetchLogs();
         if (cancelled) return;
         setLogs(nextLogs);
@@ -404,11 +402,13 @@ const DashboardPage = () => {
       }, ms);
     };
 
-    load({ showSpinner: true, includeProfile: true }).then(() => {
+    load({ showSpinner: true }).then(() => {
       if (!cancelled) schedule();
     });
 
     const handleWake = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastLoadAt < 15000) return;
       load({ showSpinner: false });
       schedule();
     };

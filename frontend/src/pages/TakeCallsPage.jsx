@@ -962,6 +962,9 @@ const AcaTransferPanel = () => {
 };
 
 
+const RECENT_LOGS_LIMIT = 25;
+const RECENT_LOGS_POLL_MS = 20000;
+
 // ─── Main Page Component ─────────────────────────────────────────────────────
 const TakeCallsPage = () => {
   const presets = useSubtlePageMotion();
@@ -994,32 +997,40 @@ const TakeCallsPage = () => {
 
   const titles = ['Microphone Test', 'Select Campaign', 'Licensed States', 'Review & Go Live'];
 
-  const fetchData = async () => {
+  const fetchRecentLogs = async () => {
     try {
-      const logsData = await apiFetch('/api/voice/logs');
+      const logsData = await apiFetch(`/api/voice/logs?limit=${RECENT_LOGS_LIMIT}`);
       setHistory(logsData || []);
-
-      const walletData = await stripeService.getWallet();
-      if (walletData) setWalletBalance(walletData.balance);
-
-      const profile = await getProfile(user?.uid);
-      if (profile && Array.isArray(profile.statePresets)) {
-        setStatePresets(profile.statePresets);
-      }
-
-      try {
-        const campaigns = await fetchCampaignPricing();
-        const pausedMap = {};
-        campaigns.forEach((row) => {
-          if (row?.id) pausedMap[row.id] = Boolean(row.paused);
-        });
-        setPausedCampaigns(pausedMap);
-        setLiveCampaigns(campaigns);
-      } catch {
-        // Non-blocking: keep wizard usable even if pricing fetch fails.
-      }
     } catch (err) {
-      console.error('Error fetching data:', err);
+      console.error('Error fetching recent calls:', err);
+    }
+  };
+
+  const fetchData = async () => {
+    const [, walletRes, profileRes, campaignsRes] = await Promise.allSettled([
+      fetchRecentLogs(),
+      stripeService.getWallet(),
+      getProfile(user?.uid),
+      fetchCampaignPricing(),
+    ]);
+
+    if (walletRes.status === 'fulfilled' && walletRes.value) {
+      setWalletBalance(walletRes.value.balance);
+    }
+
+    const profile = profileRes.status === 'fulfilled' ? profileRes.value : null;
+    if (profile && Array.isArray(profile.statePresets)) {
+      setStatePresets(profile.statePresets);
+    }
+
+    if (campaignsRes.status === 'fulfilled' && Array.isArray(campaignsRes.value)) {
+      const campaigns = campaignsRes.value;
+      const pausedMap = {};
+      campaigns.forEach((row) => {
+        if (row?.id) pausedMap[row.id] = Boolean(row.paused);
+      });
+      setPausedCampaigns(pausedMap);
+      setLiveCampaigns(campaigns);
     }
   };
 
@@ -1037,7 +1048,9 @@ const TakeCallsPage = () => {
 
   useEffect(() => {
     fetchData();
-    pollingTimerRef.current = setInterval(fetchData, 10000);
+    pollingTimerRef.current = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchRecentLogs();
+    }, RECENT_LOGS_POLL_MS);
 
     const onWalletUpdated = (e) => {
       if (e.detail !== undefined && e.detail !== null) {
@@ -1055,6 +1068,17 @@ const TakeCallsPage = () => {
       window.removeEventListener('wallet_updated', onWalletUpdated);
     };
   }, []);
+
+  const prevCallStateRef = useRef(callState);
+  useEffect(() => {
+    const prev = prevCallStateRef.current;
+    prevCallStateRef.current = callState;
+    if ((prev === 'active' || prev === 'ringing') && callState !== prev) {
+      const t = setTimeout(fetchRecentLogs, 1500);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [callState]);
 
   const handleGoLive = async () => {
     if (pausedCampaigns[campaign]) {

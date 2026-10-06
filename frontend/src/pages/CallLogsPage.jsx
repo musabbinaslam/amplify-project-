@@ -482,7 +482,9 @@ const CallLogsPage = () => {
     fetchLogs(true);
     // Avoid re-render jitter while user is interacting with the audio controls.
     if (activeRecording) return undefined;
-    const interval = setInterval(() => fetchLogs(false), 15000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchLogs(false);
+    }, 30000);
     return () => clearInterval(interval);
   }, [dateFilter, startDate, endDate, activeRecording]);
 

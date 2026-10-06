@@ -85,7 +85,9 @@ const Topbar = ({
     if (user) {
       if (user.role === 'support') return undefined;
       fetchBalance();
-      const interval = setInterval(fetchBalance, 60000);
+      const interval = setInterval(() => {
+        if (document.visibilityState === 'visible') fetchBalance();
+      }, 5 * 60 * 1000);
       window.addEventListener('wallet_updated', handleWalletUpdate);
       return () => {
         clearInterval(interval);

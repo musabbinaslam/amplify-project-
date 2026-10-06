@@ -28,9 +28,9 @@ async function initSentry() {
   });
 }
 
-const MIN_SPLASH_MS = 1800;
+const MIN_SPLASH_MS = 800;
 /** Extra time after auth so the first route can mount under the splash. */
-const POST_READY_BUFFER_MS = 500;
+const POST_READY_BUFFER_MS = 200;
 /** Must match #splash transition duration in index.html (420ms). */
 const SPLASH_EXIT_MS = 420;
 
@@ -47,7 +47,7 @@ const AuthInit = ({ children }) => {
         ]);
         await initFirebase();
         await useAuthStore.getState().initAuth();
-        await initSentry();
+        initSentry().catch((err) => console.warn('[Sentry] init failed', err));
       } catch (e) {
         console.error('[Firebase]', e);
       } finally {

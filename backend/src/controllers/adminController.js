@@ -1035,7 +1035,10 @@ async function getAllUsers(req, res) {
   try {
     const db = getDb();
     if (!db) return res.status(503).json({ error: 'Database unavailable' });
-    const snap = await db.collection('users').get();
+    const snap = await db.collection('users').select(
+      'fullName', 'displayName', 'name', 'agentName', 'firstName', 'lastName',
+      'email', 'role', 'agencyId', 'managedAgents', 'settings.mock',
+    ).get();
     const users = [];
     const missing = [];
     snap.docs.forEach((doc) => {
