@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Line,
 } from 'recharts';
 import { motion, useReducedMotion } from 'framer-motion';
-import { AI_RANGE_PRESETS } from '../constants/aiTrainingMockData';
+import { AI_RANGE_PRESETS } from '../constants/aiRangePresets';
 import {
   getAiTrainingBundle,
   updateAiTrainingDrillStatus,

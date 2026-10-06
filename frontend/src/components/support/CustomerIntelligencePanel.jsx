@@ -27,7 +27,7 @@ import {
   deleteSupportDeskInternalNote,
   issueSupportCourtesyCredit,
 } from '../../services/supportLiveService';
-import { RecordingModal } from '../../pages/CallLogsPage';
+import { RecordingModal } from '../modals/RecordingModal';
 import classes from './CustomerIntelligencePanel.module.css';
 
 function formatDurationSec(secs = 0) {

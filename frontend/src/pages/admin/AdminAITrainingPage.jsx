@@ -7,16 +7,16 @@ import {
   ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip,
 } from 'recharts';
 import { motion, useReducedMotion } from 'framer-motion';
-import { EASE_SMOOTH } from '../motion/appMotion';
+import { EASE_SMOOTH } from '../../motion/appMotion';
 import {
   getAdminAiAgentPlans,
   getAdminAiCoachingOverview,
-} from '../services/adminService';
-import PageLoader from '../components/ui/PageLoader';
-import NumberPopIn from '../components/ui/NumberPopIn';
-import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
-import { ADMIN_CATEGORIES } from '../config/adminModules';
-import AdminPageShell from '../components/admin/AdminPageShell';
+} from '../../services/adminService';
+import PageLoader from '../../components/ui/PageLoader';
+import NumberPopIn from '../../components/ui/NumberPopIn';
+import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
+import { ADMIN_CATEGORIES } from '../../config/adminModules';
+import AdminPageShell from '../../components/admin/AdminPageShell';
 import classes from './AdminAITrainingPage.module.css';
 
 const CHART_TOOLTIP_STYLE = {

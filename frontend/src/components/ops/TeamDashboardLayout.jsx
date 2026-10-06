@@ -9,7 +9,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import PageLoader from '../ui/PageLoader';
 import NumberPopIn from '../ui/NumberPopIn';
 import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
-import { RecordingModal } from '../../pages/CallLogsPage';
+import { RecordingModal } from '../modals/RecordingModal';
 import { useOpsDashboard } from '../../hooks/useOpsDashboard';
 import OpsScopedNav, { OpsSettingsLink } from './OpsScopedNav';
 import {
