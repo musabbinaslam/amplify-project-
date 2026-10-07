@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
@@ -112,23 +111,9 @@ const LoginPage = () => {
 
   const brandPanel = (
     <>
-      <div className={classes.logoBlock}>
-        <img
-          src="/logo.png"
-          alt="Callsflow logo"
-          className={classes.logoImg}
-          loading="eager"
-          decoding="async"
-        />
-        <span className={classes.logoText}>CALLSFLOW</span>
-      </div>
       <span className={classes.eyebrow}>Agent Portal</span>
       <h1 className={classes.heading}>Welcome back</h1>
       <p className={classes.subtitle}>Sign in to access your dashboard and go live.</p>
-      <Link to="/" className={classes.backHomeLink}>
-        <ArrowLeft size={14} aria-hidden />
-        Back to Landing Page
-      </Link>
     </>
   );
 

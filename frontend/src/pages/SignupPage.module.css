@@ -678,3 +678,165 @@
 .tosAcceptBtn:hover {
   opacity: 0.88;
 }
+
+
+/* ── 2026 refresh: pill buttons, roomier fields, animated primary CTA ── */
+.eyebrow {
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  background: var(--brand-dim);
+  border-color: transparent;
+}
+
+.eyebrow::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand);
+  animation: authPing 1.8s ease-out infinite;
+}
+
+.heading {
+  font-size: clamp(32px, 3.4vw, 44px);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.04;
+  margin: 4px 0 10px;
+  animation: authWordUp 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.25s both;
+}
+
+.subtitle {
+  font-size: 16px;
+  font-weight: 400;
+  margin-bottom: 28px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.input {
+  padding: 15px 16px;
+  font-size: 15px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+  border-color: color-mix(in srgb, var(--text-primary) 14%, transparent);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.input:focus {
+  border-color: var(--brand-text);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  box-shadow: 0 0 0 4px var(--brand-dim);
+}
+
+.submitBtn {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  min-height: 54px;
+  border-radius: var(--radius-full);
+  font-size: 16px;
+  font-weight: 700;
+  transition: transform 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
+}
+
+.submitBtn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.5) 50%, transparent 70%);
+  transform: translateX(-130%);
+  animation: authShine 5s ease-in-out 2s infinite;
+}
+
+.submitBtn:hover:not(:disabled) {
+  opacity: 1;
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+}
+
+.googleBtn {
+  min-height: 54px;
+  border-radius: var(--radius-full);
+  font-size: 15px;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.googleBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.divider {
+  margin: 14px 0;
+}
+
+.footer {
+  margin-top: 24px;
+}
+
+@keyframes authShine {
+  0%,
+  62% {
+    transform: translateX(-130%);
+  }
+  82%,
+  100% {
+    transform: translateX(130%);
+  }
+}
+
+@keyframes authPing {
+  0% {
+    box-shadow: 0 0 0 0 var(--brand-glow);
+  }
+  100% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+@keyframes authWordUp {
+  from {
+    opacity: 0;
+    transform: translateY(0.4em);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eyebrow::before,
+  .heading,
+  .submitBtn::after {
+    animation: none;
+  }
+}
+
+.select {
+  padding-top: 15px;
+  padding-bottom: 15px;
+  font-size: 15px;
+  border-radius: 14px;
+}
+
+.phoneRow {
+  border-radius: 14px;
+}
+
+.verticalPill {
+  border-radius: var(--radius-full);
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.verticalPill:hover {
+  transform: translateY(-1px);
+}

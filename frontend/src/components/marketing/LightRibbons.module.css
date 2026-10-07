@@ -1,0 +1,56 @@
+.ribbon {
+  --ribbon-mid: #ffffff;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+:global([data-theme='light']) .ribbon {
+  --ribbon-mid: var(--brand-text);
+}
+
+.drift {
+  animation: drift 14s ease-in-out infinite;
+}
+
+.glow {
+  opacity: 0.28;
+  filter: blur(38px);
+}
+
+.pulse {
+  stroke: var(--ribbon-mid);
+  opacity: 0.85;
+  animation-name: flow;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-22px);
+  }
+}
+
+@keyframes flow {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drift,
+  .pulse {
+    animation: none;
+  }
+}

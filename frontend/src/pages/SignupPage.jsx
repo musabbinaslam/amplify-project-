@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, Navigate, Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
@@ -380,23 +379,9 @@ const SignupPage = () => {
 
   const renderBrandPanel = (eyebrow, heading, subtitle) => (
     <>
-      <div className={classes.logoBlock}>
-        <img
-          src="/logo.png"
-          alt="Callsflow logo"
-          className={classes.logoImg}
-          loading="eager"
-          decoding="async"
-        />
-        <span className={classes.logoText}>CALLSFLOW</span>
-      </div>
       <span className={classes.eyebrow}>{eyebrow}</span>
       <h1 className={classes.heading}>{heading}</h1>
       <p className={classes.subtitle}>{subtitle}</p>
-      <Link to="/" className={classes.backHomeLink}>
-        <ArrowLeft size={14} aria-hidden />
-        Back to Landing Page
-      </Link>
     </>
   );
 
