@@ -15,7 +15,6 @@
     "@twilio/voice-sdk": "^2.18.1",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
-    "axios": "^1.16.0",
     "canvas-confetti": "^1.9.4",
     "firebase": "^12.11.0",
     "framer-motion": "^12.38.0",

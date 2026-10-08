@@ -13,7 +13,6 @@
 │   React 18 + Vite (Browser SPA)                                     │
 │   ├── Pages / Components                                            │
 │   ├── Zustand (Dialer + Auth + Theme State)                         │
-│   ├── TanStack Query (Server State + Caching)                       │
 │   ├── Firebase JS SDK (Auth — Google/Email Sign-in)                 │
 │   └── Twilio Voice JS SDK (WebRTC Browser Calling)                  │
 └────────────────────────┬────────────────────────────────────────────┘
@@ -61,7 +60,7 @@
   - `useAuthStore` (Zustand) — Firebase user, UID
   - `themeStore` (Zustand) — light/dark/system theme preference
   - `useAudioSettingsStore` — mic/speaker device IDs, echo cancellation, noise suppression (persisted to Firestore)
-- **TanStack Query** — server state caching for call logs, wallet, profile
+- **Data fetching** — Services layer with `apiFetch` wrapper for authenticated API calls
 - **Twilio Voice JS SDK** — WebRTC audio fully in the browser; no native app required
 
 **Go Live flow (frontend):**
@@ -507,14 +506,12 @@ amplify-project/
 │   │   ├── config/          ← redis, twilio, stripe, firebaseAdmin, firestoreDb, mailer, pricing
 │   │   ├── controllers/     ← voice, stripe, user, admin, support (chat + email)
 │   │   ├── middleware/       ← auth (verifyFirebaseToken), security (rate limiter), supportUpload
-│   │   ├── models/          ← (reserved; no ORM — Firestore used directly)
 │   │   ├── queues/          ← qaQueue (in-process async job runner)
 │   │   ├── routes/          ← voice, stripe, user, admin, support, public, webhook
 │   │   ├── services/        ← agentManager, callLogService, walletService,
 │   │   │                       phoneRouteService, qaInsightService, userDataService,
 │   │   │                       supportChatService
 │   │   ├── sockets/         ← callSockets (Socket.io event handlers)
-│   │   ├── support/         ← support-related assets/templates
 │   │   ├── utils/           ← phoneUtils, etc.
 │   │   └── server.js        ← Entry point
 │   ├── firebase-service-account.json   ← gitignored; required for Firebase Admin
