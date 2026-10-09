@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { User, Camera, Copy, Check, Link2, Key, Loader2, X, Eye, EyeOff, RefreshCw, Upload, ShieldCheck, ChevronDown } from 'lucide-react';
+import { User, Camera, Check, Loader2, X, Upload, ShieldCheck, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
-import { getProfileBootstrap, saveProfile, regenerateApiKey, checkSlugAvailability, getProfileActivity } from '../services/profileService';
+import { getProfileBootstrap, saveProfile, getProfileActivity } from '../services/profileService';
 import {
   COUNTRY_DIAL_CODES,
   DEFAULT_PHONE_COUNTRY,
@@ -13,8 +13,6 @@ import {
 import CustomSelect from '../components/ui/CustomSelect';
 import UnsavedChangesBar from '../components/ui/UnsavedChangesBar';
 import PageLoader from '../components/ui/PageLoader';
-import SuccessCheck from '../components/ui/SuccessCheck';
-import RegenerateApiKeyModal from '../components/modals/RegenerateApiKeyModal';
 import AvatarEditorModal from '../components/modals/AvatarEditorModal';
 import classes from './ProfilePage.module.css';
 
@@ -23,9 +21,7 @@ const HEAR_ABOUT_OPTIONS = ['Google Search', 'Facebook / Instagram', 'YouTube', 
 const VERTICALS = ['Final Expense', 'Spanish Final Expense', 'ACA', 'Medicare', 'Leads'];
 const MAX_AVATAR_FILE_MB = 5;
 const MAX_AVATAR_OUTPUT_PX = 512;
-const MIN_SLUG_LEN = 3;
 
-function normalizeSlug(v) { return String(v || '').toLowerCase().replace(/[^a-z0-9-_]/g, ''); }
 function isValidPhoneLocal(v) {
   const cleaned = String(v || '').replace(/\D/g, '');
   return cleaned.length >= 6 && cleaned.length <= 15;
@@ -83,16 +79,9 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [savingAll, setSavingAll] = useState(false);
   const [autosaving, setAutosaving] = useState(false);
-  const [form, setForm] = useState({ displayName: '', bio: '', slug: '', phoneCountry: DEFAULT_PHONE_COUNTRY, phone: '', weeklySpend: '', usedInbound: '', verticals: [], hearAbout: '', avatarUrl: '' });
+  const [form, setForm] = useState({ displayName: '', bio: '', phoneCountry: DEFAULT_PHONE_COUNTRY, phone: '', weeklySpend: '', usedInbound: '', verticals: [], hearAbout: '', avatarUrl: '' });
   const [initialForm, setInitialForm] = useState(null);
-  const [apiKey, setApiKey] = useState('');
-  const [apiKeyRotatedAt, setApiKeyRotatedAt] = useState(null);
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
-  const [regeneratingKey, setRegeneratingKey] = useState(false);
-  const [copiedField, setCopiedField] = useState(null);
   const [onboarding, setOnboarding] = useState(null);
-  const [slugStatus, setSlugStatus] = useState('idle');
   const [memberSince, setMemberSince] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [activity, setActivity] = useState([]);
@@ -104,27 +93,21 @@ const ProfilePage = () => {
   const [avatarCrop, setAvatarCrop] = useState({ x: 0, y: 0 });
   const [avatarZoom, setAvatarZoom] = useState(1);
   const [avatarCropPixels, setAvatarCropPixels] = useState(null);
-  const lastSlugCheckedRef = useRef('');
-  const lastSlugResultRef = useRef(null);
 
-  const webhookUrl = 'https://api.callsflow.io/api/leads/webhook';
   const bioValid = form.bio.trim().length >= 20 && form.bio.trim().length <= 500;
   const phoneValid = !form.phone || isValidPhoneLocal(form.phone);
-  const slugValid = form.slug.length >= MIN_SLUG_LEN && /^[a-z0-9-_]+$/.test(form.slug);
 
   const isDirty = useMemo(() => initialForm ? JSON.stringify(form) !== JSON.stringify(initialForm) : false, [form, initialForm]);
   const completion = useMemo(() => {
     const items = [
       { label: 'Photo uploaded', done: Boolean(form.avatarUrl || user?.avatar) },
       { label: 'Bio completed', done: bioValid },
-      { label: 'Landing slug valid', done: slugValid && slugStatus !== 'taken' },
       { label: 'Phone valid', done: phoneValid && Boolean(form.phone) },
       { label: 'Vertical selected', done: form.verticals.length > 0 },
-      { label: 'Webhook ready', done: Boolean(webhookUrl && apiKey) },
     ];
     const done = items.filter((i) => i.done).length;
     return { items, score: Math.round((done / items.length) * 100) };
-  }, [form, user?.avatar, bioValid, slugValid, slugStatus, phoneValid, webhookUrl, apiKey]);
+  }, [form, user?.avatar, bioValid, phoneValid]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -133,7 +116,6 @@ const ProfilePage = () => {
       try {
         const boot = await getProfileBootstrap(user.uid);
         const profile = boot?.profile || {};
-        const key = boot?.apiKey || '';
         const act = { activity: Array.isArray(boot?.activity) ? boot.activity : [] };
         if (cancelled) return;
         const onboardingData = profile?.onboarding || {};
@@ -142,7 +124,6 @@ const ProfilePage = () => {
         const next = {
           displayName: user.name || '',
           bio: profile?.bio || '',
-          slug: profile?.landingPageSlug || normalizeSlug(user.name || ''),
           phoneCountry: phoneParts.phoneCountry,
           phone: phoneParts.phone,
           weeklySpend: onboardingData.weeklySpend || '',
@@ -154,8 +135,6 @@ const ProfilePage = () => {
         setForm(next);
         setInitialForm(next);
         setOnboarding(onboardingData);
-        setApiKey(key);
-        setApiKeyRotatedAt(profile?.apiKeyRotatedAt || null);
         setMemberSince(profile?.memberSince || profile?.createdAt || null);
         setLastUpdated(profile?.lastUpdated || profile?.updatedAt || null);
         setActivity(act.activity || []);
@@ -168,30 +147,6 @@ const ProfilePage = () => {
     })();
     return () => { cancelled = true; };
   }, [user?.uid, user?.name, user?.avatar]);
-
-  useEffect(() => {
-    if (!slugValid) {
-      setSlugStatus(form.slug ? 'invalid' : 'idle');
-      return;
-    }
-    if (form.slug === lastSlugCheckedRef.current && lastSlugResultRef.current) {
-      setSlugStatus(lastSlugResultRef.current);
-      return;
-    }
-    const t = setTimeout(async () => {
-      setSlugStatus('checking');
-      try {
-        const res = await checkSlugAvailability(form.slug);
-        const next = res.available ? 'available' : 'taken';
-        lastSlugCheckedRef.current = form.slug;
-        lastSlugResultRef.current = next;
-        setSlugStatus(next);
-      } catch {
-        setSlugStatus('idle');
-      }
-    }, 900);
-    return () => clearTimeout(t);
-  }, [form.slug, slugValid]);
 
   useEffect(() => {
     if (!initialForm || !user?.uid) return;
@@ -217,26 +172,16 @@ const ProfilePage = () => {
 
   const setField = (k, v) => setForm((prev) => ({ ...prev, [k]: v }));
   const toggleVertical = (v) => setForm((prev) => ({ ...prev, verticals: prev.verticals.includes(v) ? prev.verticals.filter((x) => x !== v) : [...prev.verticals, v] }));
-  const handleCopy = async (text, field) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedField(field);
-      setTimeout(() => setCopiedField(null), 2000);
-    } catch {
-      toast.error('Could not copy to clipboard');
-    }
-  };
   const discardChanges = () => initialForm && setForm(initialForm);
 
   const handleSaveAll = async () => {
     if (!user?.uid) return;
-    if (!slugValid || slugStatus === 'taken' || !phoneValid || !bioValid) { toast.error('Fix validation errors first'); return; }
+    if (!phoneValid || !bioValid) { toast.error('Fix validation errors first'); return; }
     setSavingAll(true);
     try {
       if (form.displayName.trim() && form.displayName.trim() !== user?.name) await updateName(form.displayName.trim());
       await saveProfile(user.uid, {
         bio: form.bio,
-        landingPageSlug: form.slug,
         avatarUrl: form.avatarUrl || '',
         onboarding: {
           ...(onboarding || {}),
@@ -304,25 +249,7 @@ const ProfilePage = () => {
     }
   };
 
-  const handleRegenerateApiKey = async () => {
-    setRegeneratingKey(true);
-    try {
-      const res = await regenerateApiKey();
-      setApiKey(res.apiKey || '');
-      setApiKeyRotatedAt(res.apiKeyRotatedAt || new Date().toISOString());
-      setShowRegenerateConfirm(false);
-      const act = await getProfileActivity(20).catch(() => ({ activity: [] }));
-      setActivity(act.activity || []);
-      toast.success('API key regenerated');
-    } catch (e) {
-      toast.error(e.message || 'Failed to regenerate key');
-    }
-    setRegeneratingKey(false);
-  };
-
   if (loading) return <PageLoader />;
-
-  const maskedApiKey = apiKey ? `${apiKey.slice(0, 6)}••••••••${apiKey.slice(-4)}` : '';
 
   return (
     <>
@@ -337,8 +264,8 @@ const ProfilePage = () => {
             <User size={20} />
           </div>
           <div>
-            <h2>Profile & Landing Page</h2>
-            <p>Customize your public profile for lead capture</p>
+            <h2>Profile</h2>
+            <p>Display name, photo, and account preferences</p>
           </div>
         </motion.div>
 
@@ -347,7 +274,7 @@ const ProfilePage = () => {
             <div className={classes.cardHeader}>
               <div className={classes.cardHeaderText}>
                 <h3>Your Profile</h3>
-                <p>Photo, bio, and landing page details</p>
+                <p>Photo, bio, and contact details</p>
               </div>
             </div>
             <div className={classes.cardDivider} />
@@ -389,19 +316,6 @@ const ProfilePage = () => {
             <div className={classes.formGroup}>
               <label htmlFor="displayName">Display Name</label>
               <input id="displayName" type="text" value={form.displayName} onChange={(e) => setField('displayName', e.target.value)} className={classes.textInput} />
-            </div>
-            <div className={classes.formGroup}>
-              <label htmlFor="landingSlug">Landing Page URL</label>
-              <div className={classes.urlInputGroup}>
-                <span className={classes.urlPrefix}>https://callsflow.io/a/</span>
-                <input id="landingSlug" type="text" value={form.slug} onChange={(e) => setField('slug', normalizeSlug(e.target.value))} className={classes.urlInput} />
-              </div>
-              <div className={classes.validationText}>
-                {slugStatus === 'checking' && <span>Checking availability…</span>}
-                {slugStatus === 'available' && <span className={classes.valid}>Slug is available.</span>}
-                {slugStatus === 'taken' && <span className={classes.invalid}>Slug is already taken.</span>}
-                {slugStatus === 'invalid' && <span className={classes.invalid}>Use at least {MIN_SLUG_LEN} characters.</span>}
-              </div>
             </div>
             <div className={classes.formGroup}>
               <label htmlFor="bio">Bio</label>
@@ -500,53 +414,6 @@ const ProfilePage = () => {
           </section>
         </motion.div>
 
-        <motion.section className={`glass ${classes.integrationSection}`} variants={presets.child}>
-          <div className={classes.cardHeader}>
-            <div className={classes.cardHeaderText}>
-              <h3>Integration & Links</h3>
-              <p>Webhook and API credentials for lead integrations</p>
-            </div>
-          </div>
-          <div className={classes.cardDivider} />
-
-          <div className={classes.integrationRow}>
-            <div className={classes.integrationLabel}>
-              <Link2 size={16} />
-              <span>Webhook URL</span>
-              <span className={classes.integrationBadge}>For Integrations</span>
-            </div>
-            <div className={classes.integrationField}>
-              <input type="text" readOnly value={webhookUrl} className={classes.readonlyInput} />
-              <button type="button" className={classes.copyBtn} onClick={() => handleCopy(webhookUrl, 'webhook')} aria-label="Copy webhook URL">
-                {copiedField === 'webhook' ? <SuccessCheck size={16} color="var(--brand, #25f425)" /> : <Copy size={16} />}
-              </button>
-            </div>
-          </div>
-          <div className={classes.integrationRow}>
-            <div className={classes.integrationLabel}>
-              <Key size={16} />
-              <span>API Key</span>
-              <span className={classes.integrationBadge}>Header: X-Agent-Key</span>
-            </div>
-            <div className={classes.integrationField}>
-              <input type="text" readOnly value={showApiKey ? apiKey : maskedApiKey} className={classes.readonlyInput} />
-              <button type="button" className={classes.copyBtn} onClick={() => setShowApiKey((s) => !s)} aria-label={showApiKey ? 'Hide API key' : 'Show API key'}>
-                {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-              <button type="button" className={classes.copyBtn} onClick={() => handleCopy(apiKey, 'apikey')} aria-label="Copy API key">
-                {copiedField === 'apikey' ? <SuccessCheck size={16} color="var(--brand, #25f425)" /> : <Copy size={16} />}
-              </button>
-            </div>
-            <div className={classes.apiMetaRow}>
-              <span>Last rotated: {apiKeyRotatedAt ? new Date(apiKeyRotatedAt).toLocaleString() : 'Never'}</span>
-              <button type="button" className={classes.regenBtn} onClick={() => setShowRegenerateConfirm(true)}>
-                <RefreshCw size={14} />
-                Regenerate Key
-              </button>
-            </div>
-          </div>
-        </motion.section>
-
         <motion.section className={`glass ${classes.auditSection}`} variants={presets.child}>
           <div className={classes.auditHeader}>
             <h3>Audit & Activity</h3>
@@ -603,13 +470,6 @@ const ProfilePage = () => {
           />
         </div>
       </motion.div>
-
-      <RegenerateApiKeyModal
-        isOpen={showRegenerateConfirm}
-        regenerating={regeneratingKey}
-        onClose={() => setShowRegenerateConfirm(false)}
-        onConfirm={handleRegenerateApiKey}
-      />
 
       <AvatarEditorModal
         isOpen={showAvatarModal}
