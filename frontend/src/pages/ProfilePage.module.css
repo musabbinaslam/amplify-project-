@@ -62,14 +62,12 @@
 
 .profileCard,
 .accountCard,
-.integrationSection,
 .auditSection {
   padding: 22px 24px;
 }
 
 .profileCard > *,
 .accountCard > *,
-.integrationSection > *,
 .auditSection > * {
   position: relative;
   z-index: 1;
@@ -320,44 +318,6 @@
   background: color-mix(in srgb, var(--surface-container-high) 95%, transparent);
 }
 
-.urlInputGroup {
-  display: flex;
-  align-items: stretch;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
-  transition: border-color 0.15s ease;
-}
-
-.urlInputGroup:focus-within {
-  border-color: var(--brand-text);
-}
-
-.urlPrefix {
-  padding: 12px 14px;
-  background: color-mix(in srgb, var(--surface-container-highest) 60%, transparent);
-  color: var(--text-tertiary);
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  border-right: 1px solid var(--glass-border);
-}
-
-.urlInput,
-.urlInput:focus {
-  flex: 1;
-  min-width: 0;
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  padding: 12px 14px;
-  color: var(--text-primary);
-  font-size: 15px;
-  outline: none;
-}
-
 .charCount {
   font-size: 12px;
   color: var(--text-tertiary);
@@ -543,117 +503,6 @@
   color: var(--brand-text);
 }
 
-/* ─── Integration ─── */
-.integrationRow {
-  margin-bottom: 22px;
-}
-
-.integrationRow:last-child {
-  margin-bottom: 0;
-}
-
-.integrationLabel {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.integrationLabel svg {
-  color: var(--text-tertiary);
-}
-
-.integrationBadge {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 3px 8px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--brand-text) 10%, transparent);
-  color: var(--brand-text);
-  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
-}
-
-.integrationField {
-  display: flex;
-  align-items: stretch;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 5%, transparent);
-}
-
-.readonlyInput,
-.readonlyInput:focus {
-  flex: 1;
-  min-width: 0;
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  padding: 12px 14px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  outline: none;
-}
-
-.integrationSection .copyBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
-  border: none;
-  border-left: 1px solid var(--glass-border);
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-}
-
-.integrationSection .copyBtn:hover {
-  background: var(--surface-container-high);
-  color: var(--brand-text);
-}
-
-.apiMetaRow {
-  margin-top: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  color: var(--text-tertiary);
-  font-size: 12px;
-}
-
-.integrationSection .regenBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--glass-border);
-  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
-  color: var(--text-primary);
-  border-radius: var(--radius-full);
-  padding: 7px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.integrationSection .regenBtn:hover {
-  border-color: color-mix(in srgb, var(--brand-text) 25%, var(--glass-border));
-  color: var(--brand-text);
-}
-
 /* ─── Audit ─── */
 .auditHeader {
   display: flex;
@@ -795,7 +644,6 @@
 @media (max-width: 1024px) {
   .profileCard,
   .accountCard,
-  .integrationSection,
   .auditSection {
     padding: 18px 20px;
   }
@@ -827,10 +675,5 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
-  }
-
-  .urlPrefix {
-    font-size: 11px;
-    padding: 10px;
   }
 }
