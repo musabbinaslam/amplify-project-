@@ -41,6 +41,7 @@ For a deeper implementation overview, see [`architecture/architecture.md`](archi
 - React 18 and Vite
 - React Router
 - Zustand
+- TanStack Query
 - Firebase Web SDK
 - Socket.IO Client
 - Twilio Voice SDK

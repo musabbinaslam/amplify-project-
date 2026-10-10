@@ -13,6 +13,7 @@
 │   React 18 + Vite (Browser SPA)                                     │
 │   ├── Pages / Components                                            │
 │   ├── Zustand (Dialer + Auth + Theme State)                         │
+│   ├── TanStack Query (Server State + Caching)                       │
 │   ├── Firebase JS SDK (Auth — Google/Email Sign-in)                 │
 │   └── Twilio Voice JS SDK (WebRTC Browser Calling)                  │
 └────────────────────────┬────────────────────────────────────────────┘
@@ -60,7 +61,7 @@
   - `useAuthStore` (Zustand) — Firebase user, UID
   - `themeStore` (Zustand) — light/dark/system theme preference
   - `useAudioSettingsStore` — mic/speaker device IDs, echo cancellation, noise suppression (persisted to Firestore)
-- **Data fetching** — Services layer with `apiFetch` wrapper for authenticated API calls
+- **TanStack Query** — server state + caching via `frontend/src/queries/` (wallet, campaign pricing, call logs)
 - **Twilio Voice JS SDK** — WebRTC audio fully in the browser; no native app required
 
 **Go Live flow (frontend):**
