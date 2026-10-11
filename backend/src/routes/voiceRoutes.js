@@ -29,7 +29,6 @@ router.patch('/logs/:callSid', verifyFirebaseToken, voiceController.updateCallLo
 
 // Contest a billable call charge
 router.post('/logs/:callLogId/contest', verifyFirebaseToken, handleContestUpload, voiceController.submitCallContest);
-router.get('/logs/:callLogId/contest', verifyFirebaseToken, voiceController.getCallContestStatus);
 router.get('/contest-proof', verifyFirebaseToken, voiceController.serveContestProof);
 
 

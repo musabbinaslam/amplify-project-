@@ -2004,19 +2004,6 @@ async function listCallContests(req, res) {
   }
 }
 
-async function getCallContest(req, res) {
-  try {
-    const callContestService = require('../services/callContestService');
-    const contest = await callContestService.getContest(req.params.contestId);
-    if (!contest) return res.status(404).json({ error: 'Contest not found' });
-    const [enriched] = await enrichContestsWithAgentNames([contest]);
-    res.json({ contest: enriched });
-  } catch (err) {
-    console.error('[Admin] getCallContest:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to load contest' });
-  }
-}
-
 async function approveCallContest(req, res) {
   try {
     const callContestService = require('../services/callContestService');
@@ -2198,7 +2185,6 @@ module.exports = {
   upsertCampaign,
   deleteCampaign,
   listCallContests,
-  getCallContest,
   approveCallContest,
   denyCallContest,
   refundCall: refundCallHandler,
