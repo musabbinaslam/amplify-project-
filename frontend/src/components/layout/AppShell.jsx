@@ -20,6 +20,11 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '../../services/notificationService';
+import {
+  isAgencyGated,
+  isAgencyReviewAllowedPath,
+  isAgencyReviewLockdown,
+} from '../../utils/agencyGate';
 import classes from './AppShell.module.css';
 
 const AppShell = () => {
@@ -438,6 +443,30 @@ const AppShell = () => {
       navigate('/app/support-desk/analytics', { replace: true });
     }
   }, [user?.role, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (!isAgencyReviewLockdown(user)) return;
+    if (!isAgencyReviewAllowedPath(location.pathname)) {
+      navigate('/app', { replace: true });
+    }
+  }, [user, location.pathname, navigate]);
+
+  // Pending/rejected: refresh agencyStatus when tab regains focus (admin may have approved).
+  useEffect(() => {
+    if (!user?.uid || !isAgencyGated(user)) return undefined;
+    const refreshUserRole = useAuthStore.getState().refreshUserRole;
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') {
+        refreshUserRole?.().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onFocus);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', onFocus);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [user]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowTs(Date.now()), 1000);

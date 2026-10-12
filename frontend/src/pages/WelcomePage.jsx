@@ -2,6 +2,8 @@ import { Play, Clock } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
+import AgencyStatusGate from '../components/agency/AgencyStatusGate';
+import { isAgencyReviewLockdown } from '../utils/agencyGate';
 import classes from './WelcomePage.module.css';
 
 const TUTORIAL_EMBED_URL = 'https://drive.google.com/file/d/1eTyuk6sAm6XYhC2VhMoJWOwUoqTnHTye/preview';
@@ -10,6 +12,10 @@ const WelcomePage = () => {
   const user = useAuthStore((s) => s.user);
   const presets = useSubtlePageMotion();
   const reduceMotion = useReducedMotion();
+
+  if (isAgencyReviewLockdown(user)) {
+    return <AgencyStatusGate />;
+  }
 
   return (
     <motion.div
