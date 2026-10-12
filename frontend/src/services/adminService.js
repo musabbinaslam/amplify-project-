@@ -184,10 +184,6 @@ export function listAdminCallContests(status = 'pending', limit = 50) {
   return apiFetch(`/api/admin/call-contests?${qs.toString()}`, { method: 'GET' });
 }
 
-export function getAdminCallContest(contestId) {
-  return apiFetch(`/api/admin/call-contests/${encodeURIComponent(contestId)}`, { method: 'GET' });
-}
-
 export function approveAdminCallContest(contestId, reason) {
   return apiFetch(`/api/admin/call-contests/${encodeURIComponent(contestId)}/approve`, {
     method: 'POST',

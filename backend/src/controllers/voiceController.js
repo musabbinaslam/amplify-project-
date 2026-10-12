@@ -995,17 +995,6 @@ exports.serveContestProof = async (req, res) => {
     }
 };
 
-exports.getCallContestStatus = async (req, res) => {
-    try {
-        const { callLogId } = req.params;
-        const contest = await callContestService.getContestForAgent(req.user.uid, callLogId);
-        res.json({ contest });
-    } catch (err) {
-        console.error('[Voice] getCallContestStatus:', err.message);
-        res.status(500).json({ error: 'Failed to load contest status' });
-    }
-};
-
 exports.updateCallLog = async (req, res) => {
     try {
         const { callSid } = req.params;

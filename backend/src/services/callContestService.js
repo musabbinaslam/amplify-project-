@@ -142,15 +142,6 @@ async function submitContest(agentId, callLogId, { reason, category, files = [] 
   return { contestId: contestRef.id, status: 'pending' };
 }
 
-async function getContestForAgent(agentId, callLogId) {
-  if (!admin) return null;
-  const log = await callLogService.getCallLog(agentId, callLogId);
-  if (!log?.contestId) return null;
-  const row = await getContest(log.contestId);
-  if (!row || row.agentId !== agentId) return null;
-  return row;
-}
-
 async function listContests({ status = 'pending', limit = 50 } = {}) {
   if (!admin) return [];
   const db = getDb();
@@ -277,7 +268,6 @@ async function approveContest(contestId, adminUid, adminReason) {
 module.exports = {
   CONTEST_CATEGORIES,
   submitContest,
-  getContestForAgent,
   listContests,
   getContest,
   denyContest,

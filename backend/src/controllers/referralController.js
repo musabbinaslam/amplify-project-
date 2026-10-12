@@ -21,23 +21,6 @@ async function getMyReferralDashboard(req, res) {
 }
 
 /**
- * GET /api/referrals/resolve/:code
- * Resolves a referral code. Rate-limited, no auth required.
- */
-async function resolveReferralCode(req, res) {
-  try {
-    const code = String(req.params.code || '').trim();
-    if (!code) return res.status(400).json({ error: 'Referral code is required' });
-
-    const result = await referralService.resolveCode(code);
-    res.json(result);
-  } catch (err) {
-    console.error('[Referral] resolveReferralCode:', err.message);
-    res.status(500).json({ error: 'Failed to resolve referral code' });
-  }
-}
-
-/**
  * POST /api/referrals/claim
  * Claims a referral code for the authenticated user (post-signup).
  * Body: { code: "AGENT-XXXXXX" }
@@ -91,7 +74,6 @@ async function getLeaderboard(req, res) {
 
 module.exports = {
   getMyReferralDashboard,
-  resolveReferralCode,
   claimReferralCode,
   getDiscountStatus: getDiscountStatusHandler,
   getLeaderboard,

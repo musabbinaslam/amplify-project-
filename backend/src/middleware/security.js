@@ -92,16 +92,9 @@ const webhookCallLimiter = rateLimit({
     message: 'Too many webhook requests',
 });
 
+// Reuse referral resolve window/max for public agency invite lookups.
 const LIMIT_REFERRAL_RESOLVE_WINDOW_MS = envInt('RATE_LIMIT_REFERRAL_RESOLVE_WINDOW_MS', 60 * 1000);
 const LIMIT_REFERRAL_RESOLVE_MAX = envInt('RATE_LIMIT_REFERRAL_RESOLVE_MAX', 10);
-
-const referralResolveLimiter = rateLimit({
-    windowMs: LIMIT_REFERRAL_RESOLVE_WINDOW_MS,
-    max: LIMIT_REFERRAL_RESOLVE_MAX,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Too many referral code lookups. Please try again later.' },
-});
 
 const agencyInviteResolveLimiter = rateLimit({
     windowMs: LIMIT_REFERRAL_RESOLVE_WINDOW_MS,
@@ -194,7 +187,6 @@ module.exports = {
     supportLiveLimiter,
     voiceTokenLimiter,
     webhookCallLimiter,
-    referralResolveLimiter,
     agencyInviteResolveLimiter,
     agencyInviteClaimLimiter,
     agencyRegisterLimiter,
