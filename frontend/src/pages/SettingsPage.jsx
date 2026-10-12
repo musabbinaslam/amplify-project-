@@ -673,7 +673,7 @@ const SettingsPage = () => {
         <div className={classes.sectionIntroRow}>
           <div>
             <h3>Appearance</h3>
-            <p>Choose an accent color — it updates buttons, the sidebar, and focus rings instantly.</p>
+            <p>Choose an accent color — it updates the app, landing page, buttons, and focus rings instantly.</p>
           </div>
           <button
             type="button"

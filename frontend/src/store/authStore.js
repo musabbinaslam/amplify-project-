@@ -291,7 +291,8 @@ const useAuthStore = create((set, get) => ({
   logout: async () => {
     await signOut(auth);
     set({ user: null, token: null });
-    try { useThemeStore.getState().resetBrand(); } catch {}
+    // Keep brandColor in localStorage so landing / login / signup stay on the
+    // accent the user picked in Settings. Next login hydrates from profile.
   },
 
   resetPassword: async (email) => {
