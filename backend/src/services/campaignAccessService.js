@@ -22,7 +22,11 @@ function isLockedAgencyCampaign(campaignId) {
 
 async function getKnownAgencyIds() {
   const agencies = await agencyService.listAgencies();
-  return new Set(agencies.map((a) => String(a.id)));
+  return new Set(
+    agencies
+      .filter((a) => agencyService.isAgencyOperable(a))
+      .map((a) => String(a.id)),
+  );
 }
 
 function isActiveAgencyLock(meta, knownAgencyIds) {
@@ -42,7 +46,15 @@ async function validateAgentCampaignAccess(agentAgencyId, campaignId) {
   if (userAgencyId) {
     const agency = await agencyService.getAgencyById(userAgencyId);
     if (!agency) return 'Agency not found';
-    if (agency.status === 'suspended') return 'Your agency account is suspended';
+    if (agency.status === 'pending') {
+      return 'Your agency is pending approval. You cannot take calls yet.';
+    }
+    if (agency.status === 'rejected') {
+      return 'Your agency application was rejected. Contact support for help.';
+    }
+    if (agency.status === 'suspended' || !agencyService.isAgencyOperable(agency)) {
+      return 'Your agency account is suspended';
+    }
     const allowed = Array.isArray(agency.lockedCampaignIds) ? agency.lockedCampaignIds : [];
     if (!allowed.includes(campaignId)) {
       return 'This campaign is not assigned to your agency';
@@ -60,15 +72,18 @@ async function validateAgentCampaignAccess(agentAgencyId, campaignId) {
   return null;
 }
 
+/**
+ * Sync helper for non-agency / pricing-lock filtering only.
+ * Agency membership + operable status require listCampaignsForAgentAsync.
+ */
 function listCampaignsForAgent(agentAgencyId) {
   const userAgencyId = normalizeAgencyId(agentAgencyId);
+  // Agency callers must use the async path (operable check + lockedCampaignIds).
+  if (userAgencyId) return [];
   return Object.keys(CAMPAIGN_CONFIG)
     .map((id) => getCampaignMeta(id))
     .filter((meta) => {
       if (!meta) return false;
-      if (userAgencyId) {
-        return meta.locked && meta.agencyId === userAgencyId;
-      }
       return !meta.locked || !meta.agencyId;
     });
 }
@@ -82,7 +97,7 @@ async function listCampaignsForAgentAsync(agentAgencyId) {
 
   if (userAgencyId) {
     const agency = await agencyService.getAgencyById(userAgencyId);
-    if (!agency || agency.status === 'suspended') return [];
+    if (!agency || !agencyService.isAgencyOperable(agency)) return [];
     const allowed = Array.isArray(agency.lockedCampaignIds) ? agency.lockedCampaignIds.filter(Boolean) : [];
     return allowed
       .map((id) => getCampaignMeta(id))

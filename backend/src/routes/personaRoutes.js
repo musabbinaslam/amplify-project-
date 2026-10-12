@@ -97,6 +97,13 @@ async function fetchPersonaInquiry(inquiryId) {
   );
   const text = await res.text();
   if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error(
+        'Persona inquiry not found (404). Staging must use a sandbox PERSONA_API_KEY '
+        + '(persona_sandbox_…) that matches VITE_PERSONA_ENVIRONMENT_ID / template — '
+        + 'a production key cannot see sandbox inquiries.',
+      );
+    }
     throw new Error(`Persona inquiry lookup failed (${res.status}): ${text.slice(0, 200)}`);
   }
   return JSON.parse(text);

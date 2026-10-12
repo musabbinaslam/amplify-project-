@@ -1,0 +1,232 @@
+.strip,
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.iconWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
+}
+
+.lead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.primaryBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 28%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  color: var(--brand-text);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.primaryBtn:hover {
+  background: color-mix(in srgb, var(--brand-text) 22%, transparent);
+  border-color: color-mix(in srgb, var(--brand-text) 42%, var(--glass-border));
+}
+
+.primaryBtn:active {
+  transform: translateY(1px);
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.codeChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px 0 12px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--text-primary) 3%, transparent);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background 160ms ease;
+}
+
+.codeChip:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--brand-text) 28%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 6%, transparent);
+}
+
+.code {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.ghostBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--radius-md, 10px);
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 160ms ease, background 160ms ease;
+}
+
+.ghostBtn:hover:not(:disabled) {
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+}
+
+.ghostBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Icon swap (copy ↔ check) */
+.iconSwap {
+  display: inline-grid;
+  place-items: center;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+.iconSlot {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  transition:
+    opacity var(--icon-swap-dur, 220ms) var(--icon-swap-ease, ease),
+    filter var(--icon-swap-dur, 220ms) var(--icon-swap-ease, ease),
+    transform var(--icon-swap-dur, 220ms) var(--icon-swap-ease, ease);
+}
+
+.iconSwap[data-state='a'] .iconSlot[data-icon='a'],
+.iconSwap[data-state='b'] .iconSlot[data-icon='b'] {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
+}
+
+.iconSwap[data-state='a'] .iconSlot[data-icon='b'],
+.iconSwap[data-state='b'] .iconSlot[data-icon='a'] {
+  opacity: 0;
+  filter: blur(var(--icon-swap-blur, 2px));
+  transform: scale(var(--icon-swap-start-scale, 0.4));
+  pointer-events: none;
+}
+
+.muted {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.spin {
+  animation: spin 0.85s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (min-width: 720px) {
+  .strip {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .strip .actions {
+    flex: 0 1 auto;
+    min-width: 260px;
+    max-width: 360px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primaryBtn,
+  .codeChip,
+  .ghostBtn,
+  .iconSlot {
+    transition: none;
+  }
+
+  .primaryBtn:active {
+    transform: none;
+  }
+
+  .spin {
+    animation: none;
+  }
+}

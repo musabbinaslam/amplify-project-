@@ -1,10 +1,11 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, Navigate, Link, useSearchParams } from 'react-router-dom';
-import { motion, useReducedMotion } from 'framer-motion';
+import { useNavigate, Navigate, Link, useSearchParams, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import AuthShell from '../components/auth/AuthShell';
+import SlidingTabs from '../components/ui/SlidingTabs';
 import {
   COUNTRY_DIAL_CODES,
   DEFAULT_PHONE_COUNTRY,
@@ -12,10 +13,61 @@ import {
 } from '../constants/countryDialCodes';
 import classes from './SignupPage.module.css';
 import { referralService } from '../services/referralService';
+import {
+  resolveAgencyInvite,
+  claimAgencyInvite,
+  registerAgencyApplication,
+} from '../services/agencyService';
+import { AGENCY_POST_AUTH_RETRY_KEY } from '../utils/agencyGate';
 import { initMetaPixelOnSignupPage, trackSignupComplete } from '../services/metaPixel';
 import PersonaVerificationBlocker from '../components/auth/PersonaVerificationBlocker';
+import { EASE_SMOOTH } from '../motion/appMotion';
 
 import { TOS_VERSION, TOS_HEADER, TOS_TEXT } from '../utils/legalText';
+
+const TRACKS = [
+  { id: 'agent', label: 'Agent' },
+  { id: 'join', label: 'Join agency' },
+  { id: 'agency', label: 'Start agency' },
+];
+
+const BRAND_BY_TRACK = {
+  agent: {
+    eyebrow: 'Join CallsFlow',
+    title: 'Create your agent account',
+    highlight: 'agent',
+    subtitle: 'Sign up to receive qualified inbound calls in your verticals.',
+  },
+  join: {
+    eyebrow: 'Agency agents',
+    title: 'Join your agency',
+    highlight: 'agency',
+    subtitle: 'Use the invite code or link from your agency admin to get assigned automatically.',
+  },
+  agency: {
+    eyebrow: 'Agency partners',
+    title: 'Start your agency',
+    highlight: 'agency',
+    subtitle: 'Apply as an agency admin. We review applications before you can invite agents.',
+  },
+};
+
+function highlightTitle(title, highlight) {
+  if (!highlight || !title.toLowerCase().includes(highlight.toLowerCase())) {
+    return title;
+  }
+  const idx = title.toLowerCase().indexOf(highlight.toLowerCase());
+  const before = title.slice(0, idx);
+  const mid = title.slice(idx, idx + highlight.length);
+  const after = title.slice(idx + highlight.length);
+  return (
+    <>
+      {before}
+      <span className={classes.titleHighlight}>{mid}</span>
+      {after}
+    </>
+  );
+}
 
 const TosModal = ({ onAccept, onDecline }) =>
   createPortal(
@@ -75,13 +127,27 @@ const getFirebaseErrorMessage = (error) => {
 
 const SignupPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const reduceMotion = useReducedMotion();
   const token = useAuthStore((s) => s.token);
   const signup = useAuthStore((s) => s.signup);
   const googleLogin = useAuthStore((s) => s.googleLogin);
   const saveGoogleOnboarding = useAuthStore((s) => s.saveGoogleOnboarding);
+  const refreshUserRole = useAuthStore((s) => s.refreshUserRole);
+
+  const [searchParams] = useSearchParams();
+  const [refCode] = useState(() => searchParams.get('ref')?.trim().toUpperCase() || '');
+  const agencyParam = useMemo(
+    () => searchParams.get('agency')?.trim().toUpperCase() || '',
+    [searchParams],
+  );
+  const forceAgencyTrack = location.pathname.startsWith('/signup/agency');
+  const trackLocked = Boolean(agencyParam) || forceAgencyTrack;
+
+  const initialTrack = forceAgencyTrack ? 'agency' : agencyParam ? 'join' : 'agent';
 
   const [step, setStep] = useState('credentials');
+  const [track, setTrack] = useState(initialTrack);
   const googleFlowActive = useRef(false);
 
   const [form, setForm] = useState({
@@ -95,18 +161,60 @@ const SignupPage = () => {
     hearAbout: '',
     password: '',
     confirmPassword: '',
+    inviteCode: agencyParam || '',
+    agencyName: '',
+    agencyWebsite: '',
   });
 
   const [submitting, setSubmitting] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTosModal, setShowTosModal] = useState(false);
-
-  const [searchParams] = useSearchParams();
-  const [refCode] = useState(() => searchParams.get('ref')?.trim().toUpperCase() || '');
+  const [invitePreview, setInvitePreview] = useState(null);
+  const [invitePreviewError, setInvitePreviewError] = useState('');
 
   useEffect(() => {
     initMetaPixelOnSignupPage();
   }, []);
+
+  useEffect(() => {
+    if (agencyParam) {
+      setTrack('join');
+      setForm((prev) => ({ ...prev, inviteCode: agencyParam }));
+    } else if (forceAgencyTrack) {
+      setTrack('agency');
+    }
+  }, [agencyParam, forceAgencyTrack]);
+
+  useEffect(() => {
+    if (track !== 'join') {
+      setInvitePreview(null);
+      setInvitePreviewError('');
+      return undefined;
+    }
+    const code = String(form.inviteCode || '').trim().toUpperCase();
+    if (code.length < 8) {
+      setInvitePreview(null);
+      setInvitePreviewError('');
+      return undefined;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const out = await resolveAgencyInvite(code);
+        if (cancelled) return;
+        setInvitePreview(out);
+        setInvitePreviewError('');
+      } catch (err) {
+        if (cancelled) return;
+        setInvitePreview(null);
+        setInvitePreviewError(err?.message || 'Invalid invite code');
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [track, form.inviteCode]);
 
   const formStagger = reduceMotion
     ? { visible: { transition: { staggerChildren: 0 } } }
@@ -139,7 +247,43 @@ const SignupPage = () => {
     if (!form.usedInbound) { toast.error('Select whether you have used inbound calls'); return false; }
     if (!form.verticals) { toast.error('Select a vertical'); return false; }
     if (!form.hearAbout) { toast.error('Select how you heard about us'); return false; }
+    if (track === 'join') {
+      const code = String(form.inviteCode || '').trim().toUpperCase();
+      if (!code) { toast.error('Enter your agency invite code'); return false; }
+      if (invitePreviewError) { toast.error(invitePreviewError); return false; }
+    }
+    if (track === 'agency' && !String(form.agencyName || '').trim()) {
+      toast.error('Enter your agency name');
+      return false;
+    }
     return true;
+  };
+
+  const finishPostAuth = async () => {
+    if (refCode && (track === 'agent' || track === 'join')) {
+      try {
+        await referralService.claimCode(refCode);
+        toast.success('Referral code applied!');
+      } catch (refErr) {
+        console.warn('[Referral] Claim failed:', refErr.message);
+      }
+    }
+    if (track === 'join') {
+      const code = String(form.inviteCode || '').trim().toUpperCase();
+      await claimAgencyInvite(code);
+      await refreshUserRole();
+      toast.success(invitePreview?.name
+        ? `Joined ${invitePreview.name}`
+        : 'Joined agency');
+    }
+    if (track === 'agency') {
+      await registerAgencyApplication({
+        name: String(form.agencyName || '').trim(),
+        website: String(form.agencyWebsite || '').trim() || undefined,
+      });
+      await refreshUserRole();
+      toast.success('Agency application submitted — awaiting approval');
+    }
   };
 
   const handleEmailSubmit = async (e) => {
@@ -170,13 +314,20 @@ const SignupPage = () => {
         phone: buildInternationalPhone(form.phoneCountry, form.phone),
         fullName: form.fullName,
       });
-      if (refCode) {
+      try {
+        await finishPostAuth();
+        try { sessionStorage.removeItem(AGENCY_POST_AUTH_RETRY_KEY); } catch { /* ignore */ }
+      } catch (postErr) {
         try {
-          await referralService.claimCode(refCode);
-          toast.success('Referral code applied! You\'re helping your referrer earn a discount.');
-        } catch (refErr) {
-          console.warn('[Referral] Claim failed:', refErr.message);
-        }
+          sessionStorage.setItem(AGENCY_POST_AUTH_RETRY_KEY, JSON.stringify({
+            track,
+            inviteCode: String(form.inviteCode || '').trim().toUpperCase(),
+            agencyName: String(form.agencyName || '').trim(),
+            agencyWebsite: String(form.agencyWebsite || '').trim(),
+            at: Date.now(),
+          }));
+        } catch { /* ignore */ }
+        toast.error(postErr?.message || 'Account created, but agency step failed — you can retry from Profile');
       }
       toast.success('Account created!');
       setStep('verification');
@@ -235,13 +386,20 @@ const SignupPage = () => {
         phone: buildInternationalPhone(form.phoneCountry, form.phone),
         fullName: form.fullName || authUser?.name || '',
       });
-      if (refCode) {
+      try {
+        await finishPostAuth();
+        try { sessionStorage.removeItem(AGENCY_POST_AUTH_RETRY_KEY); } catch { /* ignore */ }
+      } catch (postErr) {
         try {
-          await referralService.claimCode(refCode);
-          toast.success('Referral code applied! Complete all steps to unlock your discount.');
-        } catch (refErr) {
-          console.warn('[Referral] Claim failed:', refErr.message);
-        }
+          sessionStorage.setItem(AGENCY_POST_AUTH_RETRY_KEY, JSON.stringify({
+            track,
+            inviteCode: String(form.inviteCode || '').trim().toUpperCase(),
+            agencyName: String(form.agencyName || '').trim(),
+            agencyWebsite: String(form.agencyWebsite || '').trim(),
+            at: Date.now(),
+          }));
+        } catch { /* ignore */ }
+        toast.error(postErr?.message || 'Account created, but agency step failed — you can retry from Profile');
       }
       toast.success('Account created!');
       googleFlowActive.current = false;
@@ -253,8 +411,116 @@ const SignupPage = () => {
     }
   };
 
+  const renderTrackFields = () => {
+    if (track === 'join') {
+      return (
+        <div className={`${classes.fieldGroup} ${classes.spanFull}`}>
+          <label className={classes.label} htmlFor="signup-invite-code">
+            Agency invite code
+            <span className={classes.required}>*</span>
+          </label>
+          <input
+            id="signup-invite-code"
+            className={classes.input}
+            type="text"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="AGENCY-XXXXXX"
+            value={form.inviteCode}
+            onChange={(e) => update('inviteCode', e.target.value.toUpperCase())}
+            readOnly={Boolean(agencyParam)}
+          />
+          {invitePreview?.name ? (
+            <p className={classes.inviteHint}>Joining <strong>{invitePreview.name}</strong></p>
+          ) : null}
+          {invitePreviewError ? (
+            <p className={classes.inviteError}>{invitePreviewError}</p>
+          ) : null}
+        </div>
+      );
+    }
+    if (track === 'agency') {
+      return (
+        <>
+          <div className={`${classes.fieldGroup} ${classes.spanFull}`}>
+            <label className={classes.label} htmlFor="signup-agency-name">
+              Agency name
+              <span className={classes.required}>*</span>
+            </label>
+            <input
+              id="signup-agency-name"
+              className={classes.input}
+              type="text"
+              placeholder="Acme Insurance Group"
+              value={form.agencyName}
+              onChange={(e) => update('agencyName', e.target.value)}
+            />
+          </div>
+          <div className={`${classes.fieldGroup} ${classes.spanFull}`}>
+            <label className={classes.label} htmlFor="signup-agency-website">
+              Website <span className={classes.optional}>(optional)</span>
+            </label>
+            <input
+              id="signup-agency-website"
+              className={classes.input}
+              type="url"
+              placeholder="https://"
+              value={form.agencyWebsite}
+              onChange={(e) => update('agencyWebsite', e.target.value)}
+            />
+          </div>
+        </>
+      );
+    }
+    return null;
+  };
+
+  const brandCopy = BRAND_BY_TRACK[track] || BRAND_BY_TRACK.agent;
+
+  // In-place text swap: short travel + light blur (avoid heavy filter that ghosts underlines).
+  const textSwap = reduceMotion
+    ? {
+      initial: false,
+      animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+      exit: { opacity: 1, y: 0, filter: 'blur(0px)' },
+      transition: { duration: 0 },
+    }
+    : {
+      initial: { opacity: 0, y: 4, filter: 'blur(2px)' },
+      animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+      exit: { opacity: 0, y: -4, filter: 'blur(2px)' },
+      transition: { duration: 0.15, ease: 'easeInOut' },
+    };
+
+  const panelSwap = reduceMotion
+    ? {
+      initial: false,
+      animate: { opacity: 1, height: 'auto' },
+      exit: { opacity: 1 },
+      transition: { duration: 0 },
+    }
+    : {
+      initial: { opacity: 0, y: 10, height: 0 },
+      animate: { opacity: 1, y: 0, height: 'auto' },
+      exit: { opacity: 0, y: -6, height: 0 },
+      transition: { duration: 0.3, ease: EASE_SMOOTH },
+    };
+
   const renderOnboardingFields = () => (
     <>
+      <div className={classes.trackFieldsSlot}>
+        <AnimatePresence mode="wait" initial={false}>
+          {(track === 'join' || track === 'agency') ? (
+            <motion.div
+              key={track}
+              className={classes.trackFieldsInner}
+              {...panelSwap}
+            >
+              {renderTrackFields()}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
       <div className={`${classes.fieldGroup} ${classes.spanFull}`}>
         <label className={classes.label} htmlFor="signup-phone-local">
           Phone
@@ -377,13 +643,56 @@ const SignupPage = () => {
     </>
   );
 
-  const renderBrandPanel = (eyebrow, heading, subtitle) => (
-    <>
-      <span className={classes.eyebrow}>{eyebrow}</span>
-      <h1 className={classes.heading}>{heading}</h1>
-      <p className={classes.subtitle}>{subtitle}</p>
-    </>
-  );
+  const renderBrandPanel = (eyebrow, heading, subtitle, { animateKey, highlight } = {}) => {
+    const key = animateKey || `${eyebrow}|${heading}`;
+    return (
+      <div className={classes.brandCopy}>
+        <div className={classes.brandLine}>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={`eyebrow-${key}`}
+              className={classes.eyebrow}
+              {...textSwap}
+            >
+              {eyebrow}
+            </motion.span>
+          </AnimatePresence>
+        </div>
+        <div className={classes.brandHeadingWrap}>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.h1
+              key={`title-${key}`}
+              className={classes.heading}
+              {...textSwap}
+              transition={
+                reduceMotion
+                  ? { duration: 0 }
+                  : { duration: 0.15, ease: 'easeInOut', delay: 0.02 }
+              }
+            >
+              {highlightTitle(heading, highlight)}
+            </motion.h1>
+          </AnimatePresence>
+        </div>
+        <div className={classes.brandLine}>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.p
+              key={`sub-${key}`}
+              className={classes.subtitle}
+              {...textSwap}
+              transition={
+                reduceMotion
+                  ? { duration: 0 }
+                  : { duration: 0.15, ease: 'easeInOut', delay: 0.04 }
+              }
+            >
+              {subtitle}
+            </motion.p>
+          </AnimatePresence>
+        </div>
+      </div>
+    );
+  };
 
   if (step === 'onboarding') {
     return (
@@ -456,20 +765,73 @@ const SignupPage = () => {
   return (
     <AuthShell
       brand={renderBrandPanel(
-        'Join CallsFlow',
-        'Create your agent account',
-        'Sign up to receive qualified inbound calls in your verticals.',
+        brandCopy.eyebrow,
+        brandCopy.title,
+        brandCopy.subtitle,
+        { animateKey: track, highlight: brandCopy.highlight },
       )}
     >
-      {refCode && (
-        <div className={classes.referralBanner}>
-          <span className={classes.referralIcon} aria-hidden>✦</span>
-          <span>
-            Referral code{' '}
-            <strong className={classes.referralCode}>{refCode}</strong>
-            {' '}applied — welcome aboard!
-          </span>
-        </div>
+      <AnimatePresence mode="popLayout" initial={false}>
+        {refCode && (track === 'agent' || track === 'join') ? (
+          <motion.div
+            key={`ref-${refCode}`}
+            className={classes.referralBanner}
+            initial={reduceMotion ? false : { opacity: 0, y: -6, filter: 'blur(3px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: -4, filter: 'blur(2px)' }}
+            transition={{ duration: 0.25, ease: EASE_SMOOTH }}
+          >
+            <span className={classes.referralIcon} aria-hidden>✦</span>
+            <span>
+              Referral code{' '}
+              <strong className={classes.referralCode}>{refCode}</strong>
+              {' '}applied — welcome aboard!
+            </span>
+          </motion.div>
+        ) : null}
+
+        {invitePreview?.name && track === 'join' ? (
+          <motion.div
+            key={`invite-${invitePreview.name}`}
+            className={classes.referralBanner}
+            initial={reduceMotion ? false : { opacity: 0, y: -6, filter: 'blur(3px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: -4, filter: 'blur(2px)' }}
+            transition={{ duration: 0.25, ease: EASE_SMOOTH }}
+          >
+            <span className={classes.referralIcon} aria-hidden>✦</span>
+            <span>
+              Joining agency{' '}
+              <strong className={classes.referralCode}>{invitePreview.name}</strong>
+            </span>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      {!trackLocked ? (
+        <motion.div
+          className={classes.trackSwitchWrap}
+          initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: EASE_SMOOTH }}
+        >
+          <SlidingTabs
+            tabs={TRACKS}
+            activeKey={track}
+            onChange={setTrack}
+            className={classes.trackSwitch}
+            ariaLabel="Signup type"
+          />
+        </motion.div>
+      ) : (
+        <motion.div
+          className={classes.lockedTrackChip}
+          initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.28, ease: EASE_SMOOTH }}
+        >
+          {track === 'join' ? 'Joining via invite link' : 'Agency admin signup'}
+        </motion.div>
       )}
 
       <motion.div initial="hidden" animate="visible" variants={formStagger}>
@@ -584,6 +946,16 @@ const SignupPage = () => {
         Already have an account?{' '}
         <Link to="/login" className={classes.footerLink}>Sign in</Link>
       </p>
+
+      {showTosModal ? (
+        <TosModal
+          onAccept={() => {
+            setTermsAccepted(true);
+            setShowTosModal(false);
+          }}
+          onDecline={() => setShowTosModal(false)}
+        />
+      ) : null}
     </AuthShell>
   );
 };

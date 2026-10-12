@@ -186,7 +186,7 @@ const AdminOnly = ({ children }) => {
 
 const AgencyAdminOnlyInner = ({ useAuthStore, isAgencyAdminUser, children }) => {
   const user = useAuthStore((s) => s.user);
-  if (!isAgencyAdminUser(user) && user?.role !== 'manager') {
+  if (!isAgencyAdminUser(user)) {
     return <Navigate to="/app" replace />;
   }
   return children;
@@ -292,6 +292,12 @@ const ReferralRedirect = () => {
   return <Navigate to={`/signup?ref=${encodeURIComponent(code || '')}`} replace />;
 };
 
+/** Tiny redirect: /join/AGENCY-XXXXXX → /signup?agency=AGENCY-XXXXXX */
+const AgencyJoinRedirect = () => {
+  const { code } = useParams();
+  return <Navigate to={`/signup?agency=${encodeURIComponent(code || '')}`} replace />;
+};
+
 /** Redirect legacy /admin/ops/agencies/:id → ?selected= */
 const OpsAgencyRedirect = () => {
   const { agencyId } = useParams();
@@ -334,6 +340,9 @@ const AnimatedRoutes = () => {
         <Route path="/signup" element={
           <Suspense fallback={<PageLoader />}><SignupPage /></Suspense>
         } />
+        <Route path="/signup/agency" element={
+          <Suspense fallback={<PageLoader />}><SignupPage /></Suspense>
+        } />
         <Route path="/login" element={
           <GuestRoute>
             <Suspense fallback={<PageLoader />}><LoginPage /></Suspense>
@@ -342,6 +351,8 @@ const AnimatedRoutes = () => {
 
         {/* Short referral redirect: /r/AGENT-XXXXXX → /signup?ref=AGENT-XXXXXX */}
         <Route path="/r/:code" element={<ReferralRedirect />} />
+        {/* Agency invite short link: /join/AGENCY-XXXXXX → /signup?agency=… */}
+        <Route path="/join/:code" element={<AgencyJoinRedirect />} />
 
         {/* Public Terms and Privacy */}
         <Route path="/terms" element={<Suspense fallback={<PageLoader />}><TermsPage /></Suspense>} />

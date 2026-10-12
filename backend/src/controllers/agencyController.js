@@ -6,6 +6,11 @@ const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const { normalizeAgencyId, getAgencyMembershipRole, isPlatformRole } = require('../utils/tenancy');
 const managerController = require('./managerController');
+const {
+  notifyAdminsInBackground,
+  notifyAgent,
+} = require('../services/notificationService');
+const socketRegistry = require('../sockets/socketRegistry');
 
 async function getAgencyMe(req, res) {
   try {
@@ -31,7 +36,8 @@ async function getAgencyMe(req, res) {
 
 async function listAgencies(req, res) {
   try {
-    const agencies = await agencyService.listAgencies();
+    const status = req.query?.status ? String(req.query.status).trim() : undefined;
+    const agencies = await agencyService.listAgencies({ status });
     const withCounts = await Promise.all(
       agencies.map(async (a) => ({
         ...a,
@@ -42,6 +48,209 @@ async function listAgencies(req, res) {
   } catch (err) {
     console.error('[Agency] listAgencies:', err.message);
     res.status(500).json({ error: err.message || 'Failed to list agencies' });
+  }
+}
+
+async function resolveAgencyInvite(req, res) {
+  try {
+    const resolved = await agencyService.resolveInviteCode(req.params.code);
+    if (!resolved.valid) {
+      return res.status(404).json({ error: 'Invite code not found', valid: false });
+    }
+    res.json({
+      valid: true,
+      code: resolved.code,
+      name: resolved.name,
+    });
+  } catch (err) {
+    console.error('[Agency] resolveAgencyInvite:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to resolve invite' });
+  }
+}
+
+async function claimAgencyInvite(req, res) {
+  try {
+    const code = req.body?.code;
+    const result = await agencyService.claimInviteCode(req.user.uid, code);
+    res.json({
+      success: true,
+      agencyId: result.agencyId,
+      agencyName: result.agencyName,
+      role: result.membershipRole || 'agency_agent',
+    });
+  } catch (err) {
+    console.error('[Agency] claimAgencyInvite:', err.message);
+    const status = /already|Invalid|inactive|Platform/i.test(err.message) ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to join agency' });
+  }
+}
+
+async function registerAgency(req, res) {
+  try {
+    const { name, website } = req.body || {};
+    const agency = await agencyService.registerAgencyApplication(req.user.uid, { name, website });
+    const app = agency.application || {};
+    const linkPath = `/app/admin/agencies?tab=applications&agencyId=${encodeURIComponent(agency.id)}`;
+
+    notifyAdminsInBackground({
+      type: 'admin_alert',
+      title: 'New agency application',
+      body: `${app.founderName || 'Someone'} applied for "${agency.name}"${app.founderEmail ? ` (${app.founderEmail})` : ''}`,
+      priority: 'high',
+      linkPath,
+    }, 'agency_register');
+
+    res.status(201).json({ agency });
+  } catch (err) {
+    console.error('[Agency] registerAgency:', err.message);
+    const status = /already|required|Platform|profile/i.test(err.message) ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to register agency' });
+  }
+}
+
+async function reapplyAgency(req, res) {
+  try {
+    await agencyService.clearRejectedMembershipForReapply(req.user.uid);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Agency] reapplyAgency:', err.message);
+    const status = /Only rejected|not assigned|founder|profile/i.test(err.message) ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to clear application' });
+  }
+}
+
+async function getAgencyInvite(req, res) {
+  try {
+    const agencyId = normalizeAgencyId(req.agencyId);
+    if (!agencyId) return res.status(404).json({ error: 'No agency assigned' });
+    const agency = await agencyService.getAgencyById(agencyId);
+    if (!agency) return res.status(404).json({ error: 'Agency not found' });
+    if (!agencyService.isAgencyOperable(agency)) {
+      return res.status(403).json({ error: 'Invite codes are only available after approval' });
+    }
+    const code = await agencyService.ensureInviteCode(agencyId);
+    res.json({
+      code,
+      shareUrl: agencyService.buildInviteShareUrl(code),
+      joinUrl: agencyService.buildInviteJoinUrl(code),
+      agencyName: agency.name,
+      status: agency.status,
+    });
+  } catch (err) {
+    console.error('[Agency] getAgencyInvite:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to load invite' });
+  }
+}
+
+async function rotateAgencyInvite(req, res) {
+  try {
+    const agencyId = normalizeAgencyId(req.agencyId);
+    if (!agencyId) return res.status(404).json({ error: 'No agency assigned' });
+    const out = await agencyService.rotateInviteCode(agencyId);
+    res.json(out);
+  } catch (err) {
+    console.error('[Agency] rotateAgencyInvite:', err.message);
+    const status = /only available|not found/i.test(err.message) ? 403 : 400;
+    res.status(status).json({ error: err.message || 'Failed to rotate invite' });
+  }
+}
+
+async function approveAgency(req, res) {
+  try {
+    const agency = await agencyService.approveAgency(req.params.id, {
+      reviewedBy: req.user.uid,
+    });
+    const founderUid = agency.createdByUid || agency.application?.founderUid;
+    if (founderUid) {
+      try {
+        const realtime = await notifyAgent(founderUid, {
+          type: 'personal',
+          title: 'Agency approved',
+          body: `"${agency.name}" is approved. You can invite agents and open your agency dashboard.`,
+          priority: 'high',
+          linkPath: '/app/agency',
+        }, 'agency_approve');
+        if (realtime) await socketRegistry.emitToAgent(founderUid, 'notification:new', realtime);
+      } catch (notifyErr) {
+        console.warn('[Agency] Founder approve notify failed:', notifyErr.message);
+      }
+    }
+    res.json({ agency });
+  } catch (err) {
+    console.error('[Agency] approveAgency:', err.message);
+    const status = err.message === 'Agency not found' ? 404 : 400;
+    res.status(status).json({ error: err.message || 'Failed to approve agency' });
+  }
+}
+
+async function rejectAgency(req, res) {
+  try {
+    const reason = req.body?.reason;
+    const agency = await agencyService.rejectAgency(req.params.id, {
+      reason,
+      reviewedBy: req.user.uid,
+    });
+    const founderUid = agency.createdByUid || agency.application?.founderUid;
+    if (founderUid) {
+      try {
+        const realtime = await notifyAgent(founderUid, {
+          type: 'personal',
+          title: 'Agency application update',
+          body: agency.rejectReason
+            ? `"${agency.name}" was not approved: ${agency.rejectReason}`
+            : `"${agency.name}" was not approved. Contact support if you have questions.`,
+          priority: 'high',
+          linkPath: '/app/agency',
+        }, 'agency_reject');
+        if (realtime) await socketRegistry.emitToAgent(founderUid, 'notification:new', realtime);
+      } catch (notifyErr) {
+        console.warn('[Agency] Founder reject notify failed:', notifyErr.message);
+      }
+    }
+    res.json({ agency });
+  } catch (err) {
+    console.error('[Agency] rejectAgency:', err.message);
+    const status = err.message === 'Agency not found' ? 404 : 400;
+    res.status(status).json({ error: err.message || 'Failed to reject agency' });
+  }
+}
+
+/** Admin: invite details for a specific agency (members tab). */
+async function getAdminAgencyInvite(req, res) {
+  try {
+    const agency = await agencyService.getAgencyById(req.params.id);
+    if (!agency) return res.status(404).json({ error: 'Agency not found' });
+    if (!agencyService.isAgencyOperable(agency)) {
+      return res.json({
+        code: null,
+        shareUrl: null,
+        joinUrl: null,
+        agencyName: agency.name,
+        status: agency.status,
+      });
+    }
+    const code = await agencyService.ensureInviteCode(agency.id);
+    res.json({
+      code,
+      shareUrl: agencyService.buildInviteShareUrl(code),
+      joinUrl: agencyService.buildInviteJoinUrl(code),
+      agencyName: agency.name,
+      status: agency.status,
+    });
+  } catch (err) {
+    console.error('[Agency] getAdminAgencyInvite:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to load invite' });
+  }
+}
+
+async function rotateAdminAgencyInvite(req, res) {
+  try {
+    const out = await agencyService.rotateInviteCode(req.params.id);
+    res.json(out);
+  } catch (err) {
+    console.error('[Agency] rotateAdminAgencyInvite:', err.message);
+    const status = /only available|not found/i.test(err.message) ? 403 : 400;
+    res.status(status).json({ error: err.message || 'Failed to rotate invite' });
   }
 }
 
@@ -234,6 +443,19 @@ async function removeAgencyMember(req, res) {
       patch.role = 'agent';
     }
     await ref.set(patch, { merge: true });
+
+    // Kick live pool presence — membership alone is not enough once they are online.
+    try {
+      const agentManager = require('../services/agentManager');
+      await agentManager.removeAgent(uid);
+      await socketRegistry.emitToAgent(uid, 'agent:go_live_error', {
+        code: 'AGENCY_REMOVED',
+        message: 'You were removed from your agency. You have been taken offline.',
+      });
+    } catch (evictErr) {
+      console.warn('[Agency] removeAgencyMember pool eviction failed:', evictErr.message);
+    }
+
     res.json({ success: true, uid });
   } catch (err) {
     console.error('[Agency] removeAgencyMember:', err.message);
@@ -328,4 +550,14 @@ module.exports = {
   getAnalyticsDrilldown: managerController.getAnalyticsDrilldown,
   getCallLogs: managerController.getCallLogs,
   getAgencyMe,
+  resolveAgencyInvite,
+  claimAgencyInvite,
+  registerAgency,
+  reapplyAgency,
+  getAgencyInvite,
+  rotateAgencyInvite,
+  approveAgency,
+  rejectAgency,
+  getAdminAgencyInvite,
+  rotateAdminAgencyInvite,
 };

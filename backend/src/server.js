@@ -94,15 +94,29 @@ const startEngine = async () => {
     try {
       const { createClient } = require('redis');
       const { createAdapter } = require('@socket.io/redis-adapter');
-      const pubClient = createClient({
+      // Match main redis.js socket options so Upstash idle/ETIMEDOUT reconnects cleanly
+      // instead of leaving unhandled rejections on the Socket.IO pub/sub clients.
+      const socketIoRedisOpts = {
         url: process.env.REDIS_URL,
         socket: {
           tls: process.env.REDIS_URL.startsWith('rediss://'),
+          keepAlive: 60000,
+          noDelay: true,
+          reconnectStrategy: (retries) => {
+            if (retries > 20) {
+              console.error('[Socket.IO Redis] Too many reconnect attempts, giving up.');
+              return new Error('Max reconnect attempts reached');
+            }
+            return Math.min(retries * 200, 5000);
+          },
         },
-      });
+      };
+      const pubClient = createClient(socketIoRedisOpts);
       const subClient = pubClient.duplicate();
       pubClient.on('error', (err) => console.error('[Socket.IO Redis pub]', err.message));
       subClient.on('error', (err) => console.error('[Socket.IO Redis sub]', err.message));
+      pubClient.on('reconnecting', () => console.log('[Socket.IO Redis pub] Reconnecting…'));
+      subClient.on('reconnecting', () => console.log('[Socket.IO Redis sub] Reconnecting…'));
       await Promise.all([pubClient.connect(), subClient.connect()]);
       io.adapter(createAdapter(pubClient, subClient));
       console.log('✅ Socket.IO Redis adapter enabled');
@@ -213,6 +227,8 @@ const startEngine = async () => {
   // Manager dashboard (read-only team analytics scoped to managedAgents, role: 'manager' or 'admin')
   app.use('/api/manager', managerRoutes);
   app.use('/api/agency', agencyRoutes);
+  const agencyInviteRoutes = require('./routes/agencyInviteRoutes');
+  app.use('/api/agency-invites', agencyInviteRoutes);
 
   // Agent leaderboard (platform agents ranked by billable calls); any authenticated user can view
   app.use('/api/leaderboard', leaderboardRoutes);

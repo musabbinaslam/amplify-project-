@@ -86,7 +86,7 @@ export const ADMIN_MODULES = [
   {
     id: 'agencies',
     title: 'Agencies',
-    description: 'Create agencies, assign agents, lock campaigns, and manage agency DIDs.',
+    description: 'Review applications, invite codes, assign agents, lock campaigns, and manage DIDs.',
     route: '/app/admin/agencies',
     icon: Building2,
     category: 'configuration',

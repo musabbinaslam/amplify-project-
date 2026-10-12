@@ -11,6 +11,7 @@ import {
   Building2, UserCog, Trophy, Flag, BarChart2, Inbox,
 } from 'lucide-react';
 import { isAgencyAdminUser } from '../../utils/authRoles';
+import { isAgencyReviewLockdown } from '../../utils/agencyGate';
 import useSupportChatStore from '../../store/useSupportChatStore';
 import useSupportDeskStore from '../../store/useSupportDeskStore';
 import classes from './Sidebar.module.css';
@@ -24,6 +25,7 @@ const NAV_GROUP_LABELS = {
   admin: 'Admin',
   qa: 'QA',
   support: 'Support',
+  review: 'Application',
 };
 
 function matchesNavItem(item, pathname) {
@@ -82,6 +84,38 @@ const Sidebar = () => {
         },
       ];
     }
+    // Pending / rejected / suspended agency founders: status + profile + support only.
+    if (isAgencyReviewLockdown(user)) {
+      const statusLabel = user?.agencyStatus === 'rejected'
+        ? 'Application status'
+        : user?.agencyStatus === 'suspended'
+          ? 'Agency suspended'
+          : user?.agencyStatus
+            ? 'Under review'
+            : 'Agency status';
+      return [
+        {
+          path: '/app',
+          label: statusLabel,
+          icon: Building2,
+          end: true,
+          group: 'review',
+        },
+        {
+          path: '/app/profile',
+          label: 'Profile',
+          icon: User,
+          group: 'review',
+        },
+        {
+          path: '/app/support',
+          label: 'Support',
+          icon: MessageSquare,
+          group: 'review',
+          badgeKey: 'supportUnread',
+        },
+      ];
+    }
     const base = [...navItems];
     if (role === 'admin') {
       base.push(
@@ -133,7 +167,7 @@ const Sidebar = () => {
   }, [role, user]);
 
   const navGroups = React.useMemo(() => {
-    const order = ['work', 'business', 'you', 'agency', 'manager', 'admin', 'qa', 'support'];
+    const order = ['review', 'work', 'business', 'you', 'agency', 'manager', 'admin', 'qa', 'support'];
     return order
       .map((groupId) => ({
         id: groupId,
