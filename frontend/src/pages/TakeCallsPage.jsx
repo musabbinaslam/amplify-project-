@@ -738,70 +738,6 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
   );
 };
 
-// ─── Post-Call Disposition Modal ─────────────────────────────────────────────
-const DispositionModal = ({ callSid, onComplete }) => {
-  const [selected, setSelected] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const options = [
-    { id: 'not_interested', label: 'Not interested' },
-    { id: 'does_not_qualify', label: 'Doesn\'t qualify' },
-    { id: 'over_age', label: 'Over Age' },
-    { id: 'thinks_its_free', label: 'Thinks it\'s free' },
-    { id: 'call_dropped', label: 'Call dropped' },
-    { id: 'callback', label: 'Call back' },
-    { id: 'busy', label: 'Busy' },
-    { id: 'policy_closed', label: 'Policy Closed' },
-    { id: 'dead_air', label: 'Dead Air' }
-  ];
-
-  const handleSubmit = async () => {
-    if (!selected) return;
-    setSubmitting(true);
-    try {
-      if (callSid !== 'test-sid') {
-        await apiFetch(`/api/voice/logs/${callSid}`, {
-          method: 'PATCH',
-          body: { disposition: selected }
-        });
-      }
-      toast.success('Disposition saved');
-      onComplete();
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to save disposition. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className={classes.callOverlay}>
-      <div className={`glass ${classes.dispositionModal}`}>
-        <h3>Call Completed</h3>
-        <p>Please select a disposition for the call that just ended.</p>
-        <div className={classes.dispositionOptions}>
-          {options.map(opt => (
-            <button
-              key={opt.id}
-              className={`${classes.dispositionOptionBtn} ${selected === opt.id ? classes.dispositionSelected : ''}`}
-              onClick={() => setSelected(opt.id)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        <button
-          className={`${classes.primaryBtn} ${classes.dispositionSubmitBtn}`}
-          onClick={handleSubmit}
-          disabled={!selected || submitting}
-        >
-          {submitting ? 'Saving...' : 'Submit & Ready'}
-        </button>
-      </div>
-    </div>
-  );
-};
 
 // ─── Call History Table ──────────────────────────────────────────────────────
 const CallHistory = ({ logs, onDispositionUpdate }) => {
@@ -1244,16 +1180,6 @@ const TakeCallsPage = () => {
             />
           </div>
         </motion.div>
-
-        {pendingDispositionCall && (
-          <DispositionModal
-            callSid={pendingDispositionCall}
-            onComplete={() => {
-              clearPendingDisposition();
-              refreshRecentLogs();
-            }}
-          />
-        )}
       </motion.div>
     );
   }
@@ -1390,15 +1316,6 @@ const TakeCallsPage = () => {
           </div>
         </motion.div>
       )} {/* end !user?.flagged wizard guard */}
-      {pendingDispositionCall && (
-        <DispositionModal
-          callSid={pendingDispositionCall}
-          onComplete={() => {
-            clearPendingDisposition();
-            refreshRecentLogs();
-          }}
-        />
-      )}
     </motion.div>
   );
 };

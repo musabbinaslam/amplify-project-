@@ -1,0 +1,252 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999;
+  background: rgba(7, 10, 19, 0.84);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  overflow-y: auto;
+  user-select: none;
+  cursor: default;
+}
+
+.modal {
+  width: 100%;
+  max-width: 520px;
+  background: color-mix(in srgb, var(--surface, #0f172a) 92%, #000);
+  border: 1px solid color-mix(in srgb, var(--border, #334155) 80%, var(--brand-solid, #3b82f6));
+  border-radius: var(--radius-2xl, 20px);
+  padding: 1.75rem;
+  box-shadow: 
+    0 25px 60px -15px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 0 40px -10px color-mix(in srgb, var(--brand-solid, #3b82f6) 25%, transparent);
+  color: var(--text-primary, #f8fafc);
+  position: relative;
+  overflow: hidden;
+}
+
+.modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--brand-gradient, linear-gradient(90deg, #3b82f6, #8b5cf6)));
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.iconWrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--brand-solid, #3b82f6) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-solid, #3b82f6) 30%, transparent);
+  color: var(--brand-text, #60a5fa);
+  box-shadow: 0 0 20px -4px color-mix(in srgb, var(--brand-solid, #3b82f6) 35%, transparent);
+}
+
+.title {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary, #f8fafc);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.45;
+}
+
+.lockBanner {
+  margin-bottom: 1.25rem;
+  padding: 8px 14px;
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
+  border: 1px solid color-mix(in srgb, #f59e0b 28%, transparent);
+  border-radius: var(--radius-md, 10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #fbbf24;
+  letter-spacing: 0.01em;
+}
+
+.lockPulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.optionsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 1.5rem;
+}
+
+.optionBtn {
+  border: 1px solid color-mix(in srgb, var(--border, #334155) 75%, transparent);
+  background: color-mix(in srgb, var(--surface-container-high, #1e293b) 60%, transparent);
+  border-radius: var(--radius-lg, 12px);
+  padding: 12px 14px;
+  color: var(--text-primary, #e2e8f0);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.optionBtn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--brand-solid, #3b82f6) 60%, transparent);
+  background: color-mix(in srgb, var(--surface-container-high, #1e293b) 90%, transparent);
+  transform: translateY(-1px);
+}
+
+.optionBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.optionSelected {
+  border-color: var(--brand-solid, #3b82f6) !important;
+  background: color-mix(in srgb, var(--brand-solid, #3b82f6) 18%, transparent) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px -2px color-mix(in srgb, var(--brand-solid, #3b82f6) 30%, transparent);
+}
+
+.policyOption {
+  grid-column: span 2;
+  border-color: color-mix(in srgb, #10b981 40%, transparent);
+  background: color-mix(in srgb, #10b981 8%, transparent);
+}
+
+.policyOption:hover:not(:disabled) {
+  border-color: #10b981;
+  background: color-mix(in srgb, #10b981 16%, transparent);
+}
+
+.policySelected {
+  border-color: #10b981 !important;
+  background: color-mix(in srgb, #10b981 22%, transparent) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px -2px rgba(16, 185, 129, 0.4);
+}
+
+.radioIndicator {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--border, #475569) 80%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.radioSelected {
+  border-color: var(--brand-solid, #3b82f6);
+  background: var(--brand-solid, #3b82f6);
+}
+
+.radioPolicySelected {
+  border-color: #10b981;
+  background: #10b981;
+}
+
+.radioDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.submitBtn {
+  width: 100%;
+  padding: 14px 20px;
+  border-radius: var(--radius-lg, 12px);
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+  background: var(--brand-solid, #3b82f6);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--brand-solid, #3b82f6) 40%, transparent);
+}
+
+.submitBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--brand-solid, #3b82f6) 55%, transparent);
+}
+
+.submitBtn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.submitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.footerNote {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-tertiary, #64748b);
+  line-height: 1.4;
+}
+
+@media (max-width: 500px) {
+  .optionsGrid {
+    grid-template-columns: 1fr;
+  }
+  .policyOption {
+    grid-column: span 1;
+  }
+  .modal {
+    padding: 1.25rem;
+  }
+}
