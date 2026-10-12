@@ -753,6 +753,20 @@ async function getMe(req, res) {
     payload.memberSince = payload.createdAt || null;
     payload.lastUpdated = payload.updatedAt || null;
     if (!payload.role) payload.role = 'agent';
+    if (payload.agencyId) {
+      try {
+        const agencyService = require('../services/agencyService');
+        const agency = await agencyService.getAgencyById(payload.agencyId);
+        payload.agencyStatus = agency?.status || null;
+        payload.agencyName = agency?.name || null;
+        payload.agencyRejectReason = agency?.rejectReason || null;
+      } catch {
+        payload.agencyStatus = null;
+      }
+    } else {
+      payload.agencyStatus = null;
+      payload.agencyName = null;
+    }
     res.json(payload);
   } catch (err) {
     console.error('[Users] getMe:', err.message);
@@ -772,6 +786,20 @@ async function getMeBootstrap(req, res) {
     payload.memberSince = payload.createdAt || null;
     payload.lastUpdated = payload.updatedAt || null;
     if (!payload.role) payload.role = 'agent';
+    if (payload.agencyId) {
+      try {
+        const agencyService = require('../services/agencyService');
+        const agency = await agencyService.getAgencyById(payload.agencyId);
+        payload.agencyStatus = agency?.status || null;
+        payload.agencyName = agency?.name || null;
+        payload.agencyRejectReason = agency?.rejectReason || null;
+      } catch {
+        payload.agencyStatus = null;
+      }
+    } else {
+      payload.agencyStatus = null;
+      payload.agencyName = null;
+    }
     res.json({
       profile: payload,
       apiKey,
@@ -783,15 +811,44 @@ async function getMeBootstrap(req, res) {
   }
 }
 
+/** Profile fields clients may write via PATCH /api/users/me. Everything else is ignored. */
+const PATCH_ME_ALLOWED_FIELDS = new Set([
+  'fullName',
+  'name',
+  'displayName',
+  'email',
+  'bio',
+  'avatarUrl',
+  'landingPageSlug',
+  'brandColor',
+  'onboarding',
+  'acceptedTermsVersion',
+  'statePresets',
+  'licensedStates',
+  'averageAp',
+  // Dev-only: production strip below. Webhooks / persona confirm own verified writes.
+  'personaStatus',
+]);
+
+function pickPatchMeBody(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const key of Object.keys(raw)) {
+    if (!PATCH_ME_ALLOWED_FIELDS.has(key)) continue;
+    out[key] = raw[key];
+  }
+  return out;
+}
+
 async function patchMe(req, res) {
   if (!ensureAdmin(req, res)) return;
   if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
     return res.status(400).json({ error: 'Body must be a JSON object' });
   }
   try {
-    const body = { ...req.body };
-    delete body.role;
-    // In production, personaStatus MUST only be updated by the webhook.
+    // Allowlist only — never merge raw req.body (blocks agencyId/agencyRole/role/wallet/etc.).
+    const body = pickPatchMeBody(req.body);
+    // In production, personaStatus MUST only be updated by the webhook / confirm route.
     // In development, we allow the frontend to set it since webhooks can't reach localhost.
     if (process.env.NODE_ENV === 'production') {
       delete body.personaStatus;
@@ -894,6 +951,9 @@ async function patchMe(req, res) {
       if (!digits || digits.length < 10) {
         return res.status(400).json({ error: 'A valid phone number is required (at least 10 digits).' });
       }
+    }
+    if (Object.keys(body).length === 0) {
+      return res.status(400).json({ error: 'No allowed profile fields in body' });
     }
     await mergeUserDoc(req.user.uid, body);
 

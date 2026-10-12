@@ -10,6 +10,8 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import PersonaVerificationBlocker from '../components/auth/PersonaVerificationBlocker';
+import AgencyStatusGate from '../components/agency/AgencyStatusGate';
+import { isAgencyGated } from '../utils/agencyGate';
 import classes from './TakeCallsPage.module.css';
 import { initializeTwilioDevice } from '../services/twilioService';
 import useDialerStore from '../store/useDialerStore';
@@ -1219,7 +1221,13 @@ const TakeCallsPage = () => {
         </motion.div>
       )}
 
-      {!user?.flagged && user?.personaStatus !== 'verified' && (
+      {!user?.flagged && isAgencyGated(user) && (
+        <motion.div variants={presets.child}>
+          <AgencyStatusGate />
+        </motion.div>
+      )}
+
+      {!user?.flagged && !isAgencyGated(user) && user?.personaStatus !== 'verified' && (
         <motion.div variants={presets.child}>
           <PersonaVerificationBlocker 
             onComplete={() => {
@@ -1232,7 +1240,7 @@ const TakeCallsPage = () => {
         </motion.div>
       )}
 
-      {!user?.flagged && user?.personaStatus === 'verified' && (
+      {!user?.flagged && !isAgencyGated(user) && user?.personaStatus === 'verified' && (
         <motion.div className={`glass ${classes.wizardShell}`} variants={presets.child}>
 
           <div className={classes.wizardGrid}>

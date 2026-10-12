@@ -36,6 +36,7 @@
   background: color-mix(in srgb, var(--brand-text) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
   border-radius: var(--radius-full);
+  will-change: transform, opacity, filter;
 }
 
 .heading {
@@ -45,6 +46,7 @@
   margin: 0 0 10px;
   letter-spacing: -0.03em;
   line-height: 1.15;
+  will-change: transform, opacity, filter;
 }
 
 .subtitle {
@@ -54,6 +56,16 @@
   margin: 0 0 24px;
   font-weight: 500;
   max-width: 36ch;
+  will-change: transform, opacity, filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eyebrow,
+  .heading,
+  .subtitle,
+  .titleHighlight {
+    will-change: auto;
+  }
 }
 
 .backHomeLink {
@@ -85,7 +97,123 @@
   box-shadow: 0 0 0 2px var(--brand-dim);
 }
 
+/* ─── Brand copy swaps ─── */
+.brandCopy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  width: 100%;
+}
+
+.brandLine,
+.brandHeadingWrap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  /* Contain filter/opacity compositing so exit frames don't leave a bar. */
+  isolation: isolate;
+}
+
+.brandHeadingWrap {
+  min-height: 1.15em;
+  display: grid;
+}
+
+.brandHeadingWrap > * {
+  grid-area: 1 / 1;
+  width: 100%;
+}
+
+.titleHighlight {
+  color: var(--brand-text);
+  display: inline;
+  /* Paint underline with the text (no z-index:-1 pseudo — that ghosts under filter/blur). */
+  background-image: linear-gradient(
+    transparent calc(100% - 0.18em),
+    color-mix(in srgb, var(--brand-text) 28%, transparent) calc(100% - 0.18em)
+  );
+  background-repeat: no-repeat;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 /* ─── Form panel ─── */
+.trackSwitchWrap {
+  margin-bottom: 16px;
+}
+
+.trackSwitch {
+  width: 100%;
+  display: flex !important;
+  align-items: stretch;
+  gap: 0;
+  padding: 4px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-container);
+  box-shadow: none;
+}
+
+.trackSwitch :global(button) {
+  flex: 1 1 0;
+  justify-content: center;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 10px 6px;
+  height: auto;
+  min-height: 38px;
+  white-space: normal;
+}
+
+.lockedTrackChip {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 22%, transparent);
+}
+
+.trackFieldsSlot {
+  grid-column: 1 / -1;
+  overflow: hidden;
+}
+
+.trackFieldsInner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.inviteHint,
+.inviteError {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.inviteHint {
+  color: var(--text-secondary);
+}
+
+.inviteError {
+  color: var(--accent-red, #ef4444);
+}
+
+.optional {
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .referralBanner {
   display: flex;
   align-items: flex-start;
@@ -705,7 +833,8 @@
   letter-spacing: -0.04em;
   line-height: 1.04;
   margin: 4px 0 10px;
-  animation: authWordUp 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.25s both;
+  /* Framer Motion handles track swaps — CSS enter anim was re-firing and ghosting. */
+  animation: none;
 }
 
 .subtitle {

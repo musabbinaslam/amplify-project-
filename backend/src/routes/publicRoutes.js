@@ -1,7 +1,7 @@
 const express = require('express');
 const { getReleaseId, writeReleaseId } = require('../utils/releaseId');
 
-const { expandOrigins } = require('../utils/corsOrigins');
+const { expandOrigins, isPrivateLanOrigin } = require('../utils/corsOrigins');
 
 const router = express.Router();
 const metaConversionService = require('../services/metaConversionService');
@@ -12,6 +12,14 @@ const allowedFirebaseConfigOrigins = expandOrigins(
     .map((origin) => origin.trim())
     .filter(Boolean),
 );
+
+function isFirebaseConfigOriginAllowed(origin) {
+  if (!origin) return false;
+  if (allowedFirebaseConfigOrigins.includes(origin)) return true;
+  // Match CORS: allow vite --host / LAN origins outside production.
+  if (process.env.NODE_ENV !== 'production' && isPrivateLanOrigin(origin)) return true;
+  return false;
+}
 
 function getRequestOrigin(req) {
   const originHeader = req.headers.origin ? String(req.headers.origin).trim() : '';
@@ -68,7 +76,7 @@ router.get('/firebase-config', (req, res) => {
   // Optional hardening: only serve Firebase web config to approved frontend origins.
   if (allowedFirebaseConfigOrigins.length) {
     const requestOrigin = getRequestOrigin(req);
-    if (!requestOrigin || !allowedFirebaseConfigOrigins.includes(requestOrigin)) {
+    if (!isFirebaseConfigOriginAllowed(requestOrigin)) {
       return res.status(403).json({ error: 'Forbidden origin' });
     }
   }
@@ -311,6 +319,16 @@ async function handleConfirm(req, res) {
 router.get('/confirm/:campaignId', handleConfirm);
 router.get('/confirm/:campaignId/:phone', handleConfirm);
 router.get('/confirm/:campaignId/:token/:phone', handleConfirm);
+
+const { agencyInviteResolveLimiter } = require('../middleware/security');
+const agencyController = require('../controllers/agencyController');
+
+/** Public agency invite resolve — only returns active agencies. */
+router.get(
+  '/agency-invites/:code',
+  agencyInviteResolveLimiter,
+  agencyController.resolveAgencyInvite,
+);
 
 /**
  * Server-side Meta Conversions API event for successful signup.

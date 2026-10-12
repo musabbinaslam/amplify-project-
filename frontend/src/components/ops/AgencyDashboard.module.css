@@ -6,67 +6,137 @@
 }
 
 .tenantBanner {
-  padding: 20px 24px;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: 16px 24px;
   flex-wrap: wrap;
+  padding: 4px 2px 2px;
 }
 
 .tenantMain {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: 6px;
   min-width: 0;
+  flex: 1 1 220px;
 }
 
-.tenantIcon {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-lg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
-  color: var(--accent-cyan);
-  border: 1px solid color-mix(in srgb, var(--accent-cyan) 22%, transparent);
-  flex-shrink: 0;
+.tenantEyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand-text);
+  line-height: 1;
 }
 
 .tenantTitle {
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  margin: 0 0 4px;
+  font-size: clamp(26px, 3.2vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0;
   color: var(--text-primary);
   font-family: inherit;
-  line-height: 1.25;
+  line-height: 1.1;
 }
 
 .tenantSub {
-  margin: 0;
-  font-size: 14px;
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--text-secondary);
+  line-height: 1.4;
 }
 
 .chipRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .chip {
   font-size: 11px;
-  font-weight: 700;
-  padding: 4px 10px;
+  font-weight: 650;
+  padding: 3px 9px;
   border-radius: var(--radius-full);
-  border: 1px solid var(--border);
-  background: var(--surface-container);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
+}
+
+.tenantControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+
+.rangeGroup {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container) 70%, transparent);
+}
+
+.rangeBtn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 160ms ease,
+    background 160ms ease;
+}
+
+.rangeBtn:hover {
+  color: var(--text-primary);
+}
+
+.rangeBtnActive {
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  color: var(--brand-text);
+}
+
+.iconRefresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container) 70%, transparent);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.iconRefresh:hover:not(:disabled) {
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 28%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-text) 8%, transparent);
+}
+
+.iconRefresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .chartsRow {
@@ -104,4 +174,32 @@
 @media (max-width: 1024px) {
   .liveCommandRow { grid-template-columns: 1fr; }
   .chartsRow { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .tenantBanner {
+    align-items: flex-start;
+  }
+
+  .tenantControls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .rangeGroup {
+    flex: 1 1 auto;
+  }
+
+  .rangeBtn {
+    flex: 1 1 auto;
+    text-align: center;
+    padding: 7px 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rangeBtn,
+  .iconRefresh {
+    transition: none;
+  }
 }

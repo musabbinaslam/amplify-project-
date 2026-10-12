@@ -11,20 +11,11 @@ async function requireAgencyAdmin(req, res, next) {
     const role = doc?.role;
 
     if (role === 'admin') {
+      // Platform admins always pass as admin (requireActiveAgency skips them).
+      // Optional ?agencyId= / body.agencyId scopes the request without demoting role.
       const explicitAgencyId = normalizeAgencyId(req.query.agencyId || req.body?.agencyId);
-      const membershipAgencyId = normalizeAgencyId(doc?.agencyId);
-      const membershipRole = getAgencyMembershipRole(doc);
-
-      if (explicitAgencyId) {
-        req.agencyRole = 'admin';
-        req.agencyId = explicitAgencyId;
-      } else if (membershipAgencyId && membershipRole === 'agency_admin') {
-        req.agencyRole = 'agency_admin';
-        req.agencyId = membershipAgencyId;
-      } else {
-        req.agencyRole = 'admin';
-        req.agencyId = null;
-      }
+      req.agencyRole = 'admin';
+      req.agencyId = explicitAgencyId || null;
       req.managedAgents = null;
       return next();
     }

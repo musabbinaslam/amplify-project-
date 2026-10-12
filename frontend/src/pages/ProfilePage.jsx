@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { User, Camera, Copy, Check, Link2, Key, Loader2, X, Eye, EyeOff, RefreshCw, Upload, ShieldCheck, ChevronDown } from 'lucide-react';
+import { User, Camera, Copy, Check, Link2, Key, Loader2, X, Eye, EyeOff, RefreshCw, Upload, ShieldCheck, ChevronDown, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { getProfileBootstrap, saveProfile, regenerateApiKey, checkSlugAvailability, getProfileActivity } from '../services/profileService';
+import {
+  claimAgencyInvite,
+  registerAgencyApplication,
+} from '../services/agencyService';
+import { AGENCY_POST_AUTH_RETRY_KEY } from '../utils/agencyGate';
 import {
   COUNTRY_DIAL_CODES,
   DEFAULT_PHONE_COUNTRY,
@@ -76,8 +81,19 @@ async function getCroppedImage(src, pixelCrop) {
 const ProfilePage = () => {
   const presets = useSubtlePageMotion();
   const user = useAuthStore((s) => s.user);
+  const refreshUserRole = useAuthStore((s) => s.refreshUserRole);
   const updateAvatar = useAuthStore((s) => s.updateAvatar);
   const updateName = useAuthStore((s) => s.updateName);
+  const [joinCode, setJoinCode] = useState('');
+  const [joiningAgency, setJoiningAgency] = useState(false);
+  const [startAgencyName, setStartAgencyName] = useState('');
+  const [startingAgency, setStartingAgency] = useState(false);
+  const [agencyRetry, setAgencyRetry] = useState(null);
+  const canStartAgency = Boolean(
+    user
+    && !user.agencyId
+    && !['admin', 'qa', 'manager', 'support'].includes(user.role),
+  );
   const fileInputRef = useRef(null);
   const autosaveTimerRef = useRef(null);
   const [loading, setLoading] = useState(true);
@@ -125,6 +141,34 @@ const ProfilePage = () => {
     const done = items.filter((i) => i.done).length;
     return { items, score: Math.round((done / items.length) * 100) };
   }, [form, user?.avatar, bioValid, slugValid, slugStatus, phoneValid, webhookUrl, apiKey]);
+
+  useEffect(() => {
+    if (!canStartAgency) {
+      setAgencyRetry(null);
+      return;
+    }
+    try {
+      const raw = sessionStorage.getItem(AGENCY_POST_AUTH_RETRY_KEY);
+      if (!raw) {
+        setAgencyRetry(null);
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (!parsed || (parsed.track !== 'agency' && parsed.track !== 'join')) {
+        setAgencyRetry(null);
+        return;
+      }
+      setAgencyRetry(parsed);
+      if (parsed.track === 'agency' && parsed.agencyName) {
+        setStartAgencyName(String(parsed.agencyName));
+      }
+      if (parsed.track === 'join' && parsed.inviteCode) {
+        setJoinCode(String(parsed.inviteCode));
+      }
+    } catch {
+      setAgencyRetry(null);
+    }
+  }, [canStartAgency]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -411,6 +455,116 @@ const ProfilePage = () => {
                 {bioValid ? <span className={classes.valid}>Bio looks good.</span> : <span className={classes.invalid}>Add at least 20 characters.</span>}
               </div>
             </div>
+          </section>
+
+          <section className={`glass ${classes.accountCard}`}>
+            <div className={classes.cardHeader}>
+              <div className={classes.cardHeaderText}>
+                <h3>Agency</h3>
+                <p>Join with an invite code, or start an agency application</p>
+              </div>
+            </div>
+            <div className={classes.cardDivider} />
+            {user?.agencyId ? (
+              <div className={classes.editGroup}>
+                <p className={classes.editLabel} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Building2 size={16} />
+                  {user.agencyName || 'Assigned agency'}
+                  {user.agencyStatus && user.agencyStatus !== 'active' ? (
+                    <span> · {user.agencyStatus}</span>
+                  ) : null}
+                </p>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>
+                  You&apos;re already in an agency. Ask a platform admin to remove you before joining another.
+                </p>
+              </div>
+            ) : (
+              <>
+                {agencyRetry ? (
+                  <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--brand-text)' }}>
+                    Your signup agency step didn&apos;t finish — retry below.
+                  </p>
+                ) : null}
+                <div className={classes.editGroup}>
+                  <label className={classes.editLabel} htmlFor="join-agency-code">Invite code</label>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <input
+                      id="join-agency-code"
+                      className={classes.textInput}
+                      type="text"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="AGENCY-XXXXXX"
+                      value={joinCode}
+                      onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                    />
+                    <button
+                      type="button"
+                      className={classes.uploadBtn}
+                      disabled={joiningAgency || !joinCode.trim()}
+                      onClick={async () => {
+                        setJoiningAgency(true);
+                        try {
+                          const out = await claimAgencyInvite(joinCode.trim());
+                          await refreshUserRole();
+                          try { sessionStorage.removeItem(AGENCY_POST_AUTH_RETRY_KEY); } catch { /* ignore */ }
+                          setAgencyRetry(null);
+                          toast.success(out?.agencyName ? `Joined ${out.agencyName}` : 'Joined agency');
+                          setJoinCode('');
+                        } catch (err) {
+                          toast.error(err?.message || 'Could not join agency');
+                        } finally {
+                          setJoiningAgency(false);
+                        }
+                      }}
+                    >
+                      {joiningAgency ? 'Joining…' : 'Join'}
+                    </button>
+                  </div>
+                </div>
+                {canStartAgency ? (
+                  <div className={classes.editGroup} style={{ marginTop: 16 }}>
+                    <label className={classes.editLabel} htmlFor="start-agency-name">Start an agency</label>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                      <input
+                        id="start-agency-name"
+                        className={classes.textInput}
+                        type="text"
+                        autoComplete="organization"
+                        placeholder="Agency name"
+                        value={startAgencyName}
+                        onChange={(e) => setStartAgencyName(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className={classes.uploadBtn}
+                        disabled={startingAgency || !startAgencyName.trim()}
+                        onClick={async () => {
+                          setStartingAgency(true);
+                          try {
+                            await registerAgencyApplication({
+                              name: startAgencyName.trim(),
+                              website: agencyRetry?.agencyWebsite || undefined,
+                            });
+                            await refreshUserRole();
+                            try { sessionStorage.removeItem(AGENCY_POST_AUTH_RETRY_KEY); } catch { /* ignore */ }
+                            setAgencyRetry(null);
+                            toast.success('Agency application submitted — awaiting approval');
+                            setStartAgencyName('');
+                          } catch (err) {
+                            toast.error(err?.message || 'Could not start agency');
+                          } finally {
+                            setStartingAgency(false);
+                          }
+                        }}
+                      >
+                        {startingAgency ? 'Submitting…' : 'Apply'}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            )}
           </section>
 
           <section className={`glass ${classes.accountCard}`}>

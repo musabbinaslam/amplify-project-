@@ -99,6 +99,10 @@ router.delete('/agencies/:id/members/:uid', agencyController.removeAgencyMember)
 router.post('/agencies/:id/lock-campaigns', agencyController.lockCampaignsForAgency);
 router.get('/agencies/:id/dids', agencyController.listAgencyDids);
 router.post('/agencies/:id/dids', agencyController.assignAgencyDid);
+router.get('/agencies/:id/invite', agencyController.getAdminAgencyInvite);
+router.post('/agencies/:id/invite/rotate', agencyController.rotateAdminAgencyInvite);
+router.post('/agencies/:id/approve', agencyController.approveAgency);
+router.post('/agencies/:id/reject', agencyController.rejectAgency);
 
 // Suspicious drop pattern review
 const suspiciousController = require('../controllers/suspiciousController');

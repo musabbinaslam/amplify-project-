@@ -1530,6 +1530,12 @@
   border-color: color-mix(in srgb, var(--accent-red) 28%, var(--glass-border));
 }
 
+.dispPending {
+  background: color-mix(in srgb, var(--accent-yellow) 14%, transparent);
+  color: var(--accent-yellow);
+  border-color: color-mix(in srgb, var(--accent-yellow) 28%, var(--glass-border));
+}
+
 /* ─── Live calls & chips ─── */
 .liveCallsWrap {
   margin-bottom: 14px;
