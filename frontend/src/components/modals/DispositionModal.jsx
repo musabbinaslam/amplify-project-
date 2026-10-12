@@ -28,6 +28,12 @@ export default function DispositionModal({ onComplete }) {
   const [selected, setSelected] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Reset selection state between calls so previous disposition isn't pre-selected
+  useEffect(() => {
+    setSelected('');
+    setSubmitting(false);
+  }, [pendingDispositionCall]);
+
   // Lock body scroll and prevent Escape key while disposition is pending
   useEffect(() => {
     if (!pendingDispositionCall) return;
@@ -71,6 +77,7 @@ export default function DispositionModal({ onComplete }) {
 
       toast.success('Disposition saved. Ready for next call.');
       clearPendingDisposition();
+      setSelected('');
       queryClient.invalidateQueries({ queryKey: ['callLogs'] });
       onComplete?.();
     } catch (err) {
@@ -92,6 +99,7 @@ export default function DispositionModal({ onComplete }) {
         onMouseDown={(e) => e.stopPropagation()}
       >
         <motion.div
+          key={pendingDispositionCall}
           className={classes.modal}
           initial={{ opacity: 0, scale: 0.94, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
