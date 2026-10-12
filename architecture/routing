@@ -25,10 +25,10 @@ It asks Redis: *"Give me all agents who are currently marked `AVAILABLE`, are ta
 ### 3. Concurrency and Eliminating Race Conditions
 This is the most critical part of an enterprise dialer. If two calls ring at the exact same millisecond, and only one agent is available, a poorly coded system will route both calls to that single agent, crashing their browser.
 
-We solve this using **Redis Atomic Operations** or **PostgreSQL Row-level Locks (`SELECT FOR UPDATE SKIP LOCKED`)**.
+We solve this using **Redis Atomic Operations**.
 1. When Call A and Call B arrive at the exact same millisecond, they both query for an available agent.
-2. Call A randomly picks Agent John. Before Twilio dials John, Node.js executes an **Atomic Lock** on John's record, instantly flipping his status from `AVAILABLE` to `RINGING`. 
-3. Because the operation is atomic (running synchronously in Redis C++ memory), Call B is mathematically blocked from seeing John as available. Call B is forced to find the next available agent. 
+2. Call A randomly picks Agent John. Before Twilio dials John, Node.js executes an **Atomic Lock** on John's record using Redis `SMOVE`, instantly flipping his status from `AVAILABLE` to `RINGING`. 
+3. Because the `SMOVE` operation is atomic (running synchronously in Redis C++ memory), Call B is mathematically blocked from seeing John as available. Call B is forced to find the next available agent. 
 4. If no other agents are available, Call B is cleanly placed into the holding queue.
 
 ---
