@@ -62,20 +62,20 @@
 .results {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .summaryRow {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  gap: 12px;
 }
 
 .statPill {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 12px;
+  padding: 14px 16px;
   border-radius: 12px;
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface-container) 88%, transparent);
@@ -156,8 +156,8 @@
 
 .split {
   display: grid;
-  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
-  gap: 12px;
+  grid-template-columns: minmax(300px, 0.85fr) minmax(0, 1.15fr);
+  gap: 16px;
   align-items: start;
 }
 
@@ -166,7 +166,7 @@
 }
 
 .panel {
-  padding: 12px 14px 10px;
+  padding: 16px 18px 14px;
   min-height: 0;
 }
 
@@ -322,78 +322,339 @@
   background: var(--surface-container-high);
 }
 
-/* Dense call-log table */
-.tableWrap {
-  overflow: auto;
+/* Call-log cards — no horizontal scroll */
+.logCards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   max-height: min(70vh, 720px);
-  margin: 0 -4px;
-  border-radius: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+}
+
+.logCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-container-high) 55%, transparent);
+  min-width: 0;
+}
+
+.logCardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.logCardLead {
+  min-width: 0;
+  flex: 1;
+}
+
+.logCardTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.logCardWhen {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.logCardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  min-width: 0;
+}
+
+.logCardMeta span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.logCardMeta em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.logCardSid {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-container) 80%, transparent);
   border: 1px solid var(--border);
 }
 
-.logTable {
-  width: 100%;
-  border-collapse: collapse;
+.logCardSid code {
+  flex: 1;
+  min-width: 0;
   font-size: 12px;
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
-.logTable th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  text-align: left;
-  font-size: 10px;
+.logCardActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.forceChargeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent-red) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent-red) 10%, transparent);
+  color: var(--accent-red);
+  font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-tertiary);
-  background: var(--surface-container-high);
-  border-bottom: 1px solid var(--border);
-  padding: 8px 10px;
   white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.logTable td {
-  padding: 8px 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+.forceChargeBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-red) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent-red) 55%, var(--border));
+}
+
+.forceChargeBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.agentsPanel {
+  padding: 16px 18px 18px;
+}
+
+.agentsPanel .panelHead {
+  margin-bottom: 14px;
+}
+
+.agentsPanel .panelHead h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agentsGrid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.agentCard {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-container-high) 60%, transparent);
+  min-width: 0;
+  flex: 1 1 100%;
+}
+
+.agentCardOnline {
+  border-color: color-mix(in srgb, var(--accent-green) 30%, var(--border));
+  background: color-mix(in srgb, var(--accent-green) 6%, var(--surface-container-high));
+}
+
+.agentCardHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.agentAvatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--surface-container-highest) 85%, transparent);
+  border: 1px solid var(--border);
+}
+
+.agentAvatarOnline {
+  color: var(--accent-green);
+  border-color: color-mix(in srgb, var(--accent-green) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent-green) 12%, transparent);
+}
+
+.agentCardIdentity {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.agentCardIdentity strong {
+  font-size: 15px;
+  font-weight: 700;
   color: var(--text-primary);
-  vertical-align: middle;
-  white-space: nowrap;
-}
-
-.logTable tbody tr:hover td {
-  background: color-mix(in srgb, var(--brand-text) 6%, transparent);
-}
-
-.logTable tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.colWhen {
-  color: var(--text-secondary) !important;
-  font-variant-numeric: tabular-nums;
-}
-
-.colCampaign,
-.colAgent,
-.colDisp {
-  max-width: 140px;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.colNum {
-  font-variant-numeric: tabular-nums;
+.agentCardIdentity span {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agentStats {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.agentStat {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 96px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-container) 75%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  color: var(--text-tertiary);
+}
+
+.agentStat svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.agentStat span {
+  display: block;
+  font-size: 10px;
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  line-height: 1.2;
 }
 
-.colSid {
-  max-width: 130px;
+.agentStat strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.colAct {
-  width: 40px;
-  text-align: right;
+.agentStat:first-child strong {
+  color: var(--brand-text);
+}
+
+.agentLiveChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  background: var(--surface-container-high);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.agentLiveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.agentLive_live {
+  color: var(--accent-green);
+  border-color: color-mix(in srgb, var(--accent-green) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent-green) 12%, transparent);
+}
+
+.agentLive_live .agentLiveDot {
+  box-shadow: 0 0 8px var(--accent-green-glow);
+}
+
+.agentLive_busy {
+  color: var(--accent-cyan);
+  border-color: color-mix(in srgb, var(--accent-cyan) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent-cyan) 12%, transparent);
+}
+
+.agentLive_wrap {
+  color: var(--accent-yellow);
+  border-color: color-mix(in srgb, var(--accent-yellow) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent-yellow) 12%, transparent);
+}
+
+.agentLive_offline {
+  color: var(--text-tertiary);
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
 }
 
 .statusChip {
@@ -420,17 +681,28 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--brand-text) 35%, var(--border));
   background: color-mix(in srgb, var(--brand-text) 12%, transparent);
   color: var(--brand-text);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .playBtn:hover {
   background: color-mix(in srgb, var(--brand-text) 22%, transparent);
+}
+
+.recordingNone {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  padding: 0 4px;
 }
 
 .emptyCard {
@@ -508,6 +780,27 @@
 
   .summaryRow {
     grid-template-columns: 1fr;
+  }
+
+  .agentCard {
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 280px;
+    flex: 0 0 300px;
+  }
+
+  .agentCardHead {
+    flex-wrap: wrap;
+  }
+
+  .agentStats {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .agentStat {
+    flex: 1;
+    min-width: 0;
   }
 }
 

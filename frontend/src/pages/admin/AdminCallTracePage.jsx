@@ -9,12 +9,16 @@ import {
   Loader2,
   Copy,
   Check,
+  DollarSign,
+  Users,
+  Wallet,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { getAdminCallTrace } from '../../services/adminService';
 import { ADMIN_CATEGORIES, ADMIN_MODULES } from '../../config/adminModules';
 import AdminPageShell from '../../components/admin/AdminPageShell';
+import { useForceChargeFlow } from '../../components/admin/ForceChargeFlow';
 import { RecordingModal } from '../../components/modals/RecordingModal';
 import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
 import { EASE_SMOOTH } from '../../motion/appMotion';
@@ -61,6 +65,50 @@ function shortSid(sid) {
   const s = String(sid);
   if (s.length <= 14) return s;
   return `${s.slice(0, 6)}…${s.slice(-4)}`;
+}
+
+function formatBalance(cents) {
+  if (cents == null || !Number.isFinite(Number(cents))) return '—';
+  return `$${(Number(cents) / 100).toFixed(2)}`;
+}
+
+function resolveAgent(agentMeta, agentId) {
+  if (!agentId) {
+    return {
+      name: '—',
+      online: false,
+      status: 'OFFLINE',
+      statusLabel: 'Offline',
+      balanceCents: null,
+    };
+  }
+  const raw = agentMeta?.[agentId];
+  if (!raw) {
+    return {
+      name: agentId,
+      online: false,
+      status: 'OFFLINE',
+      statusLabel: 'Offline',
+      balanceCents: null,
+    };
+  }
+  if (typeof raw === 'string') {
+    return {
+      name: raw,
+      online: false,
+      status: 'OFFLINE',
+      statusLabel: 'Offline',
+      balanceCents: null,
+    };
+  }
+  return {
+    name: raw.name || agentId,
+    online: Boolean(raw.online),
+    status: raw.status || 'OFFLINE',
+    statusLabel: raw.statusLabel || (raw.online ? 'Live' : 'Offline'),
+    campaignId: raw.campaignId || null,
+    balanceCents: Number.isFinite(Number(raw.balanceCents)) ? Number(raw.balanceCents) : null,
+  };
 }
 
 function eventTitle(e) {
@@ -113,6 +161,33 @@ function StatPill({ icon: Icon, label, value }) {
   );
 }
 
+function agentInitials(name) {
+  const parts = String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+}
+
+function AgentLiveChip({ agent }) {
+  const online = agent?.online;
+  const tone = !online
+    ? 'offline'
+    : agent.status === 'IN_CALL' || agent.status === 'RINGING'
+      ? 'busy'
+      : agent.status === 'WRAP_UP'
+        ? 'wrap'
+        : 'live';
+  return (
+    <span className={`${classes.agentLiveChip} ${classes[`agentLive_${tone}`]}`} title={agent.statusLabel}>
+      <span className={classes.agentLiveDot} aria-hidden="true" />
+      {agent.statusLabel}
+    </span>
+  );
+}
+
 export default function AdminCallTracePage() {
   const presets = useSubtlePageMotion();
   const reduceMotion = useReducedMotion();
@@ -151,6 +226,29 @@ export default function AdminCallTracePage() {
   const query = result?.query || {};
   const hasResults = timeline.length > 0 || logs.length > 0 || Boolean(live);
   const showTimelineCol = timeline.length > 0;
+
+  const tracedAgents = useMemo(() => {
+    const ids = [
+      ...logs.map((l) => l.agentId),
+      live?.agentId,
+      ...timeline.map((e) => e.agentId),
+    ].filter(Boolean);
+    const unique = [...new Set(ids)];
+    return unique.map((id) => {
+      const meta = resolveAgent(agentMeta, id);
+      const callCount = logs.filter((l) => l.agentId === id).length;
+      const recordingCount = logs.filter(
+        (l) => l.agentId === id && (l.recordingSid || l.recordingUrl),
+      ).length;
+      return { id, ...meta, callCount, recordingCount };
+    });
+  }, [logs, live, timeline, agentMeta]);
+
+  const { openForceCharge, actionLoading, forceChargeModals } = useForceChargeFlow({
+    onSuccess: async () => {
+      await runSearch(q);
+    },
+  });
 
   return (
     <AdminPageShell
@@ -223,13 +321,68 @@ export default function AdminCallTracePage() {
               />
             </div>
 
+            {tracedAgents.length > 0 ? (
+              <section className={`glass ${shared.sectionCard} ${classes.agentsPanel}`}>
+                <div className={classes.panelHead}>
+                  <h3>
+                    <Users size={16} aria-hidden="true" />
+                    Agents on this trace
+                  </h3>
+                  <span className={classes.panelCount}>{tracedAgents.length}</span>
+                </div>
+                <div className={classes.agentsGrid}>
+                  {tracedAgents.map((agent) => (
+                    <article
+                      key={agent.id}
+                      className={`${classes.agentCard} ${agent.online ? classes.agentCardOnline : ''}`}
+                    >
+                      <div className={classes.agentCardHead}>
+                        <div className={`${classes.agentAvatar} ${agent.online ? classes.agentAvatarOnline : ''}`}>
+                          {agentInitials(agent.name)}
+                        </div>
+                        <div className={classes.agentCardIdentity}>
+                          <strong title={agent.id}>{agent.name}</strong>
+                          <span>{agent.id}</span>
+                        </div>
+                        <AgentLiveChip agent={agent} />
+                      </div>
+
+                      <div className={classes.agentStats}>
+                        <div className={classes.agentStat}>
+                          <Wallet size={14} aria-hidden="true" />
+                          <div>
+                            <span>Balance</span>
+                            <strong>{formatBalance(agent.balanceCents)}</strong>
+                          </div>
+                        </div>
+                        <div className={classes.agentStat}>
+                          <FileAudio size={14} aria-hidden="true" />
+                          <div>
+                            <span>Logs</span>
+                            <strong>{agent.callCount}</strong>
+                          </div>
+                        </div>
+                        <div className={classes.agentStat}>
+                          <Play size={14} aria-hidden="true" />
+                          <div>
+                            <span>Recordings</span>
+                            <strong>{agent.recordingCount}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
             {live ? (
               <div className={`glass ${classes.liveBanner}`}>
                 <span className={classes.liveDot} aria-hidden="true" />
                 <div className={classes.liveCopy}>
                   <strong>Live right now</strong>
                   <span>
-                    {agentMeta[live.agentId] || live.agentId || 'Agent'}
+                    {resolveAgent(agentMeta, live.agentId).name || live.agentId || 'Agent'}
                     {live.campaignId ? ` · ${live.campaignId}` : ''}
                     {live.callSid ? ` · ${live.callSid}` : ''}
                   </span>
@@ -259,7 +412,7 @@ export default function AdminCallTracePage() {
                         e.campaignId,
                         e.state,
                         e.agencyId,
-                        e.agentId ? (agentMeta[e.agentId] || e.agentId) : null,
+                        e.agentId ? resolveAgent(agentMeta, e.agentId).name : null,
                         e.reason,
                       ].filter(Boolean);
                       return (
@@ -296,70 +449,77 @@ export default function AdminCallTracePage() {
                 {logs.length === 0 ? (
                   <div className={classes.panelEmpty}>No completed call logs matched this From / CallSid.</div>
                 ) : (
-                  <div className={classes.tableWrap}>
-                    <table className={classes.logTable}>
-                      <thead>
-                        <tr>
-                          <th>When</th>
-                          <th>Campaign</th>
-                          <th>Dur</th>
-                          <th>Cost</th>
-                          <th>Agent</th>
-                          <th>Disposition</th>
-                          <th>Status</th>
-                          <th>CallSid</th>
-                          <th aria-label="Actions" />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {logs.map((log) => {
-                          const hasRec = Boolean(log.recordingSid || log.recordingUrl);
-                          return (
-                            <tr key={log.id}>
-                              <td className={classes.colWhen}>{formatTime(log.createdAt)}</td>
-                              <td className={classes.colCampaign} title={log.campaignLabel || log.campaign || ''}>
-                                {log.campaignLabel || log.campaign || '—'}
-                              </td>
-                              <td className={classes.colNum}>{formatDuration(log.duration)}</td>
-                              <td className={classes.colNum}>${Number(log.cost || 0).toFixed(2)}</td>
-                              <td className={classes.colAgent} title={agentMeta[log.agentId] || log.agentId || ''}>
-                                {agentMeta[log.agentId] || log.agentId || '—'}
-                              </td>
-                              <td className={classes.colDisp}>{log.disposition || '—'}</td>
-                              <td>
-                                <span
-                                  className={`${classes.statusChip} ${log.isBillable ? classes.statusPaid : ''}`}
-                                >
-                                  {log.isBillable ? 'Billable' : log.status || '—'}
-                                </span>
-                              </td>
-                              <td className={classes.colSid}>
-                                {log.callSid ? (
-                                  <span className={classes.sidInline}>
-                                    <code title={log.callSid}>{shortSid(log.callSid)}</code>
-                                    <CopyButton value={log.callSid} />
-                                  </span>
-                                ) : (
-                                  '—'
-                                )}
-                              </td>
-                              <td className={classes.colAct}>
-                                {hasRec ? (
-                                  <button
-                                    type="button"
-                                    className={classes.playBtn}
-                                    onClick={() => setPlayLog(log)}
-                                    title="Play recording"
-                                  >
-                                    <Play size={13} />
-                                  </button>
-                                ) : null}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  <div className={classes.logCards}>
+                    {logs.map((log) => {
+                      const hasRec = Boolean(log.recordingSid || log.recordingUrl);
+                      const agent = resolveAgent(agentMeta, log.agentId);
+                      const canForceCharge = Boolean(log.agentId && log.campaign);
+                      return (
+                        <article key={log.id} className={classes.logCard}>
+                          <div className={classes.logCardTop}>
+                            <div className={classes.logCardLead}>
+                              <h4 className={classes.logCardTitle}>
+                                {log.campaignLabel || log.campaign || 'Call'}
+                              </h4>
+                              <time className={classes.logCardWhen}>{formatTime(log.createdAt)}</time>
+                            </div>
+                            <span
+                              className={`${classes.statusChip} ${log.isBillable ? classes.statusPaid : ''}`}
+                            >
+                              {log.isBillable ? 'Billable' : log.status || '—'}
+                            </span>
+                          </div>
+
+                          <div className={classes.logCardMeta}>
+                            <span><em>Dur</em> {formatDuration(log.duration)}</span>
+                            <span><em>Cost</em> ${Number(log.cost || 0).toFixed(2)}</span>
+                            <span><em>Agent</em> {agent.name}</span>
+                            <span><em>Disposition</em> {log.disposition || '—'}</span>
+                          </div>
+
+                          {log.callSid ? (
+                            <div className={classes.logCardSid}>
+                              <code title={log.callSid}>{log.callSid}</code>
+                              <CopyButton value={log.callSid} />
+                            </div>
+                          ) : null}
+
+                          <div className={classes.logCardActions}>
+                            {hasRec ? (
+                              <button
+                                type="button"
+                                className={classes.playBtn}
+                                onClick={() => setPlayLog(log)}
+                              >
+                                <Play size={13} />
+                                Play recording
+                              </button>
+                            ) : (
+                              <span className={classes.recordingNone}>No recording</span>
+                            )}
+                            {canForceCharge ? (
+                              <button
+                                type="button"
+                                className={`${shared.dangerBtn} ${classes.forceChargeBtn}`}
+                                disabled={actionLoading}
+                                onClick={() => openForceCharge({
+                                  agentId: log.agentId,
+                                  agentName: agent.name,
+                                  flaggedLogs: [{
+                                    campaign: log.campaign,
+                                    campaignLabel: log.campaignLabel || log.campaign,
+                                    callSid: log.callSid,
+                                  }],
+                                })}
+                              >
+                                <DollarSign size={14} />
+                                Force charge
+                              </button>
+                            ) : null}
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </section>
@@ -403,6 +563,8 @@ export default function AdminCallTracePage() {
       {playLog ? (
         <RecordingModal log={playLog} onClose={() => setPlayLog(null)} />
       ) : null}
+
+      {forceChargeModals}
     </AdminPageShell>
   );
 }
