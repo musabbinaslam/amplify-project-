@@ -6,6 +6,7 @@ import { routeOutletMotion } from '../../motion/appMotion';
 import toast from 'react-hot-toast';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import DispositionModal from '../modals/DispositionModal';
 import useAuthStore from '../../store/authStore';
 import useDialerStore from '../../store/useDialerStore';
 import useSupportChatStore, { deskUnreadFromConversation } from '../../store/useSupportChatStore';
@@ -495,6 +496,7 @@ const AppShell = () => {
 
   return (
     <div className={`${classes.appShell} appAmbient`}>
+      <DispositionModal />
       <div className={classes.appContainer}>
       <div className={classes.mainLayout}>
         <Sidebar />
