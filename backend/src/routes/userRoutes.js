@@ -9,8 +9,6 @@ const {
   postWelcomeEmail,
   patchSettings,
   patchScript,
-  postRegenerateApiKey,
-  getSlugAvailability,
   getActivity,
   getNotifications,
   patchNotificationRead,
@@ -52,7 +50,6 @@ router.get('/me/bootstrap', getMeBootstrap);
 router.get('/me/dashboard-summary', getDashboardSummary);
 router.patch('/me', patchMe);
 router.post('/me/welcome-email', postWelcomeEmail);
-router.get('/me/slug-availability', getSlugAvailability);
 router.get('/me/activity', getActivity);
 router.patch('/me/call-logs/:callLogId/disposition', patchMyCallLogDisposition);
 router.get('/me/notifications', getNotifications);
@@ -73,7 +70,6 @@ router.get('/me/notes', listNotes);
 router.post('/me/notes', createNote);
 router.put('/me/notes/:noteId', updateNote);
 router.delete('/me/notes/:noteId', deleteNote);
-router.post('/me/api-key/regenerate', postRegenerateApiKey);
 
 router.get('/me/custom-scripts', listCustomScripts);
 router.post('/me/custom-scripts', createCustomScript);
