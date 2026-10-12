@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   ArrowRight,
   BarChart3,
@@ -13,6 +15,7 @@ import {
   Sun,
   Timer,
   Users,
+  X,
   Zap,
 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
@@ -20,6 +23,12 @@ import { fetchCampaignPricing } from '../services/dashboardService';
 import CallDeskPreview from '../components/marketing/CallDeskPreview';
 import LightRibbons from '../components/marketing/LightRibbons';
 import classes from './LandingPage.module.css';
+
+const AGENT_COUNT_OPTIONS = [
+  { id: 'solo', label: 'Solo', detail: '1 agent', bookMeeting: false },
+  { id: 'under5', label: 'Less than 5', detail: '2–4 agents', bookMeeting: false },
+  { id: 'team', label: '5 or more', detail: 'Team / agency', bookMeeting: true },
+];
 
 const QUICK_PROOF = [
   { value: '2.7 min', label: 'Average time to first routed call' },
@@ -129,12 +138,44 @@ const FAQItem = ({ item, isOpen, onToggle, id }) => (
 /* eslint-enable react/prop-types */
 
 const LandingPage = () => {
+  const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
   const [openFaq, setOpenFaq] = useState(0);
   const [verticalPricing, setVerticalPricing] = useState([]);
+  const [demoGateOpen, setDemoGateOpen] = useState(false);
+  const [agentCount, setAgentCount] = useState(null);
   const { theme, toggleTheme } = useUIStore();
   const bookingUrl = import.meta.env.VITE_CALENDLY_URL || '#';
   const pageRef = useRef(null);
   const frameRef = useRef(0);
+  const demoCloseRef = useRef(null);
+  const demoTitleId = useId();
+  const demoDescId = useId();
+
+  const closeDemoGate = () => {
+    setDemoGateOpen(false);
+    setAgentCount(null);
+  };
+
+  const openDemoGate = () => {
+    setAgentCount(null);
+    setDemoGateOpen(true);
+  };
+
+  const selectedAgentOption = AGENT_COUNT_OPTIONS.find((opt) => opt.id === agentCount) || null;
+
+  const handleDemoContinue = () => {
+    if (!selectedAgentOption) return;
+    if (selectedAgentOption.bookMeeting) {
+      if (bookingUrl && bookingUrl !== '#') {
+        window.open(bookingUrl, '_blank', 'noopener,noreferrer');
+      }
+      closeDemoGate();
+      return;
+    }
+    closeDemoGate();
+    navigate('/signup');
+  };
 
   useEffect(() => {
     fetchCampaignPricing()
@@ -154,6 +195,31 @@ const LandingPage = () => {
   }, []);
 
   useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
+
+  useEffect(() => {
+    if (!demoGateOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeDemoGate();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    const focusId = requestAnimationFrame(() => {
+      demoCloseRef.current?.focus();
+    });
+
+    return () => {
+      cancelAnimationFrame(focusId);
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [demoGateOpen]);
 
   // Drives the cursor spotlight, card edge light and the hero preview tilt.
   const handlePointerMove = (e) => {
@@ -247,9 +313,13 @@ const LandingPage = () => {
               <Link to="/signup" className={`${classes.btnPrimary} ${classes.btnLg}`}>
                 Create Account <ArrowRight size={18} className={classes.arrow} />
               </Link>
-              <a href={bookingUrl} target="_blank" rel="noreferrer" className={`${classes.btnGhost} ${classes.btnLg}`}>
+              <button
+                type="button"
+                className={`${classes.btnGhost} ${classes.btnLg}`}
+                onClick={openDemoGate}
+              >
                 <PlayCircle size={18} /> Book Demo Call
-              </a>
+              </button>
             </div>
             <ul className={`${classes.trustList} ${classes.load}`} style={{ animationDelay: '0.95s' }}>
               {TRUST_CHIPS.map((chip) => (
@@ -477,9 +547,13 @@ const LandingPage = () => {
                   </div>
                 </div>
               </div>
-              <a href={bookingUrl} target="_blank" rel="noreferrer" className={`${classes.btnPrimary} ${classes.btnLg}`}>
+              <button
+                type="button"
+                className={`${classes.btnPrimary} ${classes.btnLg}`}
+                onClick={openDemoGate}
+              >
                 View Live Slots on Calendly <ArrowRight size={18} className={classes.arrow} />
-              </a>
+              </button>
             </div>
           </div>
         </section>
@@ -515,9 +589,13 @@ const LandingPage = () => {
                   <Link to="/signup" className={`${classes.btnPrimary} ${classes.btnLg}`}>
                     Create Account <ArrowRight size={18} className={classes.arrow} />
                   </Link>
-                  <a href={bookingUrl} target="_blank" rel="noreferrer" className={`${classes.btnGhost} ${classes.btnLg}`}>
+                  <button
+                    type="button"
+                    className={`${classes.btnGhost} ${classes.btnLg}`}
+                    onClick={openDemoGate}
+                  >
                     Book Demo
-                  </a>
+                  </button>
                 </div>
               </div>
               <div className={classes.orbit} aria-hidden>
@@ -566,7 +644,9 @@ const LandingPage = () => {
             <Link to="/signup">Create Account</Link>
             <Link to="/terms">Terms of Service</Link>
             <Link to="/privacy">Privacy Policy</Link>
-            <a href={bookingUrl} target="_blank" rel="noreferrer">Book Demo</a>
+            <button type="button" className={classes.footerDemoBtn} onClick={openDemoGate}>
+              Book Demo
+            </button>
           </div>
         </div>
         <div className={classes.footerBottom}>
@@ -576,6 +656,103 @@ const LandingPage = () => {
           <div className={classes.wordmark}>CallsFlow</div>
         </div>
       </footer>
+
+      {createPortal(
+        <AnimatePresence>
+          {demoGateOpen ? (
+            <motion.div
+              key="demo-gate"
+              className={classes.demoOverlay}
+              role="presentation"
+              onClick={closeDemoGate}
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reduceMotion ? 0.12 : 0.22, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <motion.div
+                className={classes.demoModal}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={demoTitleId}
+                aria-describedby={demoDescId}
+                onClick={(e) => e.stopPropagation()}
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.96 }}
+                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.97 }}
+                transition={{ duration: reduceMotion ? 0.12 : 0.28, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className={classes.demoHeader}>
+                  <div className={classes.demoHeaderCopy}>
+                    <h2 id={demoTitleId} className={classes.demoTitle}>Book a demo</h2>
+                    <p id={demoDescId} className={classes.demoSubtitle}>
+                      Tell us how many agents you need. Teams of 5+ can schedule live; smaller teams start with signup.
+                    </p>
+                  </div>
+                  <button
+                    ref={demoCloseRef}
+                    type="button"
+                    className={classes.demoClose}
+                    onClick={closeDemoGate}
+                    aria-label="Close"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <p className={classes.demoLabel}>How many agents?</p>
+                <div className={classes.demoChips} role="radiogroup" aria-label="Team size">
+                  {AGENT_COUNT_OPTIONS.map((option, index) => {
+                    const selected = agentCount === option.id;
+                    return (
+                      <motion.button
+                        key={option.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        className={`${classes.demoChip} ${selected ? classes.demoChipSelected : ''}`}
+                        onClick={() => setAgentCount(option.id)}
+                        initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          delay: reduceMotion ? 0 : 0.04 + index * 0.03,
+                          duration: 0.22,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                        whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+                      >
+                        <span className={classes.demoChipValue}>{option.label}</span>
+                        <span className={classes.demoChipDetail}>{option.detail}</span>
+                        {selected ? (
+                          <span className={classes.demoChipCheck} aria-hidden>
+                            <Check size={12} strokeWidth={3} />
+                          </span>
+                        ) : null}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+
+                <div className={classes.demoActions}>
+                  <button type="button" className={classes.demoCancelBtn} onClick={closeDemoGate}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className={classes.demoContinueBtn}
+                    onClick={handleDemoContinue}
+                    disabled={agentCount == null}
+                  >
+                    Continue
+                    <ArrowRight size={16} className={classes.arrow} />
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };
