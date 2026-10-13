@@ -11,8 +11,10 @@ import {
   Building2, UserCog, Trophy, Flag, BarChart2, Inbox,
 } from 'lucide-react';
 import { isAgencyAdminUser } from '../../utils/authRoles';
+import { isAgencyReviewLockdown } from '../../utils/agencyGate';
 import useSupportChatStore from '../../store/useSupportChatStore';
 import useSupportDeskStore from '../../store/useSupportDeskStore';
+import toast from 'react-hot-toast';
 import classes from './Sidebar.module.css';
 
 const NAV_GROUP_LABELS = {
@@ -24,6 +26,7 @@ const NAV_GROUP_LABELS = {
   admin: 'Admin',
   qa: 'QA',
   support: 'Support',
+  review: 'Application',
 };
 
 function matchesNavItem(item, pathname) {
@@ -57,6 +60,7 @@ const Sidebar = () => {
   const role = user?.role;
   const supportUnread = useSupportChatStore((s) => s.unreadForUser);
   const deskUnread = useSupportDeskStore((s) => s.unreadTotal);
+  const pendingDispositionCall = useDialerStore((s) => s.pendingDispositionCall);
   const navigate = useNavigate();
   const location = useLocation();
   const navRef = useRef(null);
@@ -79,6 +83,38 @@ const Sidebar = () => {
           end: true,
           group: 'support',
           badgeKey: 'deskUnread',
+        },
+      ];
+    }
+    // Pending / rejected / suspended agency founders: status + profile + support only.
+    if (isAgencyReviewLockdown(user)) {
+      const statusLabel = user?.agencyStatus === 'rejected'
+        ? 'Application status'
+        : user?.agencyStatus === 'suspended'
+          ? 'Agency suspended'
+          : user?.agencyStatus
+            ? 'Under review'
+            : 'Agency status';
+      return [
+        {
+          path: '/app',
+          label: statusLabel,
+          icon: Building2,
+          end: true,
+          group: 'review',
+        },
+        {
+          path: '/app/profile',
+          label: 'Profile',
+          icon: User,
+          group: 'review',
+        },
+        {
+          path: '/app/support',
+          label: 'Support',
+          icon: MessageSquare,
+          group: 'review',
+          badgeKey: 'supportUnread',
         },
       ];
     }
@@ -133,7 +169,7 @@ const Sidebar = () => {
   }, [role, user]);
 
   const navGroups = React.useMemo(() => {
-    const order = ['work', 'business', 'you', 'agency', 'manager', 'admin', 'qa', 'support'];
+    const order = ['review', 'work', 'business', 'you', 'agency', 'manager', 'admin', 'qa', 'support'];
     return order
       .map((groupId) => ({
         id: groupId,
@@ -145,6 +181,10 @@ const Sidebar = () => {
 
   const handleLogout = async () => {
     const dialerState = useDialerStore.getState();
+    if (dialerState.pendingDispositionCall) {
+      toast.error('Please submit the disposition for your last call first.');
+      return;
+    }
     if (dialerState.callState !== 'offline') {
       dialerState.goOffline();
       await new Promise((r) => setTimeout(r, 300));
@@ -168,7 +208,7 @@ const Sidebar = () => {
   const renderNavItem = (item) => (
     <NavLink
       key={item.path}
-      to={item.disabled ? '#' : item.path}
+      to={item.disabled || pendingDispositionCall ? '#' : item.path}
       end={item.end || false}
       isActive={() => matchesNavItem(item, location.pathname)}
       ref={(el) => {
@@ -178,12 +218,22 @@ const Sidebar = () => {
         }
       }}
       className={() =>
-        `${classes.navItem} ${isSidebarCollapsed ? classes.navItemCollapsed : ''} ${matchesNavItem(item, location.pathname) && !item.disabled ? classes.active : ''} ${item.disabled ? classes.disabled : ''} ${item.teaser ? classes.teaser : ''}`
+        `${classes.navItem} ${isSidebarCollapsed ? classes.navItemCollapsed : ''} ${matchesNavItem(item, location.pathname) && !item.disabled ? classes.active : ''} ${item.disabled || pendingDispositionCall ? classes.disabled : ''} ${item.teaser ? classes.teaser : ''}`
       }
-      onClick={(e) => item.disabled && e.preventDefault()}
-      aria-disabled={item.disabled ? 'true' : undefined}
-      title={item.disabled ? 'Coming soon' : item.label}
-      tabIndex={item.disabled ? -1 : undefined}
+      onClick={(e) => {
+        if (item.disabled) {
+          e.preventDefault();
+          return;
+        }
+        if (pendingDispositionCall) {
+          e.preventDefault();
+          toast.error('Please submit the call disposition first.');
+          return;
+        }
+      }}
+      aria-disabled={item.disabled || pendingDispositionCall ? 'true' : undefined}
+      title={pendingDispositionCall ? 'Disposition required before switching' : item.disabled ? 'Coming soon' : item.label}
+      tabIndex={item.disabled || pendingDispositionCall ? -1 : undefined}
     >
       <span className={`${classes.iconWrap} ${isSidebarCollapsed ? classes.iconWrapCollapsed : ''}`}>
         <item.icon size={20} className={classes.icon} />

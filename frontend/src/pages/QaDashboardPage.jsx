@@ -28,7 +28,7 @@ import PageLoader from '../components/ui/PageLoader';
 import NumberPopIn from '../components/ui/NumberPopIn';
 import SlidingTabs from '../components/ui/SlidingTabs';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
-import { RecordingModal } from './CallLogsPage';
+import { RecordingModal } from '../components/modals/RecordingModal';
 import classes from './QaDashboardPage.module.css';
 
 

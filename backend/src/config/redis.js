@@ -17,7 +17,7 @@ const REDIS_KEY_ARG_COMMANDS = new Set([
     'get', 'getDel', 'set', 'setEx', 'del', 'exists',
     'hGet', 'hGetAll', 'hSet', 'hDel', 'hKeys',
     'sAdd', 'sRem', 'sMembers', 'sCard', 'sIsMember',
-    'zAdd', 'zRem', 'zRange', 'zCard', 'zScore', 'zRangeByScore', 'zRangeWithScores',
+    'zAdd', 'zRem', 'zRange', 'zCard', 'zScore', 'zRangeByScore', 'zRangeWithScores', 'zRemRangeByRank',
     'lPush', 'rPop', 'lLen', 'expire',
 ]);
 
@@ -155,6 +155,20 @@ const clientMock = {
     // zCard(key) — count of members
     zCard: async (key) => {
         return getSortedSet(key).size;
+    },
+    // zRemRangeByRank(key, start, stop) — removes members by ascending rank (supports negative indices)
+    zRemRangeByRank: async (key, start, stop) => {
+        const ss = getSortedSet(key);
+        const sorted = [...ss.entries()].sort((a, b) => a[1] - b[1]).map(([m]) => m);
+        const n = sorted.length;
+        const from = start < 0 ? Math.max(0, n + start) : start;
+        const to = stop < 0 ? n + stop : Math.min(stop, n - 1);
+        let removed = 0;
+        for (let i = from; i <= to; i += 1) {
+            ss.delete(sorted[i]);
+            removed += 1;
+        }
+        return removed;
     },
     // ── Key Scan (for activecall:* pattern iteration) ────────────────────────
     // Mimics Redis SCAN with a MATCH pattern. Only supports prefix* style patterns.

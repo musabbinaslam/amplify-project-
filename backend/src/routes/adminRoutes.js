@@ -3,6 +3,7 @@ const { verifyFirebaseToken } = require('../middleware/auth');
 const { requireAdmin } = require('../middleware/requireAdmin');
 const adminController = require('../controllers/adminController');
 const qaReviewController = require('../controllers/qaReviewController');
+const { getCallTrace } = require('../controllers/callTraceController');
 
 const router = express.Router();
 
@@ -10,6 +11,7 @@ router.use(verifyFirebaseToken);
 router.use(requireAdmin);
 
 router.get('/overview-lite', adminController.getOverviewLite);
+router.get('/call-trace', getCallTrace);
 router.get('/users/all-lite', adminController.listAllUsersLite);
 router.get('/analytics-bundle', adminController.getAnalyticsBundle);
 router.get('/analytics-drilldown', adminController.getAnalyticsDrilldown);
@@ -18,7 +20,6 @@ router.get('/agents', adminController.listAgentsDirectory);
 router.post('/agents/:agentId/force-remove', adminController.forceRemoveAgent);
 
 // Data & Excel Report Export
-router.get('/export/excel', adminController.exportExcelReport);
 router.post('/export/excel', adminController.exportExcelReport);
 
 // Manager role administration — list all users + set role/managedAgents allowlist
@@ -35,13 +36,10 @@ router.get('/ai-training/coaching-overview', adminController.getAiCoachingOvervi
 router.get('/ai-training/agent-plans', adminController.getAiCoachingAgentPlans);
 router.get('/dids', adminController.listDids);
 router.post('/dids', adminController.createDid);
-// router.patch('/users/:uid/notes/:noteId', adminController.patchUserNote);
-// router.delete('/users/:uid/notes/:noteId', adminController.deleteUserNote);
 
 router.patch('/users/:uid/call-logs/:callLogId/disposition', adminController.patchAdminCallLogDisposition);
 
 // Settings & Config
-// router.get('/settings', adminController.getAdminSettings);
 router.patch('/dids/:id', adminController.patchDid);
 router.delete('/dids/:id', adminController.deleteDid);
 
@@ -60,7 +58,6 @@ router.delete('/campaigns/:campaignId', adminController.deleteCampaign);
 
 
 router.get('/call-contests', adminController.listCallContests);
-router.get('/call-contests/:contestId', adminController.getCallContest);
 router.post('/call-contests/:contestId/approve', adminController.approveCallContest);
 router.post('/call-contests/:contestId/deny', adminController.denyCallContest);
 router.post('/call-logs/refund', adminController.refundCall);
@@ -93,6 +90,10 @@ router.delete('/agencies/:id/members/:uid', agencyController.removeAgencyMember)
 router.post('/agencies/:id/lock-campaigns', agencyController.lockCampaignsForAgency);
 router.get('/agencies/:id/dids', agencyController.listAgencyDids);
 router.post('/agencies/:id/dids', agencyController.assignAgencyDid);
+router.get('/agencies/:id/invite', agencyController.getAdminAgencyInvite);
+router.post('/agencies/:id/invite/rotate', agencyController.rotateAdminAgencyInvite);
+router.post('/agencies/:id/approve', agencyController.approveAgency);
+router.post('/agencies/:id/reject', agencyController.rejectAgency);
 
 // Suspicious drop pattern review
 const suspiciousController = require('../controllers/suspiciousController');

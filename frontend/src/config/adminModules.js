@@ -7,6 +7,7 @@ import {
   HeadphonesIcon,
   Phone,
   Radio,
+  Search,
   Settings2,
   ShieldAlert,
   TrendingUp,
@@ -30,6 +31,14 @@ export const ADMIN_MODULES = [
     description: 'Monitor live calls, pool status, and online agents in real time.',
     route: '/app/admin/live-ops',
     icon: Radio,
+    category: 'operations',
+  },
+  {
+    id: 'call-trace',
+    title: 'Call Trace',
+    description: 'Look up a caller phone or CallSid: pings, routing, live status, and call history.',
+    route: '/app/admin/call-trace',
+    icon: Search,
     category: 'operations',
   },
   {
@@ -77,7 +86,7 @@ export const ADMIN_MODULES = [
   {
     id: 'agencies',
     title: 'Agencies',
-    description: 'Create agencies, assign agents, lock campaigns, and manage agency DIDs.',
+    description: 'Review applications, invite codes, assign agents, lock campaigns, and manage DIDs.',
     route: '/app/admin/agencies',
     icon: Building2,
     category: 'configuration',

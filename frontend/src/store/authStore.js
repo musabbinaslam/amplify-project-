@@ -46,13 +46,27 @@ async function loadUserRole(uid) {
                   : 'agent',
       agencyRole: normalizeAgencyRole(profile),
       agencyId: profile?.agencyId || null,
+      agencyStatus: profile?.agencyStatus || null,
+      agencyName: profile?.agencyName || null,
+      agencyRejectReason: profile?.agencyRejectReason || null,
       flagged: profile?.flagged === true,
       flagReason: profile?.flagReason || null,
       acceptedTermsVersion: profile?.acceptedTermsVersion || null,
       personaStatus: profile?.personaStatus || 'unverified',
     };
   } catch {
-    return { role: 'agent', agencyRole: null, agencyId: null, flagged: false, flagReason: null, acceptedTermsVersion: null, personaStatus: 'unverified' };
+    return {
+      role: 'agent',
+      agencyRole: null,
+      agencyId: null,
+      agencyStatus: null,
+      agencyName: null,
+      agencyRejectReason: null,
+      flagged: false,
+      flagReason: null,
+      acceptedTermsVersion: null,
+      personaStatus: 'unverified',
+    };
   }
 }
 
@@ -76,7 +90,18 @@ const useAuthStore = create((set, get) => ({
           }
           const token = await firebaseUser.getIdToken();
           const existingMeta = get().user?.meta;
-          const { role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion, personaStatus } = await loadUserRole(firebaseUser.uid);
+          const {
+            role,
+            agencyRole,
+            agencyId,
+            agencyStatus,
+            agencyName,
+            agencyRejectReason,
+            flagged,
+            flagReason,
+            acceptedTermsVersion,
+            personaStatus,
+          } = await loadUserRole(firebaseUser.uid);
 
           // Proactively refresh the Firebase token every 15 minutes
           // to guarantee agents never hit the 1-hour expiration while online.
@@ -96,7 +121,20 @@ const useAuthStore = create((set, get) => ({
           Sentry.setUser({ id: firebaseUser.uid, email: firebaseUser.email });
 
           set({
-            user: { ...mapFirebaseUser(firebaseUser), meta: existingMeta || null, role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion, personaStatus },
+            user: {
+              ...mapFirebaseUser(firebaseUser),
+              meta: existingMeta || null,
+              role,
+              agencyRole,
+              agencyId,
+              agencyStatus,
+              agencyName,
+              agencyRejectReason,
+              flagged,
+              flagReason,
+              acceptedTermsVersion,
+              personaStatus,
+            },
             token,
             loading: false,
             _tokenRefreshInterval: intervalId,
@@ -156,8 +194,8 @@ const useAuthStore = create((set, get) => ({
   login: async (email, password) => {
     const credential = await signInWithEmailAndPassword(auth, email, password);
     const token = await credential.user.getIdToken();
-    const { role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion, personaStatus } = await loadUserRole(credential.user.uid);
-    set({ user: { ...mapFirebaseUser(credential.user), role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion, personaStatus }, token });
+    const roleFields = await loadUserRole(credential.user.uid);
+    set({ user: { ...mapFirebaseUser(credential.user), ...roleFields }, token });
   },
 
   googleLogin: async () => {
@@ -167,8 +205,8 @@ const useAuthStore = create((set, get) => ({
     const existing = await getProfile(result.user.uid);
     const needsOnboarding = !existing?.onboarding?.completedAt;
 
-    const { role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion, personaStatus } = await loadUserRole(result.user.uid);
-    set({ user: { ...mapFirebaseUser(result.user), role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion, personaStatus }, token });
+    const roleFields = await loadUserRole(result.user.uid);
+    set({ user: { ...mapFirebaseUser(result.user), ...roleFields }, token });
     return { needsOnboarding, user: result.user };
   },
 
@@ -211,9 +249,9 @@ const useAuthStore = create((set, get) => ({
         // Login page should reject onboarding-incomplete Google users.
         await rejectGoogleLogin();
       }
-      const { role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion, personaStatus } = await loadUserRole(result.user.uid);
+      const roleFields = await loadUserRole(result.user.uid);
       set({
-        user: { ...mapFirebaseUser(result.user), meta: existing?.meta || null, role, agencyRole, agencyId, flagged, flagReason, acceptedTermsVersion, personaStatus },
+        user: { ...mapFirebaseUser(result.user), meta: existing?.meta || null, ...roleFields },
         token,
         googleLoginValidationInProgress: false,
       });
@@ -253,7 +291,8 @@ const useAuthStore = create((set, get) => ({
   logout: async () => {
     await signOut(auth);
     set({ user: null, token: null });
-    try { useThemeStore.getState().resetBrand(); } catch {}
+    // Keep brandColor in localStorage so landing / login / signup stay on the
+    // accent the user picked in Settings. Next login hydrates from profile.
   },
 
   resetPassword: async (email) => {
@@ -270,9 +309,9 @@ const useAuthStore = create((set, get) => ({
   refreshUserRole: async () => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
-    const { role, agencyRole, agencyId, flagged, flagReason, personaStatus } = await loadUserRole(currentUser.uid);
+    const roleFields = await loadUserRole(currentUser.uid);
     set((state) => ({
-      user: state.user ? { ...state.user, role, agencyRole, agencyId, flagged, flagReason, personaStatus } : null,
+      user: state.user ? { ...state.user, ...roleFields } : null,
     }));
   },
 

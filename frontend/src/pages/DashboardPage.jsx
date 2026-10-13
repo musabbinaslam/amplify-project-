@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Activity, Phone, PhoneCall, CheckCircle2, DollarSign, Clock, Loader2, TrendingUp, TrendingDown, Minus, PhoneIncoming } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -7,9 +7,10 @@ import {
 import { motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { getProfile } from '../services/profileService';
-import { fetchDashboardLogs, fetchCampaignPricing } from '../services/dashboardService';
-import PageLoader from '../components/ui/PageLoader';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { fetchDashboardSummary } from '../services/dashboardService';
+import { queryKeys, useCampaignPricingQuery } from '../queries';
+import PageSkeleton from '../components/ui/PageSkeleton';
 import NumberPopIn from '../components/ui/NumberPopIn';
 import ShimmerText from '../components/ui/ShimmerText';
 import SlidingTabs from '../components/ui/SlidingTabs';
@@ -19,6 +20,7 @@ import classes from './DashboardPage.module.css';
 
 /* eslint-disable react/prop-types -- presentational helpers are local to this page */
 const PERIOD_OPTIONS = ['This Week', 'This Month', 'Last 30 Days'];
+const EMPTY_LIST = [];
 
 const CAMPAIGN_DESCRIPTIONS = {
   fe_inbounds_short: 'FE Inbounds Short Duration',
@@ -37,6 +39,18 @@ function startOfDay(d) {
   x.setHours(0, 0, 0, 0);
   return x;
 }
+
+function localDayKey(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+const EMPTY_METRICS = {
+  todayCalls: 0, totalCalls: 0, answeredCalls: 0, sales: 0,
+  answerRate: 0, bufferHitRate: 0, spend: 0, totalTalkTimeSecs: 0,
+};
 
 function computePeriodRange(period) {
   const now = new Date();
@@ -328,117 +342,36 @@ const DashboardPage = () => {
   const presets = useSubtlePageMotion();
   const [period, setPeriod] = useState('This Week');
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [logs, setLogs] = useState([]);
-  const [prevLogs, setPrevLogs] = useState([]);
-  const [campaigns, setCampaigns] = useState([]);
-  const [campaignsLoading, setCampaignsLoading] = useState(true);
+  const campaignsQuery = useCampaignPricingQuery();
+  const campaigns = campaignsQuery.data || EMPTY_LIST;
+  const campaignsLoading = campaignsQuery.isPending;
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        setCampaignsLoading(true);
-        const camps = await fetchCampaignPricing();
-        if (!cancelled) setCampaigns(camps);
-      } catch (err) {
-        console.error('Failed to load campaigns:', err);
-        if (!cancelled) setCampaigns([]);
-      } finally {
-        if (!cancelled) setCampaignsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    if (!user?.uid) return undefined;
-    let cancelled = false;
-    let timerId = null;
-    const VISIBLE_MS = 60000;
-    const HIDDEN_MS = 180000;
-
-    const fetchLogs = async () => {
+  const summaryQuery = useQuery({
+    queryKey: queryKeys.dashboardSummary(period),
+    queryFn: () => {
       const { startDate, endDate } = computePeriodRange(period);
       const prev = computePreviousPeriodRange(period);
-      const [logsRes, prevRes] = await Promise.all([
-        fetchDashboardLogs({ startDate, endDate, limit: 1000 }),
-        fetchDashboardLogs({ startDate: prev.startDate, endDate: prev.endDate, limit: 1000 }),
-      ]);
-      return {
-        logs: Array.isArray(logsRes) ? logsRes : [],
-        prevLogs: Array.isArray(prevRes) ? prevRes : [],
-      };
-    };
+      return fetchDashboardSummary({
+        startDate,
+        endDate,
+        prevStartDate: prev.startDate,
+        prevEndDate: prev.endDate,
+        todayStart: startOfDay(new Date()),
+      });
+    },
+    enabled: Boolean(user?.uid),
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+    refetchInterval: 60_000,
+  });
+  const summary = summaryQuery.data;
+  const loading = summaryQuery.isPending;
+  const error = summaryQuery.isError && !summary
+    ? (summaryQuery.error?.message || 'Failed to load dashboard data')
+    : null;
 
-    const load = async ({ showSpinner = false, includeProfile = false } = {}) => {
-      try {
-        if (showSpinner) setLoading(true);
-        if (includeProfile) {
-          await getProfile(user.uid);
-        }
-        const { logs: nextLogs, prevLogs: nextPrevLogs } = await fetchLogs();
-        if (cancelled) return;
-        setLogs(nextLogs);
-        setPrevLogs(nextPrevLogs);
-        setError(null);
-      } catch (err) {
-        console.error('Dashboard load failed:', err);
-        // Only block the UI on the first load — keep showing stale data if a background refresh fails.
-        if (!cancelled && showSpinner) {
-          setError(err.message || 'Failed to load dashboard data');
-        }
-      } finally {
-        if (!cancelled && showSpinner) setLoading(false);
-      }
-    };
-
-    const schedule = () => {
-      if (timerId) window.clearTimeout(timerId);
-      const ms = document.visibilityState === 'visible' ? VISIBLE_MS : HIDDEN_MS;
-      timerId = window.setTimeout(() => {
-        load({ showSpinner: false }).finally(() => {
-          if (!cancelled) schedule();
-        });
-      }, ms);
-    };
-
-    load({ showSpinner: true, includeProfile: true }).then(() => {
-      if (!cancelled) schedule();
-    });
-
-    const handleWake = () => {
-      load({ showSpinner: false });
-      schedule();
-    };
-
-    document.addEventListener('visibilitychange', handleWake);
-    window.addEventListener('focus', handleWake);
-
-    return () => {
-      cancelled = true;
-      if (timerId) window.clearTimeout(timerId);
-      document.removeEventListener('visibilitychange', handleWake);
-      window.removeEventListener('focus', handleWake);
-    };
-  }, [user?.uid, period]);
-
-  const computeMetrics = (source) => {
-    const startOfToday = startOfDay(new Date()).getTime();
-    const todayCalls = source.filter((l) => new Date(l.createdAt || 0).getTime() >= startOfToday).length;
-    const totalCalls = source.length;
-    const conversions = source.filter((l) => l.isBillable).length;
-    const answeredCalls = source.filter((l) => l.status === 'completed' && Number(l.duration) > 0).length;
-    const answerRate = totalCalls > 0 ? Math.round((answeredCalls / totalCalls) * 100) : 0;
-    const bufferHitRate = answeredCalls > 0 ? Math.round((conversions / answeredCalls) * 100) : 0;
-    const spend = source.reduce((sum, l) => sum + (Number(l.cost) || 0), 0);
-    const totalTalkTimeSecs = source.reduce((sum, l) => sum + (Number(l.duration) || 0), 0);
-    return { todayCalls, totalCalls, answeredCalls, sales: conversions, answerRate, bufferHitRate, spend, totalTalkTimeSecs };
-  };
-
-  const metrics = useMemo(() => computeMetrics(logs), [logs]);
-  const prevMetrics = useMemo(() => computeMetrics(prevLogs), [prevLogs]);
+  const metrics = summary?.metrics ?? EMPTY_METRICS;
+  const prevMetrics = summary?.prevMetrics ?? EMPTY_METRICS;
 
   const deltas = useMemo(() => ({
     todayCalls: trendDelta(metrics.todayCalls, prevMetrics.todayCalls),
@@ -462,35 +395,29 @@ const DashboardPage = () => {
         calls: 0,
       });
     }
-    const byTs = new Map(buckets.map((b) => [b.ts, b]));
-    for (const l of logs) {
-      const ts = startOfDay(new Date(l.createdAt || 0)).getTime();
-      const bucket = byTs.get(ts);
-      if (!bucket) continue;
-      bucket.calls += 1;
-      const isSold = l.disposition === 'sold' || (!l.disposition && l.isBillable);
-      if (isSold) bucket.sales += 1;
+    const byDay = summary?.byDay || {};
+    for (const b of buckets) {
+      const day = byDay[localDayKey(new Date(b.ts))];
+      if (!day) continue;
+      b.calls = day.calls || 0;
+      b.sales = day.sales || 0;
     }
     return buckets;
-  }, [logs, period]);
+  }, [summary, period]);
 
   const dispositionData = useMemo(() => {
-    const counts = new Map();
-    for (const l of logs) {
-      const disp = getDisposition(l);
-      counts.set(disp, (counts.get(disp) || 0) + 1);
-    }
+    const counts = summary?.dispositions || {};
     return DONUT_SEGMENTS
-      .map((seg) => ({ name: seg.key, value: counts.get(seg.key) || 0, color: seg.color }))
+      .map((seg) => ({ name: seg.key, value: counts[seg.key] || 0, color: seg.color }))
       .filter((d) => d.value > 0);
-  }, [logs]);
+  }, [summary]);
 
   const dispositionTotal = useMemo(
     () => dispositionData.reduce((sum, d) => sum + d.value, 0),
     [dispositionData],
   );
 
-  const recentCalls = useMemo(() => logs.slice(0, 5), [logs]);
+  const recentCalls = summary?.recentCalls ?? EMPTY_LIST;
 
   const campaignCards = campaigns.length > 0
     ? campaigns
@@ -498,7 +425,7 @@ const DashboardPage = () => {
 
   const hasChartData = chartData.some((d) => d.sales !== 0 || d.calls !== 0);
 
-  if (loading) return <PageLoader />;
+  if (loading) return <PageSkeleton variant="dashboard" />;
 
   return (
     <motion.div

@@ -1,0 +1,23 @@
+.warnTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.warnTitleCharge {
+  color: color-mix(in srgb, #e07468 90%, var(--text-primary));
+}
+
+.warnTitleFlag {
+  color: var(--brand-text);
+}
+
+.flagBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

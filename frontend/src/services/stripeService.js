@@ -20,14 +20,25 @@ const getHeaders = () => {
   };
 };
 
+let walletInFlight = null;
+
+async function requestWallet() {
+  const res = await fetch(`${API_URL}/api/stripe/wallet`, { headers: getHeaders() });
+  if (!res.ok) {
+    const message = await safeErrorMessage(res, 'Failed to fetch wallet');
+    throw new Error(message);
+  }
+  return parseJsonOrThrow(res, 'Wallet API returned invalid JSON');
+}
+
 export const stripeService = {
-  getWallet: async () => {
-    const res = await fetch(`${API_URL}/api/stripe/wallet`, { headers: getHeaders() });
-    if (!res.ok) {
-      const message = await safeErrorMessage(res, 'Failed to fetch wallet');
-      throw new Error(message);
+  getWallet: () => {
+    if (!walletInFlight) {
+      walletInFlight = requestWallet().finally(() => {
+        walletInFlight = null;
+      });
     }
-    return parseJsonOrThrow(res, 'Wallet API returned invalid JSON');
+    return walletInFlight;
   },
   createCheckout: async (amountCents) => {
     const res = await fetch(`${API_URL}/api/stripe/create-checkout`, {

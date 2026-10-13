@@ -11,7 +11,7 @@ import toast from 'react-hot-toast';
 import { AdminActionModal } from './ContestReviewCard';
 import AiFlagReviewCard from './AiFlagReviewCard';
 import QaAiStatusBanner from './QaAiStatusBanner';
-import { RecordingModal } from '../../pages/CallLogsPage';
+import { RecordingModal } from '../modals/RecordingModal';
 import classes from './adminShared.module.css';
 
 const PAGE_SIZE = 20;

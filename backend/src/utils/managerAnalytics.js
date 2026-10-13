@@ -122,6 +122,14 @@ async function resolveAgentIds(allowed, agencyId = null) {
   return usersSnap.docs.map((d) => d.id);
 }
 
+const PER_AGENT_RANGE_LIMIT = 2000;
+const CALL_ROW_FIELDS = [
+  'agentId', 'callSid', 'campaign', 'campaignLabel', 'status', 'duration', 'isBillable', 'cost',
+  'disposition', 'recordingUrl', 'recordingSid', 'qaAudioReview.status', 'qaAudioReview.summary',
+  'qaAudioReview.violations', 'refunded', 'refundReason', 'contestId', 'contestStatus',
+  'createdAt', 'timestamp',
+];
+
 async function readLogsForAgents(agentIds, from, end) {
   if (!admin) throw new Error('Database service unavailable');
   if (!agentIds.length) return [];
@@ -141,8 +149,11 @@ async function readLogsForAgents(agentIds, from, end) {
         .collection('users')
         .doc(agentId)
         .collection('callLogs')
+        .where('createdAt', '>=', from)
+        .where('createdAt', '<=', end)
         .orderBy('createdAt', 'desc')
-        .limit(500)
+        .select(...CALL_ROW_FIELDS)
+        .limit(PER_AGENT_RANGE_LIMIT)
         .get();
       callsSnap.docs.forEach((doc) => {
         const row = normalizeCall(doc, agentId);

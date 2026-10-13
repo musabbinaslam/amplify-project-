@@ -64,9 +64,9 @@ async function listSuspiciousAgents(req, res) {
           const todaySnap = await callLogsRef
             .where('timestamp', '>=', todayStart.toISOString())
             .where('timestamp', '<=', todayEnd.toISOString())
-            .select()
+            .count()
             .get();
-          todayCallTotal = todaySnap.size;
+          todayCallTotal = todaySnap.data().count || 0;
         } catch { /* non-fatal */ }
 
         return {

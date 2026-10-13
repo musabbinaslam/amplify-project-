@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Wallet, Moon, Sun, Bell, ChevronRight, MessageSquare } from 'lucide-react';
+import { Wallet, Moon, Sun, Bell, ChevronRight, MessageSquare, Building2 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
 import useDialerStore from '../../store/useDialerStore';
@@ -10,11 +10,13 @@ import useSupportDeskStore from '../../store/useSupportDeskStore';
 import { dropdownPanelMotion } from '../../motion/appMotion';
 import NotificationDetailModal from '../modals/NotificationDetailModal';
 import { resolveRouteBreadcrumbs } from '../../utils/resolveRouteBreadcrumbs';
+import { isAgencyReviewLockdown } from '../../utils/agencyGate';
 import NumberPopIn from '../ui/NumberPopIn';
 import IconSwap from '../ui/IconSwap';
 import NotificationBadge from '../ui/NotificationBadge';
 import ShimmerText from '../ui/ShimmerText';
 import SlidingTabs from '../ui/SlidingTabs';
+import { useWalletQuery } from '../../queries';
 import classes from './Topbar.module.css';
 
 /* eslint-disable react/prop-types -- topbar props wired from AppShell */
@@ -34,7 +36,6 @@ const Topbar = ({
   const reduceMotion = useReducedMotion();
   const user = useAuthStore((s) => s.user);
   const { theme, toggleTheme, pageBreadcrumbs } = useUIStore();
-  const [balanceCents, setBalanceCents] = useState(null);
   const [isInboxOpen, setIsInboxOpen] = useState(false);
   const [isBellAnimating, setIsBellAnimating] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState(null);
@@ -48,8 +49,24 @@ const Topbar = ({
   const deskUnread = useSupportDeskStore((s) => s.unreadTotal);
   const supportPopupOpen = useSupportChatStore((s) => s.popupOpen);
   const supportPopupMinimized = useSupportChatStore((s) => s.popupMinimized);
+  const reviewLockdown = isAgencyReviewLockdown(user);
+  const agencyName = String(user?.agencyName || '').trim();
+  const showAgencyChip = Boolean(
+    !reviewLockdown
+    && user?.agencyId
+    && agencyName
+    && (user.agencyRole === 'agency_agent'
+      || user.role === 'agency_agent'
+      || user.agencyRole === 'agency_admin'
+      || user.role === 'agency_admin'),
+  );
   const showPersonaWarning = Boolean(
-    user && user.personaStatus !== 'verified' && user.role !== 'support' && user.role !== 'admin' && user.role !== 'qa',
+    user
+    && !reviewLockdown
+    && user.personaStatus !== 'verified'
+    && user.role !== 'support'
+    && user.role !== 'admin'
+    && user.role !== 'qa',
   );
   const isSupportRole = user?.role === 'support';
   const isStaffViewer = user?.role === 'support' || user?.role === 'admin';
@@ -63,36 +80,10 @@ const Topbar = ({
   const isOnline = callState !== 'offline' && callState !== 'error';
   const inboxMotion = dropdownPanelMotion(reduceMotion);
 
-  useEffect(() => {
-    const fetchBalance = async () => {
-      try {
-        const { stripeService } = await import('../../services/stripeService');
-        const wallet = await stripeService.getWallet();
-        if (wallet) setBalanceCents(wallet.balance);
-      } catch (err) {
-        console.error('Failed to fetch balance', err);
-      }
-    };
-
-    const handleWalletUpdate = (e) => {
-      if (e.detail !== undefined) {
-        setBalanceCents(e.detail);
-      } else {
-        fetchBalance();
-      }
-    };
-
-    if (user) {
-      if (user.role === 'support') return undefined;
-      fetchBalance();
-      const interval = setInterval(fetchBalance, 60000);
-      window.addEventListener('wallet_updated', handleWalletUpdate);
-      return () => {
-        clearInterval(interval);
-        window.removeEventListener('wallet_updated', handleWalletUpdate);
-      };
-    }
-  }, [user]);
+  const walletQuery = useWalletQuery({
+    enabled: Boolean(user) && user?.role !== 'support' && !reviewLockdown,
+  });
+  const balanceCents = walletQuery.data ? Number(walletQuery.data.balance) || 0 : null;
 
   useEffect(() => {
     if (!isInboxOpen) return undefined;
@@ -173,7 +164,15 @@ const Topbar = ({
   const openNotification = (row) => {
     if (row.id && onMarkRead) onMarkRead(row.id);
 
-    if (row.linkPath && (row.type === 'admin_alert' || row.type === 'ai_flag' || row.type === 'contest_credited')) {
+    if (
+      row.linkPath
+      && (
+        row.type === 'admin_alert'
+        || row.type === 'ai_flag'
+        || row.type === 'contest_credited'
+        || row.type === 'personal'
+      )
+    ) {
       closeInbox();
       navigate(row.linkPath);
       return;
@@ -272,6 +271,12 @@ const Topbar = ({
             })}
           </ol>
         </nav>
+        {showAgencyChip ? (
+          <div className={classes.agencyChip} title={`Agency: ${agencyName}`}>
+            <Building2 size={13} aria-hidden="true" />
+            <span className={classes.agencyChipText}>{agencyName}</span>
+          </div>
+        ) : null}
       </div>
 
       <div className={classes.actions}>
@@ -419,7 +424,7 @@ const Topbar = ({
           </AnimatePresence>
         </div>
 
-        {isSupportRole ? null : (
+        {isSupportRole || reviewLockdown ? null : (
           <button
             type="button"
             className={classes.walletBox}
@@ -450,7 +455,7 @@ const Topbar = ({
           />
         </button>
 
-        {isSupportRole ? null : (
+        {isSupportRole || reviewLockdown ? null : (
           <div className={`${classes.statusBadge} ${isOnline ? classes.statusOnline : ''}`}>
             <span className={classes.statusDot} />
             {isOnline ? <ShimmerText text="Online" variant="brand" /> : 'Offline'}

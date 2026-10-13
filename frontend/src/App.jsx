@@ -52,6 +52,7 @@ const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 const AdminHubPage = lazy(() => import('./pages/admin/AdminHubPage'));
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
 const AdminLiveOpsPage = lazy(() => import('./pages/admin/AdminLiveOpsPage'));
+const AdminCallTracePage = lazy(() => import('./pages/admin/AdminCallTracePage'));
 const AdminCallContestsPage = lazy(() => import('./pages/admin/AdminCallContestsPage'));
 const AdminAgentsPage = lazy(() => import('./pages/admin/AdminAgentsPage'));
 const AdminCampaignsPage = lazy(() => import('./pages/admin/AdminCampaignsPage'));
@@ -59,10 +60,10 @@ const AdminPhoneRoutingPage = lazy(() => import('./pages/admin/AdminPhoneRouting
 const AdminAgenciesPage = lazy(() => import('./pages/admin/AdminAgenciesPage'));
 const AdminManagersPage = lazy(() => import('./pages/admin/AdminManagersPage'));
 const AdminTeamsOpsPage = lazy(() => import('./pages/admin/AdminTeamsOpsPage'));
-const AdminAITrainingPage = lazy(() => import('./pages/AdminAITrainingPage'));
+const AdminAITrainingPage = lazy(() => import('./pages/admin/AdminAITrainingPage'));
 const AdminAiFlagsPage = lazy(() => import('./pages/admin/AdminAiFlagsPage'));
 const AdminQaRulesPage = lazy(() => import('./pages/admin/AdminQaRulesPage'));
-const AdminNotificationSettingsPage = lazy(() => import('./pages/AdminNotificationSettingsPage'));
+const AdminNotificationSettingsPage = lazy(() => import('./pages/admin/AdminNotificationSettingsPage'));
 const AdminSuspiciousPage = lazy(() => import('./pages/admin/AdminSuspiciousPage'));
 const AdminExportPage = lazy(() => import('./pages/admin/AdminExportPage'));
 
@@ -185,7 +186,7 @@ const AdminOnly = ({ children }) => {
 
 const AgencyAdminOnlyInner = ({ useAuthStore, isAgencyAdminUser, children }) => {
   const user = useAuthStore((s) => s.user);
-  if (!isAgencyAdminUser(user) && user?.role !== 'manager') {
+  if (!isAgencyAdminUser(user)) {
     return <Navigate to="/app" replace />;
   }
   return children;
@@ -291,6 +292,12 @@ const ReferralRedirect = () => {
   return <Navigate to={`/signup?ref=${encodeURIComponent(code || '')}`} replace />;
 };
 
+/** Tiny redirect: /join/AGENCY-XXXXXX → /signup?agency=AGENCY-XXXXXX */
+const AgencyJoinRedirect = () => {
+  const { code } = useParams();
+  return <Navigate to={`/signup?agency=${encodeURIComponent(code || '')}`} replace />;
+};
+
 /** Redirect legacy /admin/ops/agencies/:id → ?selected= */
 const OpsAgencyRedirect = () => {
   const { agencyId } = useParams();
@@ -333,6 +340,9 @@ const AnimatedRoutes = () => {
         <Route path="/signup" element={
           <Suspense fallback={<PageLoader />}><SignupPage /></Suspense>
         } />
+        <Route path="/signup/agency" element={
+          <Suspense fallback={<PageLoader />}><SignupPage /></Suspense>
+        } />
         <Route path="/login" element={
           <GuestRoute>
             <Suspense fallback={<PageLoader />}><LoginPage /></Suspense>
@@ -341,6 +351,8 @@ const AnimatedRoutes = () => {
 
         {/* Short referral redirect: /r/AGENT-XXXXXX → /signup?ref=AGENT-XXXXXX */}
         <Route path="/r/:code" element={<ReferralRedirect />} />
+        {/* Agency invite short link: /join/AGENCY-XXXXXX → /signup?agency=… */}
+        <Route path="/join/:code" element={<AgencyJoinRedirect />} />
 
         {/* Public Terms and Privacy */}
         <Route path="/terms" element={<Suspense fallback={<PageLoader />}><TermsPage /></Suspense>} />
@@ -428,6 +440,13 @@ const AnimatedRoutes = () => {
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
                 <AdminLiveOpsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/call-trace" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminCallTracePage />
               </AdminOnly>
             </Suspense>
           } />

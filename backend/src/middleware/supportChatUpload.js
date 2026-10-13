@@ -13,7 +13,7 @@ const upload = multer({
     fieldSize: 1024 * 1024,
   },
   fileFilter: (_req, file, cb) => {
-    if (!isMimeAllowed(file.mimetype)) {
+    if (!isMimeAllowed(file.mimetype, file.originalname)) {
       const err = new Error(`Unsupported file type: ${file.mimetype || 'unknown'}`);
       err.code = 'UNSUPPORTED_FILE_TYPE';
       return cb(err, false);

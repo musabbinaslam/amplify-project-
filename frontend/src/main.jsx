@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { Toaster } from 'react-hot-toast';
+import { QueryClientProvider } from '@tanstack/react-query';
 import App from './App.jsx';
+import { queryClient, bindQueryCacheToAuth } from './lib/queryClient';
 import { useUIStore } from './store/uiStore';
 import { useThemeStore } from './store/themeStore';
 import './styles/global.css';
@@ -28,9 +30,9 @@ async function initSentry() {
   });
 }
 
-const MIN_SPLASH_MS = 1800;
+const MIN_SPLASH_MS = 800;
 /** Extra time after auth so the first route can mount under the splash. */
-const POST_READY_BUFFER_MS = 500;
+const POST_READY_BUFFER_MS = 200;
 /** Must match #splash transition duration in index.html (420ms). */
 const SPLASH_EXIT_MS = 420;
 
@@ -47,7 +49,8 @@ const AuthInit = ({ children }) => {
         ]);
         await initFirebase();
         await useAuthStore.getState().initAuth();
-        await initSentry();
+        bindQueryCacheToAuth(useAuthStore);
+        initSentry().catch((err) => console.warn('[Sentry] init failed', err));
       } catch (e) {
         console.error('[Firebase]', e);
       } finally {
@@ -88,6 +91,7 @@ const AuthInit = ({ children }) => {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
+    <QueryClientProvider client={queryClient}>
     <AuthInit>
       <App />
       <Toaster
@@ -125,5 +129,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         }}
       />
     </AuthInit>
+    </QueryClientProvider>
   </React.StrictMode>,
 );

@@ -6,6 +6,7 @@ import { routeOutletMotion } from '../../motion/appMotion';
 import toast from 'react-hot-toast';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import DispositionModal from '../modals/DispositionModal';
 import useAuthStore from '../../store/authStore';
 import useDialerStore from '../../store/useDialerStore';
 import useSupportChatStore, { deskUnreadFromConversation } from '../../store/useSupportChatStore';
@@ -20,6 +21,11 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '../../services/notificationService';
+import {
+  isAgencyGated,
+  isAgencyReviewAllowedPath,
+  isAgencyReviewLockdown,
+} from '../../utils/agencyGate';
 import classes from './AppShell.module.css';
 
 const AppShell = () => {
@@ -49,13 +55,14 @@ const AppShell = () => {
 
   const loadInbox = useCallback(async () => {
     try {
-      const out = await getMyNotifications({ limit: 30, scope: 'general' });
+      const isAdminUser = user?.role === 'admin';
+      const [out, adminOut, aiFlagsOut] = await Promise.all([
+        getMyNotifications({ limit: 30, scope: 'general' }),
+        isAdminUser ? getMyAdminNotifications({ limit: 20 }) : null,
+        isAdminUser ? getMyAiFlagNotifications({ limit: 20 }) : null,
+      ]);
       setNotifications(Array.isArray(out?.rows) ? out.rows : []);
-      if (user?.role === 'admin') {
-        const [adminOut, aiFlagsOut] = await Promise.all([
-          getMyAdminNotifications({ limit: 20 }),
-          getMyAiFlagNotifications({ limit: 20 }),
-        ]);
+      if (isAdminUser) {
         setAdminNotifications(Array.isArray(adminOut?.rows) ? adminOut.rows : []);
         setAiFlagNotifications(Array.isArray(aiFlagsOut?.rows) ? aiFlagsOut.rows : []);
       } else {
@@ -331,7 +338,9 @@ const AppShell = () => {
       })
       .catch(() => {});
 
-    const interval = window.setInterval(refreshFromApi, 15000);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refreshFromApi();
+    }, 60000);
     const onVis = () => {
       if (document.visibilityState === 'visible') refreshFromApi();
     };
@@ -437,6 +446,30 @@ const AppShell = () => {
   }, [user?.role, location.pathname, navigate]);
 
   useEffect(() => {
+    if (!isAgencyReviewLockdown(user)) return;
+    if (!isAgencyReviewAllowedPath(location.pathname)) {
+      navigate('/app', { replace: true });
+    }
+  }, [user, location.pathname, navigate]);
+
+  // Pending/rejected: refresh agencyStatus when tab regains focus (admin may have approved).
+  useEffect(() => {
+    if (!user?.uid || !isAgencyGated(user)) return undefined;
+    const refreshUserRole = useAuthStore.getState().refreshUserRole;
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') {
+        refreshUserRole?.().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onFocus);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', onFocus);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [user]);
+
+  useEffect(() => {
     const timer = window.setInterval(() => setNowTs(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
@@ -492,6 +525,7 @@ const AppShell = () => {
 
   return (
     <div className={`${classes.appShell} appAmbient`}>
+      <DispositionModal />
       <div className={classes.appContainer}>
       <div className={classes.mainLayout}>
         <Sidebar />

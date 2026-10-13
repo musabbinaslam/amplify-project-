@@ -16,17 +16,8 @@ export async function saveProfile(uid, data) {
   return apiFetch('/api/users/me', { method: 'PATCH', body: data });
 }
 
-export async function regenerateApiKey() {
-  return apiFetch('/api/users/me/api-key/regenerate', { method: 'POST' });
-}
-
 export async function sendWelcomeEmail() {
   return apiFetch('/api/users/me/welcome-email', { method: 'POST' });
-}
-
-export async function checkSlugAvailability(slug) {
-  const qs = new URLSearchParams({ slug: String(slug || '').trim().toLowerCase() });
-  return apiFetch(`/api/users/me/slug-availability?${qs.toString()}`, { method: 'GET' });
 }
 
 export async function getProfileActivity(limit = 20) {

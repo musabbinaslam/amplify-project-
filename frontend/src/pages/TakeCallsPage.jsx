@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Mic, Volume2, Shield, HeartPulse, Umbrella, AlertCircle,
   ChevronLeft, ChevronDown, PhoneOff, Activity, ShieldCheck, Users,
@@ -9,15 +10,16 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import PersonaVerificationBlocker from '../components/auth/PersonaVerificationBlocker';
+import AgencyStatusGate from '../components/agency/AgencyStatusGate';
+import { isAgencyGated } from '../utils/agencyGate';
 import classes from './TakeCallsPage.module.css';
 import { initializeTwilioDevice } from '../services/twilioService';
 import useDialerStore from '../store/useDialerStore';
 import useAuthStore from '../store/authStore';
 import { useAudioSettingsStore } from '../store/audioSettingsStore';
 import { apiFetch } from '../services/apiClient';
-import { stripeService } from '../services/stripeService';
 import { getProfile, saveProfile, updateMyCallLogDisposition } from '../services/profileService';
-import { fetchCampaignPricing } from '../services/dashboardService';
+import { queryKeys, useCallLogsQuery, useCampaignPricingQuery, useWalletQuery } from '../queries';
 import { CallLogDispositionBadge } from '../components/callLogs/CallLogStatusCells';
 import ShimmerText from '../components/ui/ShimmerText';
 
@@ -736,70 +738,6 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
   );
 };
 
-// ─── Post-Call Disposition Modal ─────────────────────────────────────────────
-const DispositionModal = ({ callSid, onComplete }) => {
-  const [selected, setSelected] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const options = [
-    { id: 'not_interested', label: 'Not interested' },
-    { id: 'does_not_qualify', label: 'Doesn\'t qualify' },
-    { id: 'over_age', label: 'Over Age' },
-    { id: 'thinks_its_free', label: 'Thinks it\'s free' },
-    { id: 'call_dropped', label: 'Call dropped' },
-    { id: 'callback', label: 'Call back' },
-    { id: 'busy', label: 'Busy' },
-    { id: 'policy_closed', label: 'Policy Closed' },
-    { id: 'dead_air', label: 'Dead Air' }
-  ];
-
-  const handleSubmit = async () => {
-    if (!selected) return;
-    setSubmitting(true);
-    try {
-      if (callSid !== 'test-sid') {
-        await apiFetch(`/api/voice/logs/${callSid}`, {
-          method: 'PATCH',
-          body: { disposition: selected }
-        });
-      }
-      toast.success('Disposition saved');
-      onComplete();
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to save disposition. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className={classes.callOverlay}>
-      <div className={`glass ${classes.dispositionModal}`}>
-        <h3>Call Completed</h3>
-        <p>Please select a disposition for the call that just ended.</p>
-        <div className={classes.dispositionOptions}>
-          {options.map(opt => (
-            <button
-              key={opt.id}
-              className={`${classes.dispositionOptionBtn} ${selected === opt.id ? classes.dispositionSelected : ''}`}
-              onClick={() => setSelected(opt.id)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        <button
-          className={`${classes.primaryBtn} ${classes.dispositionSubmitBtn}`}
-          onClick={handleSubmit}
-          disabled={!selected || submitting}
-        >
-          {submitting ? 'Saving...' : 'Submit & Ready'}
-        </button>
-      </div>
-    </div>
-  );
-};
 
 // ─── Call History Table ──────────────────────────────────────────────────────
 const CallHistory = ({ logs, onDispositionUpdate }) => {
@@ -962,6 +900,10 @@ const AcaTransferPanel = () => {
 };
 
 
+const RECENT_LOGS_PARAMS = { limit: 25 };
+const EMPTY_LIST = [];
+const RECENT_LOGS_POLL_MS = 20000;
+
 // ─── Main Page Component ─────────────────────────────────────────────────────
 const TakeCallsPage = () => {
   const presets = useSubtlePageMotion();
@@ -973,10 +915,6 @@ const TakeCallsPage = () => {
   const [wizardStates, setWizardStates] = useState([]);
   const [wizardPresetId, setWizardPresetId] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [history, setHistory] = useState([]);
-  const [walletBalance, setWalletBalance] = useState(0);
-  const [pausedCampaigns, setPausedCampaigns] = useState({});
-  const [liveCampaigns, setLiveCampaigns] = useState([]);
   const [statePresets, setStatePresets] = useState([]);
   const reduceMotion = useReducedMotion();
 
@@ -994,34 +932,38 @@ const TakeCallsPage = () => {
 
   const titles = ['Microphone Test', 'Select Campaign', 'Licensed States', 'Review & Go Live'];
 
-  const fetchData = async () => {
-    try {
-      const logsData = await apiFetch('/api/voice/logs');
-      setHistory(logsData || []);
+  const queryClient = useQueryClient();
+  const recentLogsParams = RECENT_LOGS_PARAMS;
+  const recentLogsQuery = useCallLogsQuery(recentLogsParams, { refetchInterval: RECENT_LOGS_POLL_MS });
+  const history = recentLogsQuery.data ?? EMPTY_LIST;
+  const walletQuery = useWalletQuery({ enabled: Boolean(user?.uid) });
+  const walletBalance = Number(walletQuery.data?.balance) || 0;
+  const campaignsQuery = useCampaignPricingQuery();
+  const liveCampaigns = campaignsQuery.data ?? EMPTY_LIST;
+  const pausedCampaigns = useMemo(() => {
+    const pausedMap = {};
+    liveCampaigns.forEach((row) => {
+      if (row?.id) pausedMap[row.id] = Boolean(row.paused);
+    });
+    return pausedMap;
+  }, [liveCampaigns]);
 
-      const walletData = await stripeService.getWallet();
-      if (walletData) setWalletBalance(walletData.balance);
+  const refreshRecentLogs = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.callLogs(recentLogsParams) });
+  }, [queryClient, recentLogsParams]);
 
-      const profile = await getProfile(user?.uid);
-      if (profile && Array.isArray(profile.statePresets)) {
-        setStatePresets(profile.statePresets);
-      }
+  const setHistory = useCallback((updater) => {
+    queryClient.setQueryData(queryKeys.callLogs(recentLogsParams), (prev) => (
+      Array.isArray(prev) ? updater(prev) : prev
+    ));
+  }, [queryClient, recentLogsParams]);
 
-      try {
-        const campaigns = await fetchCampaignPricing();
-        const pausedMap = {};
-        campaigns.forEach((row) => {
-          if (row?.id) pausedMap[row.id] = Boolean(row.paused);
-        });
-        setPausedCampaigns(pausedMap);
-        setLiveCampaigns(campaigns);
-      } catch {
-        // Non-blocking: keep wizard usable even if pricing fetch fails.
-      }
-    } catch (err) {
-      console.error('Error fetching data:', err);
-    }
-  };
+  useEffect(() => {
+    if (!user?.uid) return;
+    getProfile(user.uid).then((profile) => {
+      if (profile && Array.isArray(profile.statePresets)) setStatePresets(profile.statePresets);
+    }).catch((err) => console.error('Error loading state presets:', err));
+  }, [user?.uid]);
 
   const persistPresets = async (next) => {
     setStatePresets(next);
@@ -1033,28 +975,16 @@ const TakeCallsPage = () => {
     }
   };
 
-  const pollingTimerRef = useRef(null);
-
+  const prevCallStateRef = useRef(callState);
   useEffect(() => {
-    fetchData();
-    pollingTimerRef.current = setInterval(fetchData, 10000);
-
-    const onWalletUpdated = (e) => {
-      if (e.detail !== undefined && e.detail !== null) {
-        setWalletBalance(e.detail);
-        return;
-      }
-      stripeService.getWallet().then((walletData) => {
-        if (walletData) setWalletBalance(walletData.balance);
-      }).catch(() => { });
-    };
-    window.addEventListener('wallet_updated', onWalletUpdated);
-
-    return () => {
-      if (pollingTimerRef.current) clearInterval(pollingTimerRef.current);
-      window.removeEventListener('wallet_updated', onWalletUpdated);
-    };
-  }, []);
+    const prev = prevCallStateRef.current;
+    prevCallStateRef.current = callState;
+    if ((prev === 'active' || prev === 'ringing') && callState !== prev) {
+      const t = setTimeout(refreshRecentLogs, 1500);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [callState, refreshRecentLogs]);
 
   const handleGoLive = async () => {
     if (pausedCampaigns[campaign]) {
@@ -1250,16 +1180,6 @@ const TakeCallsPage = () => {
             />
           </div>
         </motion.div>
-
-        {pendingDispositionCall && (
-          <DispositionModal
-            callSid={pendingDispositionCall}
-            onComplete={() => {
-              clearPendingDisposition();
-              fetchData(); // refresh history to show disposition immediately
-            }}
-          />
-        )}
       </motion.div>
     );
   }
@@ -1301,7 +1221,13 @@ const TakeCallsPage = () => {
         </motion.div>
       )}
 
-      {!user?.flagged && user?.personaStatus !== 'verified' && (
+      {!user?.flagged && isAgencyGated(user) && (
+        <motion.div variants={presets.child}>
+          <AgencyStatusGate />
+        </motion.div>
+      )}
+
+      {!user?.flagged && !isAgencyGated(user) && user?.personaStatus !== 'verified' && (
         <motion.div variants={presets.child}>
           <PersonaVerificationBlocker 
             onComplete={() => {
@@ -1314,7 +1240,7 @@ const TakeCallsPage = () => {
         </motion.div>
       )}
 
-      {!user?.flagged && user?.personaStatus === 'verified' && (
+      {!user?.flagged && !isAgencyGated(user) && user?.personaStatus === 'verified' && (
         <motion.div className={`glass ${classes.wizardShell}`} variants={presets.child}>
 
           <div className={classes.wizardGrid}>
@@ -1390,15 +1316,6 @@ const TakeCallsPage = () => {
           </div>
         </motion.div>
       )} {/* end !user?.flagged wizard guard */}
-      {pendingDispositionCall && (
-        <DispositionModal
-          callSid={pendingDispositionCall}
-          onComplete={() => {
-            clearPendingDisposition();
-            fetchData();
-          }}
-        />
-      )}
     </motion.div>
   );
 };

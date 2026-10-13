@@ -48,6 +48,14 @@ exports.setupCallSockets = (io) => {
 
             try {
                 const userDoc = await getUserDoc(identity);
+                if (userDoc?.flagged) {
+                    socket.emit('agent:go_live_error', {
+                        code: 'ACCOUNT_FLAGGED',
+                        message: userDoc.flagReason
+                            || 'Your account has been flagged. Contact admin@callsflow.io.',
+                    });
+                    return;
+                }
                 if (userDoc?.personaStatus !== 'verified') {
                     socket.emit('agent:go_live_error', {
                         code: 'PERSONA_UNVERIFIED',
@@ -66,6 +74,11 @@ exports.setupCallSockets = (io) => {
                 }
             } catch (err) {
                 console.warn(`[Agency] Campaign access check failed for ${identity}:`, err.message);
+                socket.emit('agent:go_live_error', {
+                    code: 'CAMPAIGN_ACCESS_ERROR',
+                    message: 'Could not verify campaign access. Please try again.',
+                });
+                return;
             }
 
             try {
@@ -78,6 +91,11 @@ exports.setupCallSockets = (io) => {
                 }
             } catch (err) {
                 console.warn(`[CampaignControls] Failed pause check for ${campaign}:`, err.message);
+                socket.emit('agent:go_live_error', {
+                    code: 'CAMPAIGN_PAUSE_CHECK_ERROR',
+                    message: 'Could not verify campaign status. Please try again.',
+                });
+                return;
             }
 
             // ── Balance Gate ─────────────────────────────────────────────────
@@ -95,7 +113,12 @@ exports.setupCallSockets = (io) => {
                     return;
                 }
             } catch (err) {
-                console.error(`[Wallet] Balance check failed for ${identity} — allowing through:`, err.message);
+                console.error(`[Wallet] Balance check failed for ${identity} — denying go-live:`, err.message);
+                socket.emit('agent:go_live_error', {
+                    code: 'BALANCE_CHECK_ERROR',
+                    message: 'Could not verify wallet balance. Please try again.',
+                });
+                return;
             }
 
             // Store session on socket — do NOT add to pool yet.
@@ -118,14 +141,16 @@ exports.setupCallSockets = (io) => {
 
         // ── Stage 2: Device is registered with Twilio — NOW enter the pool ──
         socket.on('agent:pool_ready', async () => {
+            // Claim immediately so concurrent pool_ready emits cannot double-register.
             const payload = socket.pendingGoLivePayload;
             if (!payload || !socket.agentId) {
                 // Ignore spurious events (e.g. double-fire)
                 return;
             }
+            socket.pendingGoLivePayload = null;
+
             try {
                 if (await isCampaignPaused(payload.campaign)) {
-                    socket.pendingGoLivePayload = null;
                     socket.emit('agent:go_live_error', {
                         code: 'CAMPAIGN_PAUSED',
                         message: 'This campaign was paused by admin. Please select another campaign.',
@@ -134,11 +159,16 @@ exports.setupCallSockets = (io) => {
                 }
             } catch (err) {
                 console.warn(`[CampaignControls] Failed pool_ready pause check for ${payload.campaign}:`, err.message);
+                socket.emit('agent:go_live_error', {
+                    code: 'CAMPAIGN_PAUSE_CHECK_ERROR',
+                    message: 'Could not verify campaign status. Please try again.',
+                });
+                return;
             }
-            socket.pendingGoLivePayload = null; // consume
 
+            let userDoc;
             try {
-                const userDoc = await getUserDoc(socket.agentId);
+                userDoc = await getUserDoc(socket.agentId);
                 if (userDoc?.flagged) {
                     socket.emit('agent:go_live_error', {
                         code: 'ACCOUNT_FLAGGED',
@@ -149,19 +179,56 @@ exports.setupCallSockets = (io) => {
                 }
             } catch (err) {
                 console.warn(`[Socket] Flag check failed for ${socket.agentId}:`, err.message);
+                socket.emit('agent:go_live_error', {
+                    code: 'FLAG_CHECK_ERROR',
+                    message: 'Could not verify account status. Please try again.',
+                });
+                return;
             }
 
-            // Use agencyId from the go_live payload (sent by frontend from authStore).
-            // Fall back to a Firestore lookup only if the frontend didn't send it.
-            let agencyId = normalizeAgencyId(payload.agencyId);
-            if (!agencyId) {
-                try {
-                    const userDoc = await getUserDoc(socket.agentId);
-                    agencyId = normalizeAgencyId(userDoc?.agencyId);
-                } catch {
-                    agencyId = null;
+            // Always trust Firestore membership — never client payload.agencyId.
+            const agencyId = normalizeAgencyId(userDoc?.agencyId);
+            try {
+                const accessError = await validateAgentCampaignAccess(agencyId, payload.campaign);
+                if (accessError) {
+                    socket.emit('agent:go_live_error', {
+                        code: 'CAMPAIGN_FORBIDDEN',
+                        message: accessError,
+                    });
+                    return;
                 }
+            } catch (err) {
+                console.warn(`[Agency] pool_ready campaign access check failed for ${socket.agentId}:`, err.message);
+                socket.emit('agent:go_live_error', {
+                    code: 'CAMPAIGN_ACCESS_ERROR',
+                    message: 'Could not verify campaign access. Please try again.',
+                });
+                return;
             }
+
+            // Re-check wallet — balance may have dropped between go_live and device ready.
+            try {
+                const balanceCents = await getBalance(socket.agentId);
+                const campaignPriceCents = CAMPAIGN_CONFIG[payload.campaign]
+                    ? CAMPAIGN_CONFIG[payload.campaign].price * 100
+                    : 0;
+                if (balanceCents < campaignPriceCents) {
+                    socket.emit('agent:go_live_error', {
+                        code: 'INSUFFICIENT_BALANCE',
+                        message: `Your wallet balance ($${(balanceCents / 100).toFixed(2)}) is insufficient to take calls for this campaign (requires $${(campaignPriceCents / 100).toFixed(2)}). Please add credits before going live.`,
+                        balance: balanceCents,
+                    });
+                    return;
+                }
+            } catch (err) {
+                console.error(`[Wallet] pool_ready balance check failed for ${socket.agentId}:`, err.message);
+                socket.emit('agent:go_live_error', {
+                    code: 'BALANCE_CHECK_ERROR',
+                    message: 'Could not verify wallet balance. Please try again.',
+                });
+                return;
+            }
+
             console.log(`[Socket] Agent ${socket.agentId} pool_ready — agencyId=${agencyId || 'platform'}`);
 
             const registered = await agentManager.registerAgent(socket.agentId, {

@@ -4,8 +4,8 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import PageLoader from '../components/ui/PageLoader';
-import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
+import PageLoader from '../../components/ui/PageLoader';
+import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
 import {
   deleteAdminBroadcast,
   getAdminMaintenanceState,
@@ -15,11 +15,11 @@ import {
   postAdminBroadcastNotification,
   postAdminTargetedNotification,
   listAdminUsersLite,
-} from '../services/adminService';
-import { ADMIN_CATEGORIES } from '../config/adminModules';
-import AdminPageShell from '../components/admin/AdminPageShell';
+} from '../../services/adminService';
+import { ADMIN_CATEGORIES } from '../../config/adminModules';
+import AdminPageShell from '../../components/admin/AdminPageShell';
 import classes from './AdminNotificationSettingsPage.module.css';
-import shared from '../components/admin/adminShared.module.css';
+import shared from '../../components/admin/adminShared.module.css';
 
 const toLocalDateTimeInput = (value) => {
   if (!value) return '';

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { HeadphonesIcon, Loader2, MessageSquarePlus, PanelRight, Search, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -222,6 +223,7 @@ function threadIsBehind(conversation, messages = []) {
 
 const SupportDeskPage = () => {
   const presets = useSubtlePageMotion();
+  const [searchParams, setSearchParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
   const socket = useSupportDeskStore((s) => s._socket);
   const deskUnreadById = useSupportDeskStore((s) => s.unreadById);
@@ -496,6 +498,27 @@ const SupportDeskPage = () => {
     // initial load only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const userId = searchParams.get('userId');
+    if (!userId || inboxLoading) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        await openConversation(userId);
+        if (!cancelled) {
+          setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete('userId');
+            return next;
+          }, { replace: true });
+        }
+      } catch {
+        /* openConversation toasts on failure */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [searchParams, inboxLoading, openConversation, setSearchParams]);
 
   useEffect(() => {
     if (!socket) return undefined;

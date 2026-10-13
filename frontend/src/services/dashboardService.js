@@ -2,17 +2,18 @@ import { apiFetchWithRetry as apiFetch } from './apiClient';
 import { getApiBaseUrl } from '../config/apiBase';
 
 /**
- * Fetch raw call logs for a given date range. Dates are ISO strings.
+ * Server-side aggregates for the Dashboard (metrics, trend baseline, chart, donut, recent calls).
  */
-export async function fetchDashboardLogs({ startDate, endDate, limit = 1000 } = {}) {
-  const params = new URLSearchParams();
-  if (startDate) params.append('startDate', new Date(startDate).toISOString());
-  if (endDate) params.append('endDate', new Date(endDate).toISOString());
-  if (limit) params.append('limit', String(limit));
-  const qs = params.toString();
-  const path = qs ? `/api/voice/logs?${qs}` : '/api/voice/logs';
-  const data = await apiFetch(path, { method: 'GET' });
-  return Array.isArray(data) ? data : [];
+export async function fetchDashboardSummary({ startDate, endDate, prevStartDate, prevEndDate, todayStart } = {}) {
+  const params = new URLSearchParams({
+    startDate: new Date(startDate).toISOString(),
+    endDate: new Date(endDate).toISOString(),
+    prevStartDate: new Date(prevStartDate).toISOString(),
+    prevEndDate: new Date(prevEndDate).toISOString(),
+    todayStart: new Date(todayStart).toISOString(),
+    tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+  });
+  return apiFetch(`/api/users/me/dashboard-summary?${params.toString()}`, { method: 'GET' });
 }
 
 /**

@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 import {
-  Building2, Users, Phone, Radio, CircleDollarSign, RefreshCw, Search,
+  Users, Phone, Radio, CircleDollarSign, RefreshCw, Search,
   ChevronLeft, ChevronRight, AlertTriangle, Activity, PhoneIncoming, PhoneCall,
 } from 'lucide-react';
 import { useEffect } from 'react';
@@ -9,7 +9,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import PageLoader from '../ui/PageLoader';
 import NumberPopIn from '../ui/NumberPopIn';
 import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
-import { RecordingModal } from '../../pages/CallLogsPage';
+import { RecordingModal } from '../modals/RecordingModal';
 import { useOpsDashboard } from '../../hooks/useOpsDashboard';
 import OpsScopedNav, { OpsSettingsLink } from './OpsScopedNav';
 import {
@@ -25,6 +25,7 @@ import OpsLiveAgentGrid from './OpsLiveAgentGrid';
 import { RANGE_LABELS, LOW_BILLABLE_THRESHOLD } from './opsUtils';
 import shared from './opsShared.module.css';
 import agency from './AgencyDashboard.module.css';
+import AgencyInviteCard from '../agency/AgencyInviteCard';
 
 const CAMPAIGN_LABELS = {
   fe_tv_calls: 'FE TV Calls',
@@ -41,6 +42,7 @@ export default function AgencyDashboardLayout({
   settingsLabel = 'Settings',
   embedMode = false,
   compactHeader = false,
+  showInvite = false,
 }) {
   const presets = useSubtlePageMotion();
   const reduceMotion = useReducedMotion();
@@ -60,7 +62,7 @@ export default function AgencyDashboardLayout({
   const adminView = ops.isAdminView;
 
   const compactSub = [
-    `${ops.agents.length} agents`,
+    ops.agents.length === 1 ? '1 agent' : `${ops.agents.length} agents`,
     `${ops.onlineCount} online`,
     RANGE_LABELS[ops.rangePreset],
   ].join(' · ');
@@ -122,49 +124,59 @@ export default function AgencyDashboardLayout({
           </div>
         </div>
       ) : (
-      <motion.div className={`glass ${agency.tenantBanner}`} variants={presets.child}>
+      <motion.div className={agency.tenantBanner} variants={presets.child}>
         <div className={agency.tenantMain}>
-          <div className={agency.tenantIcon}><Building2 size={24} /></div>
-          <div>
-            <h1 className={agency.tenantTitle}>{agencyName}</h1>
-            <p className={agency.tenantSub}>
-              {ops.agents.length} agents · {ops.onlineCount} online · {RANGE_LABELS[ops.rangePreset]}
-              {adminView ? ' · Viewing as platform administrator' : ''}
-            </p>
-            {lockedIds.length > 0 ? (
-              <div className={agency.chipRow}>
-                {lockedIds.map((id) => (
-                  <span key={id} className={agency.chip}>{CAMPAIGN_LABELS[id] || id}</span>
-                ))}
-              </div>
-            ) : null}
-          </div>
+          <p className={agency.tenantEyebrow}>Agency</p>
+          <h1 className={agency.tenantTitle}>{agencyName}</h1>
+          <p className={agency.tenantSub}>
+            {ops.agents.length === 1 ? '1 agent' : `${ops.agents.length} agents`}
+            {' · '}
+            {ops.onlineCount} online
+            {adminView ? ' · Viewing as platform administrator' : ''}
+          </p>
+          {lockedIds.length > 0 ? (
+            <div className={agency.chipRow}>
+              {lockedIds.map((id) => (
+                <span key={id} className={agency.chip}>{CAMPAIGN_LABELS[id] || id}</span>
+              ))}
+            </div>
+          ) : null}
         </div>
-        <div className={shared.headerActions}>
-          <div className={shared.filterRow}>
+        <div className={agency.tenantControls}>
+          <div className={agency.rangeGroup} role="group" aria-label="Date range">
             {Object.keys(RANGE_LABELS).map((key) => (
               <button
                 key={key}
                 type="button"
-                className={`${shared.filterBtn} ${ops.rangePreset === key ? shared.filterBtnActive : ''}`}
+                className={`${agency.rangeBtn} ${ops.rangePreset === key ? agency.rangeBtnActive : ''}`}
                 onClick={() => ops.setRangePreset(key)}
               >
                 {RANGE_LABELS[key]}
               </button>
             ))}
           </div>
-          <div className={shared.headerActionRow}>
-            <button type="button" className={shared.refreshBtn} onClick={ops.loadAll}>
-              <RefreshCw size={16} className={ops.analyticsLoading ? shared.spin : ''} />
-              Refresh
-            </button>
-            {embedMode && !compactHeader && settingsHref ? (
-              <OpsSettingsLink settingsHref={settingsHref} />
-            ) : null}
-          </div>
+          <button
+            type="button"
+            className={agency.iconRefresh}
+            onClick={ops.loadAll}
+            disabled={ops.analyticsLoading}
+            title="Refresh"
+            aria-label="Refresh dashboard"
+          >
+            <RefreshCw size={15} className={ops.analyticsLoading ? shared.spin : ''} />
+          </button>
+          {embedMode && !compactHeader && settingsHref ? (
+            <OpsSettingsLink settingsHref={settingsHref} />
+          ) : null}
         </div>
       </motion.div>
       )}
+
+      {showInvite && !adminView ? (
+        <motion.div variants={presets.child}>
+          <AgencyInviteCard />
+        </motion.div>
+      ) : null}
 
       <motion.div className={shared.kpiGrid} variants={presets.statsStrip}>
         <motion.div className={`glass ${shared.statCard}`} variants={presets.child}>

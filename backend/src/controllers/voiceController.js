@@ -16,6 +16,7 @@ const { isCampaignPaused, notifyAgent } = require('../services/notificationServi
 const socketRegistry = require('../sockets/socketRegistry');
 const { normalizeAgencyId, isAgencyAdminRole } = require('../utils/tenancy');
 const integrationService = require('../services/integrationService');
+const callTrace = require('../services/callTraceService');
 
 /** Absolute URL for Twilio webhooks (relative URLs break statusCallback on some hosts). */
 function voiceWebhookUrl(req, pathWithQuery) {
@@ -106,6 +107,24 @@ exports.handleIncomingCall = async (req, res) => {
 
     console.log(`[Twilio Webhook] 🔔 Incoming call from: ${fromNumber} | Guaranteed Area Code State Lookup: ${callerState || 'Unknown'} | To: ${toNumber}`);
     console.log(`[Twilio Webhook] 🎯 Resolved Campaign: ${campaign} | Agency: ${routeAgencyId || 'platform'}`);
+    callTrace.trace({
+      type: 'incoming',
+      phone: fromNumber,
+      state: callerState,
+      to: toNumber,
+      campaignId: campaign,
+      agencyId: routeAgencyId || 'platform',
+      callSid: req.body?.CallSid || null,
+    });
+    callTrace.trace({
+      type: 'campaign_resolved',
+      phone: fromNumber,
+      state: callerState,
+      to: toNumber,
+      campaignId: campaign,
+      agencyId: routeAgencyId || 'platform',
+      callSid: req.body?.CallSid || null,
+    });
 
     try {
         if (await isCampaignPaused(campaign)) {
@@ -162,6 +181,23 @@ exports.handleIncomingCall = async (req, res) => {
                 agencyId: routeAgencyId,
                 startedAt: new Date().toISOString(),
                 retryCount,
+            });
+            callTrace.setLiveSoon(fromNumber, {
+                agentId: available.id,
+                callSid: parentCallSid,
+                campaignId: campaign,
+                to: toNumber,
+                startedAt: new Date().toISOString(),
+            });
+            callTrace.trace({
+                type: 'active_snapshot',
+                phone: fromNumber,
+                to: toNumber,
+                campaignId: campaign,
+                agencyId: routeAgencyId || 'platform',
+                agentId: available.id,
+                callSid: parentCallSid,
+                state: callerState,
             });
             if (parentCallSid) {
                 await agentManager.releaseStaleRingingForCall(parentCallSid, available.id);
@@ -372,6 +408,24 @@ exports.handleDialStatus = async (req, res) => {
 
                     const customerSid = active.parentCallSid || parentSid;
                     console.log(`[Twilio] DEBUG kill check: customerSid=${customerSid}, campaign=${campaign}, active=`, JSON.stringify(active));
+                    callTrace.trace({
+                        type: 'active_snapshot',
+                        phone: active.from,
+                        to: active.to,
+                        campaignId: campaign || active.campaignId,
+                        agentId,
+                        callSid: customerSid || active.callSid,
+                        detail: 'leg_ended',
+                    });
+                    callTrace.trace({
+                        type: 'agent_leg_ended',
+                        phone: active.from,
+                        to: active.to,
+                        campaignId: campaign || active.campaignId,
+                        agentId,
+                        callSid: customerSid || active.callSid,
+                        detail: String(event || callStatus || 'completed'),
+                    });
                     if (customerSid && customerSid !== callSid && campaign === 'aca_transfers') {
                         console.log(`[Twilio] Auto-killing ACA customer call ${customerSid} after agent disconnect.`);
                         await twilioClientObj.calls(customerSid).update({ status: 'completed' })
@@ -736,13 +790,19 @@ exports.handleRecordingComplete = async (req, res) => {
  */
 exports.getLogs = async (req, res) => {
     try {
-        const limit = Math.min(Number(req.query.limit || 500), 1000);
+        const requested = Number(req.query.limit);
+        const limit = Number.isFinite(requested) && requested > 0 ? Math.min(requested, 1000) : 500;
         let startDate = null;
         let endDate = null;
+        let before = null;
         if (req.query.startDate) startDate = new Date(req.query.startDate);
         if (req.query.endDate) endDate = new Date(req.query.endDate);
+        if (req.query.before) {
+            const parsed = new Date(req.query.before);
+            if (!Number.isNaN(parsed.getTime())) before = parsed;
+        }
 
-        const logs = await callLogService.getLogsByUser(req.user.uid, limit, startDate, endDate);
+        const logs = await callLogService.getLogsByUser(req.user.uid, limit, startDate, endDate, before);
         
         const { CAMPAIGN_CONFIG } = require('../config/pricing');
         const enrichedLogs = logs.map(log => ({
@@ -750,6 +810,10 @@ exports.getLogs = async (req, res) => {
             allowRefunds: CAMPAIGN_CONFIG[log.campaign]?.allowRefunds !== false
         }));
 
+        if (enrichedLogs.length === limit) {
+            const last = enrichedLogs[enrichedLogs.length - 1];
+            if (last?.createdAt) res.set('X-Next-Cursor', String(last.createdAt));
+        }
         res.json(enrichedLogs);
     } catch (err) {
         console.error('[Voice] getLogs error:', err.message);
@@ -829,6 +893,9 @@ exports.proxyRecording = async (req, res) => {
         const contentLength = response.headers.get('content-length');
         const contentRange = response.headers.get('content-range');
         const contentType = response.headers.get('content-type') || 'audio/mpeg';
+        const forceDownload = ['1', 'true', 'yes'].includes(
+            String(req.query.download || '').trim().toLowerCase(),
+        );
 
         // Preserve actual upstream status. Some CDNs ignore Range and still return 200.
         // Forcing 206 without Content-Range can make players show 0:00 and fail playback.
@@ -841,6 +908,10 @@ exports.proxyRecording = async (req, res) => {
         };
         if (contentLength) resHeaders['Content-Length'] = contentLength;
         if (contentRange) resHeaders['Content-Range'] = contentRange;
+        // Without attachment, Chrome plays the stream inline (and ignores <a download> cross-origin).
+        if (forceDownload) {
+            resHeaders['Content-Disposition'] = `attachment; filename="${recordingSid}.mp3"`;
+        }
 
         res.writeHead(statusCode, resHeaders);
 
@@ -921,17 +992,6 @@ exports.serveContestProof = async (req, res) => {
         if (!res.headersSent) {
             res.status(status).json({ error: err.message || 'Failed to load proof file' });
         }
-    }
-};
-
-exports.getCallContestStatus = async (req, res) => {
-    try {
-        const { callLogId } = req.params;
-        const contest = await callContestService.getContestForAgent(req.user.uid, callLogId);
-        res.json({ contest });
-    } catch (err) {
-        console.error('[Voice] getCallContestStatus:', err.message);
-        res.status(500).json({ error: 'Failed to load contest status' });
     }
 };
 

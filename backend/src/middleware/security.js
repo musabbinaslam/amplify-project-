@@ -92,15 +92,52 @@ const webhookCallLimiter = rateLimit({
     message: 'Too many webhook requests',
 });
 
+// Reuse referral resolve window/max for public agency invite lookups.
 const LIMIT_REFERRAL_RESOLVE_WINDOW_MS = envInt('RATE_LIMIT_REFERRAL_RESOLVE_WINDOW_MS', 60 * 1000);
 const LIMIT_REFERRAL_RESOLVE_MAX = envInt('RATE_LIMIT_REFERRAL_RESOLVE_MAX', 10);
 
-const referralResolveLimiter = rateLimit({
+const agencyInviteResolveLimiter = rateLimit({
     windowMs: LIMIT_REFERRAL_RESOLVE_WINDOW_MS,
     max: LIMIT_REFERRAL_RESOLVE_MAX,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { error: 'Too many referral code lookups. Please try again later.' },
+    message: { error: 'Too many invite code lookups. Please try again later.' },
+});
+
+const LIMIT_AGENCY_CLAIM_WINDOW_MS = envInt('RATE_LIMIT_AGENCY_CLAIM_WINDOW_MS', 15 * 60 * 1000);
+const LIMIT_AGENCY_CLAIM_MAX = envInt('RATE_LIMIT_AGENCY_CLAIM_MAX', 10);
+
+const agencyInviteClaimLimiter = rateLimit({
+    windowMs: LIMIT_AGENCY_CLAIM_WINDOW_MS,
+    max: LIMIT_AGENCY_CLAIM_MAX,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => getRequestKey(req, 'agency-claim'),
+    message: { error: 'Too many invite claim attempts. Please try again later.' },
+});
+
+const LIMIT_AGENCY_REGISTER_WINDOW_MS = envInt('RATE_LIMIT_AGENCY_REGISTER_WINDOW_MS', 60 * 60 * 1000);
+const LIMIT_AGENCY_REGISTER_MAX = envInt('RATE_LIMIT_AGENCY_REGISTER_MAX', 5);
+
+const agencyRegisterLimiter = rateLimit({
+    windowMs: LIMIT_AGENCY_REGISTER_WINDOW_MS,
+    max: LIMIT_AGENCY_REGISTER_MAX,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => getRequestKey(req, 'agency-register'),
+    message: { error: 'Too many agency applications. Please try again later.' },
+});
+
+const LIMIT_AGENCY_REAPPLY_WINDOW_MS = envInt('RATE_LIMIT_AGENCY_REAPPLY_WINDOW_MS', 60 * 60 * 1000);
+const LIMIT_AGENCY_REAPPLY_MAX = envInt('RATE_LIMIT_AGENCY_REAPPLY_MAX', 5);
+
+const agencyReapplyLimiter = rateLimit({
+    windowMs: LIMIT_AGENCY_REAPPLY_WINDOW_MS,
+    max: LIMIT_AGENCY_REAPPLY_MAX,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => getRequestKey(req, 'agency-reapply'),
+    message: { error: 'Too many re-apply attempts. Please try again later.' },
 });
 
 const validateTwilioWebhook = (req, res, next) => {
@@ -150,6 +187,9 @@ module.exports = {
     supportLiveLimiter,
     voiceTokenLimiter,
     webhookCallLimiter,
-    referralResolveLimiter,
+    agencyInviteResolveLimiter,
+    agencyInviteClaimLimiter,
+    agencyRegisterLimiter,
+    agencyReapplyLimiter,
     validateTwilioWebhook
 };

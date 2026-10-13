@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import useAuthStore from '../store/authStore';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
-import { SCRIPTS, SCRIPT_OPTIONS } from '../data/scriptData';
+import { SCRIPTS, SCRIPT_OPTIONS } from '../constants/scriptData';
 import { loadScriptData, saveScriptData } from '../services/scriptService';
 import { apiFetch } from '../services/apiClient';
 import CustomSelect from '../components/ui/CustomSelect';

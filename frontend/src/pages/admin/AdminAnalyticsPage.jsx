@@ -25,7 +25,7 @@ import PageLoader from '../../components/ui/PageLoader';
 import CustomSelect from '../../components/ui/CustomSelect';
 import SlidingTabs from '../../components/ui/SlidingTabs';
 import ShimmerText from '../../components/ui/ShimmerText';
-import { RecordingModal } from '../CallLogsPage';
+import { RecordingModal } from '../../components/modals/RecordingModal';
 import { CallLogDispositionBadge } from '../../components/callLogs/CallLogStatusCells';
 import classes from '../../components/admin/adminShared.module.css';
 

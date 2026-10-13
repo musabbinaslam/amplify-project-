@@ -46,6 +46,12 @@ export function getAdminLiveCalls() {
   return apiFetch('/api/admin/live-calls', { method: 'GET' });
 }
 
+export function getAdminCallTrace(q) {
+  const qs = new URLSearchParams();
+  if (q) qs.set('q', String(q).trim());
+  return apiFetch(`/api/admin/call-trace?${qs.toString()}`, { method: 'GET' });
+}
+
 export function getAdminAiCoachingOverview(params = {}) {
   const qs = new URLSearchParams();
   if (params.from) qs.set('from', params.from);
@@ -176,10 +182,6 @@ export function listAdminCallContests(status = 'pending', limit = 50) {
   if (status) qs.set('status', status);
   if (limit) qs.set('limit', String(limit));
   return apiFetch(`/api/admin/call-contests?${qs.toString()}`, { method: 'GET' });
-}
-
-export function getAdminCallContest(contestId) {
-  return apiFetch(`/api/admin/call-contests/${encodeURIComponent(contestId)}`, { method: 'GET' });
 }
 
 export function approveAdminCallContest(contestId, reason) {

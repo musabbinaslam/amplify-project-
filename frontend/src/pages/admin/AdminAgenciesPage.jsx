@@ -32,10 +32,14 @@ import {
   lockAgencyCampaigns,
   listAgencyDids,
   assignAgencyDid,
+  approveAdminAgency,
+  rejectAdminAgency,
 } from '../../services/agencyService';
 import { getAdminOverviewLite, listAdminUsers } from '../../services/adminService';
+import { startSupportDeskOutbound } from '../../services/supportLiveService';
 import AdminPageShell from '../../components/admin/AdminPageShell';
 import AgencyDashboardLayout from '../../components/ops/AgencyDashboardLayout';
+import AgencyInviteCard from '../../components/agency/AgencyInviteCard';
 import CustomSelect from '../../components/ui/CustomSelect';
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
 import PageLoader from '../../components/ui/PageLoader';
@@ -46,6 +50,7 @@ import classes from './AdminAgenciesPage.module.css';
 const MEMBERS_PAGE_SIZE = 25;
 const PICKER_PAGE_SIZE = 12;
 const VALID_TABS = ['overview', 'members', 'campaigns', 'dids'];
+const DIRECTORY_TABS = ['directory', 'applications'];
 
 const SETTINGS_TABS = [
   { id: 'overview', label: 'Overview' },
@@ -53,6 +58,20 @@ const SETTINGS_TABS = [
   { id: 'campaigns', label: 'Campaigns' },
   { id: 'dids', label: 'DIDs' },
 ];
+
+function statusLabel(status) {
+  if (status === 'pending') return 'Pending';
+  if (status === 'rejected') return 'Rejected';
+  if (status === 'suspended') return 'Suspended';
+  return 'Active';
+}
+
+function statusPillClass(status, sharedStyles) {
+  if (status === 'pending') return sharedStyles.dispPending;
+  if (status === 'rejected') return sharedStyles.dispMissed;
+  if (status === 'suspended') return sharedStyles.dispSold;
+  return sharedStyles.dispAnswered;
+}
 
 function dedupeUsers(list) {
   const map = new Map();
@@ -353,6 +372,9 @@ export default function AdminAgenciesPage() {
   const [lockedDraft, setLockedDraft] = useState([]);
   const [savingCampaigns, setSavingCampaigns] = useState(false);
   const [copiedPing, setCopiedPing] = useState('');
+  const [reviewingId, setReviewingId] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
+  const [messagingUid, setMessagingUid] = useState('');
 
   const handleCopyPing = useCallback((campaignId) => {
     if (!selectedId) return;
@@ -365,6 +387,13 @@ export default function AdminAgenciesPage() {
   }, [selectedId]);
 
   const selected = agencies.find((a) => a.id === selectedId) || null;
+  const directoryTab = (() => {
+    const t = searchParams.get('tab');
+    if (!selectedId && DIRECTORY_TABS.includes(t)) return t;
+    if (!selectedId && t === 'applications') return 'applications';
+    return 'directory';
+  })();
+  const applicationFocusId = searchParams.get('agencyId') || '';
   const settingsTab = VALID_TABS.includes(searchParams.get('tab'))
     ? searchParams.get('tab')
     : 'overview';
@@ -385,7 +414,10 @@ export default function AdminAgenciesPage() {
   const updateSelectedId = useCallback((id, tab) => {
     setSelectedId(id || '');
     setSearchParams((prev) => {
-      if (!id) return {};
+      if (!id) {
+        const keep = prev.get('tab') === 'applications' ? { tab: 'applications' } : {};
+        return keep;
+      }
       const nextTab = tab || prev.get('tab') || 'overview';
       return { selected: id, tab: nextTab };
     }, { replace: true });
@@ -395,6 +427,16 @@ export default function AdminAgenciesPage() {
     if (!selectedId) return;
     setSearchParams({ selected: selectedId, tab }, { replace: true });
   }, [selectedId, setSearchParams]);
+
+  const setDirectoryTab = useCallback((tab) => {
+    setSelectedId('');
+    setSearchParams(tab === 'applications' ? { tab: 'applications' } : {}, { replace: true });
+  }, [setSearchParams]);
+
+  const openApplication = useCallback((agencyId) => {
+    setSelectedId('');
+    setSearchParams({ tab: 'applications', agencyId }, { replace: true });
+  }, [setSearchParams]);
 
   useEffect(() => {
     const param = searchParams.get('selected');
@@ -432,13 +474,36 @@ export default function AdminAgenciesPage() {
     return counts;
   }, [allUsers, liveCallsRaw]);
 
+  const pendingApplications = useMemo(
+    () => agencies
+      .filter((a) => a.status === 'pending' || a.status === 'rejected')
+      .sort((a, b) => {
+        // Pending first, then rejected
+        if (a.status === b.status) return String(a.name || '').localeCompare(String(b.name || ''));
+        if (a.status === 'pending') return -1;
+        if (b.status === 'pending') return 1;
+        return 0;
+      }),
+    [agencies],
+  );
+
+  const directoryAgencies = useMemo(
+    () => agencies.filter((a) => a.status === 'active' || a.status === 'suspended'),
+    [agencies],
+  );
+
   const filteredAgencies = useMemo(() => {
     const q = directorySearch.trim().toLowerCase();
-    if (!q) return agencies;
-    return agencies.filter((a) => (
+    if (!q) return directoryAgencies;
+    return directoryAgencies.filter((a) => (
       [a.name, a.slug, a.id, a.status].filter(Boolean).join(' ').toLowerCase().includes(q)
     ));
-  }, [agencies, directorySearch]);
+  }, [directoryAgencies, directorySearch]);
+
+  const focusedApplication = useMemo(
+    () => agencies.find((a) => a.id === applicationFocusId) || null,
+    [agencies, applicationFocusId],
+  );
 
   const filteredMembers = useMemo(
     () => filterByQuery(members, membersSearch, ['role']),
@@ -450,16 +515,72 @@ export default function AdminAgenciesPage() {
   );
 
   const stats = useMemo(() => {
-    const active = agencies.filter((a) => a.status !== 'suspended').length;
+    const active = agencies.filter((a) => a.status === 'active').length;
+    const suspended = agencies.filter((a) => a.status === 'suspended').length;
+    const pending = agencies.filter((a) => a.status === 'pending').length;
     const agents = agencies.reduce((sum, a) => sum + (a.agentCount ?? 0), 0);
     return {
       total: agencies.length,
       active,
-      suspended: agencies.length - active,
+      suspended,
+      pending,
       agents,
       liveCalls: liveCallsRaw.length,
     };
   }, [agencies, liveCallsRaw.length]);
+
+  const handleApproveApplication = async (agency) => {
+    if (!agency?.id) return;
+    setReviewingId(agency.id);
+    try {
+      await approveAdminAgency(agency.id);
+      toast.success(`Approved ${agency.name}`);
+      await loadAgencies();
+      setSearchParams({ selected: agency.id, tab: 'members' }, { replace: true });
+      setSelectedId(agency.id);
+    } catch (err) {
+      toast.error(err.message || 'Failed to approve');
+    } finally {
+      setReviewingId('');
+    }
+  };
+
+  const handleRejectApplication = async (agency) => {
+    if (!agency?.id) return;
+    setReviewingId(agency.id);
+    try {
+      await rejectAdminAgency(agency.id, rejectReason);
+      toast.success(`Rejected ${agency.name}`);
+      setRejectReason('');
+      await loadAgencies();
+      setSearchParams({ tab: 'applications' }, { replace: true });
+    } catch (err) {
+      toast.error(err.message || 'Failed to reject');
+    } finally {
+      setReviewingId('');
+    }
+  };
+
+  const handleMessageFounder = async (agency) => {
+    const uid = agency?.createdByUid || agency?.application?.founderUid;
+    if (!uid) {
+      toast.error('No founder account on this application');
+      return;
+    }
+    setMessagingUid(uid);
+    try {
+      await startSupportDeskOutbound({
+        userId: uid,
+        text: `Hi — this is CallsFlow reviewing your agency application for "${agency.name}". How can we help?`,
+      });
+      toast.success('Support thread started');
+      window.location.assign(`/app/support-desk?userId=${encodeURIComponent(uid)}`);
+    } catch (err) {
+      toast.error(err.message || 'Could not start chat');
+    } finally {
+      setMessagingUid('');
+    }
+  };
 
   const loadAgencies = useCallback(async () => {
     const out = await listAdminAgencies();
@@ -472,11 +593,11 @@ export default function AdminAgenciesPage() {
       const [ov, userOut] = await Promise.all([
         getAdminOverviewLite(),
         listAdminUsers(),
+        loadAgencies(),
       ]);
       setCampaigns(ov?.campaigns || []);
       setLiveCallsRaw(ov?.liveCalls || []);
       setAllUsers(dedupeUsers(userOut?.users || []));
-      await loadAgencies();
     } catch (e) {
       toast.error(e.message || 'Failed to load agencies');
     } finally {
@@ -528,7 +649,7 @@ export default function AdminAgenciesPage() {
     let timer = null;
     const schedule = () => {
       if (timer) window.clearInterval(timer);
-      const ms = document.visibilityState === 'visible' ? 15000 : 60000;
+      const ms = document.visibilityState === 'visible' ? 30000 : 120000;
       timer = window.setInterval(refreshLiveCalls, ms);
     };
     schedule();
@@ -768,7 +889,7 @@ export default function AdminAgenciesPage() {
       <>
         <AdminPageShell
           title="Agencies"
-          description="Create tenants, then open one to manage members, campaigns, DIDs, and live ops."
+          description="Create tenants, review applications, then manage members, campaigns, DIDs, and live ops."
           icon={Building2}
           category={ADMIN_CATEGORIES.configuration}
           actions={(
@@ -789,15 +910,15 @@ export default function AdminAgenciesPage() {
               <span className={shared.qaStripValue}>{stats.active}</span>
               <span className={shared.qaStripSub}>Can take calls</span>
             </div>
+            <div className={`${shared.qaStripCell} ${stats.pending > 0 ? shared.qaStripCellHot : ''}`}>
+              <span className={shared.qaStripLabel}>Applications</span>
+              <span className={shared.qaStripValue}>{stats.pending}</span>
+              <span className={shared.qaStripSub}>Awaiting review</span>
+            </div>
             <div className={shared.qaStripCell}>
               <span className={shared.qaStripLabel}>Suspended</span>
               <span className={shared.qaStripValue}>{stats.suspended}</span>
               <span className={shared.qaStripSub}>Paused tenants</span>
-            </div>
-            <div className={shared.qaStripCell}>
-              <span className={shared.qaStripLabel}>Agents</span>
-              <span className={shared.qaStripValue}>{stats.agents}</span>
-              <span className={shared.qaStripSub}>Across agencies</span>
             </div>
             <div className={`${shared.qaStripCell} ${stats.liveCalls > 0 ? shared.qaStripCellHot : ''}`}>
               <span className={shared.qaStripLabel}>Live calls</span>
@@ -806,68 +927,237 @@ export default function AdminAgenciesPage() {
             </div>
           </div>
 
-          <div className={classes.toolbar}>
-            <div className={classes.searchWrap}>
-              <Search size={16} className={classes.searchIcon} aria-hidden="true" />
-              <input
-                className={`${shared.searchInput} ${classes.directorySearch}`}
-                placeholder="Search agencies…"
-                value={directorySearch}
-                onChange={(e) => setDirectorySearch(e.target.value)}
-                aria-label="Search agencies"
-              />
-            </div>
-            <span className={classes.pickerMeta}>
-              {filteredAgencies.length} of {agencies.length}
-            </span>
+          <div className={classes.tabBar} role="tablist" aria-label="Agency directory">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={directoryTab === 'directory'}
+              className={`${classes.tab} ${directoryTab === 'directory' ? classes.tabActive : ''}`}
+              onClick={() => setDirectoryTab('directory')}
+            >
+              Directory
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={directoryTab === 'applications'}
+              className={`${classes.tab} ${directoryTab === 'applications' ? classes.tabActive : ''}`}
+              onClick={() => setDirectoryTab('applications')}
+            >
+              Applications{stats.pending ? ` (${stats.pending})` : ''}
+            </button>
           </div>
 
-          {!agencies.length ? (
-            <div className={shared.emptyPanel}>
-              <Building2 size={26} className={shared.emptyPanelIcon} />
-              <h4>No agencies yet</h4>
-              <p>Create an agency to assign members, lock campaigns, and monitor live ops.</p>
-            </div>
-          ) : filteredAgencies.length === 0 ? (
-            <div className={shared.emptyPanel}>
-              <h4>No matches</h4>
-              <p>No agencies match “{directorySearch}”.</p>
+          {directoryTab === 'applications' ? (
+            <div className={classes.tabContent}>
+              {focusedApplication ? (
+                <div className={`glass ${classes.agencyCard}`} style={{ cursor: 'default', textAlign: 'left' }}>
+                  <button type="button" className={classes.backBtn} onClick={() => setDirectoryTab('applications')}>
+                    <ArrowLeft size={16} />
+                    All applications
+                  </button>
+                  <div className={classes.agencyCardTop}>
+                    <div>
+                      <h3 className={classes.agencyCardName}>{focusedApplication.name}</h3>
+                      <p className={classes.agencyCardSlug}>
+                        Submitted {focusedApplication.application?.submittedAt
+                          ? new Date(focusedApplication.application.submittedAt).toLocaleString()
+                          : '—'}
+                      </p>
+                    </div>
+                    <span className={`${shared.statusPill} ${statusPillClass(focusedApplication.status, shared)}`}>
+                      {statusLabel(focusedApplication.status)}
+                    </span>
+                  </div>
+                  <dl style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '8px 12px', fontSize: 13, margin: '16px 0' }}>
+                    <dt style={{ color: 'var(--text-tertiary)' }}>Founder</dt>
+                    <dd style={{ margin: 0 }}>{focusedApplication.application?.founderName || '—'}</dd>
+                    <dt style={{ color: 'var(--text-tertiary)' }}>Email</dt>
+                    <dd style={{ margin: 0 }}>
+                      {focusedApplication.application?.founderEmail ? (
+                        <a href={`mailto:${focusedApplication.application.founderEmail}`}>
+                          {focusedApplication.application.founderEmail}
+                        </a>
+                      ) : '—'}
+                    </dd>
+                    <dt style={{ color: 'var(--text-tertiary)' }}>Phone</dt>
+                    <dd style={{ margin: 0 }}>{focusedApplication.application?.phone || '—'}</dd>
+                    <dt style={{ color: 'var(--text-tertiary)' }}>Website</dt>
+                    <dd style={{ margin: 0 }}>{focusedApplication.application?.website || '—'}</dd>
+                    <dt style={{ color: 'var(--text-tertiary)' }}>Weekly spend</dt>
+                    <dd style={{ margin: 0 }}>{focusedApplication.application?.weeklySpend || '—'}</dd>
+                    <dt style={{ color: 'var(--text-tertiary)' }}>Verticals</dt>
+                    <dd style={{ margin: 0 }}>{focusedApplication.application?.verticals || '—'}</dd>
+                    <dt style={{ color: 'var(--text-tertiary)' }}>Inbound before</dt>
+                    <dd style={{ margin: 0 }}>{focusedApplication.application?.usedInbound || '—'}</dd>
+                    <dt style={{ color: 'var(--text-tertiary)' }}>Heard about</dt>
+                    <dd style={{ margin: 0 }}>{focusedApplication.application?.hearAbout || '—'}</dd>
+                  </dl>
+                  {focusedApplication.status === 'pending' || focusedApplication.status === 'rejected' ? (
+                    <>
+                      {focusedApplication.status === 'rejected' && focusedApplication.rejectReason ? (
+                        <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text-secondary)' }}>
+                          Rejected reason: {focusedApplication.rejectReason}
+                        </p>
+                      ) : null}
+                      {focusedApplication.status === 'pending' ? (
+                        <div className={shared.formField}>
+                          <label htmlFor="reject-reason">Reject reason (optional)</label>
+                          <input
+                            id="reject-reason"
+                            className={shared.input}
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                            placeholder="Missing license / incomplete info…"
+                          />
+                        </div>
+                      ) : null}
+                      <div className={shared.modalActions} style={{ justifyContent: 'flex-start' }}>
+                        <button
+                          type="button"
+                          className={shared.primaryBtn}
+                          disabled={reviewingId === focusedApplication.id}
+                          onClick={() => handleApproveApplication(focusedApplication)}
+                        >
+                          <Check size={16} />
+                          {reviewingId === focusedApplication.id
+                            ? 'Working…'
+                            : focusedApplication.status === 'rejected'
+                              ? 'Re-approve'
+                              : 'Approve'}
+                        </button>
+                        {focusedApplication.status === 'pending' ? (
+                          <button
+                            type="button"
+                            className={shared.dangerBtn}
+                            disabled={reviewingId === focusedApplication.id}
+                            onClick={() => handleRejectApplication(focusedApplication)}
+                          >
+                            Reject
+                          </button>
+                        ) : null}
+                        <a
+                          className={shared.rowBtnWarn}
+                          href={focusedApplication.application?.founderEmail
+                            ? `mailto:${focusedApplication.application.founderEmail}`
+                            : undefined}
+                          style={{ textDecoration: 'none' }}
+                        >
+                          Email
+                        </a>
+                        <button
+                          type="button"
+                          className={shared.rowBtnWarn}
+                          disabled={messagingUid === (focusedApplication.createdByUid || focusedApplication.application?.founderUid)}
+                          onClick={() => handleMessageFounder(focusedApplication)}
+                        >
+                          Message
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              ) : !pendingApplications.length ? (
+                <div className={shared.emptyPanel}>
+                  <Building2 size={26} className={shared.emptyPanelIcon} />
+                  <h4>No applications</h4>
+                  <p>Pending and rejected agency-admin signups will show up here.</p>
+                </div>
+              ) : (
+                <div className={classes.agencyGrid}>
+                  {pendingApplications.map((agency) => (
+                    <button
+                      key={agency.id}
+                      type="button"
+                      className={`glass ${classes.agencyCard}`}
+                      onClick={() => openApplication(agency.id)}
+                    >
+                      <div className={classes.agencyCardTop}>
+                        <div>
+                          <h3 className={classes.agencyCardName}>{agency.name}</h3>
+                          <p className={classes.agencyCardSlug}>
+                            {agency.status === 'rejected' ? 'Rejected · ' : ''}
+                            {agency.application?.founderName || agency.application?.founderEmail || 'Applicant'}
+                          </p>
+                        </div>
+                        <span className={`${shared.statusPill} ${statusPillClass(agency.status, shared)}`}>
+                          {statusLabel(agency.status)}
+                        </span>
+                      </div>
+                      <p className={classes.agencyCardSlug} style={{ marginTop: 10 }}>
+                        {agency.application?.founderEmail || '—'}
+                        {agency.application?.phone ? ` · ${agency.application.phone}` : ''}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
-            <div className={classes.agencyGrid}>
-              {filteredAgencies.map((agency) => {
-                const live = liveCallsByAgency.get(agency.id) || 0;
-                const suspended = agency.status === 'suspended';
-                return (
-                  <button
-                    key={agency.id}
-                    type="button"
-                    className={`glass ${classes.agencyCard}`}
-                    onClick={() => updateSelectedId(agency.id, 'overview')}
-                  >
-                    <div className={classes.agencyCardTop}>
-                      <div>
-                        <h3 className={classes.agencyCardName}>{agency.name}</h3>
-                        <p className={classes.agencyCardSlug}>{agency.slug || agency.id}</p>
-                      </div>
-                      <span className={`${shared.statusPill} ${suspended ? shared.dispMissed : shared.dispAnswered}`}>
-                        {suspended ? 'Suspended' : 'Active'}
-                      </span>
-                    </div>
-                    <div className={classes.agencyCardStats}>
-                      <div className={classes.agencyCardStat}>
-                        <span className={classes.agencyCardStatValue}><NumberPopIn value={agency.agentCount ?? 0} /></span>
-                        <span className={classes.agencyCardStatLabel}>Agents</span>
-                      </div>
-                      <div className={classes.agencyCardStat}>
-                        <span className={classes.agencyCardStatValue}><NumberPopIn value={live} /></span>
-                        <span className={classes.agencyCardStatLabel}>Live calls</span>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            <>
+              <div className={classes.toolbar}>
+                <div className={classes.searchWrap}>
+                  <Search size={16} className={classes.searchIcon} aria-hidden="true" />
+                  <input
+                    className={`${shared.searchInput} ${classes.directorySearch}`}
+                    placeholder="Search agencies…"
+                    value={directorySearch}
+                    onChange={(e) => setDirectorySearch(e.target.value)}
+                    aria-label="Search agencies"
+                  />
+                </div>
+                <span className={classes.pickerMeta}>
+                  {filteredAgencies.length} of {directoryAgencies.length}
+                </span>
+              </div>
+
+              {!directoryAgencies.length ? (
+                <div className={shared.emptyPanel}>
+                  <Building2 size={26} className={shared.emptyPanelIcon} />
+                  <h4>No agencies yet</h4>
+                  <p>Create an agency or approve a pending application.</p>
+                </div>
+              ) : filteredAgencies.length === 0 ? (
+                <div className={shared.emptyPanel}>
+                  <h4>No matches</h4>
+                  <p>No agencies match “{directorySearch}”.</p>
+                </div>
+              ) : (
+                <div className={classes.agencyGrid}>
+                  {filteredAgencies.map((agency) => {
+                    const live = liveCallsByAgency.get(agency.id) || 0;
+                    return (
+                      <button
+                        key={agency.id}
+                        type="button"
+                        className={`glass ${classes.agencyCard}`}
+                        onClick={() => updateSelectedId(agency.id, 'overview')}
+                      >
+                        <div className={classes.agencyCardTop}>
+                          <div>
+                            <h3 className={classes.agencyCardName}>{agency.name}</h3>
+                            <p className={classes.agencyCardSlug}>{agency.slug || agency.id}</p>
+                          </div>
+                          <span className={`${shared.statusPill} ${statusPillClass(agency.status, shared)}`}>
+                            {statusLabel(agency.status)}
+                          </span>
+                        </div>
+                        <div className={classes.agencyCardStats}>
+                          <div className={classes.agencyCardStat}>
+                            <span className={classes.agencyCardStatValue}><NumberPopIn value={agency.agentCount ?? 0} /></span>
+                            <span className={classes.agencyCardStatLabel}>Agents</span>
+                          </div>
+                          <div className={classes.agencyCardStat}>
+                            <span className={classes.agencyCardStatValue}><NumberPopIn value={live} /></span>
+                            <span className={classes.agencyCardStatLabel}>Live calls</span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </AdminPageShell>
 
@@ -967,13 +1257,23 @@ export default function AdminAgenciesPage() {
               </div>
             </div>
             <div className={classes.contextActions}>
-              <span className={`${shared.statusPill} ${selected?.status === 'suspended' ? shared.dispMissed : shared.dispAnswered}`}>
-                {selected?.status === 'suspended' ? 'Suspended' : 'Active'}
+              <span className={`${shared.statusPill} ${statusPillClass(selected?.status, shared)}`}>
+                {statusLabel(selected?.status)}
               </span>
+              {selected?.status === 'pending' ? (
+                <button
+                  type="button"
+                  className={`${shared.primaryBtn} ${classes.contextActionBtn}`}
+                  onClick={() => openApplication(selected.id)}
+                >
+                  Review application
+                </button>
+              ) : null}
               <button
                 type="button"
                 className={`${shared.rowBtnWarn} ${classes.contextActionBtn}`}
                 onClick={() => selected && handleSuspend(selected)}
+                disabled={selected?.status === 'pending' || selected?.status === 'rejected'}
               >
                 {selected?.status === 'suspended' ? <Play size={14} /> : <Pause size={14} />}
                 {selected?.status === 'suspended' ? 'Activate' : 'Suspend'}
@@ -1015,6 +1315,11 @@ export default function AdminAgenciesPage() {
 
             {settingsTab === 'members' ? (
           <div className={classes.tabContent}>
+            {selected?.status === 'active' ? (
+              <div style={{ marginBottom: 16 }}>
+                <AgencyInviteCard agencyId={selectedId} adminMode variant="panel" />
+              </div>
+            ) : null}
             <div className={classes.tabToolbar}>
               <p className={classes.tabIntro}>
                 {members.length} assigned · search and paginate for large teams

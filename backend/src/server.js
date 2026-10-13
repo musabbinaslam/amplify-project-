@@ -3,6 +3,7 @@ require('../scripts/ensure-release').syncReleaseFile();
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
+const compression = require('compression');
 const { Server } = require('socket.io');
 const Sentry = require('@sentry/node');
 
@@ -23,6 +24,7 @@ const supportDeskRoutes = require('./routes/supportDeskRoutes');
 const socketRegistry = require('./sockets/socketRegistry');
 const { verifyFirebaseToken } = require('./middleware/auth');
 const { globalRateLimiter } = require('./middleware/security');
+const { requestTiming } = require('./middleware/requestTiming');
 const { verifyMailer } = require('./config/mailer');
 
 // QA insight runner — in-process async, no Redis queue needed
@@ -48,7 +50,17 @@ const corsOptions = {
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true,
+  exposedHeaders: ['Server-Timing', 'X-Next-Cursor'],
 };
+
+app.use('/api', requestTiming);
+app.use(compression({
+  threshold: 1024,
+  filter: (req, res) => {
+    if (req.headers.range) return false;
+    return compression.filter(req, res);
+  },
+}));
 
 // Twilio sends data as x-www-form-urlencoded, so we must have this!
 app.use(cors(corsOptions));
@@ -82,15 +94,29 @@ const startEngine = async () => {
     try {
       const { createClient } = require('redis');
       const { createAdapter } = require('@socket.io/redis-adapter');
-      const pubClient = createClient({
+      // Match main redis.js socket options so Upstash idle/ETIMEDOUT reconnects cleanly
+      // instead of leaving unhandled rejections on the Socket.IO pub/sub clients.
+      const socketIoRedisOpts = {
         url: process.env.REDIS_URL,
         socket: {
           tls: process.env.REDIS_URL.startsWith('rediss://'),
+          keepAlive: 60000,
+          noDelay: true,
+          reconnectStrategy: (retries) => {
+            if (retries > 20) {
+              console.error('[Socket.IO Redis] Too many reconnect attempts, giving up.');
+              return new Error('Max reconnect attempts reached');
+            }
+            return Math.min(retries * 200, 5000);
+          },
         },
-      });
+      };
+      const pubClient = createClient(socketIoRedisOpts);
       const subClient = pubClient.duplicate();
       pubClient.on('error', (err) => console.error('[Socket.IO Redis pub]', err.message));
       subClient.on('error', (err) => console.error('[Socket.IO Redis sub]', err.message));
+      pubClient.on('reconnecting', () => console.log('[Socket.IO Redis pub] Reconnecting…'));
+      subClient.on('reconnecting', () => console.log('[Socket.IO Redis sub] Reconnecting…'));
       await Promise.all([pubClient.connect(), subClient.connect()]);
       io.adapter(createAdapter(pubClient, subClient));
       console.log('✅ Socket.IO Redis adapter enabled');
@@ -201,6 +227,8 @@ const startEngine = async () => {
   // Manager dashboard (read-only team analytics scoped to managedAgents, role: 'manager' or 'admin')
   app.use('/api/manager', managerRoutes);
   app.use('/api/agency', agencyRoutes);
+  const agencyInviteRoutes = require('./routes/agencyInviteRoutes');
+  app.use('/api/agency-invites', agencyInviteRoutes);
 
   // Agent leaderboard (platform agents ranked by billable calls); any authenticated user can view
   app.use('/api/leaderboard', leaderboardRoutes);
