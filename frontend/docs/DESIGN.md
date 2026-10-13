@@ -10,7 +10,7 @@ Design reference extracted from the redesigned Dashboard. Use this document when
 - Take Calls — [TakeCallsPage.jsx](../src/pages/TakeCallsPage.jsx) + [TakeCallsPage.module.css](../src/pages/TakeCallsPage.module.css)
 - Call Logs — [CallLogsPage.jsx](../src/pages/CallLogsPage.jsx) + shared [CallLogStatusCells.jsx](../src/components/callLogs/CallLogStatusCells.jsx)
 - Admin Phone Routing — [AdminPhoneRoutingPage.jsx](../src/pages/admin/AdminPhoneRoutingPage.jsx)
-- Admin Ops (agency / manager) — [AdminAgenciesOpsPage.jsx](../src/pages/admin/AdminAgenciesOpsPage.jsx), [AdminTeamsOpsPage.jsx](../src/pages/admin/AdminTeamsOpsPage.jsx)
+- Admin Ops (agency / manager) — [AdminAgenciesPage.jsx](../src/pages/admin/AdminAgenciesPage.jsx), [AdminTeamsOpsPage.jsx](../src/pages/admin/AdminTeamsOpsPage.jsx)
 
 **Token source of truth:** [variables.css](../src/styles/variables.css)  
 **Motion source of truth:** [appMotion.js](../src/motion/appMotion.js)
@@ -586,7 +586,7 @@ When redesigning a page (Call Logs, Billing, Take Calls, etc.):
 3. ~~Welcome~~ ✓ — [WelcomePage](../src/pages/WelcomePage.jsx) (cards + embedded video)
 4. Profile (cards + forms)
 5. ~~Take Calls (complex — migrate section by section)~~ ✓ — [TakeCallsPage](../src/pages/TakeCallsPage.jsx)
-6. Admin / QA dashboards — reuse dashboard patterns; reference [AdminPhoneRoutingPage](../src/pages/admin/AdminPhoneRoutingPage.jsx), [AdminAgenciesOpsPage](../src/pages/admin/AdminAgenciesOpsPage.jsx), [AdminTeamsOpsPage](../src/pages/admin/AdminTeamsOpsPage.jsx)
+6. Admin / QA dashboards — reuse dashboard patterns; reference [AdminPhoneRoutingPage](../src/pages/admin/AdminPhoneRoutingPage.jsx), [AdminAgenciesPage](../src/pages/admin/AdminAgenciesPage.jsx), [AdminTeamsOpsPage](../src/pages/admin/AdminTeamsOpsPage.jsx)
 
 ---
 

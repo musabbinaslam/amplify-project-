@@ -9,7 +9,7 @@
 # This script does NOT deploy the app, copy secrets, or issue TLS certs.
 # After it finishes:
 #   1. Clone backend, place .env, configure ecosystem.config.cjs
-#   2. pm2 start / nginx sites (see OPS_RUNBOOK.md §11)
+#   2. pm2 start / nginx sites
 #   3. certbot --nginx -d api-new.callsflow.io  (dry-run)
 #   4. After DNS flip: certbot --nginx -d api.callsflow.io
 #
@@ -60,7 +60,7 @@ echo "    npm:   $(npm -v)"
 echo "    pm2:   $(pm2 -v)"
 echo "    nginx: $(nginx -v 2>&1)"
 echo ""
-echo "Next steps (see backend/deploy/OPS_RUNBOOK.md §11):"
+echo "Next steps:"
 echo "  1. mkdir -p /var/www/callsflow && clone repo → .../backend"
 echo "  2. Copy .env (API_BASE_URL / VOICE_WEBHOOK_BASE_URL = https://api.callsflow.io)"
 echo "  3. ecosystem.config.cjs → pm2 start (instances: 2)"
