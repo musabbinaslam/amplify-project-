@@ -1080,6 +1080,7 @@ const TakeCallsPage = () => {
                 <li><strong>Ask for the state within the buffer.</strong> Disconnect before the buffer ends if you are not licensed. There are NO refunds after the buffer.</li>
                 <li><strong>All sales are final once the call goes over buffer.</strong> It’s billable and non-refundable unless it was dead air.</li>
                 <li><strong>Our system routes calls based on area codes.</strong> If you get someone from a state you’re not licensed in once in a while, we can’t do anything about it and it’s not refundable.</li>
+                <li><strong>In this campaign calls are non refundable once the call goes over buffer.</strong>If you decide to buy FE social media calls $25/10 you should know that these are cheap hit or miss calls where you might get people thinking it’s free and you might get over age clients as well and we can’t refund any call on that campaign if you want higer intent calls you should buy FE CTV calls as we refund any client over 80 years of age on that campaign and the consumers calling on FE CTV campaign know that there’s a premium</li>
               </ul>
             </div>
           </motion.div>
