@@ -67,9 +67,13 @@ class AgentManager {
    }
 
    async getPausedAgents() {
-      const keys = await redisClient.keys('agent:paused:*');
-      if (!keys || keys.length === 0) return [];
-      return keys.map(k => k.split(':').pop());
+      // Upstash disables KEYS when the keyspace is large — use SCAN instead.
+      const ids = [];
+      for await (const key of redisClient.scanIterator({ MATCH: 'agent:paused:*', COUNT: 100 })) {
+         const id = String(key || '').split(':').pop();
+         if (id) ids.push(id);
+      }
+      return ids;
    }
 
    async setAgentPaused(agentId, paused) {

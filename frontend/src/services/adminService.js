@@ -305,10 +305,13 @@ export function dismissSuspiciousAgent(agentId) {
   return apiFetch(`/api/admin/suspicious-agents/${encodeURIComponent(agentId)}/dismiss`, { method: 'POST' });
 }
 
-export function forceChargeSuspiciousAgent(agentId, campaignId) {
+export function forceChargeSuspiciousAgent(agentId, campaignId, callSid) {
+  const body = {};
+  if (campaignId) body.campaignId = campaignId;
+  if (callSid) body.callSid = callSid;
   return apiFetch(`/api/admin/suspicious-agents/${encodeURIComponent(agentId)}/force-charge`, {
     method: 'POST',
-    body: campaignId ? { campaignId } : {},
+    body,
   });
 }
 

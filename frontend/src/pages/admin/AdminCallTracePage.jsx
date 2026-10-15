@@ -453,7 +453,23 @@ export default function AdminCallTracePage() {
                     {logs.map((log) => {
                       const hasRec = Boolean(log.recordingSid || log.recordingUrl);
                       const agent = resolveAgent(agentMeta, log.agentId);
-                      const canForceCharge = Boolean(log.agentId && log.campaign);
+                      const alreadyForceCharged = log.forceCharged === true;
+                      const canForceCharge = Boolean(
+                        log.agentId && log.campaign && !alreadyForceCharged && !log.isBillable,
+                      );
+                      const statusLabel = alreadyForceCharged
+                        ? 'Force charged'
+                        : log.isBillable
+                          ? 'Billable'
+                          : log.status || '—';
+                      const statusClass = alreadyForceCharged
+                        ? classes.statusForceCharged
+                        : log.isBillable
+                          ? classes.statusPaid
+                          : '';
+                      const displayCost = alreadyForceCharged && log.forceChargeCents != null
+                        ? (Number(log.forceChargeCents) / 100).toFixed(2)
+                        : Number(log.cost || 0).toFixed(2);
                       return (
                         <article key={log.id} className={classes.logCard}>
                           <div className={classes.logCardTop}>
@@ -463,16 +479,14 @@ export default function AdminCallTracePage() {
                               </h4>
                               <time className={classes.logCardWhen}>{formatTime(log.createdAt)}</time>
                             </div>
-                            <span
-                              className={`${classes.statusChip} ${log.isBillable ? classes.statusPaid : ''}`}
-                            >
-                              {log.isBillable ? 'Billable' : log.status || '—'}
+                            <span className={`${classes.statusChip} ${statusClass}`}>
+                              {statusLabel}
                             </span>
                           </div>
 
                           <div className={classes.logCardMeta}>
                             <span><em>Dur</em> {formatDuration(log.duration)}</span>
-                            <span><em>Cost</em> ${Number(log.cost || 0).toFixed(2)}</span>
+                            <span><em>Cost</em> ${displayCost}</span>
                             <span><em>Agent</em> {agent.name}</span>
                             <span><em>Disposition</em> {log.disposition || '—'}</span>
                           </div>
@@ -497,7 +511,12 @@ export default function AdminCallTracePage() {
                             ) : (
                               <span className={classes.recordingNone}>No recording</span>
                             )}
-                            {canForceCharge ? (
+                            {alreadyForceCharged ? (
+                              <span className={classes.forceChargedBadge} title={log.forceChargedAt || undefined}>
+                                <DollarSign size={13} />
+                                Force charged
+                              </span>
+                            ) : canForceCharge ? (
                               <button
                                 type="button"
                                 className={`${shared.dangerBtn} ${classes.forceChargeBtn}`}

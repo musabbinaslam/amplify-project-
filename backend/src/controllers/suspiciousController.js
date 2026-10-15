@@ -133,39 +133,81 @@ async function dismissSuspiciousAgent(req, res) {
   }
 }
 
+async function findCallLogBySid(db, agentId, callSid) {
+  if (!callSid) return null;
+  try {
+    const q = await db
+      .collection('users').doc(agentId).collection('callLogs')
+      .where('callSid', '==', callSid)
+      .limit(1)
+      .get();
+    if (q.empty) return null;
+    return q.docs[0];
+  } catch {
+    return null;
+  }
+}
+
 /**
  * POST /api/admin/suspicious-agents/:agentId/force-charge
  * Charges the agent for 1 call at the campaign rate and clears review state.
+ * Optional body.callSid marks that call log as force-charged (Call Trace / idempotent).
  */
 async function forceChargeSuspiciousAgent(req, res) {
   try {
     const { agentId } = req.params;
-    const { campaignId } = req.body;
+    const { campaignId, callSid: bodyCallSid } = req.body || {};
     if (!agentId) return res.status(400).json({ error: 'agentId required' });
 
     const db = getDb();
+    const { FieldValue } = adminLib.firestore;
     const userSnap = await db.collection('users').doc(agentId).get();
     if (!userSnap.exists) return res.status(404).json({ error: 'Agent not found' });
 
     const data = userSnap.data() || {};
     let chargeConfig = null;
     let effectiveCampaignId = campaignId;
+    let targetCallSid = bodyCallSid || null;
+    let targetLogDoc = targetCallSid ? await findCallLogBySid(db, agentId, targetCallSid) : null;
+
+    if (targetLogDoc?.data()?.forceCharged === true) {
+      const logData = targetLogDoc.data() || {};
+      const priorCents = Number.isFinite(Number(logData.forceChargeCents))
+        ? Number(logData.forceChargeCents)
+        : Math.round(Number(logData.cost || 0) * 100);
+      return res.json({
+        success: true,
+        alreadyCharged: true,
+        agentId,
+        action: 'already_force_charged',
+        amountCents: priorCents,
+        campaignId: logData.campaign || effectiveCampaignId || null,
+        callSid: targetCallSid,
+      });
+    }
 
     if (effectiveCampaignId && CAMPAIGN_CONFIG[effectiveCampaignId]) {
       chargeConfig = CAMPAIGN_CONFIG[effectiveCampaignId];
     } else {
-      // Infer campaign from the last flagged call
+      // Infer campaign from the call being charged, else last flagged call
+      if (targetLogDoc) {
+        const logData = targetLogDoc.data() || {};
+        effectiveCampaignId = logData.campaign || effectiveCampaignId;
+        chargeConfig = CAMPAIGN_CONFIG[effectiveCampaignId] || null;
+      }
       const flaggedSids = data.suspiciousFlaggedCalls || [];
-      if (flaggedSids.length > 0) {
+      if ((!chargeConfig || !chargeConfig.price) && flaggedSids.length > 0) {
         try {
-          const q = await db
-            .collection('users').doc(agentId).collection('callLogs')
-            .where('callSid', '==', flaggedSids[flaggedSids.length - 1])
-            .limit(1).get();
-          if (!q.empty) {
-            const logData = q.docs[0].data() || {};
+          const sid = flaggedSids[flaggedSids.length - 1];
+          const q = await findCallLogBySid(db, agentId, sid);
+          if (q) {
+            const logData = q.data() || {};
             effectiveCampaignId = logData.campaign;
             chargeConfig = CAMPAIGN_CONFIG[effectiveCampaignId] || null;
+            if (!targetCallSid) {
+              targetCallSid = sid;
+              targetLogDoc = q;
+            }
           }
         } catch { /* non-fatal */ }
       }
@@ -176,6 +218,19 @@ async function forceChargeSuspiciousAgent(req, res) {
     }
 
     const chargeCents = Math.round(chargeConfig.price * 100);
+
+    // Re-check after campaign resolve (Suspicious path may now have a log)
+    if (targetLogDoc?.data()?.forceCharged === true) {
+      return res.json({
+        success: true,
+        alreadyCharged: true,
+        agentId,
+        action: 'already_force_charged',
+        amountCents: chargeCents,
+        campaignId: effectiveCampaignId,
+        callSid: targetCallSid,
+      });
+    }
 
     // Check if the agent has enough balance before deducting
     const currentBalance = await walletService.getBalance(agentId);
@@ -198,7 +253,25 @@ async function forceChargeSuspiciousAgent(req, res) {
       campaignLabel: chargeConfig.label || effectiveCampaignId,
       reason: 'force_charge_suspicious_drop',
       adminId: req.user?.uid || 'admin',
+      callSid: targetCallSid || null,
     });
+
+    // Stamp the call log so Call Trace / logs show it was force charged
+    if (targetLogDoc) {
+      await targetLogDoc.ref.set(
+        {
+          forceCharged: true,
+          forceChargedAt: FieldValue.serverTimestamp(),
+          forceChargedBy: req.user?.uid || 'admin',
+          forceChargeCents: chargeCents,
+          isBillable: true,
+          cost: chargeConfig.price,
+        },
+        { merge: true },
+      );
+    } else if (targetCallSid) {
+      console.warn(`[SuspiciousCtrl] Force charged ${agentId} but call log not found for ${targetCallSid}`);
+    }
 
     await db.collection('users').doc(agentId).set(
       {
@@ -223,8 +296,15 @@ async function forceChargeSuspiciousAgent(req, res) {
       priority: 'high',
     });
 
-    console.log(`[SuspiciousCtrl] Force charged agent ${agentId} $${chargeConfig.price} by admin ${req.user?.uid}`);
-    res.json({ success: true, agentId, action: 'force_charged', amountCents: chargeCents, campaignId: effectiveCampaignId });
+    console.log(`[SuspiciousCtrl] Force charged agent ${agentId} $${chargeConfig.price} by admin ${req.user?.uid}${targetCallSid ? ` callSid=${targetCallSid}` : ''}`);
+    res.json({
+      success: true,
+      agentId,
+      action: 'force_charged',
+      amountCents: chargeCents,
+      campaignId: effectiveCampaignId,
+      callSid: targetCallSid || null,
+    });
   } catch (err) {
     console.error('[SuspiciousCtrl] forceChargeSuspiciousAgent:', err.message);
     res.status(500).json({ error: err.message || 'Failed to force charge agent' });

@@ -1,3 +1,4 @@
+const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
 const { cached } = require('../utils/readCache');
 const callTrace = require('../services/callTraceService');
@@ -7,10 +8,14 @@ const { parseRecordingSid } = require('../utils/recordingSid');
 
 const CACHE_TTL_SEC = 8;
 const LOG_LIMIT = 50;
+const FORCE_CHARGE_TX_LIMIT = 80;
+const FORCE_CHARGE_REASON = 'force_charge_suspicious_drop';
+/** Max age of a call relative to a wallet force-charge debit when callSid is missing. */
+const FORCE_CHARGE_MATCH_WINDOW_MS = 48 * 60 * 60 * 1000;
 const LOG_FIELDS = [
   'from', 'to', 'callSid', 'campaign', 'campaignLabel', 'agentId', 'status',
   'duration', 'isBillable', 'cost', 'createdAt', 'timestamp', 'disposition',
-  'recordingSid', 'recordingUrl',
+  'recordingSid', 'recordingUrl', 'forceCharged', 'forceChargedAt', 'forceChargeCents',
 ];
 
 function toIso(value) {
@@ -38,6 +43,11 @@ function mapLogDoc(doc) {
     disposition: data.disposition || null,
     recordingSid: recordingSid || null,
     recordingUrl,
+    forceCharged: data.forceCharged === true,
+    forceChargedAt: toIso(data.forceChargedAt) || null,
+    forceChargeCents: Number.isFinite(Number(data.forceChargeCents))
+      ? Number(data.forceChargeCents)
+      : null,
     createdAt: toIso(data.createdAt) || data.timestamp || null,
   };
 }
@@ -152,6 +162,143 @@ async function loadAgentMeta(ids) {
   return out;
 }
 
+function txCreatedMs(tx) {
+  if (!tx?.createdAt) return 0;
+  const t = new Date(tx.createdAt).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+function logCreatedMs(log) {
+  if (!log?.createdAt) return 0;
+  const t = new Date(log.createdAt).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+function isForceChargeTx(tx) {
+  return tx?.metadata?.reason === FORCE_CHARGE_REASON;
+}
+
+/**
+ * Reconcile wallet force-charge debits onto call logs that were never stamped
+ * (charges before Call Trace started writing forceCharged on the log).
+ * Best-effort heals Firestore so the next lookup is permanent.
+ */
+async function enrichLogsFromForceChargeHistory(callLogs) {
+  const pending = (callLogs || []).filter((l) => l?.agentId && !l.forceCharged);
+  if (!pending.length) return callLogs || [];
+
+  const db = getDb();
+  if (!db) return callLogs || [];
+
+  const agentIds = [...new Set(pending.map((l) => l.agentId))];
+  const txsByAgent = {};
+  await Promise.all(agentIds.map(async (agentId) => {
+    try {
+      const txs = await walletService.getTransactions(agentId, FORCE_CHARGE_TX_LIMIT);
+      txsByAgent[agentId] = (txs || []).filter(isForceChargeTx);
+    } catch (err) {
+      console.warn('[callTrace] force-charge tx lookup failed:', agentId, err.message);
+      txsByAgent[agentId] = [];
+    }
+  }));
+
+  const claimedLogIds = new Set();
+  const heals = [];
+  const enriched = (callLogs || []).map((log) => ({ ...log }));
+
+  // Pass 1: exact callSid match from newer charges
+  for (const log of enriched) {
+    if (!log.agentId || log.forceCharged || claimedLogIds.has(log.id)) continue;
+    if (!log.callSid) continue;
+    const match = (txsByAgent[log.agentId] || []).find(
+      (tx) => tx.metadata?.callSid && tx.metadata.callSid === log.callSid,
+    );
+    if (!match) continue;
+    claimedLogIds.add(log.id);
+    applyForceChargeOverlay(log, match);
+    heals.push(healForceChargedLog(db, log, match));
+  }
+
+  // Pass 2: older charges without callSid — match agent + campaign, call before debit
+  for (const agentId of agentIds) {
+    const leftoverTxs = (txsByAgent[agentId] || [])
+      .filter((tx) => !tx.metadata?.callSid)
+      .sort((a, b) => txCreatedMs(a) - txCreatedMs(b));
+
+    for (const tx of leftoverTxs) {
+      const campaignId = tx.metadata?.campaignId || null;
+      const txMs = txCreatedMs(tx);
+      const candidates = enriched
+        .filter((log) => {
+          if (log.agentId !== agentId || log.forceCharged || claimedLogIds.has(log.id)) return false;
+          if (campaignId && log.campaign && log.campaign !== campaignId) return false;
+          // Prefer never-billed / zero-cost calls (typical force-charge targets)
+          if (log.isBillable && Number(log.cost || 0) > 0) return false;
+          const callMs = logCreatedMs(log);
+          if (!callMs || !txMs) return false;
+          // Charge at/after the call (small skew), and within a tight window
+          if (callMs > txMs + 60_000) return false;
+          if (txMs - callMs > FORCE_CHARGE_MATCH_WINDOW_MS) return false;
+          return true;
+        })
+        .sort((a, b) => {
+          // Closest call before the debit wins
+          const da = Math.abs(txMs - logCreatedMs(a));
+          const dbGap = Math.abs(txMs - logCreatedMs(b));
+          return da - dbGap;
+        });
+
+      const pick = candidates[0];
+      if (!pick) continue;
+      claimedLogIds.add(pick.id);
+      applyForceChargeOverlay(pick, tx);
+      heals.push(healForceChargedLog(db, pick, tx));
+    }
+  }
+
+  if (heals.length) {
+    Promise.allSettled(heals).then((results) => {
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      if (failed) console.warn(`[callTrace] force-charge heal failed for ${failed} log(s)`);
+    });
+  }
+
+  return enriched;
+}
+
+function applyForceChargeOverlay(log, tx) {
+  const cents = Number.isFinite(Number(tx.amountCents))
+    ? Number(tx.amountCents)
+    : Number(tx.metadata?.amountCents) || null;
+  log.forceCharged = true;
+  log.forceChargedAt = tx.createdAt || log.forceChargedAt || null;
+  log.forceChargeCents = cents;
+  if (cents != null && !(Number(log.cost) > 0)) {
+    log.cost = cents / 100;
+  }
+  log.isBillable = true;
+}
+
+async function healForceChargedLog(db, log, tx) {
+  if (!log?.agentId || !log?.id) return;
+  const { FieldValue } = admin.firestore;
+  const cents = Number.isFinite(Number(tx.amountCents)) ? Number(tx.amountCents) : null;
+  const payload = {
+    forceCharged: true,
+    forceChargedBy: tx.metadata?.adminId || 'backfill',
+    forceChargeCents: cents,
+    isBillable: true,
+  };
+  if (cents != null) payload.cost = cents / 100;
+  if (tx.createdAt) {
+    const at = new Date(tx.createdAt);
+    if (!Number.isNaN(at.getTime())) payload.forceChargedAt = at;
+  } else {
+    payload.forceChargedAt = FieldValue.serverTimestamp();
+  }
+  await db.collection('users').doc(log.agentId).collection('callLogs').doc(log.id).set(payload, { merge: true });
+}
+
 async function assembleTrace(parsed) {
   let last10 = parsed.last10 || null;
   let e164 = parsed.e164 || null;
@@ -162,13 +309,15 @@ async function assembleTrace(parsed) {
     if (last10) e164 = `+1${last10}`;
   }
 
-  const [timeline, live, callLogs] = await Promise.all([
+  const [timeline, live, rawLogs] = await Promise.all([
     last10 ? callTrace.getTimelineByLast10(last10) : Promise.resolve([]),
     last10 ? callTrace.getLive(last10) : Promise.resolve(null),
     parsed.kind === 'sid'
       ? queryLogs('callSid', callSid)
       : queryLogs('from', e164),
   ]);
+
+  const callLogs = await enrichLogsFromForceChargeHistory(rawLogs);
 
   const agentIds = [
     ...timeline.map((e) => e.agentId),
