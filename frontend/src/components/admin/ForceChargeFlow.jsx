@@ -28,18 +28,23 @@ export function useForceChargeFlow({ onSuccess } = {}) {
     if (!forceChargeModal) return;
     const { agent } = forceChargeModal;
     const campaignId = agent.flaggedLogs?.[0]?.campaign || null;
+    const callSid = agent.flaggedLogs?.[0]?.callSid || null;
     setActionLoading(true);
     try {
-      const res = await forceChargeSuspiciousAgent(agent.agentId, campaignId);
+      const res = await forceChargeSuspiciousAgent(agent.agentId, campaignId, callSid);
       if (res.insufficientBalance) {
         setForceChargeModal(null);
         setFlagModal({ agent, shortfallCents: res.shortfallCents || 0 });
         return;
       }
       const amount = res.amountCents ? `$${(res.amountCents / 100).toFixed(2)}` : 'the penalty';
-      toast.success(`Force charged ${agent.agentName} ${amount}.`);
+      toast.success(
+        res.alreadyCharged
+          ? `${agent.agentName} was already force charged ${amount}.`
+          : `Force charged ${agent.agentName} ${amount}.`,
+      );
       setForceChargeModal(null);
-      await onSuccess?.(agent, { action: 'force_charged', res });
+      await onSuccess?.(agent, { action: res.alreadyCharged ? 'already_force_charged' : 'force_charged', res });
     } catch (e) {
       toast.error(e.message || 'Failed to force charge');
     } finally {
