@@ -38,6 +38,17 @@ function wrapRedisClient(client, prefix) {
                 };
             }
 
+            if (prop === 'scan') {
+                return (cursor, opts = {}) => {
+                    const nextOpts = { ...opts };
+                    if (nextOpts.MATCH) {
+                        nextOpts.MATCH = prefixRedisKey(nextOpts.MATCH, prefix);
+                    }
+                    // node-redis v5: cursor must be string | Buffer
+                    return target.scan(String(cursor ?? '0'), nextOpts);
+                };
+            }
+
             if (!REDIS_KEY_ARG_COMMANDS.has(prop)) {
                 return orig.bind(target);
             }
@@ -170,9 +181,8 @@ const clientMock = {
         }
         return removed;
     },
-    // ── Key Scan (for activecall:* pattern iteration) ────────────────────────
+    // ── Key Scan (for agent:paused:* / activecall:* pattern iteration) ───────
     // Mimics Redis SCAN with a MATCH pattern. Only supports prefix* style patterns.
-    // Used by listActiveCalls() and findAgentIdByCallSid().
     scanIterator: async function* ({ MATCH = '*', COUNT = 100 } = {}) {
         const isWildcard = MATCH.endsWith('*');
         const prefix     = isWildcard ? MATCH.slice(0, -1) : MATCH;
@@ -181,6 +191,14 @@ const clientMock = {
                 yield key;
             }
         }
+    },
+    // Promise form used by getPausedAgents (works through the redisClient proxy).
+    scan: async (cursor, { MATCH = '*', COUNT = 100 } = {}) => {
+        const keys = [];
+        for await (const key of clientMock.scanIterator({ MATCH, COUNT })) {
+            keys.push(key);
+        }
+        return { cursor: '0', keys };
     },
     lPush: async (key, value) => {
         if (!storage.has(key)) storage.set(key, []);
