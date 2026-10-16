@@ -111,6 +111,16 @@ router.get('/medicare-retarget/stats', async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to load Medicare retarget stats' });
   }
 });
+router.post('/medicare-retarget/discover', async (req, res) => {
+  try {
+    const dryRun = req.query.dryRun === '1' || req.query.dryRun === 'true' || req.body?.dryRun === true;
+    const out = await medicareRetarget.backfillMedicareUnpaidFlags({ dryRun });
+    res.json(out);
+  } catch (err) {
+    console.error('[Admin] medicare-retarget discover:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to discover unpaid Medicare signups' });
+  }
+});
 router.get('/medicare-retarget/users', async (req, res) => {
   try {
     const status = req.query.status && req.query.status !== 'all' ? String(req.query.status) : null;

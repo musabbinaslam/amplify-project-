@@ -337,6 +337,11 @@ export function getMedicareRetargetStats() {
   return apiFetch('/api/admin/medicare-retarget/stats', { method: 'GET' });
 }
 
+export function discoverMedicareRetargetUsers({ dryRun = false } = {}) {
+  const qs = dryRun ? '?dryRun=1' : '';
+  return apiFetch(`/api/admin/medicare-retarget/discover${qs}`, { method: 'POST' });
+}
+
 export function listMedicareRetargetUsers({ status = 'all', page = 1, pageSize = 25 } = {}) {
   const qs = new URLSearchParams();
   if (status && status !== 'all') qs.set('status', status);
