@@ -149,7 +149,7 @@ export default function AdminMedicareRetargetPage() {
   return (
     <AdminPageShell
       title={MODULE?.title || 'Medicare Retarget'}
-      description="Two emails, two days apart, 1:00 PM ET. Payment converts them; no payment after email 2 exhausts them."
+      description="All unpaid Medicare signups (old and new). Two emails, two days apart, 1:00 PM ET. Payment converts; no payment after email 2 exhausts."
       icon={Mail}
       category={ADMIN_CATEGORIES[MODULE?.category] || ADMIN_CATEGORIES.communications}
       backTo="/app/admin/email-campaigns"
@@ -238,7 +238,7 @@ export default function AdminMedicareRetargetPage() {
                       <div className={shared.qaEmpty}>
                         <Mail size={26} className={shared.qaEmptyIcon} />
                         <h4>No agents in this filter</h4>
-                        <p>Run a tick to enroll unpaid Medicare signups, or switch the status filter.</p>
+                        <p>Run a tick to scan all unpaid Medicare signups into this funnel, or switch the status filter.</p>
                       </div>
                     </td>
                   </tr>

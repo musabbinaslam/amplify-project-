@@ -135,7 +135,7 @@ export const ADMIN_MODULES = [
       {
         id: 'medicare-retarget',
         title: 'Medicare Retarget',
-        description: 'Unpaid Medicare signups — two emails, then converted or exhausted.',
+        description: 'All unpaid Medicare signups — two emails, then converted or exhausted.',
         route: '/app/admin/email-campaigns/medicare-retarget',
         icon: Mail,
         category: 'communications',
