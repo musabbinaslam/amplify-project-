@@ -178,51 +178,144 @@ function isForceChargeTx(tx) {
   return tx?.metadata?.reason === FORCE_CHARGE_REASON;
 }
 
+function txId(tx) {
+  return tx?.id || `${txCreatedMs(tx)}:${tx?.amountCents || 0}:${tx?.metadata?.campaignId || ''}`;
+}
+
+async function loadAgentForceChargedLogs(db, agentId) {
+  try {
+    const snap = await db.collection('users').doc(agentId).collection('callLogs')
+      .where('forceCharged', '==', true)
+      .limit(80)
+      .get();
+    return snap.docs.map((doc) => {
+      const data = doc.data() || {};
+      return {
+        id: doc.id,
+        agentId,
+        callSid: data.callSid || null,
+        campaign: data.campaign || null,
+        forceChargedAt: toIso(data.forceChargedAt) || null,
+        forceChargeCents: Number.isFinite(Number(data.forceChargeCents))
+          ? Number(data.forceChargeCents)
+          : null,
+        createdAt: toIso(data.createdAt) || data.timestamp || null,
+      };
+    });
+  } catch (err) {
+    console.warn('[callTrace] forceCharged log lookup failed:', agentId, err.message);
+    return [];
+  }
+}
+
+/**
+ * Each wallet force-charge may map to at most one call log.
+ * Claim txs already represented on the agent's forceCharged logs first,
+ * then only apply leftovers to the current trace (callSid preferred).
+ */
+function claimTxsAlreadyStamped(txs, existingForcedLogs) {
+  const claimed = new Set();
+  const logs = [...(existingForcedLogs || [])];
+
+  // Exact callSid wins
+  for (const log of logs) {
+    if (!log.callSid) continue;
+    const tx = txs.find(
+      (t) => !claimed.has(txId(t)) && t.metadata?.callSid && t.metadata.callSid === log.callSid,
+    );
+    if (tx) claimed.add(txId(tx));
+  }
+
+  // Older charges: one stamp timestamp → one tx (closest amount/campaign)
+  for (const log of logs) {
+    const stampMs = log.forceChargedAt ? new Date(log.forceChargedAt).getTime() : 0;
+    if (!stampMs) continue;
+    const already = txs.find(
+      (t) => claimed.has(txId(t)) && t.metadata?.callSid && t.metadata.callSid === log.callSid,
+    );
+    if (already) continue;
+
+    let best = null;
+    let bestGap = Infinity;
+    for (const t of txs) {
+      if (claimed.has(txId(t))) continue;
+      if (t.metadata?.callSid) continue; // those only bind via callSid
+      const gap = Math.abs(txCreatedMs(t) - stampMs);
+      if (gap > 5_000) continue;
+      if (log.forceChargeCents != null && Number(t.amountCents) !== Number(log.forceChargeCents)) continue;
+      if (log.campaign && t.metadata?.campaignId && log.campaign !== t.metadata.campaignId) continue;
+      if (gap < bestGap) {
+        bestGap = gap;
+        best = t;
+      }
+    }
+    if (best) claimed.add(txId(best));
+  }
+
+  return claimed;
+}
+
 /**
  * Reconcile wallet force-charge debits onto call logs that were never stamped
  * (charges before Call Trace started writing forceCharged on the log).
- * Best-effort heals Firestore so the next lookup is permanent.
+ * Heals Firestore only on exact callSid matches — heuristic matches are display-only
+ * so one debit cannot permanently stamp every later call for that agent.
  */
 async function enrichLogsFromForceChargeHistory(callLogs) {
-  const pending = (callLogs || []).filter((l) => l?.agentId && !l.forceCharged);
-  if (!pending.length) return callLogs || [];
+  const enriched = (callLogs || []).map((log) => ({ ...log }));
+  const agentIds = [...new Set(enriched.map((l) => l?.agentId).filter(Boolean))];
+  if (!agentIds.length) return enriched;
 
   const db = getDb();
-  if (!db) return callLogs || [];
+  if (!db) return enriched;
 
-  const agentIds = [...new Set(pending.map((l) => l.agentId))];
   const txsByAgent = {};
+  const forcedByAgent = {};
   await Promise.all(agentIds.map(async (agentId) => {
-    try {
-      const txs = await walletService.getTransactions(agentId, FORCE_CHARGE_TX_LIMIT);
-      txsByAgent[agentId] = (txs || []).filter(isForceChargeTx);
-    } catch (err) {
-      console.warn('[callTrace] force-charge tx lookup failed:', agentId, err.message);
-      txsByAgent[agentId] = [];
-    }
+    const [txs, forced] = await Promise.all([
+      walletService.getTransactions(agentId, FORCE_CHARGE_TX_LIMIT)
+        .then((rows) => (rows || []).filter(isForceChargeTx))
+        .catch((err) => {
+          console.warn('[callTrace] force-charge tx lookup failed:', agentId, err.message);
+          return [];
+        }),
+      loadAgentForceChargedLogs(db, agentId),
+    ]);
+    txsByAgent[agentId] = txs;
+    forcedByAgent[agentId] = forced;
   }));
 
-  const claimedLogIds = new Set();
-  const heals = [];
-  const enriched = (callLogs || []).map((log) => ({ ...log }));
+  const claimedTxIds = new Set();
+  for (const agentId of agentIds) {
+    for (const id of claimTxsAlreadyStamped(txsByAgent[agentId] || [], forcedByAgent[agentId] || [])) {
+      claimedTxIds.add(id);
+    }
+  }
 
-  // Pass 1: exact callSid match from newer charges
+  const claimedLogIds = new Set(enriched.filter((l) => l.forceCharged).map((l) => l.id));
+  const heals = [];
+
+  // Pass 1: exact callSid match (safe to heal)
   for (const log of enriched) {
-    if (!log.agentId || log.forceCharged || claimedLogIds.has(log.id)) continue;
-    if (!log.callSid) continue;
+    if (!log.agentId || log.forceCharged || claimedLogIds.has(log.id) || !log.callSid) continue;
     const match = (txsByAgent[log.agentId] || []).find(
-      (tx) => tx.metadata?.callSid && tx.metadata.callSid === log.callSid,
+      (tx) => !claimedTxIds.has(txId(tx))
+        && tx.metadata?.callSid
+        && tx.metadata.callSid === log.callSid,
     );
     if (!match) continue;
+    claimedTxIds.add(txId(match));
     claimedLogIds.add(log.id);
     applyForceChargeOverlay(log, match);
     heals.push(healForceChargedLog(db, log, match));
   }
 
-  // Pass 2: older charges without callSid — match agent + campaign, call before debit
+  // Pass 2: leftover no-callSid txs — closest eligible call on THIS trace only.
+  // Display overlay only (no Firestore heal) so searching other numbers cannot
+  // permanently re-stamp the same debit onto every call.
   for (const agentId of agentIds) {
     const leftoverTxs = (txsByAgent[agentId] || [])
-      .filter((tx) => !tx.metadata?.callSid)
+      .filter((tx) => !claimedTxIds.has(txId(tx)) && !tx.metadata?.callSid)
       .sort((a, b) => txCreatedMs(a) - txCreatedMs(b));
 
     for (const tx of leftoverTxs) {
@@ -232,27 +325,21 @@ async function enrichLogsFromForceChargeHistory(callLogs) {
         .filter((log) => {
           if (log.agentId !== agentId || log.forceCharged || claimedLogIds.has(log.id)) return false;
           if (campaignId && log.campaign && log.campaign !== campaignId) return false;
-          // Prefer never-billed / zero-cost calls (typical force-charge targets)
           if (log.isBillable && Number(log.cost || 0) > 0) return false;
           const callMs = logCreatedMs(log);
           if (!callMs || !txMs) return false;
-          // Charge at/after the call (small skew), and within a tight window
           if (callMs > txMs + 60_000) return false;
           if (txMs - callMs > FORCE_CHARGE_MATCH_WINDOW_MS) return false;
           return true;
         })
-        .sort((a, b) => {
-          // Closest call before the debit wins
-          const da = Math.abs(txMs - logCreatedMs(a));
-          const dbGap = Math.abs(txMs - logCreatedMs(b));
-          return da - dbGap;
-        });
+        .sort((a, b) => Math.abs(txMs - logCreatedMs(a)) - Math.abs(txMs - logCreatedMs(b)));
 
       const pick = candidates[0];
       if (!pick) continue;
+      claimedTxIds.add(txId(tx));
       claimedLogIds.add(pick.id);
       applyForceChargeOverlay(pick, tx);
-      heals.push(healForceChargedLog(db, pick, tx));
+      // intentionally no heal — keep heuristic matches ephemeral
     }
   }
 

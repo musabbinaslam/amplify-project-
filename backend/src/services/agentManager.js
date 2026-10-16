@@ -68,11 +68,24 @@ class AgentManager {
 
    async getPausedAgents() {
       // Upstash disables KEYS when the keyspace is large — use SCAN instead.
+      // Prefer SCAN (promise) over scanIterator: the shared redisClient proxy only
+      // supports callable command methods, not async iterators.
+      // node-redis v5 requires cursor as string | Buffer (not a number).
       const ids = [];
-      for await (const key of redisClient.scanIterator({ MATCH: 'agent:paused:*', COUNT: 100 })) {
-         const id = String(key || '').split(':').pop();
-         if (id) ids.push(id);
-      }
+      let cursor = '0';
+      do {
+         const reply = await redisClient.scan(cursor, {
+            MATCH: 'agent:paused:*',
+            COUNT: 100,
+         });
+         const nextCursor = String(reply?.cursor ?? reply?.[0] ?? '0');
+         const keys = reply?.keys ?? reply?.[1] ?? [];
+         for (const key of keys) {
+            const id = String(key || '').split(':').pop();
+            if (id) ids.push(id);
+         }
+         cursor = nextCursor;
+      } while (cursor !== '0');
       return ids;
    }
 

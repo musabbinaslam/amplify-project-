@@ -53,11 +53,71 @@ function formatTime(at) {
   });
 }
 
+function formatClockTime(at) {
+  if (!at) return '—';
+  const d = new Date(at);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
+}
+
 function formatDuration(sec) {
   const n = Number(sec) || 0;
   const m = Math.floor(n / 60);
   const s = n % 60;
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+function formatRelativeDelta(prevAt, at) {
+  if (!at) return null;
+  if (!prevAt) return 'start';
+  const deltaMs = new Date(at).getTime() - new Date(prevAt).getTime();
+  if (!Number.isFinite(deltaMs) || deltaMs < 0) return null;
+  const sec = Math.round(deltaMs / 1000);
+  if (sec < 60) return `+${sec}s`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return s > 0 ? `+${m}m ${s}s` : `+${m}m`;
+}
+
+function timelineSpanLabel(events) {
+  if (!events?.length) return null;
+  const first = events[0]?.at;
+  const last = events[events.length - 1]?.at;
+  if (!first || !last) return `${events.length} event${events.length === 1 ? '' : 's'}`;
+  const spanMs = new Date(last).getTime() - new Date(first).getTime();
+  const spanSec = Number.isFinite(spanMs) && spanMs >= 0 ? Math.round(spanMs / 1000) : null;
+  const count = `${events.length} event${events.length === 1 ? '' : 's'}`;
+  if (spanSec == null) return count;
+  return `${count} · ${formatDuration(spanSec)} span`;
+}
+
+function eventMetaChips(e, agentMeta, prev) {
+  const chips = [];
+  if (e.campaignId && e.campaignId !== prev?.campaignId) {
+    chips.push({ key: 'campaign', label: e.campaignId });
+  }
+  if (e.state && e.state !== prev?.state) {
+    chips.push({ key: 'state', label: e.state });
+  }
+  if (e.agentId) {
+    const name = resolveAgent(agentMeta, e.agentId).name;
+    const prevName = prev?.agentId ? resolveAgent(agentMeta, prev.agentId).name : null;
+    if (name && name !== prevName && name !== '—') {
+      chips.push({ key: 'agent', label: name });
+    }
+  }
+  if (e.reason && e.reason !== prev?.reason) {
+    chips.push({ key: 'reason', label: e.reason });
+  }
+  if (e.agencyId && e.agencyId !== prev?.agencyId) {
+    chips.push({ key: 'agency', label: e.agencyId });
+  }
+  return chips;
 }
 
 function shortSid(sid) {
@@ -226,6 +286,7 @@ export default function AdminCallTracePage() {
   const query = result?.query || {};
   const hasResults = timeline.length > 0 || logs.length > 0 || Boolean(live);
   const showTimelineCol = timeline.length > 0;
+  const timelineSpan = useMemo(() => timelineSpanLabel(timeline), [timeline]);
 
   const tracedAgents = useMemo(() => {
     const ids = [
@@ -402,38 +463,66 @@ export default function AdminCallTracePage() {
               {showTimelineCol ? (
                 <section className={`glass ${shared.sectionCard} ${classes.panel}`}>
                   <div className={classes.panelHead}>
-                    <h3>Timeline</h3>
+                    <div className={classes.panelHeadCopy}>
+                      <h3>Timeline</h3>
+                      {timelineSpan ? (
+                        <p className={classes.timelineSpan}>{timelineSpan}</p>
+                      ) : null}
+                    </div>
                     <span className={classes.panelCount}>{timeline.length}</span>
                   </div>
                   <ol className={classes.timeline}>
                     {timeline.map((e, idx) => {
                       const meta = TYPE_META[e.type] || { label: e.type, tone: 'muted' };
-                      const bits = [
-                        e.campaignId,
-                        e.state,
-                        e.agencyId,
-                        e.agentId ? resolveAgent(agentMeta, e.agentId).name : null,
-                        e.reason,
-                      ].filter(Boolean);
+                      const prev = idx > 0 ? timeline[idx - 1] : null;
+                      const isFirst = idx === 0;
+                      const isLast = idx === timeline.length - 1;
+                      const delta = formatRelativeDelta(prev?.at, e.at);
+                      const chips = eventMetaChips(e, agentMeta, prev);
                       return (
-                        <li key={e.id || `${e.type}-${e.at}-${idx}`} className={classes.eventRow}>
-                          <span className={`${classes.dot} ${classes[`dot_${meta.tone}`]}`} />
-                          <span className={`${classes.badge} ${classes[`tone_${meta.tone}`]}`}>
-                            {meta.label}
-                          </span>
-                          <span className={classes.eventTitle}>{eventTitle(e)}</span>
-                          <span className={classes.eventBits} title={bits.join(' · ')}>
-                            {bits.join(' · ') || '—'}
-                          </span>
-                          {e.callSid ? (
-                            <span className={classes.sidInline}>
-                              <code title={e.callSid}>{shortSid(e.callSid)}</code>
-                              <CopyButton value={e.callSid} />
-                            </span>
-                          ) : (
-                            <span />
-                          )}
-                          <time className={classes.eventTime}>{formatTime(e.at)}</time>
+                        <li
+                          key={e.id || `${e.type}-${e.at}-${idx}`}
+                          className={`${classes.eventRow} ${isFirst ? classes.eventRowFirst : ''} ${isLast ? classes.eventRowLast : ''}`}
+                        >
+                          <div className={classes.eventTimeCol}>
+                            <time className={classes.eventClock} dateTime={e.at ? new Date(e.at).toISOString() : undefined}>
+                              {formatClockTime(e.at)}
+                            </time>
+                            {delta ? (
+                              <span className={classes.eventDelta}>{delta}</span>
+                            ) : null}
+                          </div>
+
+                          <div className={classes.eventRail} aria-hidden="true">
+                            <span className={`${classes.eventNode} ${classes[`dot_${meta.tone}`]}`} />
+                          </div>
+
+                          <div className={classes.eventBody}>
+                            <div className={classes.eventBodyTop}>
+                              <span className={`${classes.badge} ${classes[`tone_${meta.tone}`]}`}>
+                                {meta.label}
+                              </span>
+                              <time className={classes.eventFullWhen} title={formatTime(e.at)}>
+                                {formatTime(e.at)}
+                              </time>
+                            </div>
+                            <p className={classes.eventTitle}>{eventTitle(e)}</p>
+                            {chips.length > 0 ? (
+                              <div className={classes.eventChips}>
+                                {chips.map((chip) => (
+                                  <span key={chip.key} className={classes.eventChip} title={chip.label}>
+                                    {chip.label}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                            {e.callSid ? (
+                              <div className={classes.eventSid}>
+                                <code title={e.callSid}>{shortSid(e.callSid)}</code>
+                                <CopyButton value={e.callSid} label="Copy CallSid" />
+                              </div>
+                            ) : null}
+                          </div>
                         </li>
                       );
                     })}
