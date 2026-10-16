@@ -255,6 +255,84 @@ function claimTxsAlreadyStamped(txs, existingForcedLogs) {
   return claimed;
 }
 
+function clearForceChargeFields(log) {
+  log.forceCharged = false;
+  log.forceChargedAt = null;
+  log.forceChargeCents = null;
+  log.isBillable = false;
+  log.cost = 0;
+}
+
+async function unstampForceChargedLog(db, agentId, logId) {
+  if (!db || !agentId || !logId) return;
+  const { FieldValue } = admin.firestore;
+  await db.collection('users').doc(agentId).collection('callLogs').doc(logId).set(
+    {
+      forceCharged: false,
+      forceChargedAt: FieldValue.delete(),
+      forceChargedBy: FieldValue.delete(),
+      forceChargeCents: FieldValue.delete(),
+      isBillable: false,
+      cost: 0,
+    },
+    { merge: true },
+  );
+}
+
+/**
+ * One wallet debit timestamp must only stamp one call. When older backfill
+ * wrote the same forceChargedAt onto multiple logs, keep the closest call
+ * and clear the rest (response + Firestore).
+ */
+function reconcileDuplicateForceChargeStamps(db, enriched, forcedByAgent) {
+  const clearIds = new Set();
+  const repairs = [];
+
+  for (const [agentId, forced] of Object.entries(forcedByAgent || {})) {
+    const groups = new Map();
+    for (const log of forced || []) {
+      const key = log.forceChargedAt || log.id;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(log);
+    }
+
+    for (const [, list] of groups) {
+      if (list.length < 2) continue;
+      const stampMs = list[0].forceChargedAt
+        ? new Date(list[0].forceChargedAt).getTime()
+        : 0;
+      const sorted = [...list].sort((a, b) => {
+        const aMs = logCreatedMs(a);
+        const bMs = logCreatedMs(b);
+        const aOk = !stampMs || aMs <= stampMs + 60_000;
+        const bOk = !stampMs || bMs <= stampMs + 60_000;
+        if (aOk !== bOk) return aOk ? -1 : 1;
+        return Math.abs(stampMs - aMs) - Math.abs(stampMs - bMs);
+      });
+      for (const dup of sorted.slice(1)) {
+        clearIds.add(dup.id);
+        repairs.push(unstampForceChargedLog(db, agentId, dup.id));
+      }
+    }
+  }
+
+  for (const log of enriched) {
+    if (clearIds.has(log.id) && log.forceCharged) {
+      clearForceChargeFields(log);
+    }
+  }
+
+  if (repairs.length) {
+    Promise.allSettled(repairs).then((results) => {
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      if (failed) console.warn(`[callTrace] duplicate force-charge unstamp failed for ${failed} log(s)`);
+      else console.log(`[callTrace] Cleared ${repairs.length} duplicate force-charge stamp(s)`);
+    });
+  }
+
+  return clearIds;
+}
+
 /**
  * Reconcile wallet force-charge debits onto call logs that were never stamped
  * (charges before Call Trace started writing forceCharged on the log).
@@ -284,6 +362,12 @@ async function enrichLogsFromForceChargeHistory(callLogs) {
     txsByAgent[agentId] = txs;
     forcedByAgent[agentId] = forced;
   }));
+
+  // Fix bad historical stamps before claiming txs / overlaying
+  const clearedDupIds = reconcileDuplicateForceChargeStamps(db, enriched, forcedByAgent);
+  for (const agentId of agentIds) {
+    forcedByAgent[agentId] = (forcedByAgent[agentId] || []).filter((l) => !clearedDupIds.has(l.id));
+  }
 
   const claimedTxIds = new Set();
   for (const agentId of agentIds) {
