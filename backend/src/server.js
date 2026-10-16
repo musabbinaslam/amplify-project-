@@ -208,6 +208,8 @@ const startEngine = async () => {
 
   const { startQaShiftAutoReviewScheduler } = require('./services/qaShiftAutoReviewService');
   const qaShiftInterval = startQaShiftAutoReviewScheduler();
+  const { startMedicareRetargetScheduler } = require('./services/medicareRetargetService');
+  const medicareRetargetInterval = startMedicareRetargetScheduler();
 
   // Apply global rate limiting to all /api routes
   app.use('/api/', globalRateLimiter);
@@ -323,6 +325,7 @@ const startEngine = async () => {
     console.log(`\n[Server] ${signal} received — starting graceful shutdown...`);
     clearInterval(ghostCleanupInterval);
     if (qaShiftInterval) clearInterval(qaShiftInterval);
+    if (medicareRetargetInterval) clearInterval(medicareRetargetInterval);
 
     // Tell all connected frontends the server is restarting
     io.emit('server:restarting', { message: 'Server restarting — you will reconnect automatically.' });

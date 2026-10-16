@@ -93,6 +93,7 @@ async function addCredits(uid, amountCents, source = 'manual', metadata = {}) {
     console.log(
       `[Wallet] ✅ +$${(amountCents / 100).toFixed(2)} for user ${uid} (idempotent: ${idempotencyKey}). New balance: $${(result / 100).toFixed(2)}`
     );
+    markMedicarePaidIfNeeded(uid).catch(() => {});
     return result;
   }
 
@@ -113,7 +114,17 @@ async function addCredits(uid, amountCents, source = 'manual', metadata = {}) {
   });
 
   console.log(`[Wallet] ✅ +$${(amountCents / 100).toFixed(2)} for user ${uid}. New balance: $${(newBalance / 100).toFixed(2)}`);
+  markMedicarePaidIfNeeded(uid).catch(() => {});
   return newBalance;
+}
+
+function markMedicarePaidIfNeeded(uid) {
+  const { syncMedicareUnpaidFlag } = require('./medicareRetargetService');
+  const { getUserDoc } = require('./userDataService');
+  return getUserDoc(uid).then((user) => {
+    if (!user) return null;
+    return syncMedicareUnpaidFlag(uid, user, true);
+  });
 }
 
 /**

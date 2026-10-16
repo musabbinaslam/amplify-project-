@@ -333,3 +333,19 @@ export async function downloadAdminExcelReport(params = {}) {
   return { filename: resolvedName };
 }
 
+export function getMedicareRetargetStats() {
+  return apiFetch('/api/admin/medicare-retarget/stats', { method: 'GET' });
+}
+
+export function listMedicareRetargetUsers({ status = 'all', page = 1, pageSize = 25 } = {}) {
+  const qs = new URLSearchParams();
+  if (status && status !== 'all') qs.set('status', status);
+  qs.set('page', String(page));
+  qs.set('pageSize', String(pageSize));
+  return apiFetch(`/api/admin/medicare-retarget/users?${qs.toString()}`, { method: 'GET' });
+}
+
+export function runMedicareRetargetTick() {
+  return apiFetch('/api/admin/medicare-retarget/run', { method: 'POST' });
+}
+
