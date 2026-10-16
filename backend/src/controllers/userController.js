@@ -958,6 +958,14 @@ async function patchMe(req, res) {
     await mergeUserDoc(req.user.uid, body);
 
     const data = await getUserDoc(req.user.uid);
+    if (body.onboarding !== undefined || data?.onboarding?.verticals) {
+      try {
+        const { syncMedicareUnpaidFlag } = require('../services/medicareRetargetService');
+        await syncMedicareUnpaidFlag(req.user.uid, data);
+      } catch (flagErr) {
+        console.warn('[Users] medicare unpaid flag sync failed:', flagErr.message);
+      }
+    }
     const changed = Object.keys(body || {});
     if (changed.length > 0) {
       await addActivity(req.user.uid, {
