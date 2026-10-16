@@ -399,7 +399,7 @@ async function loadUnpaidFlaggedUsers(limitUid = null) {
   const rows = [];
   let cursor = null;
   // Paginate so a large unpaid cohort does not blow memory.
-  while (rows.length < 2000) {
+  while (rows.length < LIST_CAP) {
     let q = db.collection('users')
       .where('retargetFlags.medicareUnpaid', '==', true)
       .limit(PAGE_SIZE);
@@ -493,6 +493,19 @@ async function runMedicareRetargetTick(opts = {}) {
     const lockKey = dayLockKey();
     const already = await redisClient.get(lockKey).catch(() => null);
     if (already) return { ...summary, reason: 'already_ran_today' };
+  }
+
+  // Discover every unpaid Medicare signup (old + new), then process the flagged cohort.
+  // Without this, only agents flagged at signup would ever enter the funnel.
+  if (!opts.uid) {
+    try {
+      const discovery = await backfillMedicareUnpaidFlags({ dryRun });
+      summary.discovered = discovery.flagged || 0;
+      summary.scanned = discovery.scanned || 0;
+    } catch (err) {
+      console.warn('[MedicareRetarget] cohort discovery failed:', err.message);
+      summary.discoveryError = err.message;
+    }
   }
 
   const users = await loadUnpaidFlaggedUsers(opts.uid || null);
@@ -679,6 +692,7 @@ async function listMedicareRetargetUsers({ status = null, page = 1, pageSize = 2
 async function backfillMedicareUnpaidFlags({ dryRun = false, uid = null } = {}) {
   const db = getDb();
   if (!db) return { scanned: 0, flagged: 0 };
+  const SCAN_CAP = 100_000;
   let scanned = 0;
   let flagged = 0;
   if (uid) {
@@ -695,7 +709,7 @@ async function backfillMedicareUnpaidFlags({ dryRun = false, uid = null } = {}) 
   }
 
   let cursor = null;
-  while (scanned < 8000) {
+  while (scanned < SCAN_CAP) {
     let q = db.collection('users').limit(PAGE_SIZE);
     if (cursor) q = q.startAfter(cursor);
     const snap = await q.get();
@@ -704,17 +718,19 @@ async function backfillMedicareUnpaidFlags({ dryRun = false, uid = null } = {}) 
       scanned += 1;
       const user = { id: doc.id, ...doc.data() };
       if (!userHasMedicareVertical(user) || !userEmail(user) || TERMINAL.has(user.medicareRetarget?.status)) continue;
+      if (user.retargetFlags?.medicareUnpaid === true) continue;
+      // Wallet-only fast path: skip Stripe lookup when already funded.
+      if (walletBalanceCents(user) > 0) continue;
       const paid = await userIsPaid(doc.id, user);
       if (paid) continue;
-      if (user.retargetFlags?.medicareUnpaid === true) continue;
       flagged += 1;
       if (!dryRun) await syncMedicareUnpaidFlag(doc.id, user, false);
     }
     cursor = snap.docs[snap.docs.length - 1];
     if (snap.size < PAGE_SIZE) break;
   }
-  console.log('[MedicareRetarget] backfill flags', { scanned, flagged, dryRun });
-  return { scanned, flagged, dryRun };
+  console.log('[MedicareRetarget] backfill flags', { scanned, flagged, dryRun, capped: scanned >= SCAN_CAP });
+  return { scanned, flagged, dryRun, capped: scanned >= SCAN_CAP };
 }
 
 async function tickMedicareRetargetScheduler() {
