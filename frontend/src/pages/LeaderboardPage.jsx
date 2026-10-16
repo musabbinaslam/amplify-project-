@@ -26,7 +26,6 @@ import { dropdownPanelMotion, EASE_SMOOTH } from '../motion/appMotion';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { fetchLeaderboard } from '../services/leaderboardService';
 import { queryKeys } from '../queries';
-import PageSkeleton from '../components/ui/PageSkeleton';
 import NumberPopIn from '../components/ui/NumberPopIn';
 import classes from './LeaderboardPage.module.css';
 
@@ -86,11 +85,11 @@ const RANK_META = {
   3: { Icon: Medal, cls: classes.bronze, tier: classes.tier3, pedestal: 72, label: 'Third place' },
 };
 
-const ChampionColumn = ({ entry, reduceMotion, isMe, delay }) => {
+const ChampionColumn = ({ entry, reduceMotion, isMe, delay, loading }) => {
   const meta = RANK_META[entry.rank] || RANK_META[3];
   const { Icon } = meta;
   const isFirst = entry.rank === 1;
-  const hot = entry.policyClosedRate >= HOT_RATIO && entry.policiesClosed > 0;
+  const hot = !loading && entry.policyClosedRate >= HOT_RATIO && entry.policiesClosed > 0;
 
   return (
     <div className={`${classes.champColumn} ${meta.tier} ${meta.cls}`}>
@@ -115,28 +114,47 @@ const ChampionColumn = ({ entry, reduceMotion, isMe, delay }) => {
         </motion.span>
 
         <div className={classes.avatarRing}>
-          <Avatar name={entry.name} size={isFirst ? 84 : 62} />
+          {loading ? (
+            <span
+              className={`${classes.dataBone} ${classes.boneAvatar}`}
+              style={{ width: isFirst ? 84 : 62, height: isFirst ? 84 : 62 }}
+            />
+          ) : (
+            <Avatar name={entry.name} size={isFirst ? 84 : 62} />
+          )}
         </div>
 
-        <p className={classes.champName} title={entry.name}>
-          {entry.name}
-          {isMe && <span className={classes.youBadge}>You</span>}
-          {hot && (
-            <span className={classes.hotBadge} title="Policy close rate over 20%">
-              <Flame size={12} />
-            </span>
+        <p className={classes.champName} title={loading ? undefined : entry.name}>
+          {loading ? (
+            <span className={`${classes.dataBone} ${classes.boneName}`} />
+          ) : (
+            <>
+              {entry.name}
+              {isMe && <span className={classes.youBadge}>You</span>}
+              {hot && (
+                <span className={classes.hotBadge} title="Policy close rate over 20%">
+                  <Flame size={12} />
+                </span>
+              )}
+            </>
           )}
         </p>
 
         <p className={classes.champValue}>
-          <CountUp value={entry.policiesClosed} />
+          {loading ? <span className={`${classes.dataBone} ${classes.boneValue}`} /> : <CountUp value={entry.policiesClosed} />}
         </p>
         <p className={classes.champValueLabel}>Policies Closed</p>
 
         <p className={classes.champStats}>
-          {entry.policyClosedRate}% rate
-          <span className={classes.statDot}>·</span>
-          {formatDuration(entry.avgDuration)} avg
+          {loading ? (
+            <span className={`${classes.dataBone} ${classes.boneLine}`} />
+          ) : (
+            <>
+              {entry.policyClosedRate}% rate
+              <span className={classes.statDot}>·</span>
+              {formatDuration(entry.avgDuration)} avg
+            </>
+          )}
         </p>
       </motion.div>
 
@@ -154,10 +172,11 @@ const ChampionColumn = ({ entry, reduceMotion, isMe, delay }) => {
   );
 };
 
-const MetricPill = ({ icon: Icon, value, label, active }) => (
+const MetricPill = ({ icon: Icon, value, label, active, loading }) => (
   <div className={`${classes.rowMetric} ${active ? classes.rowMetricActive : ''}`}>
     <span className={classes.rowMetricValue}>
-      <Icon size={13} /> {value}
+      <Icon size={13} />
+      {loading ? <span className={`${classes.dataBone} ${classes.boneMetric}`} /> : value}
     </span>
     <span className={classes.rowMetricLabel}>{label}</span>
   </div>
@@ -292,17 +311,6 @@ const LeaderboardPage = () => {
     [tableRows, safePage],
   );
 
-  const listMotion = useMemo(() => ({
-    container: {
-      hidden: {},
-      visible: { transition: { staggerChildren: reduceMotion ? 0 : 0.07, delayChildren: reduceMotion ? 0 : 0.1 } },
-    },
-    item: {
-      hidden: { opacity: reduceMotion ? 1 : 0, y: reduceMotion ? 0 : 10 },
-      visible: { opacity: 1, y: 0, transition: { duration: reduceMotion ? 0 : 0.55, ease: EASE_SMOOTH } },
-    },
-  }), [reduceMotion]);
-
   // Motivational messaging for the viewer.
   const meMessage = useMemo(() => {
     if (!me) return null;
@@ -333,8 +341,6 @@ const LeaderboardPage = () => {
   const updatedLabel = data.generatedAt
     ? new Date(data.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : null;
-
-  if (loading) return <PageSkeleton variant="table" rows={10} />;
 
   return (
     <motion.div
@@ -409,7 +415,7 @@ const LeaderboardPage = () => {
       {error && <div className={classes.errorBanner}>{error}</div>}
 
       <div className={refreshing ? classes.boardRefreshing : undefined}>
-      {entries.length === 0 ? (
+      {!loading && entries.length === 0 ? (
         <motion.div className={classes.emptyCard} variants={presets.child}>
           <span className={`${classes.emptyIcon} ${!reduceMotion ? classes.floaty : ''}`}>
             <Trophy size={36} />
@@ -419,7 +425,6 @@ const LeaderboardPage = () => {
         </motion.div>
       ) : (
         <>
-          {/* Champions stage */}
           <motion.section
             className={`${classes.stage} ${reduceMotion ? classes.stageStatic : ''}`}
             variants={presets.child}
@@ -438,13 +443,14 @@ const LeaderboardPage = () => {
             </div>
 
             <div className={classes.podium}>
-              {podiumOrder.map((entry, i) => (
+              {(loading ? [{ rank: 2 }, { rank: 1 }, { rank: 3 }] : podiumOrder).map((entry, i) => (
                 <ChampionColumn
-                  key={entry.agentId}
+                  key={entry.rank}
                   entry={entry}
                   reduceMotion={reduceMotion}
-                  isMe={me?.agentId === entry.agentId}
+                  isMe={!loading && me?.agentId === entry.agentId}
                   delay={0.15 + i * 0.22 + (entry.rank === 1 ? 0.15 : 0)}
+                  loading={loading}
                 />
               ))}
             </div>
@@ -487,8 +493,7 @@ const LeaderboardPage = () => {
             </motion.div>
           )}
 
-          {/* Ranked rows (ranks 4+) */}
-          {tableRows.length > 0 && (
+          {(loading || tableRows.length > 0) && (
             <motion.section className={classes.rankSection} variants={presets.child}>
               <div className={classes.rankSectionHeader}>
                 <h3><TrendingUp size={18} /> The chase</h3>
@@ -502,6 +507,7 @@ const LeaderboardPage = () => {
                         className={`${classes.sortPill} ${active ? classes.sortPillActive : ''}`}
                         onClick={() => handleSort(opt)}
                         aria-pressed={active}
+                        disabled={loading}
                       >
                         {opt.label}
                         {active ? (sort.dir === 'asc' ? <ChevronUp size={13} /> : <ChevronDown size={13} />) : null}
@@ -511,21 +517,32 @@ const LeaderboardPage = () => {
                 </div>
               </div>
 
-              <motion.div
-                className={classes.rankList}
-                variants={listMotion.container}
-                initial="hidden"
-                animate="visible"
-                key={`${sort.key}${sort.dir}${safePage}`}
-              >
-                {pagedRows.map((entry) => {
+              <div className={classes.rankList}>
+                {loading ? (
+                  Array.from({ length: 6 }, (_, i) => (
+                    <div key={i} className={classes.rankRow}>
+                      <span className={classes.rankNum}><span className={`${classes.dataBone} ${classes.boneRank}`} /></span>
+                      <span className={`${classes.dataBone} ${classes.boneAvatarSm}`} />
+                      <div className={classes.rankIdentity}>
+                        <span className={`${classes.dataBone} ${classes.boneName}`} />
+                        <div className={classes.rankBarTrack}>
+                          <span className={`${classes.dataBone} ${classes.boneBar}`} />
+                        </div>
+                      </div>
+                      <div className={classes.rankMetrics}>
+                        <MetricPill icon={Phone} label="Policies" loading />
+                        <MetricPill icon={Percent} label="Rate" loading />
+                        <MetricPill icon={Clock} label="Avg" loading />
+                      </div>
+                    </div>
+                  ))
+                ) : pagedRows.map((entry) => {
                   const isMe = me?.agentId === entry.agentId;
                   const pct = leaderCalls ? Math.max(3, Math.round((entry.billableCalls / leaderCalls) * 100)) : 0;
                   return (
-                    <motion.div
+                    <div
                       key={entry.agentId}
                       className={`${classes.rankRow} ${isMe ? classes.meRow : ''}`}
-                      variants={listMotion.item}
                     >
                       <span className={classes.rankNum}>#{entry.rank}</span>
                       <Avatar name={entry.name} size={38} />
@@ -548,10 +565,10 @@ const LeaderboardPage = () => {
                         <MetricPill icon={Percent} value={`${entry.policyClosedRate}%`} label="Rate" active={sort.key === 'policyClosedRate'} />
                         <MetricPill icon={Clock} value={formatDuration(entry.avgDuration)} label="Avg" active={sort.key === 'avgDuration'} />
                       </div>
-                    </motion.div>
+                    </div>
                   );
                 })}
-              </motion.div>
+              </div>
 
               {totalPages > 1 && (
                 <div className={classes.pagination}>

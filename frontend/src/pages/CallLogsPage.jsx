@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Loader, Play, Upload, X, AlertCircle } from 'lucide-react';
+import { Search, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock, DollarSign, Play, Upload, X, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
@@ -12,7 +12,6 @@ import { updateMyCallLogDisposition } from '../services/profileService';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { EASE_SMOOTH } from '../motion/appMotion';
 import CustomSelect from '../components/ui/CustomSelect';
-import PageSkeleton from '../components/ui/PageSkeleton';
 import NumberPopIn from '../components/ui/NumberPopIn';
 import SlidingTabs from '../components/ui/SlidingTabs';
 import ShimmerText from '../components/ui/ShimmerText';
@@ -118,7 +117,7 @@ function CampaignTagCell({ log }) {
 }
 
 /* eslint-disable react/prop-types -- local stat card helper */
-const StatCard = ({ label, value, icon: Icon, variants }) => {
+const StatCard = ({ label, value, icon: Icon, variants, loading }) => {
   const reduceMotion = useReducedMotion();
   return (
     <motion.div
@@ -132,7 +131,9 @@ const StatCard = ({ label, value, icon: Icon, variants }) => {
       </div>
       <div className={classes.statLabel}>{label}</div>
       <div className={classes.statValue}>
-        {typeof value === 'number' || typeof value === 'string' ? (
+        {loading ? (
+          <span className={`${classes.dataBone} ${classes.boneValue}`} />
+        ) : typeof value === 'number' || typeof value === 'string' ? (
           <NumberPopIn value={value} />
         ) : (
           value
@@ -568,8 +569,6 @@ const CallLogsPage = () => {
     patchLog(callLogId, { contestStatus: 'pending' });
   };
 
-  if (initialLoading) return <PageSkeleton variant="table" rows={10} />;
-
   return (
     <>
     <motion.div
@@ -601,10 +600,10 @@ const CallLogsPage = () => {
       </motion.div>
 
       <motion.div className={classes.statsRow} variants={presets.statsStrip}>
-        <StatCard label="Total Calls" value={stats.total} icon={Phone} variants={presets.child} />
-        <StatCard label="Completed" value={stats.completed} icon={PhoneIncoming} variants={presets.child} />
-        <StatCard label="Missed" value={stats.missed} icon={PhoneMissed} variants={presets.child} />
-        <StatCard label="Sold" value={stats.sold} icon={DollarSign} variants={presets.child} />
+        <StatCard label="Total Calls" value={stats.total} icon={Phone} variants={presets.child} loading={initialLoading} />
+        <StatCard label="Completed" value={stats.completed} icon={PhoneIncoming} variants={presets.child} loading={initialLoading} />
+        <StatCard label="Missed" value={stats.missed} icon={PhoneMissed} variants={presets.child} loading={initialLoading} />
+        <StatCard label="Sold" value={stats.sold} icon={DollarSign} variants={presets.child} loading={initialLoading} />
       </motion.div>
 
       <motion.div className={classes.filters} variants={presets.child}>
@@ -640,16 +639,13 @@ const CallLogsPage = () => {
           </div>
         </div>
 
-        <span className={classes.totalCalls}>{filtered.length} calls</span>
+        <span className={classes.totalCalls}>
+          {initialLoading ? <span className={`${classes.dataBone} ${classes.boneLine}`} /> : `${filtered.length} calls`}
+        </span>
       </motion.div>
 
       <motion.div className={`glass ${classes.tableWrap}`} variants={presets.child}>
-        {loading ? (
-          <div className={classes.emptyState}>
-            <Loader size={20} className={classes.spinner} />
-            <ShimmerText text="Loading call logs…" />
-          </div>
-        ) : error ? (
+        {error ? (
           <div className={classes.emptyState}>{error}</div>
         ) : (
           <>
@@ -670,7 +666,15 @@ const CallLogsPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {paginatedLogs.map((log) => {
+                {initialLoading || loading ? (
+                  Array.from({ length: 8 }, (_, i) => (
+                    <tr key={i}>
+                      {Array.from({ length: 10 }, (_, j) => (
+                        <td key={j}><span className={`${classes.dataBone} ${classes.boneCell}`} /></td>
+                      ))}
+                    </tr>
+                  ))
+                ) : paginatedLogs.map((log) => {
                   const callType = getCallType(log);
                   const isInbound = callType === 'inbound';
                   const TypeIcon = isInbound ? PhoneIncoming : PhoneOutgoing;
@@ -743,7 +747,7 @@ const CallLogsPage = () => {
               </tbody>
             </table>
             </div>
-            {filtered.length === 0 && (
+            {!initialLoading && !loading && filtered.length === 0 && (
               <div className={classes.emptyState}>
                 {callLogs.length === 0
                   ? 'No call logs yet. Start taking calls to see your activity here.'
@@ -751,7 +755,7 @@ const CallLogsPage = () => {
               </div>
             )}
 
-            {filtered.length > 0 && (
+            {!initialLoading && !loading && filtered.length > 0 && (
               <div className={classes.pagination}>
                 <button
                   className={classes.pageBtn}

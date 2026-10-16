@@ -40,11 +40,6 @@ const CAMPAIGN_CONFIG = {
     buffer: 120,
     price: 25.00,
   },
-  medicare_inbound_1: {
-    label: 'Medicare Inbounds (1)',
-    buffer: 90,
-    price: 35.00,
-  },
   medicare_inbound_2: {
     label: 'Medicare Inbounds (2)',
     buffer: 15,
@@ -86,15 +81,15 @@ function syncPricingConfig() {
             const data = snap.data();
             const campaigns = data?.campaigns || {};
 
-            // ── SAFE: purely additive sync ────────────────────────────────────
-            // We only ADD or UPDATE campaigns that exist in Firestore.
-            // We NEVER delete entries from CAMPAIGN_CONFIG based on a snapshot.
-            // Reason: if the Firestore document is ever partial or temporarily
-            // corrupted, existing campaigns must continue routing calls correctly.
-            // Deletions are not supported via the UI and won't happen in normal use.
+            // Firestore is the list of live campaigns. Add and update from it,
+            // then drop anything an admin deleted so a restart cannot bring a
+            // hardcoded seed back. An empty map is ignored so a bad write
+            // cannot wipe routing.
+            const liveIds = new Set();
             Object.keys(campaigns).forEach((id) => {
               const c = campaigns[id];
               if (!c || typeof c !== 'object') return; // skip malformed entries
+              liveIds.add(id);
               CAMPAIGN_CONFIG[id] = {
                 label: String(c.label || id),
                 buffer: Number(c.buffer) || 0,
@@ -105,6 +100,11 @@ function syncPricingConfig() {
                 isRaw: c.isRaw === true,
               };
             });
+            if (liveIds.size > 0) {
+              Object.keys(CAMPAIGN_CONFIG).forEach((id) => {
+                if (!liveIds.has(id)) delete CAMPAIGN_CONFIG[id];
+              });
+            }
 
             console.log(`[Pricing] ✅ Live config synced — ${Object.keys(CAMPAIGN_CONFIG).length} campaigns loaded.`);
 

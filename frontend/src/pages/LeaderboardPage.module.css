@@ -760,6 +760,75 @@
   transition: opacity 0.35s ease;
 }
 
+.dataBone {
+  display: inline-block;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in srgb, var(--brand-text) 22%, transparent) 45%,
+    transparent 70%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: boardBone 1.6s ease-in-out infinite;
+  vertical-align: middle;
+}
+
+.boneAvatar {
+  border-radius: 50%;
+}
+
+.boneAvatarSm {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+}
+
+.boneName {
+  width: 108px;
+  height: 14px;
+}
+
+.boneValue {
+  width: 56px;
+  height: 28px;
+}
+
+.boneLine {
+  width: 96px;
+  height: 12px;
+}
+
+.boneRank {
+  width: 28px;
+  height: 14px;
+}
+
+.boneMetric {
+  width: 28px;
+  height: 12px;
+}
+
+.boneBar {
+  display: block;
+  width: 46%;
+  height: 4px;
+  border-radius: 999px;
+}
+
+@keyframes boardBone {
+  0% { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dataBone {
+    animation: none;
+  }
+}
+
 /* ─── Avatar ─── */
 .avatar {
   display: inline-flex;

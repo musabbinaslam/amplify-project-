@@ -56,6 +56,70 @@
   font-size: 14px;
 }
 
+.shimmer {
+  display: inline-block;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in srgb, var(--brand-text) 22%, transparent) 45%,
+    transparent 70%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: dashBone 1.6s ease-in-out infinite;
+  vertical-align: middle;
+}
+
+.shimmerPill {
+  width: 52px;
+  height: 22px;
+  border-radius: 999px;
+}
+
+.shimmerValue {
+  width: 72px;
+  height: 32px;
+}
+
+.shimmerLine {
+  width: 88px;
+  height: 16px;
+}
+
+.shimmerChart {
+  display: block;
+  width: 100%;
+  height: 280px;
+  border-radius: 16px;
+}
+
+.shimmerDonut {
+  display: block;
+  width: 160px;
+  height: 160px;
+  margin: 28px auto;
+  border-radius: 50%;
+}
+
+.shimmerRow {
+  width: 72%;
+  height: 12px;
+  border-radius: 999px;
+}
+
+@keyframes dashBone {
+  0% { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+  }
+}
+
 /* ─── Hero KPI row ─── */
 .kpiGrid {
   display: grid;
