@@ -1,4 +1,4 @@
-import { getAdminModuleByRoute } from '../config/adminModules';
+import { findParentAdminModule, getAdminModuleByRoute } from '../config/adminModules';
 
 const ADMIN_HOME = '/app/admin';
 
@@ -96,10 +96,11 @@ export function resolveRouteBreadcrumbs(pathname) {
 
   const adminModule = getAdminModuleByRoute(normalized);
   if (adminModule && normalized === adminModule.route) {
-    return [
-      { label: 'Admin', href: ADMIN_HOME },
-      { label: adminModule.title },
-    ];
+    const crumbs = [{ label: 'Admin', href: ADMIN_HOME }];
+    const parent = findParentAdminModule(adminModule.id);
+    if (parent) crumbs.push({ label: parent.title, href: parent.route });
+    crumbs.push({ label: adminModule.title });
+    return crumbs;
   }
 
   if (normalized === '/app/admin/ops/teams') {

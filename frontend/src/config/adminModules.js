@@ -5,6 +5,7 @@ import {
   FileSpreadsheet,
   Flag,
   HeadphonesIcon,
+  Mail,
   Phone,
   Radio,
   Search,
@@ -124,6 +125,24 @@ export const ADMIN_MODULES = [
     category: 'communications',
   },
   {
+    id: 'email-campaigns',
+    title: 'Email Campaigns',
+    description: 'Retarget and drip sequences for unpaid signups.',
+    route: '/app/admin/email-campaigns',
+    icon: Mail,
+    category: 'communications',
+    children: [
+      {
+        id: 'medicare-retarget',
+        title: 'Medicare Retarget',
+        description: 'All unpaid Medicare signups — two emails, then converted or exhausted.',
+        route: '/app/admin/email-campaigns/medicare-retarget',
+        icon: Mail,
+        category: 'communications',
+      },
+    ],
+  },
+  {
     id: 'support-desk',
     title: 'Support Desk',
     description: 'Live inbox and support analytics — claim threads and track queue health.',
@@ -158,6 +177,30 @@ export const ADMIN_MODULES = [
   },
 ];
 
+function moduleMatchesRoute(mod, pathname) {
+  if (!mod?.route) return false;
+  return pathname === mod.route || pathname.startsWith(`${mod.route}/`);
+}
+
+export function findAdminModuleById(id) {
+  for (const mod of ADMIN_MODULES) {
+    if (mod.id === id) return mod;
+    const child = (mod.children || []).find((c) => c.id === id);
+    if (child) return child;
+  }
+  return undefined;
+}
+
+export function findParentAdminModule(id) {
+  if (!id) return undefined;
+  return ADMIN_MODULES.find((mod) => (mod.children || []).some((child) => child.id === id));
+}
+
 export function getAdminModuleByRoute(pathname) {
-  return ADMIN_MODULES.find((m) => pathname === m.route || pathname.startsWith(`${m.route}/`));
+  for (const mod of ADMIN_MODULES) {
+    const child = (mod.children || []).find((c) => moduleMatchesRoute(c, pathname));
+    if (child) return child;
+    if (moduleMatchesRoute(mod, pathname)) return mod;
+  }
+  return undefined;
 }

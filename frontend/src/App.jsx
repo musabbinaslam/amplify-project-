@@ -53,6 +53,8 @@ const AdminHubPage = lazy(() => import('./pages/admin/AdminHubPage'));
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
 const AdminLiveOpsPage = lazy(() => import('./pages/admin/AdminLiveOpsPage'));
 const AdminCallTracePage = lazy(() => import('./pages/admin/AdminCallTracePage'));
+const AdminEmailCampaignsPage = lazy(() => import('./pages/admin/AdminEmailCampaignsPage'));
+const AdminMedicareRetargetPage = lazy(() => import('./pages/admin/AdminMedicareRetargetPage'));
 const AdminCallContestsPage = lazy(() => import('./pages/admin/AdminCallContestsPage'));
 const AdminAgentsPage = lazy(() => import('./pages/admin/AdminAgentsPage'));
 const AdminCampaignsPage = lazy(() => import('./pages/admin/AdminCampaignsPage'));
@@ -450,6 +452,21 @@ const AnimatedRoutes = () => {
               </AdminOnly>
             </Suspense>
           } />
+          <Route path="admin/email-campaigns" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminEmailCampaignsPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/email-campaigns/medicare-retarget" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminMedicareRetargetPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/medicare-retarget" element={<Navigate to="/app/admin/email-campaigns/medicare-retarget" replace />} />
           <Route path="admin/call-contests" element={
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>

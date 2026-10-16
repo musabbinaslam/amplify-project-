@@ -101,5 +101,39 @@ router.get('/suspicious-agents', suspiciousController.listSuspiciousAgents);
 router.post('/suspicious-agents/:agentId/dismiss', suspiciousController.dismissSuspiciousAgent);
 router.post('/suspicious-agents/:agentId/force-charge', suspiciousController.forceChargeSuspiciousAgent);
 
+const medicareRetarget = require('../services/medicareRetargetService');
+router.get('/medicare-retarget/stats', async (req, res) => {
+  try {
+    const stats = await medicareRetarget.getMedicareRetargetStats();
+    res.json(stats);
+  } catch (err) {
+    console.error('[Admin] medicare-retarget stats:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to load Medicare retarget stats' });
+  }
+});
+router.get('/medicare-retarget/users', async (req, res) => {
+  try {
+    const status = req.query.status && req.query.status !== 'all' ? String(req.query.status) : null;
+    const page = Number(req.query.page) || 1;
+    const pageSize = Number(req.query.pageSize) || 25;
+    const out = await medicareRetarget.listMedicareRetargetUsers({ status, page, pageSize });
+    res.json(out);
+  } catch (err) {
+    console.error('[Admin] medicare-retarget users:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to load Medicare retarget users' });
+  }
+});
+router.post('/medicare-retarget/run', async (req, res) => {
+  try {
+    const summary = await medicareRetarget.runMedicareRetargetTick({
+      force: true,
+    });
+    res.json(summary);
+  } catch (err) {
+    console.error('[Admin] medicare-retarget run:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to run Medicare retarget tick' });
+  }
+});
+
 module.exports = router;
 
