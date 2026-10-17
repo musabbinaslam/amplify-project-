@@ -22,9 +22,6 @@ function loadPatchMeWithMocks({ existingProfile, mergedProfile }) {
     },
     mergeSettings: async () => ({}),
     mergeScriptValues: async () => ({}),
-    getOrCreateApiKey: async () => 'test_key',
-    regenerateApiKey: async () => 'test_key_rotated',
-    isSlugAvailable: async () => true,
     addActivity: async (uid, entry) => {
       activityCalls.push({ uid, entry });
     },

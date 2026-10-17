@@ -3,9 +3,6 @@ const {
   mergeUserDoc,
   mergeSettings,
   mergeScriptValues,
-  getOrCreateApiKey,
-  regenerateApiKey,
-  isSlugAvailable,
   addActivity,
   listActivity,
 } = require('../services/userDataService');
@@ -777,9 +774,8 @@ async function getMe(req, res) {
 async function getMeBootstrap(req, res) {
   if (!ensureAdmin(req, res)) return;
   try {
-    const [data, apiKey, activity] = await Promise.all([
+    const [data, activity] = await Promise.all([
       getUserDoc(req.user.uid),
-      getOrCreateApiKey(req.user.uid),
       listActivity(req.user.uid, 20),
     ]);
     const payload = serializeFirestoreData(data ?? {});
@@ -802,7 +798,6 @@ async function getMeBootstrap(req, res) {
     }
     res.json({
       profile: payload,
-      apiKey,
       activity: serializeFirestoreData(activity || []),
     });
   } catch (err) {
@@ -819,13 +814,11 @@ const PATCH_ME_ALLOWED_FIELDS = new Set([
   'email',
   'bio',
   'avatarUrl',
-  'landingPageSlug',
   'brandColor',
   'onboarding',
   'acceptedTermsVersion',
   'statePresets',
   'licensedStates',
-  'averageAp',
   // Dev-only: production strip below. Webhooks / persona confirm own verified writes.
   'personaStatus',
 ]);
@@ -874,13 +867,6 @@ async function patchMe(req, res) {
       identitySync.fullName = nameCandidate;
     }
     Object.assign(body, identitySync);
-    if ('averageAp' in body) {
-      const n = Number(body.averageAp);
-      if (!Number.isFinite(n) || n < 0) {
-        return res.status(400).json({ error: 'averageAp must be a non-negative number' });
-      }
-      body.averageAp = Math.min(Math.round(n * 100) / 100, 100000);
-    }
     if ('brandColor' in body) {
       const raw = body.brandColor;
       if (raw === null || raw === '') {
@@ -1121,38 +1107,6 @@ async function patchScript(req, res) {
   } catch (err) {
     console.error('[Users] patchScript:', err.message);
     res.status(500).json({ error: err.message || 'Failed to save script' });
-  }
-}
-
-async function postRegenerateApiKey(req, res) {
-  if (!ensureAdmin(req, res)) return;
-  try {
-    const apiKey = await regenerateApiKey(req.user.uid);
-    await addActivity(req.user.uid, {
-      type: 'apikey.regenerated',
-      message: 'Regenerated API key',
-    });
-    const data = await getUserDoc(req.user.uid);
-    res.json({
-      apiKey,
-      apiKeyRotatedAt: serializeFirestoreData(data?.apiKeyRotatedAt || null),
-    });
-  } catch (err) {
-    console.error('[Users] postRegenerateApiKey:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to regenerate API key' });
-  }
-}
-
-async function getSlugAvailability(req, res) {
-  if (!ensureAdmin(req, res)) return;
-  const slug = String(req.query.slug || '').trim().toLowerCase();
-  if (!slug) return res.status(400).json({ error: 'slug query is required' });
-  try {
-    const available = await isSlugAvailable(req.user.uid, slug);
-    res.json({ available });
-  } catch (err) {
-    console.error('[Users] getSlugAvailability:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to validate slug' });
   }
 }
 
@@ -1929,8 +1883,6 @@ module.exports = {
   postWelcomeEmail,
   patchSettings,
   patchScript,
-  postRegenerateApiKey,
-  getSlugAvailability,
   getActivity,
   getNotifications,
   patchNotificationRead,
