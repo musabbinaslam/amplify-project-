@@ -10,7 +10,7 @@ This repository contains the React frontend and Node.js API used by the platform
 - Real-time agent availability and call-state updates
 - Campaign and licensed-state routing
 - Call history, recordings, notes, and scripts
-- Wallet, checkout, subscription, and transaction workflows
+- Wallet, checkout, and transaction workflows
 - AI-assisted coaching and quality-assurance workflows
 - Referral, support, and notification systems
 - Admin analytics, live operations, phone routing, and campaign controls
@@ -65,7 +65,7 @@ For a deeper implementation overview, see [`architecture/architecture.md`](archi
 .
 ├── architecture/        # Technical architecture documentation
 ├── backend/
-│   ├── deploy/          # Deployment examples and operations documentation
+│   ├── deploy/          # Deployment examples only
 │   ├── scripts/         # Release, deployment, maintenance, and seed scripts
 │   ├── src/
 │   │   ├── config/      # Service and runtime configuration
@@ -258,7 +258,7 @@ The frontend and backend deploy independently:
 - Backend releases should use a rolling process reload and verify both the health and release endpoints.
 - Environment-specific credentials must be configured on the deployment platform, never stored in the repository.
 
-Refer to the internal operations runbook for authorized deployment procedures. Do not publish infrastructure addresses, account identifiers, tokens, or provider secrets in public documentation.
+Do not publish infrastructure addresses, account identifiers, tokens, or provider secrets in public documentation.
 
 ## Contributing
 
