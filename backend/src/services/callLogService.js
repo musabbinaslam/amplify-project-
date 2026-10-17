@@ -208,8 +208,10 @@ class CallLogService {
                 }
 
                 if (existingDocId) {
+                    // newLog intentionally omits disposition so an early PATCH stub keeps it.
                     await callLogsRef.doc(existingDocId).set({
                         ...newLog,
+                        pendingStub: admin.firestore.FieldValue.delete(),
                         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                     }, { merge: true });
                     newLog.id = existingDocId;
@@ -934,22 +936,6 @@ class CallLogService {
                 }
             }
 
-            // ULTIMATE FALLBACK: If we still didn't find the call log (due to lost SIDs or race conditions),
-            // just grab the agent's most recent call log from the last 15 minutes and update it.
-            if (!docId && updates && updates.disposition) {
-                const fiveMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
-                const recentLogs = await callLogsRef
-                    .where('createdAt', '>=', admin.firestore.Timestamp.fromDate(fiveMinsAgo))
-                    .orderBy('createdAt', 'desc')
-                    .limit(1)
-                    .get();
-                
-                if (!recentLogs.empty) {
-                    docId = recentLogs.docs[0].id;
-                    console.log(`[Firestore] 🛡️ Fallback: Applied disposition to latest call log ${docId} for agent ${uid}`);
-                }
-            }
-
             if (docId) {
                 await callLogsRef.doc(docId).update({
                     ...updates,
@@ -957,7 +943,26 @@ class CallLogService {
                 });
                 return true;
             }
-            console.warn(`[Firestore] ⚠️ Disposition for ${sidsArray.join(',')} received before Twilio callback — agent unblocked, data will persist on next logCall.`);
+
+            // Early wrap-up PATCH can beat Twilio's call-completed logCall. Create the
+            // stub logCall already merges into — never write onto another recent call.
+            // Recording backfill (no disposition) must not create stubs.
+            if (updates && updates.disposition) {
+                const uniqueSids = [...new Set(sidsArray.filter(Boolean))];
+                const parentSid = uniqueSids[0];
+                if (parentSid) {
+                    const dialSid = uniqueSids.find((sid) => sid !== parentSid) || null;
+                    await callLogsRef.add({
+                        callSid: parentSid,
+                        dialCallSid: dialSid,
+                        disposition: updates.disposition,
+                        pendingStub: true,
+                        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                    console.log(`[Firestore] Created pending disposition stub for ${parentSid} (agent ${uid})`);
+                }
+            }
             return true;
         } catch (err) {
             console.error(`[Firestore] Failed to update call log ${sidsArray.join(',')}:`, err.message);

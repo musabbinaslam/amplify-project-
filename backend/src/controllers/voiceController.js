@@ -1005,13 +1005,11 @@ exports.updateCallLog = async (req, res) => {
             return res.status(400).json({ error: 'callSid and disposition are required' });
         }
 
-        // 1. Update Firestore
-        let targetSids = [callSid];
+        // 1. Update Firestore. Parent inbound SID is first so an early-PATCH stub
+        // is keyed the same way logCall looks up (parent CallSid).
         const activeCall = await agentManager.getActiveCall(uid);
-        if (activeCall) {
-            if (activeCall.parentCallSid) targetSids.push(activeCall.parentCallSid);
-            if (activeCall.callSid) targetSids.push(activeCall.callSid);
-        }
+        const parentCallSid = activeCall?.parentCallSid || activeCall?.callSid || null;
+        const targetSids = [...new Set([parentCallSid, callSid, activeCall?.callSid].filter(Boolean))];
 
         const success = await callLogService.updateCallLogBySid(uid, targetSids, { disposition });
         if (!success) {
