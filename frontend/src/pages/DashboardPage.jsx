@@ -15,6 +15,7 @@ import ShimmerText from '../components/ui/ShimmerText';
 import SlidingTabs from '../components/ui/SlidingTabs';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { EASE_SMOOTH } from '../motion/appMotion';
+import { DONUT_SEGMENTS, getDisposition } from '../constants/dispositions';
 import classes from './DashboardPage.module.css';
 
 /* eslint-disable react/prop-types -- presentational helpers are local to this page */
@@ -111,40 +112,21 @@ function getCallType(log) {
   return log?.type || 'Inbound';
 }
 
-const DISPOSITION_LABELS = {
-  sold: 'Sold',
-  callback: 'Callback',
-  not_interested: 'Not Interested',
-  no_answer: 'No Answer',
-};
-
-function getDisposition(log) {
-  if (log?.disposition && DISPOSITION_LABELS[log.disposition]) {
-    return DISPOSITION_LABELS[log.disposition];
-  }
-  if (log?.isBillable) return 'Sold';
-  if (log?.status === 'missed') return 'Missed';
-  if (log?.status === 'completed' && Number(log?.duration) > 0) return 'Answered';
-  return 'No Answer';
-}
-
 const DISP_CLS = {
   Sold: 'dispSold',
-  Callback: 'dispCallback',
+  'Policy Closed': 'dispSold',
+  'Call Back': 'dispCallback',
   'Not Interested': 'dispNotInterested',
+  "Doesn't Qualify": 'dispNotInterested',
+  'Over Age': 'dispNotInterested',
+  "Thinks It's Free": 'dispNotInterested',
+  'Call Dropped': 'dispNotInterested',
+  Busy: 'dispNotInterested',
+  'Dead Air': 'dispNotInterested',
   'No Answer': 'dispNoAnswer',
   Missed: 'dispNotInterested',
   Answered: 'dispCallback',
 };
-
-const DONUT_SEGMENTS = [
-  { key: 'Sold', color: 'var(--brand-text)' },
-  { key: 'Callback', color: 'var(--accent-yellow)' },
-  { key: 'Answered', color: 'var(--accent-cyan)' },
-  { key: 'No Answer', color: 'var(--text-tertiary)' },
-  { key: 'Not Interested', color: 'var(--accent-red)' },
-  { key: 'Missed', color: 'var(--accent-red)' },
-];
 
 /** Computes a percent delta between current and previous; null when no baseline. */
 function trendDelta(current, previous) {

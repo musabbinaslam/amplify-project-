@@ -1,20 +1,6 @@
 import { DollarSign, ChevronDown } from 'lucide-react';
+import { DISPOSITIONS, getDispositionMeta } from '../../constants/dispositions';
 import classes from '../../pages/CallLogsPage.module.css';
-
-function dispositionLabel(log) {
-  const disposition = log?.disposition;
-  if (disposition === 'callback') return { label: 'Call back', tone: 'callback' };
-  if (disposition === 'not_interested') return { label: 'Not Interested', tone: 'negative' };
-  if (disposition === 'does_not_qualify') return { label: 'Doesn\'t qualify', tone: 'negative' };
-  if (disposition === 'over_age') return { label: 'Over Age', tone: 'negative' };
-  if (disposition === 'thinks_its_free') return { label: 'Thinks it\'s free', tone: 'negative' };
-  if (disposition === 'call_dropped') return { label: 'Call dropped', tone: 'negative' };
-  if (disposition === 'busy') return { label: 'Busy', tone: 'negative' };
-  if (disposition === 'dead_air') return { label: 'Dead Air', tone: 'negative' };
-  if (disposition === 'policy_closed') return { label: 'Policy Closed', tone: 'policy' };
-  if (disposition === 'sold' || log?.isBillable) return { label: 'Sold', tone: 'sold' };
-  return null;
-}
 
 function dispositionClass(tone) {
   if (tone === 'sold') return classes.dispSold;
@@ -44,20 +30,8 @@ export function CallLogStatusBadge({ log }) {
   return <span className={`${statusBase} ${classes.dispAnswered}`}>Answered</span>;
 }
 
-export const DISPOSITION_OPTIONS = [
-  { value: 'callback', label: 'Call back', tone: 'callback' },
-  { value: 'not_interested', label: 'Not Interested', tone: 'negative' },
-  { value: 'does_not_qualify', label: 'Doesn\'t qualify', tone: 'negative' },
-  { value: 'over_age', label: 'Over Age', tone: 'negative' },
-  { value: 'thinks_its_free', label: 'Thinks it\'s free', tone: 'negative' },
-  { value: 'call_dropped', label: 'Call dropped', tone: 'negative' },
-  { value: 'busy', label: 'Busy', tone: 'negative' },
-  { value: 'dead_air', label: 'Dead Air', tone: 'negative' },
-  { value: 'policy_closed', label: 'Policy Closed', tone: 'policy' },
-];
-
 export function CallLogDispositionBadge({ log, editable, onUpdate, loading }) {
-  const mapped = dispositionLabel(log);
+  const mapped = getDispositionMeta(log);
   if (!mapped) {
     return <span className={classes.scoreDash}>—</span>;
   }
@@ -90,8 +64,8 @@ export function CallLogDispositionBadge({ log, editable, onUpdate, loading }) {
           }}
         >
           <option value="" disabled>Select disposition...</option>
-          {DISPOSITION_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          {DISPOSITIONS.map((opt) => (
+            <option key={opt.id} value={opt.id}>{opt.label}</option>
           ))}
         </select>
       </div>
