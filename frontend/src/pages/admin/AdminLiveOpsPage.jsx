@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Flag,
   Copy,
+  UserRound,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -133,6 +134,29 @@ function liveSeconds(row, now, sync) {
   const since = sync?.receivedAt ? Math.max(0, now - sync.receivedAt) : 0;
   return Math.max(0, Math.floor(base + since / 1000));
 }
+
+/**
+ * A real display name for an agent, or null when the API could only return the
+ * raw user ID (the backend falls back to the ID when no profile name is found).
+ */
+const realNameOf = (...rows) => {
+  for (const r of rows) {
+    if (!r) continue;
+    const id = getAgentId(r);
+    const name = [r.agentName, r.displayName, r.name].find((n) => n && String(n).trim() && n !== id && n !== r.id);
+    if (name) return String(name).trim();
+  }
+  return null;
+};
+
+/** Twilio party → readable label ("client:<uid>" is the agent's web dialer). */
+const formatParty = (raw) => {
+  if (!raw) return 'Unknown';
+  const v = String(raw);
+  if (v.startsWith('client:')) return 'Agent web dialer';
+  if (v.startsWith('sip:')) return v.slice(4).split('@')[0] || v;
+  return formatPhone(v);
+};
 
 const formatPhone = (raw) => {
   if (!raw) return '';
@@ -382,13 +406,13 @@ export default function AdminLiveOpsPage() {
       .filter((a) => {
         if (!q) return true;
         const hay = [
-          getAgentName(a), getAgentId(a), a.phone, a.campaignId, campaignName(a.campaignId),
+          realNameOf(a), getAgentId(a), a.phone, a.campaignId, campaignName(a.campaignId),
           ...(Array.isArray(a.licensedStates) ? a.licensedStates : []),
         ].filter(Boolean).join(' ').toLowerCase();
         return hay.includes(q);
       })
       .sort((a, b) => (STATUS_ORDER[statusKey(a.status)] - STATUS_ORDER[statusKey(b.status)])
-        || getAgentName(a).localeCompare(getAgentName(b)));
+        || (realNameOf(a) || `~${getAgentId(a)}`).localeCompare(realNameOf(b) || `~${getAgentId(b)}`));
   }, [agents, statusFilter, campaignFilter, query, campaignName]);
 
   const filtersActive = query.trim() !== '' || statusFilter !== 'all' || campaignFilter !== 'all';
@@ -566,25 +590,30 @@ export default function AdminLiveOpsPage() {
           ) : (
             <ul className={classes.callList}>
               {callRows.map(({ row, sec }, idx) => {
-                const name = getAgentName(row);
                 const id = getAgentId(row);
                 const agent = agentsById.get(row.agentId);
+                const name = realNameOf(row, agent);
                 const tone = callTone(sec, row.status);
                 return (
                   <li key={`${row.agentId}-${row.callSid || idx}`} className={`${classes.callRow} ${classes[`callRow_${tone}`]}`}>
                     <div className={classes.callAgent}>
                       <span className={classes.avatar}>
-                        {initialsOf(name)}
+                        {name ? initialsOf(name) : <UserRound size={16} aria-hidden="true" />}
                         <i className={`${classes.avatarDot} ${classes[`dot_${statusKey(row.status)}`]}`} aria-hidden="true" />
                       </span>
                       <span className={classes.agentText}>
                         <span className={classes.agentName}>
-                          {name}
+                          <span className={`${classes.agentNameText} ${name ? '' : classes.agentNameMissing}`} title={name || 'No name on this agent profile'}>
+                            {name || 'Unnamed agent'}
+                          </span>
                           {agent?.flagged ? (
                             <span className={classes.flag} title={agent.flagReason || 'Flagged'}><Flag size={10} /> Flagged</span>
                           ) : null}
                         </span>
-                        {name !== id ? <span className={classes.agentId}>{id}</span> : null}
+                        <span className={classes.agentId} title={id}>{id}</span>
+                        {row.phone || agent?.phone ? (
+                          <a href={`tel:${row.phone || agent.phone}`} className={classes.agentPhone}>{row.phone || agent.phone}</a>
+                        ) : null}
                       </span>
                     </div>
 
@@ -594,9 +623,9 @@ export default function AdminLiveOpsPage() {
                       </span>
                       {row.from || row.to ? (
                         <span className={classes.route}>
-                          <span>{formatPhone(row.from) || 'Unknown'}</span>
+                          <span title={row.from || undefined}>{formatParty(row.from)}</span>
                           <ArrowRight size={12} aria-label="to" />
-                          <span>{formatPhone(row.to) || 'Unknown'}</span>
+                          <span title={row.to || undefined}>{formatParty(row.to)}</span>
                         </span>
                       ) : null}
                       <span className={classes.sidLine}>
@@ -765,9 +794,9 @@ export default function AdminLiveOpsPage() {
                 </tr>
               ) : (
                 filteredAgents.map((a) => {
-                  const name = getAgentName(a);
                   const id = getAgentId(a);
                   const call = callsByAgent.get(a.id);
+                  const name = realNameOf(a, call);
                   const callSec = call ? liveSeconds(call, now, sync) : null;
                   const states = Array.isArray(a.licensedStates) ? a.licensedStates : [];
                   return (
@@ -775,17 +804,19 @@ export default function AdminLiveOpsPage() {
                       <td>
                         <div className={classes.agentCell}>
                           <span className={classes.avatar}>
-                            {initialsOf(name)}
+                            {name ? initialsOf(name) : <UserRound size={16} aria-hidden="true" />}
                             <i className={`${classes.avatarDot} ${classes[`dot_${statusKey(a.status)}`]}`} aria-hidden="true" />
                           </span>
                           <span className={classes.agentText}>
                             <span className={classes.agentName}>
-                              {name}
+                              <span className={`${classes.agentNameText} ${name ? '' : classes.agentNameMissing}`} title={name || 'No name on this agent profile'}>
+                                {name || 'Unnamed agent'}
+                              </span>
                               {a.flagged ? (
                                 <span className={classes.flag} title={a.flagReason || 'Flagged'}><Flag size={10} /> Flagged</span>
                               ) : null}
                             </span>
-                            {name !== id ? <span className={classes.agentId}>{id}</span> : null}
+                            <span className={classes.agentId} title={id}>{id}</span>
                             {a.phone ? (
                               <a href={`tel:${a.phone}`} className={classes.agentPhone}>{a.phone}</a>
                             ) : (
@@ -826,7 +857,7 @@ export default function AdminLiveOpsPage() {
                           type="button"
                           className={classes.removeBtn}
                           title="Force remove agent from pool"
-                          aria-label={`Force remove ${name} from pool`}
+                          aria-label={`Force remove ${name || id} from pool`}
                           disabled={removingId === a.id}
                           onClick={() => handleForceRemove(a)}
                         >

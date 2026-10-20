@@ -481,6 +481,7 @@
 }
 
 .callList {
+  container-type: inline-size;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -492,7 +493,7 @@
 .callRow {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(180px, 1.2fr) minmax(0, 1.5fr) minmax(120px, auto) 132px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) auto 120px;
   align-items: center;
   gap: 12px 18px;
   padding: 14px 16px 14px 18px;
@@ -519,6 +520,7 @@
 
 .callAgent,
 .agentCell {
+  max-width: 100%;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -558,18 +560,34 @@
 }
 
 .agentName {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
+  max-width: 100%;
   font-weight: 600;
   color: var(--text-primary);
   min-width: 0;
   white-space: nowrap;
 }
 
+.agentNameText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agentNameMissing {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.agentName .flag {
+  flex-shrink: 0;
+}
+
 .agentId {
   display: block;
-  max-width: 220px;
+  max-width: min(220px, 100%);
   font-size: 11.5px;
   color: var(--text-tertiary);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -638,12 +656,20 @@
 }
 
 .route {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  max-width: 100%;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.route span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .route svg {
@@ -719,6 +745,55 @@
 .track_warm { background: var(--accent-yellow); }
 .track_hot { background: var(--accent-red); }
 .track_muted { background: #a78bfa; }
+
+/* Narrower call cards: name + timer on top, details underneath. */
+@container (max-width: 780px) {
+  .callRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px 16px;
+  }
+
+  .callAgent { grid-column: 1; grid-row: 1; }
+  .callTime { grid-column: 2; grid-row: 1; }
+  .callInfo { grid-column: 1; grid-row: 2; }
+
+  .callStatus {
+    grid-column: 2;
+    grid-row: 2;
+    align-items: flex-end;
+    align-self: end;
+  }
+}
+
+@container (max-width: 480px) {
+  .callRow {
+    padding: 14px 14px 14px 16px;
+  }
+
+  .callInfo { grid-column: 1 / -1; }
+
+  .callStatus {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .timer {
+    font-size: 20px;
+  }
+
+  .timeTrack {
+    width: 72px;
+  }
+
+  .callAgent .agentName {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    white-space: normal;
+  }
+}
 
 /* Status pill */
 .pill {
@@ -1109,69 +1184,11 @@
   .kpiGrid > :nth-child(n + 4) {
     grid-column: span 3;
   }
-
-  .callRow {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 120px;
-  }
-
-  .callStatus {
-    grid-column: 2;
-    grid-row: 2;
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .callTime {
-    grid-column: 3;
-    grid-row: 1 / span 2;
-  }
 }
 
 @media (max-width: 1200px) {
   .bento {
     grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 760px) {
-  .callRow {
-    grid-template-columns: minmax(0, 1fr) auto;
-    padding: 14px 14px 14px 16px;
-  }
-
-  .callAgent {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .callTime {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .callInfo {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-
-  .callStatus {
-    grid-column: 1 / -1;
-    grid-row: 3;
-  }
-
-  .timer {
-    font-size: 20px;
-  }
-
-  .callAgent .agentName {
-    flex-wrap: wrap;
-    row-gap: 2px;
-    white-space: normal;
-  }
-
-  .timeTrack {
-    width: 72px;
   }
 }
 
@@ -1232,4 +1249,8 @@
   .campaignTrack span {
     transition: none;
   }
+}
+
+.table .agentText {
+  max-width: 280px;
 }
