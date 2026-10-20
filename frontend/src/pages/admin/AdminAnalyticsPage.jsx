@@ -92,6 +92,7 @@ const formatDay = (day) => {
   if (Number.isNaN(d.getTime())) return String(day);
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
+const rangeIsInvalid = (range) => Boolean(range?.from && range?.to && range.from > range.to);
 const initialsOf = (name) => String(name || '?')
   .split(/\s+/)
   .filter(Boolean)
@@ -347,6 +348,7 @@ export default function AdminAnalyticsPage() {
   }, []);
 
   const loadAnalytics = useCallback(async () => {
+    if (rangeIsInvalid(getRange())) return;
     setAnalyticsLoading(true);
     try {
       const range = getRange();
@@ -368,6 +370,7 @@ export default function AdminAnalyticsPage() {
   }, [getRange, timezone]);
 
   const loadSignups = useCallback(async () => {
+    if (rangeIsInvalid(getRange())) return;
     setSignupLoading(true);
     setSignupError('');
     try {
@@ -387,6 +390,7 @@ export default function AdminAnalyticsPage() {
       setDrilldown(null);
       return;
     }
+    if (rangeIsInvalid(getRange())) return;
     setDrilldownLoading(true);
     try {
       const range = getRange();
@@ -432,23 +436,61 @@ export default function AdminAnalyticsPage() {
     setDrilldownDay('');
   }, []);
 
-  // Escape closes the drilldown panel (unless a modal on top of it is open);
-  // lock page scroll while it is open.
+  // While the drilldown panel is open: lock page scroll, move focus into the
+  // panel, and give focus back to the row that opened it when it closes.
+  const overlayOpenRef = useRef(false);
+  overlayOpenRef.current = Boolean(actionModal || activeRecording || exportModalOpen);
+
+  useEffect(() => {
+    if (!drawerOpen) return undefined;
+    const returnFocusTo = document.activeElement;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const t = setTimeout(() => drawerRef.current?.focus(), 60);
+    return () => {
+      clearTimeout(t);
+      document.body.style.overflow = prevOverflow;
+      if (returnFocusTo && typeof returnFocusTo.focus === 'function' && document.contains(returnFocusTo)) {
+        returnFocusTo.focus({ preventScroll: true });
+      }
+    };
+  }, [drawerOpen]);
+
+  // Esc closes the panel and Tab stays inside it — unless a modal or an open
+  // dropdown menu sits on top and should handle the key itself.
   useEffect(() => {
     if (!drawerOpen) return undefined;
     const onKey = (e) => {
-      if (e.key === 'Escape' && !actionModal && !activeRecording && !exportModalOpen) closeDrawer();
+      if (overlayOpenRef.current) return;
+      if (document.querySelector('[role="listbox"]')) return;
+      if (e.key === 'Escape') {
+        closeDrawer();
+        return;
+      }
+      if (e.key !== 'Tab' || !drawerRef.current) return;
+      const focusables = [...drawerRef.current.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
+      )].filter((el) => el.offsetParent !== null);
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === drawerRef.current)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (!drawerRef.current.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
     };
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey);
-    const t = setTimeout(() => drawerRef.current?.focus(), 50);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
-      clearTimeout(t);
-    };
-  }, [drawerOpen, closeDrawer, actionModal, activeRecording, exportModalOpen]);
+    // Capture phase: runs before dropdowns close themselves, so an Esc meant
+    // for an open menu is not also treated as "close the panel".
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [drawerOpen, closeDrawer]);
 
   const statsSummary = useMemo(() => callStats?.summary || {
     totalCalls: 0,
@@ -658,12 +700,14 @@ export default function AdminAnalyticsPage() {
   };
 
   const openCampaign = (id) => {
+    if (id !== selectedCampaign) setDrilldown(null);
     setSelectedCampaign(id);
     setSelectedAgent('');
     setDrilldownDay('');
   };
 
   const openAgent = (id) => {
+    if (id !== selectedAgent) setDrilldown(null);
     setSelectedAgent(id);
     setSelectedCampaign('');
     setDrilldownDay('');
@@ -689,6 +733,10 @@ export default function AdminAnalyticsPage() {
     ? (selectedCampaignRow?.campaignLabel || selectedCampaign)
     : (overview?.agents?.find((a) => a.id === selectedAgent)?.displayName || selectedAgentRow?.agentName || selectedAgent);
 
+  const customRangeInvalid = rangePreset === 'custom' && rangeIsInvalid({ from: customStart, to: customEnd });
+  const agentPhone = selectedAgentRow?.phone
+    || overview?.agents?.find((a) => a.id === selectedAgent)?.phone
+    || null;
   const updatedAt = analyticsMeta?.generatedAt ? new Date(analyticsMeta.generatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null;
   const visibleAgents = sortedAgents.slice(0, agentLimit);
   const outcomeTotal = Math.max(1, derived.total);
@@ -722,16 +770,26 @@ export default function AdminAnalyticsPage() {
                 <CalendarDays size={15} aria-hidden className={classes.mutedIcon} />
                 <input type="date" className={classes.dateInput} value={customStart} max={customEnd || undefined} onChange={(e) => setCustomStart(e.target.value)} aria-label="Custom range start" />
                 <span className={classes.muted}>to</span>
-                <input type="date" className={classes.dateInput} value={customEnd} min={customStart || undefined} onChange={(e) => setCustomEnd(e.target.value)} aria-label="Custom range end" />
+                <input type="date" className={classes.dateInput} value={customEnd} min={customStart || undefined} onChange={(e) => setCustomEnd(e.target.value)} aria-label="Custom range end" aria-invalid={customRangeInvalid || undefined} aria-describedby={customRangeInvalid ? 'range-error' : undefined} />
+                {customRangeInvalid ? (
+                  <span id="range-error" role="alert" className={classes.rangeError}>Start date must be on or before the end date</span>
+                ) : null}
               </div>
             ) : null}
           </div>
           <div className={classes.filterSide}>
-            <span className={classes.updated} aria-live="polite">
+            <span
+              className={classes.updated}
+              aria-live="polite"
+              title={analyticsMeta?.source ? `Source: ${analyticsMeta.source}${analyticsMeta?.cacheAgeMs ? ' (cached)' : ''}` : undefined}
+            >
               {analyticsLoading ? (
                 <><span className={classes.liveDotBusy} /> Updating…</>
               ) : (
-                <><span className={classes.liveDot} /> {updatedAt ? `Updated ${updatedAt}` : 'Up to date'}</>
+                <>
+                  <span className={classes.liveDot} /> {updatedAt ? `Updated ${updatedAt}` : 'Up to date'}
+                  {analyticsMeta?.source ? <span className={classes.sourceTag}>{analyticsMeta.source}</span> : null}
+                </>
               )}
             </span>
             <CustomSelect options={TIMEZONE_OPTIONS} value={timezone} onChange={setTimezone} menuAlign="right" />
@@ -1144,14 +1202,29 @@ export default function AdminAnalyticsPage() {
                       {selectedCampaign ? 'Campaign' : 'Agent'}
                     </span>
                     <h2 className={classes.drawerTitle}>{drawerTitle}</h2>
-                    <p className={classes.cardSub}>
-                      {rangeLabel} · {tzLabel}
-                      {selectedAgentRow && typeof selectedAgentRow.walletBalanceCents === 'number'
-                        ? <> · <Wallet size={12} className={classes.inlineIcon} /> {money(selectedAgentRow.walletBalanceCents / 100)} balance</>
-                        : null}
+                    <p className={classes.drawerMeta}>
+                      <span>{rangeLabel} · {tzLabel}</span>
+                      {selectedAgent && agentPhone ? (
+                        <a href={`tel:${agentPhone}`} className={classes.metaLink}><Phone size={12} /> {agentPhone}</a>
+                      ) : null}
+                      {selectedAgentRow && typeof selectedAgentRow.walletBalanceCents === 'number' ? (
+                        <span className={selectedAgentRow.walletBalanceCents <= 0 ? classes.balanceLow : undefined}>
+                          <Wallet size={12} className={classes.inlineIcon} />{money(selectedAgentRow.walletBalanceCents / 100)} balance
+                        </span>
+                      ) : null}
+                      {selectedAgent && selectedAgentRow?.flagged ? (
+                        <span className={classes.flag} title={selectedAgentRow.flagReason || 'Flagged'}><Flag size={11} /> Flagged</span>
+                      ) : null}
                     </p>
                   </div>
-                  <button type="button" className={classes.closeBtn} onClick={closeDrawer} aria-label="Close drilldown"><X size={18} /></button>
+                  <div className={classes.drawerActions}>
+                    {selectedCampaign ? (
+                      <button type="button" className={classes.ghostBtn} onClick={() => setExportModalOpen(true)} title="Export this campaign to Excel (.xlsx)">
+                        <FileSpreadsheet size={16} /> Export
+                      </button>
+                    ) : null}
+                    <button type="button" className={classes.closeBtn} onClick={closeDrawer} aria-label="Close drilldown"><X size={18} /></button>
+                  </div>
                 </header>
 
                 <div className={classes.drawerBody}>
@@ -1346,26 +1419,32 @@ export default function AdminAnalyticsPage() {
         document.body,
       )}
 
-      {activeRecording && (
-        <RecordingModal log={activeRecording} onClose={() => setActiveRecording(null)} />
+      {/* Modals are portaled after the drilldown panel so they always stack above it. */}
+      {createPortal(
+        <>
+          {activeRecording && (
+            <RecordingModal log={activeRecording} onClose={() => setActiveRecording(null)} />
+          )}
+
+          <AdminActionModal
+            modal={actionModal}
+            note={actionNote}
+            onNoteChange={setActionNote}
+            submitting={actionSubmitting}
+            onClose={closeActionModal}
+            onSubmit={submitActionModal}
+          />
+
+          <AdminExportModal
+            isOpen={exportModalOpen}
+            onClose={() => setExportModalOpen(false)}
+            initialScope="all"
+            initialCampaign={selectedCampaign || 'all'}
+            initialRange={rangePreset}
+          />
+        </>,
+        document.body,
       )}
-
-      <AdminActionModal
-        modal={actionModal}
-        note={actionNote}
-        onNoteChange={setActionNote}
-        submitting={actionSubmitting}
-        onClose={closeActionModal}
-        onSubmit={submitActionModal}
-      />
-
-      <AdminExportModal
-        isOpen={exportModalOpen}
-        onClose={() => setExportModalOpen(false)}
-        initialScope="all"
-        initialCampaign={selectedCampaign || 'all'}
-        initialRange={rangePreset}
-      />
     </>
   );
 }
