@@ -1,9 +1,15 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
-  TrendingUp, Phone, Radio, RefreshCw, Activity, CircleDollarSign, Play, FileSpreadsheet,
+  TrendingUp, Phone, RefreshCw, Activity, CircleDollarSign, Play, FileSpreadsheet,
+  BadgeCheck, Search, X, ChevronRight, ChevronUp, ChevronDown, Megaphone, Users,
+  CalendarDays, Clock3, Wallet, Flag,
 } from 'lucide-react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import {
+  ResponsiveContainer, ComposedChart, Bar, Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip,
+} from 'recharts';
 import {
   getAdminOverviewLite,
   getAdminAnalyticsBundle,
@@ -16,18 +22,18 @@ import useAuthStore from '../../store/authStore';
 import { useSubtlePageMotion } from '../../hooks/useSubtlePageMotion';
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
 import AdminPageShell from '../../components/admin/AdminPageShell';
-import AdminStatCard from '../../components/admin/AdminStatCard';
-import { AdminCallTrendChart, AdminDrilldownTrendChart } from '../../components/admin/AdminCharts';
+import { AdminDrilldownTrendChart } from '../../components/admin/AdminCharts';
 import { AdminActionModal } from '../../components/admin/ContestReviewCard';
 import AdminExportModal from '../../components/admin/AdminExportModal';
 import { getAgentName, getAgentId } from '../../components/admin/adminUtils';
 import PageLoader from '../../components/ui/PageLoader';
 import CustomSelect from '../../components/ui/CustomSelect';
 import SlidingTabs from '../../components/ui/SlidingTabs';
-import ShimmerText from '../../components/ui/ShimmerText';
+import NumberPopIn from '../../components/ui/NumberPopIn';
 import { RecordingModal } from '../../components/modals/RecordingModal';
 import { CallLogDispositionBadge } from '../../components/callLogs/CallLogStatusCells';
-import classes from '../../components/admin/adminShared.module.css';
+import shared from '../../components/admin/adminShared.module.css';
+import classes from './AdminAnalyticsPage.module.css';
 
 const TIMEZONE_OPTIONS = [
   { value: 'America/New_York', label: 'Eastern Time' },
@@ -44,6 +50,181 @@ const RANGE_PRESETS = [
   { key: '30d', label: 'Last 30 days' },
   { key: 'custom', label: 'Custom' },
 ];
+
+const BREAKDOWN_TABS = [
+  { key: 'campaigns', label: 'Campaigns' },
+  { key: 'agents', label: 'Agents' },
+];
+
+const CHART_MODES = [
+  { key: 'volume', label: 'Call volume' },
+  { key: 'spend', label: 'Spend' },
+];
+
+const SORT_FIELD_OPTIONS = [
+  { value: 'date', label: 'Sort: Date' },
+  { value: 'duration', label: 'Sort: Duration' },
+];
+
+const AGENT_PAGE_SIZE = 15;
+
+const TOOLTIP_STYLE = {
+  background: 'color-mix(in srgb, var(--surface-container-highest) 94%, transparent)',
+  border: '1px solid var(--glass-border)',
+  borderRadius: 12,
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  fontSize: 13,
+  color: 'var(--text-primary)',
+};
+
+const pct = (v) => Math.round((Number(v) || 0) * 100);
+const money = (v) => `$${(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const moneyShort = (v) => {
+  const n = Number(v) || 0;
+  if (n >= 10000) return `$${(n / 1000).toFixed(1)}k`;
+  return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+};
+const formatDay = (day) => {
+  if (!day) return '';
+  const d = new Date(`${day}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return String(day);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+const initialsOf = (name) => String(name || '?')
+  .split(/\s+/)
+  .filter(Boolean)
+  .slice(0, 2)
+  .map((p) => p[0]?.toUpperCase())
+  .join('') || '?';
+
+/* eslint-disable react/prop-types -- small page-local presentational components */
+
+/** Tiny inline trend line for KPI cards. */
+function Sparkline({ values, tone = 'brand' }) {
+  const pts = (values || []).map((v) => Number(v) || 0);
+  if (pts.length < 2) return <span className={classes.sparkEmpty} aria-hidden />;
+  const max = Math.max(...pts, 1);
+  const min = Math.min(...pts, 0);
+  const span = max - min || 1;
+  const w = 120;
+  const h = 36;
+  const step = w / (pts.length - 1);
+  const coords = pts.map((v, i) => [i * step, h - 3 - ((v - min) / span) * (h - 6)]);
+  const line = coords.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+  const area = `${line} L${w} ${h} L0 ${h} Z`;
+  return (
+    <svg className={`${classes.spark} ${classes[`spark_${tone}`]}`} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden>
+      <path d={area} className={classes.sparkArea} />
+      <path d={line} className={classes.sparkLine} vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+function KpiCard({ label, value, icon: Icon, foot, spark, tone, loading, variants }) {
+  return (
+    <motion.div className={`glass ${classes.kpi}`} variants={variants}>
+      <div className={classes.kpiHead}>
+        <span className={classes.kpiLabel}>{label}</span>
+        <span className={`${classes.kpiIcon} ${tone ? classes[`kpiIcon_${tone}`] : ''}`}><Icon size={16} /></span>
+      </div>
+      <div className={classes.kpiValue}>
+        {loading ? <span className={classes.skelValue} /> : <NumberPopIn value={value} />}
+      </div>
+      <div className={classes.kpiFoot}>
+        <span className={classes.kpiFootText}>{loading ? <span className={classes.skelLine} /> : foot}</span>
+        {!loading && spark ? <Sparkline values={spark} tone={tone} /> : null}
+      </div>
+    </motion.div>
+  );
+}
+
+function RateCell({ value, tone = 'brand' }) {
+  const p = Math.max(0, Math.min(100, pct(value)));
+  return (
+    <span className={classes.rateCell}>
+      <span className={classes.rateNum}>{p}%</span>
+      <span className={classes.rateTrack} aria-hidden>
+        <span className={`${classes.rateFill} ${classes[`rateFill_${tone}`]}`} style={{ width: `${p}%` }} />
+      </span>
+    </span>
+  );
+}
+
+function SortTh({ label, field, sort, onSort, align = 'left' }) {
+  const active = sort.key === field;
+  const Icon = active && sort.dir === 'asc' ? ChevronUp : ChevronDown;
+  return (
+    <th
+      scope="col"
+      className={align === 'right' ? classes.thRight : undefined}
+      aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      <button type="button" className={`${classes.sortBtn} ${active ? classes.sortBtnActive : ''}`} onClick={() => onSort(field)}>
+        {label}
+        <Icon size={13} className={classes.sortIcon} aria-hidden />
+      </button>
+    </th>
+  );
+}
+
+function VolumeChart({ data, mode, reduceMotion }) {
+  const rows = useMemo(() => (data || []).map((d) => {
+    const total = Number(d.totalCalls) || 0;
+    const answered = Number(d.answeredCalls) || 0;
+    const missed = Number.isFinite(Number(d.missedCalls)) ? Number(d.missedCalls) : Math.max(0, total - answered);
+    const billable = Math.min(answered, Number(d.billableCalls) || 0);
+    return {
+      day: d.day,
+      billable,
+      answered: Math.max(0, answered - billable),
+      missed,
+      totalCost: Number(d.totalCost) || 0,
+    };
+  }), [data]);
+
+  const axis = { tick: { fill: 'var(--text-secondary)', fontSize: 12 }, axisLine: false, tickLine: false };
+
+  if (mode === 'spend') {
+    return (
+      <ResponsiveContainer width="100%" height={300}>
+        <AreaChart data={rows} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+          <defs>
+            <linearGradient id="analyticsSpendFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--brand-text)" stopOpacity={0.35} />
+              <stop offset="100%" stopColor="var(--brand-text)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+          <XAxis dataKey="day" tickFormatter={formatDay} {...axis} />
+          <YAxis tickFormatter={(v) => moneyShort(v)} width={64} {...axis} />
+          <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={formatDay} formatter={(v) => [money(v), 'Spend']} cursor={{ stroke: 'var(--glass-border)' }} />
+          <Area type="monotone" dataKey="totalCost" stroke="var(--brand-text)" strokeWidth={2} fill="url(#analyticsSpendFill)" isAnimationActive={!reduceMotion} animationDuration={800} />
+        </AreaChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <ComposedChart data={rows} margin={{ top: 8, right: 8, left: -16, bottom: 0 }} barCategoryGap="28%">
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+        <XAxis dataKey="day" tickFormatter={formatDay} {...axis} />
+        <YAxis allowDecimals={false} {...axis} />
+        <Tooltip
+          contentStyle={TOOLTIP_STYLE}
+          labelFormatter={formatDay}
+          cursor={{ fill: 'color-mix(in srgb, var(--text-primary) 5%, transparent)' }}
+          formatter={(v, name) => [v, { answered: 'Answered, not billable', missed: 'Missed', billable: 'Billable' }[name] || name]}
+        />
+        <Bar dataKey="billable" stackId="calls" fill="var(--brand-text)" isAnimationActive={!reduceMotion} animationDuration={700} />
+        <Bar dataKey="answered" stackId="calls" fill="var(--accent-cyan)" isAnimationActive={!reduceMotion} animationDuration={700} />
+        <Bar dataKey="missed" stackId="calls" fill="color-mix(in srgb, var(--text-primary) 24%, transparent)" radius={[6, 6, 0, 0]} isAnimationActive={!reduceMotion} animationDuration={700} />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+/* eslint-enable react/prop-types */
 
 export default function AdminAnalyticsPage() {
   const presets = useSubtlePageMotion();
@@ -83,6 +264,12 @@ export default function AdminAnalyticsPage() {
   const [actionNote, setActionNote] = useState('');
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [contestFilter] = useState('pending');
+  const [chartMode, setChartMode] = useState('volume');
+  const [breakdownTab, setBreakdownTab] = useState('campaigns');
+  const [campaignSort, setCampaignSort] = useState({ key: 'calls', dir: 'desc' });
+  const [agentSort, setAgentSort] = useState({ key: 'calls', dir: 'desc' });
+  const [agentLimit, setAgentLimit] = useState(AGENT_PAGE_SIZE);
+  const drawerRef = useRef(null);
 
   const getRange = useCallback(() => {
     if (rangePreset === 'custom') {
@@ -174,12 +361,98 @@ export default function AdminAnalyticsPage() {
     loadAnalytics();
   }, [loadAnalytics, timezone]);
 
-  const statsSummary = callStats?.summary || {
+  const drawerOpen = Boolean(selectedCampaign || selectedAgent);
+
+  const closeDrawer = useCallback(() => {
+    setSelectedCampaign('');
+    setSelectedAgent('');
+    setDrilldownDay('');
+  }, []);
+
+  // Escape closes the drilldown panel (unless a modal on top of it is open);
+  // lock page scroll while it is open.
+  useEffect(() => {
+    if (!drawerOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !actionModal && !activeRecording && !exportModalOpen) closeDrawer();
+    };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    const t = setTimeout(() => drawerRef.current?.focus(), 50);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+      clearTimeout(t);
+    };
+  }, [drawerOpen, closeDrawer, actionModal, activeRecording, exportModalOpen]);
+
+  const statsSummary = useMemo(() => callStats?.summary || {
     totalCalls: 0,
     answerRate: 0,
     billableRate: 0,
     totalCost: 0,
+  }, [callStats?.summary]);
+
+  const derived = useMemo(() => {
+    const total = Number(statsSummary.totalCalls) || 0;
+    const answered = Number.isFinite(Number(statsSummary.answeredCalls))
+      ? Number(statsSummary.answeredCalls)
+      : Math.round((statsSummary.answerRate || 0) * total);
+    const billable = Number.isFinite(Number(statsSummary.billableCalls))
+      ? Number(statsSummary.billableCalls)
+      : Math.round((statsSummary.billableRate || 0) * total);
+    const missed = Number.isFinite(Number(statsSummary.missedCalls))
+      ? Number(statsSummary.missedCalls)
+      : Math.max(0, total - answered);
+    const cost = Number(statsSummary.totalCost) || 0;
+    const days = Math.max(1, (callStats?.byDay || []).length);
+    const byDay = callStats?.byDay || [];
+    return {
+      total,
+      answered,
+      missed,
+      billable,
+      answeredNotBillable: Math.max(0, answered - billable),
+      cost,
+      perDay: total / days,
+      costPerBillable: billable > 0 ? cost / billable : 0,
+      sparkCalls: byDay.map((d) => d.totalCalls),
+      sparkAnswer: byDay.map((d) => (d.totalCalls ? (d.answeredCalls || 0) / d.totalCalls : 0)),
+      sparkBillable: byDay.map((d) => d.billableCalls || 0),
+      sparkCost: byDay.map((d) => d.totalCost || 0),
+    };
+  }, [statsSummary, callStats?.byDay]);
+
+  const rangeLabel = useMemo(() => {
+    if (rangePreset === 'custom') {
+      return customStart === customEnd ? formatDay(customStart) : `${formatDay(customStart)} – ${formatDay(customEnd)}`;
+    }
+    return RANGE_PRESETS.find((r) => r.key === rangePreset)?.label || 'Last 7 days';
+  }, [rangePreset, customStart, customEnd]);
+
+  const tzLabel = TIMEZONE_OPTIONS.find((o) => o.value === timezone)?.label || timezone;
+
+  const sortRows = (rows, sort, getName) => {
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      if (sort.key === 'name') return getName(a).localeCompare(getName(b)) * dir;
+      const av = Number(sort.key === 'balance' ? a.walletBalanceCents : a[sort.key]) || 0;
+      const bv = Number(sort.key === 'balance' ? b.walletBalanceCents : b[sort.key]) || 0;
+      return (av - bv) * dir;
+    });
   };
+
+  const toggleSort = (setter) => (field) => setter((prev) => (
+    prev.key === field
+      ? { key: field, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+      : { key: field, dir: field === 'name' ? 'asc' : 'desc' }
+  ));
+
+  const sortedCampaigns = useMemo(
+    () => sortRows(campaignStats, campaignSort, (r) => String(r.campaignLabel || r.campaign || '')),
+    [campaignStats, campaignSort],
+  );
 
   const filteredAgentStats = useMemo(() => {
     const query = agentSearch.trim().toLowerCase();
@@ -190,6 +463,20 @@ export default function AdminAnalyticsPage() {
       return name.includes(query) || id.includes(query);
     });
   }, [agentStats, agentSearch]);
+
+  const sortedAgents = useMemo(
+    () => sortRows(filteredAgentStats, agentSort, (r) => getAgentName(r)),
+    [filteredAgentStats, agentSort],
+  );
+
+  useEffect(() => {
+    setAgentLimit(AGENT_PAGE_SIZE);
+  }, [agentSearch, agentStats]);
+
+  const topCampaigns = useMemo(
+    () => [...campaignStats].sort((a, b) => (b.totalCost || 0) - (a.totalCost || 0)).slice(0, 4),
+    [campaignStats],
+  );
 
   const filteredSortedDrilldownLogs = useMemo(() => {
     const allRaw = Array.isArray(drilldown?.recentLogs) ? [...drilldown.recentLogs] : [];
@@ -224,7 +511,7 @@ export default function AdminAnalyticsPage() {
       return drilldownSortOrder === 'asc' ? aSafe - bSafe : bSafe - aSafe;
     });
     return dayFiltered;
-  }, [drilldown?.recentLogs, drilldownDay, drilldownSortOrder, drilldownSortField]);
+  }, [drilldown?.recentLogs, drilldownDay, drilldownSortOrder, drilldownSortField, overview?.agents, agentStats]);
 
   const handleDispositionUpdate = async (logId, val) => {
     const log = drilldown?.recentLogs?.find((l) => l.id === logId);
@@ -307,7 +594,52 @@ export default function AdminAnalyticsPage() {
     setActionNote('');
   };
 
+  const openCampaign = (id) => {
+    setSelectedCampaign(id);
+    setSelectedAgent('');
+    setDrilldownDay('');
+  };
+
+  const openAgent = (id) => {
+    setSelectedAgent(id);
+    setSelectedCampaign('');
+    setDrilldownDay('');
+  };
+
+  const onRowKey = (open) => (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      open();
+    }
+  };
+
+  const refreshAll = async () => {
+    await loadShell();
+    await loadAnalytics();
+  };
+
   if (loading && !overview) return <PageLoader />;
+
+  const selectedAgentRow = selectedAgent ? agentStats.find((a) => a.agentId === selectedAgent) : null;
+  const selectedCampaignRow = selectedCampaign ? campaignStats.find((c) => c.campaign === selectedCampaign) : null;
+  const drawerTitle = selectedCampaign
+    ? (selectedCampaignRow?.campaignLabel || selectedCampaign)
+    : (overview?.agents?.find((a) => a.id === selectedAgent)?.displayName || selectedAgentRow?.agentName || selectedAgent);
+
+  const updatedAt = analyticsMeta?.generatedAt ? new Date(analyticsMeta.generatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null;
+  const visibleAgents = sortedAgents.slice(0, agentLimit);
+  const outcomeTotal = Math.max(1, derived.total);
+
+  const headerActions = (
+    <div className={classes.headerActions}>
+      <button type="button" className={classes.ghostBtn} onClick={() => setExportModalOpen(true)} title="Export to Excel (.xlsx)">
+        <FileSpreadsheet size={16} /> Export Excel
+      </button>
+      <button type="button" className={classes.ghostBtn} onClick={refreshAll} disabled={loading || analyticsLoading}>
+        <RefreshCw size={16} className={loading || analyticsLoading ? shared.spin : ''} /> Refresh
+      </button>
+    </div>
+  );
 
   return (
     <>
@@ -316,455 +648,537 @@ export default function AdminAnalyticsPage() {
         description="Call trends, campaign and agent performance, and drilldown reports."
         icon={TrendingUp}
         category={ADMIN_CATEGORIES.operations}
+        actions={headerActions}
       >
-        <motion.section className={`glass ${classes.sectionCard} ${classes.summarySection}`} variants={presets.child}>
-          <div className={classes.cardTopRow}>
-            <h2 className={classes.cardTitle}>Summary ({
-              rangePreset === 'today' ? 'Today' : 
-              rangePreset === 'yesterday' ? 'Yesterday' :
-              rangePreset === 'custom' ? 'Custom Range' :
-              rangePreset === '30d' ? 'Last 30 days' : 'Last 7 days'
-            })</h2>
-            <div className={`glass ${classes.toolbar} ${classes.summaryToolbar}`}>
-              <SlidingTabs
-                tabs={RANGE_PRESETS}
-                activeKey={rangePreset}
-                onChange={setRangePreset}
-                ariaLabel="Date range"
-              />
-
-              {rangePreset === 'custom' ? (
-                <div className={classes.customRangeRow}>
-                  <input
-                    type="date"
-                    className={classes.dateInput}
-                    value={customStart}
-                    onChange={(e) => setCustomStart(e.target.value)}
-                    aria-label="Custom range start"
-                  />
-                  <span className={classes.muted}>to</span>
-                  <input
-                    type="date"
-                    className={classes.dateInput}
-                    value={customEnd}
-                    onChange={(e) => setCustomEnd(e.target.value)}
-                    aria-label="Custom range end"
-                  />
-                </div>
-              ) : null}
-
-              <div className={classes.toolbarActions}>
-                <CustomSelect
-                  options={TIMEZONE_OPTIONS}
-                  value={timezone}
-                  onChange={setTimezone}
-                  menuAlign="right"
-                />
-                <button
-                  type="button"
-                  className={classes.refreshBtn}
-                  onClick={() => setExportModalOpen(true)}
-                  title="Export to Excel (.xlsx)"
-                >
-                  <FileSpreadsheet size={16} />
-                  Export Excel
-                </button>
-                <button
-                  type="button"
-                  className={classes.refreshBtn}
-                  onClick={async () => {
-                    await loadShell();
-                    await loadAnalytics();
-                  }}
-                  disabled={loading}
-                >
-                  <RefreshCw size={16} className={loading ? classes.spin : ''} />
-                  Refresh
-                </button>
+        {/* ── Filter bar ───────────────────────────────────────── */}
+        <motion.div className={`glass ${classes.filterBar}`} variants={presets.child}>
+          <div className={classes.filterMain}>
+            <SlidingTabs tabs={RANGE_PRESETS} activeKey={rangePreset} onChange={setRangePreset} ariaLabel="Date range" />
+            {rangePreset === 'custom' ? (
+              <div className={classes.customRange}>
+                <CalendarDays size={15} aria-hidden className={classes.mutedIcon} />
+                <input type="date" className={classes.dateInput} value={customStart} max={customEnd || undefined} onChange={(e) => setCustomStart(e.target.value)} aria-label="Custom range start" />
+                <span className={classes.muted}>to</span>
+                <input type="date" className={classes.dateInput} value={customEnd} min={customStart || undefined} onChange={(e) => setCustomEnd(e.target.value)} aria-label="Custom range end" />
               </div>
+            ) : null}
+          </div>
+          <div className={classes.filterSide}>
+            <span className={classes.updated} aria-live="polite">
+              {analyticsLoading ? (
+                <><span className={classes.liveDotBusy} /> Updating…</>
+              ) : (
+                <><span className={classes.liveDot} /> {updatedAt ? `Updated ${updatedAt}` : 'Up to date'}</>
+              )}
+            </span>
+            <CustomSelect options={TIMEZONE_OPTIONS} value={timezone} onChange={setTimezone} menuAlign="right" />
+          </div>
+        </motion.div>
+
+        {/* ── KPIs ─────────────────────────────────────────────── */}
+        <div className={classes.kpiGrid}>
+          <KpiCard
+            label="Total calls"
+            icon={Phone}
+            value={derived.total}
+            foot={`${derived.perDay.toFixed(derived.perDay < 10 ? 1 : 0)} per day avg`}
+            spark={derived.sparkCalls}
+            tone="neutral"
+            loading={analyticsLoading}
+            variants={presets.child}
+          />
+          <KpiCard
+            label="Answer rate"
+            icon={Activity}
+            value={`${pct(statsSummary.answerRate)}%`}
+            foot={`${derived.answered} answered · ${derived.missed} missed`}
+            spark={derived.sparkAnswer}
+            tone="cyan"
+            loading={analyticsLoading}
+            variants={presets.child}
+          />
+          <KpiCard
+            label="Billable rate"
+            icon={BadgeCheck}
+            value={`${pct(statsSummary.billableRate)}%`}
+            foot={`${derived.billable} billable calls`}
+            spark={derived.sparkBillable}
+            tone="brand"
+            loading={analyticsLoading}
+            variants={presets.child}
+          />
+          <KpiCard
+            label="Total spend"
+            icon={CircleDollarSign}
+            value={money(derived.cost)}
+            foot={derived.billable ? `${money(derived.costPerBillable)} per billable call` : 'No billable calls yet'}
+            spark={derived.sparkCost}
+            tone="yellow"
+            loading={analyticsLoading}
+            variants={presets.child}
+          />
+        </div>
+
+        {/* ── Trend + outcome mix ──────────────────────────────── */}
+        <div className={classes.bento}>
+          <motion.section className={`glass ${classes.card} ${classes.chartCard}`} variants={presets.child} aria-labelledby="trend-title">
+            <div className={classes.cardHead}>
+              <div>
+                <h2 id="trend-title" className={classes.cardTitle}>Call trends</h2>
+                <p className={classes.cardSub}>{rangeLabel} · {tzLabel}</p>
+              </div>
+              <SlidingTabs tabs={CHART_MODES} activeKey={chartMode} onChange={setChartMode} ariaLabel="Chart metric" />
+            </div>
+            {chartMode === 'volume' ? (
+              <div className={classes.legend}>
+                <span><i className={classes.legendBrand} />Billable</span>
+                <span><i className={classes.legendCyan} />Answered, not billable</span>
+                <span><i className={classes.legendMuted} />Missed</span>
+              </div>
+            ) : null}
+            {analyticsLoading ? (
+              <div className={classes.chartSkeleton}><span /><span /><span /><span /><span /><span /><span /></div>
+            ) : derived.total === 0 ? (
+              <div className={classes.empty}>
+                <TrendingUp size={28} />
+                <h4>No calls in this range</h4>
+                <p>Try a wider date range, or refresh after more activity.</p>
+              </div>
+            ) : (
+              <VolumeChart data={callStats?.byDay} mode={chartMode} reduceMotion={reduceMotion} />
+            )}
+          </motion.section>
+
+          <motion.section className={`glass ${classes.card} ${classes.mixCard}`} variants={presets.child} aria-labelledby="mix-title">
+            <h2 id="mix-title" className={classes.cardTitle}>Outcome mix</h2>
+            <p className={classes.cardSub}>What happened to every call</p>
+            {analyticsLoading ? (
+              <div className={classes.mixSkeleton}><span /><span /><span /></div>
+            ) : (
+              <>
+                <div className={classes.mixBar} role="img" aria-label={`${derived.billable} billable, ${derived.answeredNotBillable} answered not billable, ${derived.missed} missed`}>
+                  <span className={classes.mixBillable} style={{ flexGrow: derived.billable }} />
+                  <span className={classes.mixAnswered} style={{ flexGrow: derived.answeredNotBillable }} />
+                  <span className={classes.mixMissed} style={{ flexGrow: derived.missed }} />
+                </div>
+                <ul className={classes.mixList}>
+                  <li><i className={classes.mixBillable} /><span>Billable</span><b>{derived.billable}</b><em>{Math.round((derived.billable / outcomeTotal) * 100)}%</em></li>
+                  <li><i className={classes.mixAnswered} /><span>Answered, not billable</span><b>{derived.answeredNotBillable}</b><em>{Math.round((derived.answeredNotBillable / outcomeTotal) * 100)}%</em></li>
+                  <li><i className={classes.mixMissed} /><span>Missed</span><b>{derived.missed}</b><em>{Math.round((derived.missed / outcomeTotal) * 100)}%</em></li>
+                </ul>
+                <div className={classes.topList}>
+                  <h3 className={classes.miniTitle}>Top campaigns by spend</h3>
+                  {topCampaigns.length === 0 ? (
+                    <p className={classes.muted}>No campaign spend in this range.</p>
+                  ) : topCampaigns.map((c) => (
+                    <button key={c.campaign} type="button" className={classes.topRow} onClick={() => openCampaign(c.campaign)}>
+                      <span className={classes.topName}>{c.campaignLabel || c.campaign}</span>
+                      <span className={classes.topVal}>{money(c.totalCost)}</span>
+                      <span className={classes.topTrack} aria-hidden>
+                        <span style={{ width: `${derived.cost ? Math.max(3, ((c.totalCost || 0) / derived.cost) * 100) : 0}%` }} />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </motion.section>
+        </div>
+
+        {/* ── Breakdown ────────────────────────────────────────── */}
+        <motion.section className={`glass ${classes.card}`} variants={presets.child} aria-labelledby="breakdown-title">
+          <div className={classes.cardHead}>
+            <div>
+              <h2 id="breakdown-title" className={classes.cardTitle}>Performance breakdown</h2>
+              <p className={classes.cardSub}>Click any row to open its calls, trend and outcomes.</p>
+            </div>
+            <div className={classes.breakdownTools}>
+              {breakdownTab === 'agents' ? (
+                <label className={classes.search}>
+                  <Search size={15} aria-hidden />
+                  <input
+                    placeholder="Search agent name or ID"
+                    value={agentSearch}
+                    onChange={(e) => setAgentSearch(e.target.value)}
+                    aria-label="Search agents"
+                  />
+                  {agentSearch ? (
+                    <button type="button" onClick={() => setAgentSearch('')} aria-label="Clear search"><X size={14} /></button>
+                  ) : null}
+                </label>
+              ) : null}
+              <SlidingTabs
+                tabs={BREAKDOWN_TABS.map((t) => ({
+                  ...t,
+                  label: `${t.label} ${t.key === 'campaigns' ? campaignStats.length : agentStats.length}`,
+                }))}
+                activeKey={breakdownTab}
+                onChange={setBreakdownTab}
+                ariaLabel="Breakdown"
+              />
             </div>
           </div>
-          <div className={classes.statsRow}>
-            <AdminStatCard label="Total calls" value={statsSummary.totalCalls} icon={Phone} variants={presets.child} loading={analyticsLoading} />
-            <AdminStatCard label="Answer rate" value={`${Math.round((statsSummary.answerRate || 0) * 100)}%`} icon={Activity} variants={presets.child} loading={analyticsLoading} />
-            <AdminStatCard label="Billable rate" value={`${Math.round((statsSummary.billableRate || 0) * 100)}%`} icon={Radio} variants={presets.child} loading={analyticsLoading} />
-            <AdminStatCard label="Total cost" value={`$${(statsSummary.totalCost || 0).toFixed(2)}`} icon={CircleDollarSign} variants={presets.child} loading={analyticsLoading} wide />
-          </div>
-          <div className={classes.metaRow}>
-            <span className={classes.muted}>Source: {analyticsMeta?.source || 'n/a'}</span>
-            <span className={classes.muted}>
-              Updated: {analyticsMeta?.generatedAt ? new Date(analyticsMeta.generatedAt).toLocaleTimeString() : '—'}
-            </span>
-          </div>
-        </motion.section>
 
-        <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
-          <AdminCallTrendChart
-            data={callStats?.byDay}
-            loading={analyticsLoading}
-            reduceMotion={reduceMotion}
-            totalCalls={statsSummary.totalCalls}
-            answerRatePct={Math.round((statsSummary.answerRate || 0) * 100)}
-          />
-        </motion.section>
-
-        <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
-          <h2 className={classes.cardTitle}>Campaign performance</h2>
-          <div className={classes.tableWrap}>
-            <div className={classes.tableScroll}>
+          <div className={classes.tableScroll}>
+            {breakdownTab === 'campaigns' ? (
               <table className={classes.table}>
                 <thead>
                   <tr>
-                    <th>Campaign</th>
-                    <th>Calls</th>
-                    <th>Answer %</th>
-                    <th>Billable %</th>
-                    <th>Avg Handle (s)</th>
-                    <th>Total Cost</th>
+                    <SortTh label="Campaign" field="name" sort={campaignSort} onSort={toggleSort(setCampaignSort)} />
+                    <SortTh label="Calls" field="calls" sort={campaignSort} onSort={toggleSort(setCampaignSort)} align="right" />
+                    <SortTh label="Answer rate" field="answerRate" sort={campaignSort} onSort={toggleSort(setCampaignSort)} />
+                    <SortTh label="Billable rate" field="billableRate" sort={campaignSort} onSort={toggleSort(setCampaignSort)} />
+                    <SortTh label="Avg handle" field="avgHandleTime" sort={campaignSort} onSort={toggleSort(setCampaignSort)} align="right" />
+                    <SortTh label="Spend" field="totalCost" sort={campaignSort} onSort={toggleSort(setCampaignSort)} align="right" />
+                    <th aria-label="Open" />
                   </tr>
                 </thead>
                 <tbody>
                   {analyticsLoading ? (
-                    <tr><td colSpan={6} className={classes.muted}><ShimmerText text="Loading analytics…" /></td></tr>
-                  ) : campaignStats.length === 0 ? (
-                    <tr><td colSpan={6}>
-                      <div className={classes.emptyPanel}>
-                        <TrendingUp size={28} className={classes.emptyPanelIcon} />
+                    [0, 1, 2, 3].map((i) => <tr key={i} className={classes.skelRow}><td colSpan={7}><span /></td></tr>)
+                  ) : sortedCampaigns.length === 0 ? (
+                    <tr><td colSpan={7}>
+                      <div className={classes.empty}>
+                        <Megaphone size={26} />
                         <h4>No campaign stats</h4>
                         <p>No campaign data in the selected range.</p>
                       </div>
                     </td></tr>
-                  ) : (
-                    campaignStats.map((row) => (
-                      <tr
-                        key={row.campaign}
-                        className={`${classes.clickableRow} ${selectedCampaign === row.campaign ? classes.rowActive : ''}`}
-                        onClick={() => {
-                          setSelectedCampaign(row.campaign);
-                          setSelectedAgent('');
-                        }}
-                      >
-                        <td>{row.campaignLabel || row.campaign}</td>
-                        <td>{row.calls}</td>
-                        <td>{Math.round((row.answerRate || 0) * 100)}%</td>
-                        <td>{Math.round((row.billableRate || 0) * 100)}%</td>
-                        <td>{row.avgHandleTime}</td>
-                        <td>${(row.totalCost || 0).toFixed(2)}</td>
-                      </tr>
-                    ))
-                  )}
+                  ) : sortedCampaigns.map((row) => (
+                    <tr
+                      key={row.campaign}
+                      className={`${classes.row} ${selectedCampaign === row.campaign ? classes.rowActive : ''}`}
+                      onClick={() => openCampaign(row.campaign)}
+                      onKeyDown={onRowKey(() => openCampaign(row.campaign))}
+                      tabIndex={0}
+                      aria-label={`Open ${row.campaignLabel || row.campaign} drilldown`}
+                    >
+                      <td><span className={classes.nameCell}><span className={classes.campaignDot} />{row.campaignLabel || row.campaign}</span></td>
+                      <td className={classes.num}>{row.calls}</td>
+                      <td><RateCell value={row.answerRate} tone="cyan" /></td>
+                      <td><RateCell value={row.billableRate} tone="brand" /></td>
+                      <td className={classes.num}>{row.avgHandleTime}s</td>
+                      <td className={classes.num}>
+                        <span className={classes.spend}>{money(row.totalCost)}</span>
+                        <span className={classes.share}>{derived.cost ? `${Math.round(((row.totalCost || 0) / derived.cost) * 100)}% of spend` : '—'}</span>
+                      </td>
+                      <td className={classes.chev}><ChevronRight size={16} /></td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
-            </div>
-          </div>
-        </motion.section>
-
-        <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
-          <div className={classes.cardTopRow}>
-            <h2 className={classes.cardTitle}>Agent performance</h2>
-            <input
-              className={classes.searchInput}
-              placeholder="Search by agent name or ID"
-              value={agentSearch}
-              onChange={(e) => setAgentSearch(e.target.value)}
-            />
-          </div>
-          <div className={classes.tableWrap}>
-            <div className={classes.tableScroll}>
+            ) : (
               <table className={classes.table}>
                 <thead>
                   <tr>
-                    <th>Agent</th>
-                    <th>Calls</th>
-                    <th>Answer %</th>
-                    <th>Billable %</th>
-                    <th>Avg Handle (s)</th>
-                    <th>Total Cost</th>
-                    <th>Balance</th>
+                    <SortTh label="Agent" field="name" sort={agentSort} onSort={toggleSort(setAgentSort)} />
+                    <SortTh label="Calls" field="calls" sort={agentSort} onSort={toggleSort(setAgentSort)} align="right" />
+                    <SortTh label="Answer rate" field="answerRate" sort={agentSort} onSort={toggleSort(setAgentSort)} />
+                    <SortTh label="Billable rate" field="billableRate" sort={agentSort} onSort={toggleSort(setAgentSort)} />
+                    <SortTh label="Avg handle" field="avgHandleTime" sort={agentSort} onSort={toggleSort(setAgentSort)} align="right" />
+                    <SortTh label="Spend" field="totalCost" sort={agentSort} onSort={toggleSort(setAgentSort)} align="right" />
+                    <SortTh label="Balance" field="balance" sort={agentSort} onSort={toggleSort(setAgentSort)} align="right" />
+                    <th aria-label="Open" />
                   </tr>
                 </thead>
                 <tbody>
                   {analyticsLoading ? (
-                    <tr><td colSpan={7} className={classes.muted}><ShimmerText text="Loading analytics…" /></td></tr>
-                  ) : filteredAgentStats.length === 0 ? (
-                    <tr><td colSpan={7} className={classes.muted}>No agent stats match this filter</td></tr>
-                  ) : (
-                    filteredAgentStats.map((row) => (
+                    [0, 1, 2, 3, 4].map((i) => <tr key={i} className={classes.skelRow}><td colSpan={8}><span /></td></tr>)
+                  ) : visibleAgents.length === 0 ? (
+                    <tr><td colSpan={8}>
+                      <div className={classes.empty}>
+                        <Users size={26} />
+                        <h4>{agentSearch ? 'No agents match your search' : 'No agent stats'}</h4>
+                        <p>{agentSearch ? 'Try a different name or ID.' : 'No agent activity in the selected range.'}</p>
+                      </div>
+                    </td></tr>
+                  ) : visibleAgents.map((row) => {
+                    const name = getAgentName(row);
+                    const id = getAgentId(row);
+                    return (
                       <tr
                         key={row.agentId}
-                        className={`${classes.clickableRow} ${selectedAgent === row.agentId ? classes.rowActive : ''}`}
-                        onClick={() => {
-                          setSelectedAgent(row.agentId);
-                          setSelectedCampaign('');
-                        }}
+                        className={`${classes.row} ${selectedAgent === row.agentId ? classes.rowActive : ''}`}
+                        onClick={() => openAgent(row.agentId)}
+                        onKeyDown={onRowKey(() => openAgent(row.agentId))}
+                        tabIndex={0}
+                        aria-label={`Open ${name} drilldown`}
                       >
-                        <td className={classes.agentCell}>
-                          <strong>{getAgentName(row)}</strong>
-                          {getAgentName(row) !== getAgentId(row) ? (
-                            <span className={classes.agentSubId}>{getAgentId(row)}</span>
-                          ) : null}
-                        </td>
-                        <td>{row.calls}</td>
-                        <td>{Math.round((row.answerRate || 0) * 100)}%</td>
-                        <td>{Math.round((row.billableRate || 0) * 100)}%</td>
-                        <td>{row.avgHandleTime}</td>
-                        <td>${(row.totalCost || 0).toFixed(2)}</td>
                         <td>
-                          {typeof row.walletBalanceCents === 'number'
-                            ? `$${(row.walletBalanceCents / 100).toFixed(2)}`
-                            : '—'}
+                          <span className={classes.agentCell}>
+                            <span className={classes.avatar}>{initialsOf(name)}</span>
+                            <span className={classes.agentText}>
+                              <span className={classes.agentName}>
+                                {name}
+                                {row.flagged ? <span className={classes.flag} title={row.flagReason || 'Flagged'}><Flag size={11} /> Flagged</span> : null}
+                              </span>
+                              {name !== id ? <span className={classes.agentId}>{id}</span> : null}
+                            </span>
+                          </span>
                         </td>
+                        <td className={classes.num}>{row.calls}</td>
+                        <td><RateCell value={row.answerRate} tone="cyan" /></td>
+                        <td><RateCell value={row.billableRate} tone="brand" /></td>
+                        <td className={classes.num}>{row.avgHandleTime}s</td>
+                        <td className={classes.num}><span className={classes.spend}>{money(row.totalCost)}</span></td>
+                        <td className={classes.num}>
+                          {typeof row.walletBalanceCents === 'number'
+                            ? <span className={row.walletBalanceCents <= 0 ? classes.balanceLow : undefined}>{money(row.walletBalanceCents / 100)}</span>
+                            : <span className={classes.muted}>—</span>}
+                        </td>
+                        <td className={classes.chev}><ChevronRight size={16} /></td>
                       </tr>
-                    ))
-                  )}
+                    );
+                  })}
                 </tbody>
               </table>
-            </div>
+            )}
           </div>
-        </motion.section>
-
-        <motion.section className={`glass ${classes.sectionCard}`} variants={presets.child}>
-          <div className={classes.cardTopRow}>
-            <h2 className={classes.cardTitle}>Drilldown</h2>
-            {(selectedCampaign || selectedAgent) ? (
-              <div className={classes.filterRow}>
-                <select
-                  className={`${classes.select} ${classes.drilldownSortSelect}`}
-                  style={{ width: 'auto', minWidth: '140px' }}
-                  value={drilldownSortField}
-                  onChange={(e) => setDrilldownSortField(e.target.value)}
-                  aria-label="Sort drilldown logs by field"
-                >
-                  <option value="date">Sort: Date</option>
-                  <option value="duration">Sort: Duration</option>
-                </select>
-                <select
-                  className={`${classes.select} ${classes.drilldownSortSelect}`}
-                  style={{ width: 'auto', minWidth: '130px' }}
-                  value={drilldownSortOrder}
-                  onChange={(e) => setDrilldownSortOrder(e.target.value)}
-                  aria-label="Sort drilldown logs order"
-                >
-                  <option value="desc">{drilldownSortField === 'duration' ? 'Longest first' : 'Newest first'}</option>
-                  <option value="asc">{drilldownSortField === 'duration' ? 'Shortest first' : 'Oldest first'}</option>
-                </select>
-                <input
-                  type="date"
-                  className={classes.input}
-                  style={{ width: 'auto', minWidth: '160px' }}
-                  value={drilldownDay}
-                  onChange={(e) => setDrilldownDay(e.target.value)}
-                  aria-label="Filter drilldown logs by specific day"
-                />
-                {drilldownDay ? (
-                  <button type="button" className={classes.filterBtn} onClick={() => setDrilldownDay('')}>
-                    Clear day
-                  </button>
-                ) : null}
-                <span className={classes.statusPill}>
-                  {selectedCampaign
-                    ? `Campaign: ${campaignStats?.find((c) => c.campaign === selectedCampaign)?.campaignLabel || selectedCampaign}`
-                    : `Agent: ${overview?.agents?.find((a) => a.id === selectedAgent)?.displayName || agentStats?.find((a) => a.agentId === selectedAgent)?.agentName || selectedAgent}`}
-                </span>
-                <button
-                  type="button"
-                  className={classes.filterBtn}
-                  onClick={() => {
-                    setSelectedCampaign('');
-                    setSelectedAgent('');
-                  }}
-                >
-                  Reset selection
-                </button>
-              </div>
-            ) : null}
-          </div>
-          {(!selectedCampaign && !selectedAgent) ? (
-            <div className={classes.emptyPanel}>
-              <TrendingUp size={32} className={classes.emptyPanelIcon} />
-              <h4>Select a campaign or agent</h4>
-              <p>Click a campaign or agent row to open detailed trend and outcomes.</p>
+          {breakdownTab === 'agents' && !analyticsLoading && sortedAgents.length > visibleAgents.length ? (
+            <div className={classes.moreRow}>
+              <span className={classes.muted}>Showing {visibleAgents.length} of {sortedAgents.length} agents</span>
+              <button type="button" className={classes.ghostBtn} onClick={() => setAgentLimit((n) => n + 25)}>Show more</button>
+              <button type="button" className={classes.linkBtn} onClick={() => setAgentLimit(sortedAgents.length)}>Show all</button>
             </div>
-          ) : drilldownLoading ? (
-            <div className={classes.skeletonList}>
-              <div className={classes.skeletonRow} />
-              <div className={classes.skeletonRow} />
-            </div>
-          ) : !drilldown ? (
-            <p className={classes.muted}>No drilldown data available.</p>
-          ) : (
-            <>
-              <div className={`${classes.statsRow} ${classes.statsRowThree}`}>
-                <AdminStatCard label="Calls" value={drilldown.summary?.calls ?? 0} icon={Phone} variants={presets.child} />
-                <AdminStatCard label="Answer rate" value={`${Math.round((drilldown.summary?.answerRate || 0) * 100)}%`} icon={Activity} variants={presets.child} />
-                <AdminStatCard label="Billable rate" value={`${Math.round((drilldown.summary?.billableRate || 0) * 100)}%`} icon={Radio} variants={presets.child} />
-              </div>
-              <div className={classes.metaRow}>
-                <span className={classes.muted}>Source: {drilldown.meta?.source || 'n/a'}</span>
-                <span className={classes.muted}>Rows: {drilldown.meta?.rowCount ?? 0}</span>
-                <span className={classes.muted}>
-                  Updated: {drilldown.meta?.generatedAt ? new Date(drilldown.meta.generatedAt).toLocaleTimeString() : '—'}
-                </span>
-              </div>
-              <AdminDrilldownTrendChart
-                data={drilldown.trend}
-                loading={false}
-                reduceMotion={reduceMotion}
-              />
-              {drilldown.recentLogs && drilldown.recentLogs.length > 0 && (
-                <div className={`${classes.tableWrap} ${classes.drilldownTableWrap}`}>
-                  <h3 className={classes.subTitle}>Recent Calls</h3>
-                  <table className={`${classes.table} ${classes.drilldownTable}`}>
-                    <colgroup>
-                      <col className={classes.colAgent} />
-                      <col className={classes.colCampaign} />
-                      <col className={classes.colCallerId} />
-                      <col className={classes.colDuration} />
-                      <col className={classes.colStatus} />
-                      <col className={classes.colDisposition} />
-                      <col className={classes.colCost} />
-                      <col className={classes.colContest} />
-                      <col className={classes.colRecording} />
-                      <col className={classes.colDate} />
-                      <col className={classes.colActions} />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th>Agent</th>
-                        <th>Campaign</th>
-                        <th>Caller ID</th>
-                        <th>Duration</th>
-                        <th>Status</th>
-                        <th>Disposition</th>
-                        <th>Cost</th>
-                        <th>Contest</th>
-                        <th>Recording</th>
-                        <th>Date</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredSortedDrilldownLogs.map((log) => {
-                        const created = log.createdAt ? new Date(log.createdAt) : null;
-                        return (
-                          <tr key={log.id}>
-                            <td className={classes.agentCell}>
-                              <details className={classes.agentDetails}>
-                                <summary title="Tap to view phone number">
-                                  <strong>{getAgentName(log)}</strong>
-                                  {getAgentName(log) !== getAgentId(log) ? (
-                                    <span className={classes.agentSubId} title={getAgentId(log)}>{getAgentId(log)}</span>
-                                  ) : null}
-                                </summary>
-                                <div className={classes.agentPhoneReveal}>
-                                  {log.phone ? (
-                                    <a href={`tel:${log.phone}`} className={classes.agentPhone}>
-                                      {log.phone}
-                                    </a>
-                                  ) : (
-                                    <span className={classes.agentPhone} style={{ opacity: 0.5 }}>No phone</span>
-                                  )}
-                                </div>
-                              </details>
-                            </td>
-                            <td className={classes.campaignCell} title={log.campaign}>{log.campaign}</td>
-                            <td className={classes.compactCell}>
-                              {log.cost > 0 || log.isBillable ? (
-                                log.from || log.customerPhone || <span className={classes.muted}>Unknown</span>
-                              ) : (
-                                <span className={classes.muted}>Hidden</span>
-                              )}
-                            </td>
-                            <td className={classes.compactCell}>{log.duration}s</td>
-                            <td className={classes.pillCell}>
-                              {log.isBillable ? (
-                                <span className={`${classes.drillPill} ${classes.dispSold}`}>Billable</span>
-                              ) : log.status === 'completed' ? (
-                                <span className={`${classes.drillPill} ${classes.dispAnswered}`}>Answered</span>
-                              ) : (
-                                <span className={`${classes.drillPill} ${classes.dispMissed}`}>Missed</span>
-                              )}
-                              {log.qaAudioReview?.status ? (
-                                <span className={`${classes.drillPill} ${
-                                  log.qaAudioReview.status === 'pending_review' ? classes.dispAnswered
-                                    : log.qaAudioReview.status === 'confirmed' ? classes.dispMissed
-                                      : classes.dispSold
-                                }`} style={{ marginLeft: 6 }}>
-                                  AI {String(log.qaAudioReview.status).replace('_', ' ')}
-                                </span>
-                              ) : null}
-                            </td>
-                            <td className={`${classes.pillCell} ${classes.pillCellWrap}`}>
-                              <CallLogDispositionBadge 
-                                log={log} 
-                                editable={true} 
-                                loading={updatingDispositionId === log.id}
-                                onUpdate={handleDispositionUpdate}
-                              />
-                            </td>
-                            <td className={classes.compactCell}>{log.cost > 0 ? `$${log.cost.toFixed(2)}` : '—'}</td>
-                            <td className={classes.pillCell}>
-                              {log.refunded ? (
-                                <span className={`${classes.drillPill} ${classes.dispSold}`}>Credited</span>
-                              ) : log.contestStatus === 'pending' ? (
-                                <span className={`${classes.drillPill} ${classes.dispAnswered}`}>Pending</span>
-                              ) : log.contestStatus === 'denied' ? (
-                                <span className={`${classes.drillPill} ${classes.dispMissed}`}>Denied</span>
-                              ) : (
-                                <span className={classes.muted}>—</span>
-                              )}
-                            </td>
-                            <td>
-                              {(log.recordingSid || log.recordingUrl) ? (
-                                <button type="button" className={classes.playBtn} onClick={() => setActiveRecording(log)}>
-                                  <Play size={12} /> Play
-                                </button>
-                              ) : (
-                                <span className={classes.muted}>—</span>
-                              )}
-                            </td>
-                            <td className={classes.dateCell}>
-                              {created ? (
-                                <>
-                                  <span className={classes.datePrimary}>{created.toLocaleDateString()}</span>
-                                  <span className={classes.dateSub}>
-                                    {created.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                                  </span>
-                                </>
-                              ) : (
-                                '—'
-                              )}
-                            </td>
-                            <td className={classes.actionsCell}>
-                              {log.isBillable && log.cost > 0 && !log.refunded && log.contestStatus !== 'pending' ? (
-                                <button
-                                  type="button"
-                                  className={`${classes.refreshBtn} ${classes.refundBtn}`}
-                                  disabled={refundingLogId === log.id}
-                                  onClick={() => openRefundCallModal(log)}
-                                >
-                                  {refundingLogId === log.id ? '…' : 'Refund'}
-                                </button>
-                              ) : (
-                                <span className={classes.muted}>—</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {filteredSortedDrilldownLogs.length === 0 ? (
-                        <tr>
-                          <td colSpan={11} className={classes.muted}>No calls found for selected day.</td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          )}
+          ) : null}
         </motion.section>
       </AdminPageShell>
+
+      {/* ── Drilldown panel ────────────────────────────────────── */}
+      {createPortal(
+        <AnimatePresence>
+          {drawerOpen ? (
+            <>
+              <motion.div
+                key="analytics-drawer-backdrop"
+                className={classes.backdrop}
+                onClick={closeDrawer}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: reduceMotion ? 0 : 0.2 }}
+              />
+              <motion.aside
+                key="analytics-drawer"
+                ref={drawerRef}
+                tabIndex={-1}
+                role="dialog"
+                aria-modal="true"
+                aria-label={`${selectedCampaign ? 'Campaign' : 'Agent'} drilldown: ${drawerTitle}`}
+                className={classes.drawer}
+                initial={reduceMotion ? { opacity: 0 } : { x: '100%' }}
+                animate={reduceMotion ? { opacity: 1 } : { x: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { x: '100%' }}
+                transition={{ duration: reduceMotion ? 0 : 0.38, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <header className={classes.drawerHead}>
+                  <div className={classes.drawerTitleWrap}>
+                    <span className={classes.kindChip}>
+                      {selectedCampaign ? <Megaphone size={13} /> : <Users size={13} />}
+                      {selectedCampaign ? 'Campaign' : 'Agent'}
+                    </span>
+                    <h2 className={classes.drawerTitle}>{drawerTitle}</h2>
+                    <p className={classes.cardSub}>
+                      {rangeLabel} · {tzLabel}
+                      {selectedAgentRow && typeof selectedAgentRow.walletBalanceCents === 'number'
+                        ? <> · <Wallet size={12} className={classes.inlineIcon} /> {money(selectedAgentRow.walletBalanceCents / 100)} balance</>
+                        : null}
+                    </p>
+                  </div>
+                  <button type="button" className={classes.closeBtn} onClick={closeDrawer} aria-label="Close drilldown"><X size={18} /></button>
+                </header>
+
+                <div className={classes.drawerBody}>
+                  {drilldownLoading ? (
+                    <div className={classes.drawerSkeleton}>
+                      <div className={classes.miniKpis}><span /><span /><span /></div>
+                      <span className={classes.skelChart} />
+                      <span className={classes.skelLine} /><span className={classes.skelLine} /><span className={classes.skelLine} />
+                    </div>
+                  ) : !drilldown ? (
+                    <div className={classes.empty}>
+                      <TrendingUp size={28} />
+                      <h4>No drilldown data</h4>
+                      <p>Nothing was returned for this selection and range.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className={classes.miniKpis}>
+                        <div className={classes.miniKpi}><span>Calls</span><b>{drilldown.summary?.calls ?? 0}</b></div>
+                        <div className={classes.miniKpi}><span>Answer rate</span><b>{pct(drilldown.summary?.answerRate)}%</b></div>
+                        <div className={classes.miniKpi}><span>Billable rate</span><b>{pct(drilldown.summary?.billableRate)}%</b></div>
+                      </div>
+
+                      <section className={classes.drawerSection}>
+                        <h3 className={classes.miniTitle}>Daily trend</h3>
+                        <AdminDrilldownTrendChart data={drilldown.trend} loading={false} reduceMotion={reduceMotion} />
+                      </section>
+
+                      <section className={classes.drawerSection}>
+                        <div className={classes.callsHead}>
+                          <h3 className={classes.miniTitle}>
+                            Recent calls <span className={classes.countPill}>{filteredSortedDrilldownLogs.length}</span>
+                          </h3>
+                          <div className={classes.callsTools}>
+                            <CustomSelect options={SORT_FIELD_OPTIONS} value={drilldownSortField} onChange={setDrilldownSortField} menuAlign="right" />
+                            <CustomSelect
+                              options={[
+                                { value: 'desc', label: drilldownSortField === 'duration' ? 'Longest first' : 'Newest first' },
+                                { value: 'asc', label: drilldownSortField === 'duration' ? 'Shortest first' : 'Oldest first' },
+                              ]}
+                              value={drilldownSortOrder}
+                              onChange={setDrilldownSortOrder}
+                              menuAlign="right"
+                            />
+                            <input
+                              type="date"
+                              className={classes.dateInput}
+                              value={drilldownDay}
+                              onChange={(e) => setDrilldownDay(e.target.value)}
+                              aria-label="Filter calls by day"
+                            />
+                            {drilldownDay ? (
+                              <button type="button" className={classes.linkBtn} onClick={() => setDrilldownDay('')}>Clear day</button>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        {(!drilldown.recentLogs || drilldown.recentLogs.length === 0) ? (
+                          <p className={classes.muted}>No calls in this range.</p>
+                        ) : (
+                          <div className={classes.tableScroll}>
+                            <table className={`${classes.table} ${classes.callsTable}`}>
+                              <thead>
+                                <tr>
+                                  <th scope="col">Call</th>
+                                  <th scope="col">{selectedCampaign ? 'Agent' : 'Campaign'}</th>
+                                  <th scope="col" className={classes.thRight}>Duration</th>
+                                  <th scope="col">Status</th>
+                                  <th scope="col">Disposition</th>
+                                  <th scope="col" className={classes.thRight}>Cost</th>
+                                  <th scope="col">Contest</th>
+                                  <th scope="col"><span className={classes.srOnly}>Recording</span></th>
+                                  <th scope="col"><span className={classes.srOnly}>Actions</span></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {filteredSortedDrilldownLogs.map((log) => {
+                                  const created = log.createdAt ? new Date(log.createdAt) : null;
+                                  const canSeeCaller = log.cost > 0 || log.isBillable;
+                                  return (
+                                    <tr key={log.id} className={classes.callRow}>
+                                      <td>
+                                        <span className={classes.callCell}>
+                                          <span className={classes.callWhen}>
+                                            {created ? created.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}
+                                            {created ? <em>{created.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</em> : null}
+                                          </span>
+                                          <span className={classes.callFrom}>
+                                            {canSeeCaller
+                                              ? (log.from || log.customerPhone || <span className={classes.muted}>Unknown caller</span>)
+                                              : <span className={classes.muted}>Caller hidden</span>}
+                                          </span>
+                                        </span>
+                                      </td>
+                                      <td>
+                                        {selectedCampaign ? (
+                                          <details className={classes.agentReveal}>
+                                            <summary title="Show agent phone">
+                                              <span className={classes.agentName}>{getAgentName(log)}</span>
+                                              {getAgentName(log) !== getAgentId(log) ? <span className={classes.agentId}>{getAgentId(log)}</span> : null}
+                                            </summary>
+                                            {log.phone
+                                              ? <a href={`tel:${log.phone}`} className={classes.phoneLink}>{log.phone}</a>
+                                              : <span className={classes.muted}>No phone</span>}
+                                          </details>
+                                        ) : (
+                                          <span className={classes.campaignName} title={log.campaign}>{log.campaign}</span>
+                                        )}
+                                      </td>
+                                      <td className={classes.num}><Clock3 size={12} className={classes.inlineIcon} />{log.duration}s</td>
+                                      <td>
+                                        <span className={classes.pillStack}>
+                                          {log.isBillable ? (
+                                            <span className={`${shared.drillPill} ${shared.dispSold}`}>Billable</span>
+                                          ) : log.status === 'completed' ? (
+                                            <span className={`${shared.drillPill} ${shared.dispAnswered}`}>Answered</span>
+                                          ) : (
+                                            <span className={`${shared.drillPill} ${shared.dispMissed}`}>Missed</span>
+                                          )}
+                                          {log.qaAudioReview?.status ? (
+                                            <span className={`${shared.drillPill} ${
+                                              log.qaAudioReview.status === 'pending_review' ? shared.dispAnswered
+                                                : log.qaAudioReview.status === 'confirmed' ? shared.dispMissed
+                                                  : shared.dispSold
+                                            }`}>
+                                              AI {String(log.qaAudioReview.status).replace('_', ' ')}
+                                            </span>
+                                          ) : null}
+                                        </span>
+                                      </td>
+                                      <td>
+                                        <CallLogDispositionBadge
+                                          log={log}
+                                          editable
+                                          loading={updatingDispositionId === log.id}
+                                          onUpdate={handleDispositionUpdate}
+                                        />
+                                      </td>
+                                      <td className={classes.num}>{log.cost > 0 ? money(log.cost) : <span className={classes.muted}>—</span>}</td>
+                                      <td>
+                                        {log.refunded ? (
+                                          <span className={`${shared.drillPill} ${shared.dispSold}`}>Credited</span>
+                                        ) : log.contestStatus === 'pending' ? (
+                                          <span className={`${shared.drillPill} ${shared.dispAnswered}`}>Pending</span>
+                                        ) : log.contestStatus === 'denied' ? (
+                                          <span className={`${shared.drillPill} ${shared.dispMissed}`}>Denied</span>
+                                        ) : (
+                                          <span className={classes.muted}>—</span>
+                                        )}
+                                      </td>
+                                      <td>
+                                        {(log.recordingSid || log.recordingUrl) ? (
+                                          <button type="button" className={classes.iconBtn} onClick={() => setActiveRecording(log)} aria-label="Play recording" title="Play recording">
+                                            <Play size={14} />
+                                          </button>
+                                        ) : null}
+                                      </td>
+                                      <td>
+                                        {log.isBillable && log.cost > 0 && !log.refunded && log.contestStatus !== 'pending' ? (
+                                          <button
+                                            type="button"
+                                            className={classes.refundBtn}
+                                            disabled={refundingLogId === log.id}
+                                            onClick={() => openRefundCallModal(log)}
+                                          >
+                                            {refundingLogId === log.id ? '…' : 'Refund'}
+                                          </button>
+                                        ) : null}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                                {filteredSortedDrilldownLogs.length === 0 ? (
+                                  <tr><td colSpan={9} className={classes.muted}>No calls found for the selected day.</td></tr>
+                                ) : null}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                        <p className={classes.metaLine}>
+                          Source: {drilldown.meta?.source || 'n/a'} · Rows: {drilldown.meta?.rowCount ?? 0}
+                          {drilldown.meta?.generatedAt ? ` · Updated ${new Date(drilldown.meta.generatedAt).toLocaleTimeString()}` : ''}
+                        </p>
+                      </section>
+                    </>
+                  )}
+                </div>
+              </motion.aside>
+            </>
+          ) : null}
+        </AnimatePresence>,
+        document.body,
+      )}
 
       {activeRecording && (
         <RecordingModal log={activeRecording} onClose={() => setActiveRecording(null)} />
