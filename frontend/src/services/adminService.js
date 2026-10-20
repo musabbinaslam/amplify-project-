@@ -172,7 +172,7 @@ export function getAdminManager(uid, params = {}) {
 }
 
 export function flagAdminAgent(agentId, reason) {
-  return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/flag`, { method: 'POST', body: JSON.stringify({ reason }) });
+  return apiFetch(`/api/admin/agents/${encodeURIComponent(agentId)}/flag`, { method: 'POST', body: { reason } });
 }
 
 export function resumeAdminAgent(agentId) {
