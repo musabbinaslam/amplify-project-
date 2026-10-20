@@ -3,17 +3,18 @@ import { createPortal } from 'react-dom';
 import {
   TrendingUp, Phone, RefreshCw, Activity, CircleDollarSign, Play, FileSpreadsheet,
   BadgeCheck, Search, X, ChevronRight, ChevronUp, ChevronDown, Megaphone, Users,
-  CalendarDays, Clock3, Wallet, Flag,
+  CalendarDays, Clock3, Wallet, Flag, UserPlus, AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
-  ResponsiveContainer, ComposedChart, Bar, Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, ComposedChart, BarChart, Bar, Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip,
 } from 'recharts';
 import {
   getAdminOverviewLite,
   getAdminAnalyticsBundle,
   getAdminAnalyticsDrilldown,
+  getAdminSignupAnalytics,
   refundAdminCall,
   listAdminCallContests,
   updateAdminCallLogDisposition,
@@ -97,6 +98,17 @@ const initialsOf = (name) => String(name || '?')
   .slice(0, 2)
   .map((p) => p[0]?.toUpperCase())
   .join('') || '?';
+
+const VERTICAL_COLORS = {
+  'final expense': 'var(--brand-text)',
+  'spanish final expense': 'color-mix(in srgb, var(--brand-text) 45%, var(--accent-cyan))',
+  medicare: 'var(--accent-cyan)',
+  aca: 'var(--accent-yellow)',
+  leads: '#a78bfa',
+  'not specified': 'color-mix(in srgb, var(--text-primary) 28%, transparent)',
+};
+const FALLBACK_COLORS = ['#f472b6', '#fb923c', '#60a5fa', '#34d399'];
+const verticalColor = (name, i = 0) => VERTICAL_COLORS[String(name || '').toLowerCase()] || FALLBACK_COLORS[i % FALLBACK_COLORS.length];
 
 /* eslint-disable react/prop-types -- small page-local presentational components */
 
@@ -224,6 +236,35 @@ function VolumeChart({ data, mode, reduceMotion }) {
     </ResponsiveContainer>
   );
 }
+function SignupTrendChart({ byDay, verticals, reduceMotion }) {
+  const rows = useMemo(() => (byDay || []).map((d) => ({ day: d.day, ...(d.byVertical || {}) })), [byDay]);
+  const axis = { tick: { fill: 'var(--text-secondary)', fontSize: 12 }, axisLine: false, tickLine: false };
+  return (
+    <ResponsiveContainer width="100%" height={240}>
+      <BarChart data={rows} margin={{ top: 8, right: 4, left: -24, bottom: 0 }} barCategoryGap="30%">
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+        <XAxis dataKey="day" tickFormatter={formatDay} {...axis} />
+        <YAxis allowDecimals={false} {...axis} />
+        <Tooltip
+          contentStyle={TOOLTIP_STYLE}
+          labelFormatter={formatDay}
+          cursor={{ fill: 'color-mix(in srgb, var(--text-primary) 5%, transparent)' }}
+        />
+        {verticals.map((v, i) => (
+          <Bar
+            key={v.vertical}
+            dataKey={v.vertical}
+            stackId="signups"
+            fill={verticalColor(v.vertical, i)}
+            radius={i === verticals.length - 1 ? [5, 5, 0, 0] : [0, 0, 0, 0]}
+            isAnimationActive={!reduceMotion}
+            animationDuration={700}
+          />
+        ))}
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
 /* eslint-enable react/prop-types */
 
 export default function AdminAnalyticsPage() {
@@ -265,6 +306,9 @@ export default function AdminAnalyticsPage() {
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [contestFilter] = useState('pending');
   const [chartMode, setChartMode] = useState('volume');
+  const [signupStats, setSignupStats] = useState(null);
+  const [signupLoading, setSignupLoading] = useState(true);
+  const [signupError, setSignupError] = useState('');
   const [breakdownTab, setBreakdownTab] = useState('campaigns');
   const [campaignSort, setCampaignSort] = useState({ key: 'calls', dir: 'desc' });
   const [agentSort, setAgentSort] = useState({ key: 'calls', dir: 'desc' });
@@ -323,6 +367,21 @@ export default function AdminAnalyticsPage() {
     }
   }, [getRange, timezone]);
 
+  const loadSignups = useCallback(async () => {
+    setSignupLoading(true);
+    setSignupError('');
+    try {
+      const range = getRange();
+      const out = await getAdminSignupAnalytics({ ...range, tz: timezone });
+      setSignupStats(out);
+    } catch (e) {
+      setSignupStats(null);
+      setSignupError(e.message || 'Failed to load signup analytics');
+    } finally {
+      setSignupLoading(false);
+    }
+  }, [getRange, timezone]);
+
   const loadDrilldown = useCallback(async (type, id) => {
     if (!type || !id) {
       setDrilldown(null);
@@ -360,6 +419,10 @@ export default function AdminAnalyticsPage() {
   useEffect(() => {
     loadAnalytics();
   }, [loadAnalytics, timezone]);
+
+  useEffect(() => {
+    loadSignups();
+  }, [loadSignups]);
 
   const drawerOpen = Boolean(selectedCampaign || selectedAgent);
 
@@ -615,7 +678,7 @@ export default function AdminAnalyticsPage() {
 
   const refreshAll = async () => {
     await loadShell();
-    await loadAnalytics();
+    await Promise.all([loadAnalytics(), loadSignups()]);
   };
 
   if (loading && !overview) return <PageLoader />;
@@ -717,6 +780,18 @@ export default function AdminAnalyticsPage() {
             loading={analyticsLoading}
             variants={presets.child}
           />
+          <KpiCard
+            label="New signups"
+            icon={UserPlus}
+            value={signupStats?.summary?.signups ?? 0}
+            foot={signupError
+              ? 'Unavailable'
+              : `${signupStats?.summary?.spendingAgents ?? 0} started spending · ${pct(signupStats?.summary?.conversionRate)}%`}
+            spark={(signupStats?.byDay || []).map((d) => d.total)}
+            tone="violet"
+            loading={signupLoading}
+            variants={presets.child}
+          />
         </div>
 
         {/* ── Trend + outcome mix ──────────────────────────────── */}
@@ -784,6 +859,97 @@ export default function AdminAnalyticsPage() {
             )}
           </motion.section>
         </div>
+
+
+        {/* ── Signups by vertical ──────────────────────────────── */}
+        <motion.section className={`glass ${classes.card}`} variants={presets.child} aria-labelledby="signups-title">
+          <div className={classes.cardHead}>
+            <div>
+              <h2 id="signups-title" className={classes.cardTitle}>Signups by vertical</h2>
+              <p className={classes.cardSub}>New agents who finished signup in {rangeLabel.toLowerCase()}, by the vertical they picked, and the call spend they generated.</p>
+            </div>
+            {!signupLoading && signupStats ? (
+              <div className={classes.signupChips}>
+                <span className={classes.signupChip}><b>{signupStats.summary?.signups ?? 0}</b> signups</span>
+                <span className={classes.signupChip}><b>{money(signupStats.summary?.revenue)}</b> revenue</span>
+                <span className={classes.signupChip}><b>{money(signupStats.summary?.revenuePerSignup)}</b> per signup</span>
+              </div>
+            ) : null}
+          </div>
+
+          {signupLoading ? (
+            <div className={classes.mixSkeleton}><span /><span /><span /><span /></div>
+          ) : signupError ? (
+            <div className={classes.empty}>
+              <AlertTriangle size={26} />
+              <h4>Signup data couldn&apos;t load</h4>
+              <p>{signupError}</p>
+              <button type="button" className={classes.ghostBtn} onClick={loadSignups}><RefreshCw size={15} /> Try again</button>
+            </div>
+          ) : !signupStats?.summary?.signups ? (
+            <div className={classes.empty}>
+              <UserPlus size={26} />
+              <h4>No new signups in this range</h4>
+              <p>Try a wider date range.</p>
+            </div>
+          ) : (
+            <>
+              <div className={classes.signupGrid}>
+                <div className={classes.tableScroll}>
+                  <table className={`${classes.table} ${classes.signupTable}`}>
+                    <thead>
+                      <tr>
+                        <th scope="col">Vertical</th>
+                        <th scope="col">Signups</th>
+                        <th scope="col" className={classes.thRight}>Spending</th>
+                        <th scope="col" className={classes.thRight}>Conversion</th>
+                        <th scope="col" className={classes.thRight}>Revenue</th>
+                        <th scope="col" className={classes.thRight}>Per signup</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {signupStats.verticals.map((v, i) => (
+                        <tr key={v.vertical}>
+                          <td>
+                            <span className={classes.nameCell}>
+                              <span className={classes.campaignDot} style={{ background: verticalColor(v.vertical, i) }} />
+                              {v.vertical}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={classes.rateCell}>
+                              <span className={classes.rateNum}>{v.signups}</span>
+                              <span className={classes.rateTrack} aria-hidden>
+                                <span className={classes.rateFill} style={{ width: `${Math.max(2, (v.share || 0) * 100)}%`, background: verticalColor(v.vertical, i) }} />
+                              </span>
+                            </span>
+                          </td>
+                          <td className={classes.num}>{v.spendingAgents}</td>
+                          <td className={classes.num}>{pct(v.conversionRate)}%</td>
+                          <td className={classes.num}><span className={classes.spend}>{money(v.revenue)}</span></td>
+                          <td className={classes.num}>{money(v.revenuePerSignup)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className={classes.signupChart}>
+                  <div className={classes.legend}>
+                    {signupStats.verticals.map((v, i) => (
+                      <span key={v.vertical}><i style={{ background: verticalColor(v.vertical, i) }} />{v.vertical}</span>
+                    ))}
+                  </div>
+                  <SignupTrendChart byDay={signupStats.byDay} verticals={signupStats.verticals} reduceMotion={reduceMotion} />
+                </div>
+              </div>
+              <p className={classes.metaLine}>
+                Signup = onboarding completed in this range. Revenue = call spend by those new agents in the same range.
+                Agents who picked more than one vertical are counted in each.
+                {signupStats.meta?.truncated ? ' Showing the first 5,000 signups only.' : ''}
+              </p>
+            </>
+          )}
+        </motion.section>
 
         {/* ── Breakdown ────────────────────────────────────────── */}
         <motion.section className={`glass ${classes.card}`} variants={presets.child} aria-labelledby="breakdown-title">

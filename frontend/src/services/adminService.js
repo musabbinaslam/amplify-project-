@@ -17,6 +17,15 @@ export function getAdminAnalyticsBundle({ from, to, tz } = {}) {
   return apiFetch(`/api/admin/analytics-bundle${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
 }
 
+export function getAdminSignupAnalytics({ from, to, tz } = {}) {
+  const qs = new URLSearchParams();
+  if (from) qs.set('from', from);
+  if (to) qs.set('to', to);
+  if (tz) qs.set('tz', tz);
+  else { try { const defaultTz = Intl.DateTimeFormat().resolvedOptions().timeZone; if (defaultTz) qs.set('tz', defaultTz); } catch { /* noop */ } }
+  return apiFetch(`/api/admin/signup-analytics${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
+}
+
 export function listAdminAgentsDirectory({ from, to } = {}) {
   const qs = new URLSearchParams();
   if (from) qs.set('from', from);

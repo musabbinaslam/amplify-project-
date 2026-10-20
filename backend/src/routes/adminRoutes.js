@@ -15,6 +15,7 @@ router.get('/call-trace', getCallTrace);
 router.get('/users/all-lite', adminController.listAllUsersLite);
 router.get('/analytics-bundle', adminController.getAnalyticsBundle);
 router.get('/analytics-drilldown', adminController.getAnalyticsDrilldown);
+router.get('/signup-analytics', adminController.getSignupAnalytics);
 router.get('/live-calls', adminController.getLiveCalls);
 router.get('/agents', adminController.listAgentsDirectory);
 router.post('/agents/:agentId/force-remove', adminController.forceRemoveAgent);
