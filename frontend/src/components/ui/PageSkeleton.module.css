@@ -1,61 +1,168 @@
 .root {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
   width: 100%;
-  padding: 4px 0;
+  min-width: 0;
 }
 
-.row {
+.bone {
+  display: block;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in srgb, var(--brand-text) 22%, transparent) 45%,
+    transparent 70%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: boneSweep 1.6s ease-in-out infinite;
+}
+
+.card,
+.list {
+  padding: 18px 20px;
+}
+
+.kpiGrid {
   display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
-.kpis {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.kpiTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
-.charts {
+.icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+}
+
+.kpiValue {
+  width: 46%;
+  height: 28px;
+  margin-bottom: 16px;
+}
+
+.spark {
+  width: 100%;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.chartGrid {
+  display: grid;
   grid-template-columns: 2fr 1fr;
+  gap: 16px;
 }
 
-.block {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
-  border: 1px solid var(--glass-border);
+.chartLg,
+.chartSm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 280px;
 }
 
-.block::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  transform: translateX(-100%);
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--text-primary) 6%, transparent),
-    transparent
-  );
-  animation: skeletonShimmer 1.4s ease-in-out infinite;
+.chartArea {
+  flex: 1;
+  width: 100%;
+  min-height: 180px;
+  border-radius: 16px;
 }
 
-@keyframes skeletonShimmer {
-  to { transform: translateX(100%); }
+.donut {
+  width: 140px;
+  height: 140px;
+  margin: 24px auto 0;
+  border-radius: 50%;
 }
 
-.kpi { height: 112px; }
-.chartLg { height: 300px; }
-.chartSm { height: 300px; }
-.toolbar { height: 52px; }
-.tableRow { height: 48px; }
+.podium {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr 1fr;
+  gap: 14px;
+  align-items: end;
+}
+
+.podiumCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 16px 18px;
+}
+
+.podiumCenter {
+  padding-top: 28px;
+  padding-bottom: 26px;
+}
+
+.avatar,
+.avatarLg {
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+}
+
+.avatarLg {
+  width: 56px;
+  height: 56px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+}
+
+.rankRow {
+  display: grid;
+  grid-template-columns: 28px 36px minmax(0, 1fr) 72px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rank { width: 22px; height: 12px; }
+.lineLg { width: 62%; height: 12px; }
+.lineMd { width: 48%; height: 14px; }
+.lineSm { width: 34%; height: 10px; }
+.metric { width: 56px; height: 22px; border-radius: 8px; justify-self: end; }
+
+@keyframes boneSweep {
+  0% { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
 
 @media (max-width: 900px) {
-  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .charts { grid-template-columns: 1fr; }
+  .kpiGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .chartGrid,
+  .podium { grid-template-columns: 1fr; }
+  .podiumCenter { order: -1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .block::after { animation: none; }
+  .bone { animation: none; }
 }

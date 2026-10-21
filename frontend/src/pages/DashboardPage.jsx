@@ -10,7 +10,6 @@ import useAuthStore from '../store/authStore';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { fetchDashboardSummary } from '../services/dashboardService';
 import { queryKeys, useCampaignPricingQuery } from '../queries';
-import PageSkeleton from '../components/ui/PageSkeleton';
 import NumberPopIn from '../components/ui/NumberPopIn';
 import ShimmerText from '../components/ui/ShimmerText';
 import SlidingTabs from '../components/ui/SlidingTabs';
@@ -212,7 +211,7 @@ const Sparkline = ({ data, dataKey }) => {
   );
 };
 
-const KpiCard = ({ title, displayValue, icon: Icon, spark, sparkKey, delta, variants }) => {
+const KpiCard = ({ title, displayValue, icon: Icon, spark, sparkKey, delta, variants, loading }) => {
   const reduceMotion = useReducedMotion();
   return (
     <motion.div
@@ -223,18 +222,20 @@ const KpiCard = ({ title, displayValue, icon: Icon, spark, sparkKey, delta, vari
     >
       <div className={classes.kpiTop}>
         <div className={classes.kpiIcon}><Icon size={18} /></div>
-        <TrendPill delta={delta} />
+        {loading ? <span className={`${classes.shimmer} ${classes.shimmerPill}`} /> : <TrendPill delta={delta} />}
       </div>
       <div className={classes.kpiTitle}>{title}</div>
-      <div className={classes.kpiValue}>{displayValue}</div>
-      <Sparkline data={spark} dataKey={sparkKey} />
+      <div className={classes.kpiValue}>
+        {loading ? <span className={`${classes.shimmer} ${classes.shimmerValue}`} /> : displayValue}
+      </div>
+      {loading ? null : <Sparkline data={spark} dataKey={sparkKey} />}
     </motion.div>
   );
 };
 
-const Gauge = ({ label, value, sub, gradId }) => {
+const Gauge = ({ label, value, sub, gradId, loading }) => {
   const reduceMotion = useReducedMotion();
-  const safe = Math.max(0, Math.min(100, value || 0));
+  const safe = loading ? 0 : Math.max(0, Math.min(100, value || 0));
   const gaugeData = [{ name: label, value: safe }];
   return (
     <div className={`glass ${classes.gaugeCard}`}>
@@ -266,24 +267,28 @@ const Gauge = ({ label, value, sub, gradId }) => {
         </ResponsiveContainer>
         <div className={classes.gaugeCenter}>
           <div className={classes.gaugeValue}>
-            <CountUp value={safe} suffix="%" />
+            {loading ? <span className={`${classes.shimmer} ${classes.shimmerValue}`} /> : <CountUp value={safe} suffix="%" />}
           </div>
           <div className={classes.gaugeCenterLabel}>{label}</div>
         </div>
       </div>
-      <div className={classes.gaugeSub}>{sub}</div>
+      <div className={classes.gaugeSub}>
+        {loading ? <span className={`${classes.shimmer} ${classes.shimmerLine}`} /> : sub}
+      </div>
     </div>
   );
 };
 
-const StatTile = ({ title, value, icon: Icon, sub }) => (
+const StatTile = ({ title, value, icon: Icon, sub, loading }) => (
   <div className={`glass ${classes.statTile}`}>
     <div className={classes.statTileHeader}>
       <span className={classes.statTileTitle}>{title}</span>
       <div className={classes.statTileIcon}><Icon size={18} /></div>
     </div>
     <div className={classes.statTileValue}>
-      {typeof value === 'number' || typeof value === 'string' ? (
+      {loading ? (
+        <span className={`${classes.shimmer} ${classes.shimmerValue}`} />
+      ) : typeof value === 'number' || typeof value === 'string' ? (
         <NumberPopIn value={value} />
       ) : (
         value
@@ -425,8 +430,6 @@ const DashboardPage = () => {
 
   const hasChartData = chartData.some((d) => d.sales !== 0 || d.calls !== 0);
 
-  if (loading) return <PageSkeleton variant="dashboard" />;
-
   return (
     <motion.div
       className={classes.dashboard}
@@ -445,6 +448,7 @@ const DashboardPage = () => {
           sparkKey="calls"
           delta={deltas.todayCalls}
           variants={presets.child}
+          loading={loading}
         />
         <KpiCard
           title={period}
@@ -454,6 +458,7 @@ const DashboardPage = () => {
           sparkKey="calls"
           delta={deltas.totalCalls}
           variants={presets.child}
+          loading={loading}
         />
         <KpiCard
           title="Answer Rate"
@@ -463,6 +468,7 @@ const DashboardPage = () => {
           sparkKey="calls"
           delta={deltas.answerRate}
           variants={presets.child}
+          loading={loading}
         />
         <KpiCard
           title="Conversions"
@@ -472,6 +478,7 @@ const DashboardPage = () => {
           sparkKey="sales"
           delta={deltas.sales}
           variants={presets.child}
+          loading={loading}
         />
       </motion.div>
 
@@ -492,11 +499,11 @@ const DashboardPage = () => {
       </motion.div>
 
       <motion.div className={classes.perfBand} variants={presets.child}>
-        <Gauge label="Answer Rate" value={metrics.answerRate} sub={`${metrics.answeredCalls} of ${metrics.totalCalls} calls`} gradId="gaugeAnswer" />
-        <Gauge label="Close Rate" value={metrics.bufferHitRate} sub="Answered calls converted" gradId="gaugeClose" />
+        <Gauge label="Answer Rate" value={metrics.answerRate} sub={`${metrics.answeredCalls} of ${metrics.totalCalls} calls`} gradId="gaugeAnswer" loading={loading} />
+        <Gauge label="Close Rate" value={metrics.bufferHitRate} sub="Answered calls converted" gradId="gaugeClose" loading={loading} />
         <div className={classes.tileStack}>
-          <StatTile title="Spend" value={`$${metrics.spend.toFixed(2)}`} icon={DollarSign} sub="Total cost on conversions" />
-          <StatTile title="Talk Time" value={formatTotalTalkTime(metrics.totalTalkTimeSecs)} icon={Clock} sub="Time speaking to prospects" />
+          <StatTile title="Spend" value={`$${metrics.spend.toFixed(2)}`} icon={DollarSign} sub="Total cost on conversions" loading={loading} />
+          <StatTile title="Talk Time" value={formatTotalTalkTime(metrics.totalTalkTimeSecs)} icon={Clock} sub="Time speaking to prospects" loading={loading} />
         </div>
       </motion.div>
 
@@ -507,7 +514,9 @@ const DashboardPage = () => {
               <div className={classes.chartIcon}><TrendingUp size={16} /></div>
               <div>
                 <div className={classes.chartTitle}>Calls & Conversions</div>
-                <div className={classes.chartValue}>{metrics.totalCalls} <span className={classes.chartValueSub}>calls</span></div>
+                <div className={classes.chartValue}>
+                  {loading ? <span className={`${classes.shimmer} ${classes.shimmerLine}`} /> : <>{metrics.totalCalls} <span className={classes.chartValueSub}>calls</span></>}
+                </div>
               </div>
             </div>
             <div className={classes.chartLegend}>
@@ -516,7 +525,9 @@ const DashboardPage = () => {
             </div>
           </div>
           <div className={classes.chartContainer}>
-            {!hasChartData ? (
+            {loading ? (
+              <span className={`${classes.shimmer} ${classes.shimmerChart}`} />
+            ) : !hasChartData ? (
               <div className={classes.chartEmpty}>No calls in this period yet.</div>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
@@ -549,11 +560,15 @@ const DashboardPage = () => {
               <div className={classes.chartIcon}><PhoneIncoming size={16} /></div>
               <div>
                 <div className={classes.chartTitle}>Dispositions</div>
-                <div className={classes.chartValue}>{dispositionTotal} <span className={classes.chartValueSub}>calls</span></div>
+                <div className={classes.chartValue}>
+                  {loading ? <span className={`${classes.shimmer} ${classes.shimmerLine}`} /> : <>{dispositionTotal} <span className={classes.chartValueSub}>calls</span></>}
+                </div>
               </div>
             </div>
           </div>
-          {dispositionTotal === 0 ? (
+          {loading ? (
+            <span className={`${classes.shimmer} ${classes.shimmerDonut}`} />
+          ) : dispositionTotal === 0 ? (
             <div className={classes.chartEmpty}>No calls in this period yet.</div>
           ) : (
             <div className={classes.donutBody}>
@@ -627,7 +642,29 @@ const DashboardPage = () => {
           <button className={classes.viewAllBtn} onClick={() => navigate('/app/call-logs')}>View All</button>
         </div>
         <div className={classes.callsTable}>
-          {recentCalls.length === 0 ? (
+          {loading ? (
+            <table>
+              <thead>
+                <tr>
+                  <th>From</th>
+                  <th>Campaign</th>
+                  <th>Type</th>
+                  <th>Duration</th>
+                  <th>Time</th>
+                  <th>Disposition</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 5 }, (_, i) => (
+                  <tr key={i}>
+                    {Array.from({ length: 6 }, (_, j) => (
+                      <td key={j}><span className={`${classes.shimmer} ${classes.shimmerRow}`} /></td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : recentCalls.length === 0 ? (
             <div className={classes.emptyState}>No calls in this period yet.</div>
           ) : (
             <table>

@@ -17,6 +17,15 @@ export function getAdminAnalyticsBundle({ from, to, tz } = {}) {
   return apiFetch(`/api/admin/analytics-bundle${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
 }
 
+export function getAdminSignupAnalytics({ from, to, tz } = {}) {
+  const qs = new URLSearchParams();
+  if (from) qs.set('from', from);
+  if (to) qs.set('to', to);
+  if (tz) qs.set('tz', tz);
+  else { try { const defaultTz = Intl.DateTimeFormat().resolvedOptions().timeZone; if (defaultTz) qs.set('tz', defaultTz); } catch { /* noop */ } }
+  return apiFetch(`/api/admin/signup-analytics${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'GET' });
+}
+
 export function listAdminAgentsDirectory({ from, to } = {}) {
   const qs = new URLSearchParams();
   if (from) qs.set('from', from);
@@ -335,6 +344,11 @@ export async function downloadAdminExcelReport(params = {}) {
 
 export function getMedicareRetargetStats() {
   return apiFetch('/api/admin/medicare-retarget/stats', { method: 'GET' });
+}
+
+export function discoverMedicareRetargetUsers({ dryRun = false } = {}) {
+  const qs = dryRun ? '?dryRun=1' : '';
+  return apiFetch(`/api/admin/medicare-retarget/discover${qs}`, { method: 'POST' });
 }
 
 export function listMedicareRetargetUsers({ status = 'all', page = 1, pageSize = 25 } = {}) {

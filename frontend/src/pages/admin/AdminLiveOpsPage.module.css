@@ -1,0 +1,1256 @@
+/* Live Operations — layout and components. Theme-aware via global tokens.
+   Shares its visual language with AdminAnalyticsPage.module.css. */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.muted {
+  color: var(--text-tertiary);
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Status palette (one place) */
+.dot_available, .mix_available { background: var(--brand-text); }
+.dot_incall, .mix_incall { background: var(--accent-cyan); }
+.dot_ringing, .mix_ringing { background: var(--accent-yellow); }
+.dot_wrapup, .mix_wrapup { background: #a78bfa; }
+.dot_paused, .mix_paused { background: color-mix(in srgb, var(--text-primary) 30%, transparent); }
+.dot_unknown, .mix_unknown { background: color-mix(in srgb, var(--accent-red) 70%, transparent); }
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.headerActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ghostBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 60%, transparent);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.ghostBtn:hover:not(:disabled) {
+  background: var(--surface-container-high);
+  border-color: color-mix(in srgb, var(--brand-text) 22%, var(--glass-border));
+}
+
+.ghostBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.linkBtn {
+  background: none;
+  border: 0;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-text);
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.linkBtn:hover {
+  text-decoration: underline;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.iconBtn:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+}
+
+.removeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent-red) 30%, transparent);
+  background: color-mix(in srgb, var(--accent-red) 8%, transparent);
+  color: var(--accent-red);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.removeBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-red) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent-red) 55%, transparent);
+}
+
+.removeBtn:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.ghostBtn:focus-visible,
+.linkBtn:focus-visible,
+.iconBtn:focus-visible,
+.removeBtn:focus-visible,
+.campaignRow:focus-visible,
+.agentPhone:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--brand-dim);
+}
+
+/* ── Live status bar ─────────────────────────────────────── */
+.statusBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+  padding: 10px 16px 10px 10px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+  background: color-mix(in srgb, var(--surface-container-low) 82%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  font-size: 13px;
+}
+
+.statusMain,
+.statusMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.statusMeta {
+  color: var(--text-tertiary);
+}
+
+.statusMeta b {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.statusMeta code {
+  margin-left: 2px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.liveBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand-text);
+  background: var(--brand-dim);
+}
+
+.livePulse {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-text);
+}
+
+.livePulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--brand-text);
+  animation: ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.updated {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.statusMain .muted {
+  font-variant-numeric: tabular-nums;
+}
+
+.dotBusy {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-yellow);
+  animation: blink 1s ease-in-out infinite;
+}
+
+/* ── KPI cards ───────────────────────────────────────────── */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.kpi {
+  padding: 18px 18px 16px;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.kpiHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kpiLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.kpiIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-dim);
+  color: var(--brand-text);
+}
+
+.tone_cyan {
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+  color: var(--accent-cyan);
+}
+
+.tone_neutral {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  color: var(--text-primary);
+}
+
+.tone_violet {
+  background: color-mix(in srgb, #a78bfa 16%, transparent);
+  color: #a78bfa;
+}
+
+.tone_yellow {
+  background: color-mix(in srgb, var(--accent-yellow) 16%, transparent);
+  color: var(--accent-yellow);
+}
+
+.kpiValue {
+  font-size: clamp(26px, 2.4vw, 34px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  min-height: 36px;
+}
+
+.kpiValueLive {
+  letter-spacing: -0.01em;
+}
+
+.kpiFoot {
+  min-height: 18px;
+}
+
+.kpiFootText {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+
+.skelValue,
+.skelLine,
+.skelRow td span,
+.callSkeleton span {
+  display: block;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  animation: shimmer 1.4s linear infinite;
+}
+
+.skelValue {
+  width: 60%;
+  height: 32px;
+}
+
+.skelLine {
+  width: 70%;
+  height: 12px;
+}
+
+/* ── Cards ───────────────────────────────────────────────── */
+.bento {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  gap: 14px;
+  margin-bottom: 14px;
+  align-items: start;
+}
+
+.card {
+  padding: 22px 22px 18px;
+  border-radius: 22px;
+  min-width: 0;
+}
+
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.cardSub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.countBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-cyan);
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+}
+
+.miniTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.legendLive { background: var(--brand-text); }
+.legendWarm { background: var(--accent-yellow); }
+.legendHot { background: var(--accent-red); }
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 44px 16px;
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+.emptySm {
+  padding: 24px 12px;
+}
+
+.emptyIcon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.empty h4 {
+  margin: 8px 0 0;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.empty p {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* ── Live calls ──────────────────────────────────────────── */
+.callSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.callSkeleton span {
+  height: 76px;
+  border-radius: 16px;
+}
+
+.callList {
+  container-type: inline-size;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.callRow {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) auto 120px;
+  align-items: center;
+  gap: 12px 18px;
+  padding: 14px 16px 14px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 34%, transparent);
+  overflow: hidden;
+}
+
+.callRow::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--brand-text);
+}
+
+.callRow_warm::before { background: var(--accent-yellow); }
+.callRow_hot::before { background: var(--accent-red); }
+.callRow_muted::before { background: #a78bfa; }
+
+.callAgent,
+.agentCell {
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.avatar {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--surface-container-highest);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+}
+
+.avatarDot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+}
+
+.agentText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.agentName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.agentNameText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agentNameMissing {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.agentName .flag {
+  flex-shrink: 0;
+}
+
+.agentId {
+  display: block;
+  max-width: min(220px, 100%);
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agentPhone {
+  width: fit-content;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--brand-text);
+  text-decoration: none;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.agentPhone:hover {
+  text-decoration: underline;
+}
+
+.agentPhoneNone {
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
+.flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--accent-red);
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent);
+}
+
+.callInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.campaignTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.campaignTag i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--brand-text);
+}
+
+.route {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.route span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.route svg {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.sidLine {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.callStatus {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.startedAt {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.callTime {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.timer {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.timerSm {
+  font-size: 12.5px;
+  letter-spacing: 0;
+  font-weight: 700;
+}
+
+.timer_live { color: var(--brand-text); }
+.timer_warm { color: var(--accent-yellow); }
+.timer_hot { color: var(--accent-red); }
+.timer_muted { color: var(--text-tertiary); }
+
+.timeTrack {
+  width: 100%;
+  height: 4px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  overflow: hidden;
+}
+
+.timeTrack span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 1s linear;
+}
+
+.track_live { background: var(--brand-text); }
+.track_warm { background: var(--accent-yellow); }
+.track_hot { background: var(--accent-red); }
+.track_muted { background: #a78bfa; }
+
+/* Narrower call cards: name + timer on top, details underneath. */
+@container (max-width: 780px) {
+  .callRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px 16px;
+  }
+
+  .callAgent { grid-column: 1; grid-row: 1; }
+  .callTime { grid-column: 2; grid-row: 1; }
+  .callInfo { grid-column: 1; grid-row: 2; }
+
+  .callStatus {
+    grid-column: 2;
+    grid-row: 2;
+    align-items: flex-end;
+    align-self: end;
+  }
+}
+
+@container (max-width: 480px) {
+  .callRow {
+    padding: 14px 14px 14px 16px;
+  }
+
+  .callInfo { grid-column: 1 / -1; }
+
+  .callStatus {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .timer {
+    font-size: 20px;
+  }
+
+  .timeTrack {
+    width: 72px;
+  }
+
+  .callAgent .agentName {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    white-space: normal;
+  }
+}
+
+/* Status pill */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+}
+
+.pill i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pill_available {
+  color: var(--brand-text);
+  background: var(--brand-dim);
+}
+
+.pill_incall {
+  color: var(--accent-cyan);
+  background: color-mix(in srgb, var(--accent-cyan) 13%, transparent);
+}
+
+.pill_ringing {
+  color: var(--accent-yellow);
+  background: color-mix(in srgb, var(--accent-yellow) 15%, transparent);
+}
+
+.pill_ringing i {
+  animation: blink 0.9s ease-in-out infinite;
+}
+
+.pill_wrapup {
+  color: #a78bfa;
+  background: color-mix(in srgb, #a78bfa 15%, transparent);
+}
+
+.pill_unknown {
+  color: var(--accent-red);
+  background: color-mix(in srgb, var(--accent-red) 12%, transparent);
+}
+
+/* ── Pool status side card ───────────────────────────────── */
+.sideCard {
+  display: flex;
+  flex-direction: column;
+}
+
+.mixBar {
+  display: flex;
+  gap: 3px;
+  height: 14px;
+  margin: 4px 0 16px;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.mixBar span {
+  flex-basis: 0;
+  min-width: 0;
+  transition: flex-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mixList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mixList li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto 44px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+.mixList i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.mixList b {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.mixList em {
+  font-style: normal;
+  text-align: right;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.campaignBlock {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.campaignList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.campaignRow {
+  width: calc(100% + 20px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 12px;
+  padding: 8px 10px;
+  margin: 0 -10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.campaignRow:hover {
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+}
+
+.campaignRowActive,
+.campaignRowActive:hover {
+  background: var(--brand-dim);
+}
+
+.campaignName {
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.campaignVal {
+  font-size: 13.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.campaignTrack {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  overflow: hidden;
+}
+
+.campaignTrack span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand-text);
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Agents table ────────────────────────────────────────── */
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 10px 0 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 60%, transparent);
+  color: var(--text-tertiary);
+  min-width: 260px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.search:focus-within {
+  border-color: var(--brand-text);
+  box-shadow: 0 0 0 3px var(--brand-dim);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13.5px;
+}
+
+.search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search button {
+  display: flex;
+  border: 0;
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+}
+
+.tabsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.tabsRow > :first-child {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tableScroll {
+  position: relative;
+  overflow-x: auto;
+  margin: 0 -22px;
+  padding: 0 22px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13.5px;
+  min-width: 860px;
+}
+
+.table th {
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--glass-border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent);
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table tbody tr:not(.skelRow):hover td {
+  background: color-mix(in srgb, var(--text-primary) 3%, transparent);
+}
+
+.skelRow td span {
+  height: 40px;
+}
+
+.campaignCell {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.poolTag {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-border);
+}
+
+.statusCell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.inlineTimer {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 9999px;
+  color: var(--text-tertiary);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 260px;
+}
+
+.stateChip,
+.stateMore {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+}
+
+.stateMore {
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 1px dashed var(--glass-border);
+}
+
+.actionsCell {
+  width: 1%;
+  text-align: right;
+}
+
+/* ── Motion ─────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes ping {
+  0% { transform: scale(1); opacity: 0.7; }
+  80%, 100% { transform: scale(2.6); opacity: 0; }
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 1640px) {
+  .kpiGrid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .kpiGrid > :nth-child(-n + 3) {
+    grid-column: span 2;
+  }
+
+  .kpiGrid > :nth-child(n + 4) {
+    grid-column: span 3;
+  }
+}
+
+@media (max-width: 1200px) {
+  .bento {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .kpiGrid > * {
+    grid-column: auto !important;
+  }
+
+  .kpiGrid > :last-child {
+    grid-column: 1 / -1 !important;
+  }
+
+  .kpi {
+    padding: 14px;
+  }
+
+  .search {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .tools {
+    width: 100%;
+  }
+
+  .card {
+    padding: 18px 16px;
+  }
+
+  .legend {
+    display: none;
+  }
+
+  .tableScroll {
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skelValue,
+  .skelLine,
+  .skelRow td span,
+  .callSkeleton span,
+  .dotBusy,
+  .pill_ringing i,
+  .livePulse::after {
+    animation: none;
+  }
+
+  .timeTrack span,
+  .mixBar span,
+  .campaignTrack span {
+    transition: none;
+  }
+}
+
+.table .agentText {
+  max-width: 280px;
+}

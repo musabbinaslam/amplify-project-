@@ -439,6 +439,12 @@ async function processUser(user, opts = {}) {
     return { action: 'skipped', uid, email, reason: !email ? 'no_email' : !medicare ? 'not_medicare' : state?.status };
   }
 
+  // Do not enroll into pending unless we still have send capacity; otherwise the
+  // cohort gets stuck as Pending with no mail until a later tick.
+  if ((!state || !ACTIVE.has(state.status)) && opts.sendCapLeft <= 0) {
+    return { action: 'deferred', uid, email, step: 1 };
+  }
+
   if (!state || !ACTIVE.has(state.status)) {
     await markStatus(uid, user, 'pending', { enrolledAt: admin.firestore.FieldValue.serverTimestamp() }, { dryRun });
     state = { ...(state || {}), status: 'pending' };
@@ -667,11 +673,55 @@ async function fetchUsersByStatuses(statuses, cap = LIST_CAP) {
   return rows;
 }
 
+async function fetchUnpaidFlaggedUsers(cap = LIST_CAP) {
+  const db = getDb();
+  if (!db) return [];
+  const rows = [];
+  let cursor = null;
+  while (rows.length < cap) {
+    let q = db.collection('users')
+      .where('retargetFlags.medicareUnpaid', '==', true)
+      .limit(PAGE_SIZE);
+    if (cursor) q = q.startAfter(cursor);
+    // eslint-disable-next-line no-await-in-loop
+    const snap = await q.get();
+    if (snap.empty) break;
+    for (const doc of snap.docs) {
+      const row = serializeRetargetRow(doc);
+      // Flagged but not enrolled yet — show as queued so the admin table is not empty.
+      if (!row.status) row.status = 'queued';
+      rows.push(row);
+      if (rows.length >= cap) break;
+    }
+    cursor = snap.docs[snap.docs.length - 1];
+    if (snap.size < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
 async function listMedicareRetargetUsers({ status = null, page = 1, pageSize = 25 } = {}) {
   const size = Math.min(Math.max(Number(pageSize) || 25, 1), 100);
   const pageNum = Math.max(Number(page) || 1, 1);
-  const statuses = status && ALL_STATUSES.includes(status) ? [status] : ALL_STATUSES;
-  const rows = await fetchUsersByStatuses(statuses);
+  const filter = status && ALL_STATUSES.includes(status) ? status : (status === 'queued' ? 'queued' : 'all');
+
+  const byId = new Map();
+  if (filter === 'all' || filter === 'queued' || filter === 'pending') {
+    const flagged = await fetchUnpaidFlaggedUsers();
+    for (const row of flagged) {
+      if (filter === 'pending' && row.status !== 'pending' && row.status !== 'queued') continue;
+      if (filter === 'queued' && row.status !== 'queued') continue;
+      byId.set(row.uid, row);
+    }
+  }
+  if (filter !== 'queued') {
+    const statuses = filter === 'all' ? ALL_STATUSES : [filter];
+    const enrolled = await fetchUsersByStatuses(statuses);
+    for (const row of enrolled) {
+      byId.set(row.uid, row);
+    }
+  }
+
+  const rows = Array.from(byId.values());
   rows.sort((a, b) => (b._sort || 0) - (a._sort || 0) || String(a.email || '').localeCompare(String(b.email || '')));
   const total = rows.length;
   const totalPages = Math.max(1, Math.ceil(total / size) || 1);
@@ -684,7 +734,7 @@ async function listMedicareRetargetUsers({ status = null, page = 1, pageSize = 2
     page: safePage,
     pageSize: size,
     totalPages,
-    status: status && ALL_STATUSES.includes(status) ? status : 'all',
+    status: filter,
     capped: total >= LIST_CAP,
   };
 }

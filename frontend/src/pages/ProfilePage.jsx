@@ -479,16 +479,14 @@ const ProfilePage = () => {
                 ) : null}
               </>
             )}
-          </section>
 
-          <section className={`glass ${classes.accountCard}`}>
+            <div className={classes.cardDivider} />
             <div className={classes.cardHeader}>
               <div className={classes.cardHeaderText}>
                 <h3>Account Details</h3>
                 <p>Contact info and onboarding preferences</p>
               </div>
             </div>
-            <div className={classes.cardDivider} />
 
             <div className={classes.editGrid}>
               <div className={classes.editGroup}>

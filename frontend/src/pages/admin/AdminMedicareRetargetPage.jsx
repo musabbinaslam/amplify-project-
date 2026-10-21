@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Mail, Loader2, Play, RefreshCw } from 'lucid
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
+  discoverMedicareRetargetUsers,
   getMedicareRetargetStats,
   listMedicareRetargetUsers,
   runMedicareRetargetTick,
@@ -27,6 +28,7 @@ const STRIP = [
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'All' },
+  { value: 'queued', label: 'Queued' },
   { value: 'pending', label: 'Pending' },
   { value: 'email1_sent', label: 'Email 1' },
   { value: 'email2_sent', label: 'Email 2' },
@@ -35,6 +37,7 @@ const STATUS_FILTERS = [
 ];
 
 const STATUS_LABELS = {
+  queued: 'Queued',
   pending: 'Pending',
   email1_sent: 'Email 1',
   email2_sent: 'Email 2',
@@ -67,6 +70,7 @@ export default function AdminMedicareRetargetPage() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
   const [rows, setRows] = useState([]);
   const [listLoading, setListLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -131,9 +135,13 @@ export default function AdminMedicareRetargetPage() {
     setRunning(true);
     try {
       const out = await runMedicareRetargetTick();
-      toast.success(
-        `Tick ran — email1 ${out.sent1 || 0}, email2 ${out.sent2 || 0}, converted ${out.converted || 0}`,
-      );
+      if (out?.reason) {
+        toast.error(`Tick skipped — ${out.reason}`);
+      } else {
+        toast.success(
+          `Tick ran — email1 ${out.sent1 || 0}, email2 ${out.sent2 || 0}, converted ${out.converted || 0}, deferred ${out.deferred || 0}, waiting ${out.waiting || 0}, errors ${out.errors || 0}`,
+        );
+      }
       await load();
     } catch (err) {
       toast.error(err.message || 'Tick failed');
@@ -142,9 +150,22 @@ export default function AdminMedicareRetargetPage() {
     }
   };
 
+  const discover = async () => {
+    setDiscovering(true);
+    try {
+      const out = await discoverMedicareRetargetUsers();
+      toast.success(`Discovered ${out.flagged || 0} unpaid Medicare signup${Number(out.flagged) === 1 ? '' : 's'} (scanned ${out.scanned || 0})`);
+      await load();
+    } catch (err) {
+      toast.error(err.message || 'Discover failed');
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
   const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(page * PAGE_SIZE, total);
-  const busy = loading || listLoading || running;
+  const busy = loading || listLoading || running || discovering;
 
   return (
     <AdminPageShell
@@ -160,7 +181,11 @@ export default function AdminMedicareRetargetPage() {
             <RefreshCw size={14} className={loading || listLoading ? shared.spin : ''} />
             Refresh
           </button>
-          <button type="button" className={shared.primaryBtn} onClick={runTick} disabled={running}>
+          <button type="button" className={shared.modalCancelBtn} onClick={discover} disabled={busy}>
+            {discovering ? <Loader2 size={14} className={shared.spin} /> : null}
+            Discover unpaid
+          </button>
+          <button type="button" className={shared.primaryBtn} onClick={runTick} disabled={busy}>
             {running ? <Loader2 size={14} className={shared.spin} /> : <Play size={14} />}
             Run tick now
           </button>

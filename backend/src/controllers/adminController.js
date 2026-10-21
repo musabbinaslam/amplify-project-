@@ -883,6 +883,71 @@ async function getAnalyticsBundle(req, res) {
   }
 }
 
+const SIGNUP_ANALYTICS_MAX = 5000;
+
+/**
+ * GET /api/admin/signup-analytics?from&to&tz
+ * New signups in range grouped by onboarding vertical, with the call spend
+ * those new agents generated in the same range and a daily trend.
+ */
+async function getSignupAnalytics(req, res) {
+  try {
+    const { from, end, tz } = parseRange(req.query || {});
+    const { aggregateSignups } = require('../services/signupAnalyticsService');
+    const { value, hit, ageMs } = await cached(
+      'signupMetrics',
+      `signups|${cacheKey(from, end)}|${tz || 'UTC'}`,
+      ANALYTICS_CACHE_TTL_SEC,
+      async () => {
+        const db = getDb();
+        if (!db) throw new Error('Database unavailable');
+        const snap = await db.collection('users')
+          .where('onboarding.completedAt', '>=', from.toISOString())
+          .where('onboarding.completedAt', '<=', end.toISOString())
+          .select('onboarding.verticals', 'onboarding.completedAt')
+          .limit(SIGNUP_ANALYTICS_MAX)
+          .get();
+        const users = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+        // Reuse the (cached) analytics bundle for per-agent spend in the same range.
+        const { value: bundle } = await cached(
+          'callMetrics',
+          `bundle|${cacheKey(from, end)}|${tz || 'UTC'}`,
+          ANALYTICS_CACHE_TTL_SEC,
+          () => computeAnalyticsBundle(from, end, tz),
+        );
+        const spendByAgent = new Map(
+          (bundle?.agents || []).map((a) => [a.agentId, Number(a.totalCost) || 0]),
+        );
+
+        return {
+          ...aggregateSignups({
+            users,
+            spendByAgent,
+            fromKey: dayKey(from, tz),
+            toKey: dayKey(end, tz),
+            tz,
+          }),
+          meta: {
+            generatedAt: new Date().toISOString(),
+            source: 'firestore.users.onboarding',
+            truncated: snap.size >= SIGNUP_ANALYTICS_MAX,
+          },
+        };
+      },
+    );
+    res.json({
+      ...value,
+      cached: hit,
+      meta: { ...(value.meta || {}), cacheAgeMs: ageMs },
+    });
+  } catch (err) {
+    console.error('[Admin] getSignupAnalytics:', err.message);
+    const status = err.message === 'Invalid date range' ? 400 : 500;
+    res.status(status).json({ error: err.message || 'Failed to load signup analytics' });
+  }
+}
+
 async function getOverviewLite(req, res) {
   try {
     const campaignControls = await getCampaignControlsState();
@@ -2154,6 +2219,7 @@ async function exportExcelReport(req, res) {
 module.exports = {
   getOverviewLite,
   getAnalyticsBundle,
+  getSignupAnalytics,
   getLiveCalls,
   forceRemoveAgent,
   patchAdminCallLogDisposition,
