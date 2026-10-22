@@ -709,7 +709,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
 
         <div className={classes.warningBox}>
           <AlertCircle size={18} />
-          <p>You will ONLY receive calls from your {licensedStates.length} selected states. If you're missing a state, go back and add it.</p>
+          <p>Selected states are used to match callers by area code. A caller's area code can differ from where they actually are — verify the caller's state inside the buffer. Wrong-state calls past the buffer aren't refunded. If you're missing a state, go back and add it.</p>
         </div>
         {!hasBalance && (
           <div className={classes.errorBanner}>
