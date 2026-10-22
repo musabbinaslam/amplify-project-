@@ -109,6 +109,7 @@ export default function CustomerIntelligencePanel({
   const conversationId = conversation?.id;
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState(null);
+  const [summaryFailed, setSummaryFailed] = useState(false);
   const [noteInput, setNoteInput] = useState('');
   const [submittingNote, setSubmittingNote] = useState(false);
   const [creditModalOpen, setCreditModalOpen] = useState(false);
@@ -124,8 +125,11 @@ export default function CustomerIntelligencePanel({
     try {
       const data = await getSupportCustomerSummary(id);
       setSummary(data);
+      setSummaryFailed(false);
     } catch {
-      // Fall back gracefully to conversation metadata
+      // Fall back gracefully to conversation metadata — never invent a wallet
+      setSummaryFailed(true);
+      setCreditModalOpen(false);
       setSummary({
         user: {
           id: conversation?.userId || id,
@@ -133,10 +137,6 @@ export default function CustomerIntelligencePanel({
           email: conversation?.userEmail || '',
           role: 'user',
           createdAt: conversation?.createdAt || null,
-        },
-        wallet: {
-          balanceCents: 0,
-          balanceFormatted: '$0.00',
         },
         recentCalls: [],
         internalNotes: conversation?.notes || [],
@@ -149,6 +149,7 @@ export default function CustomerIntelligencePanel({
   useEffect(() => {
     if (conversationId && isOpen) {
       setSummary(null); // Show skeleton on switch so it smoothly loads stats
+      setSummaryFailed(false);
       loadSummary(conversationId);
     }
   }, [conversationId, isOpen]);
@@ -197,6 +198,10 @@ export default function CustomerIntelligencePanel({
 
   const handleIssueCredit = async (e) => {
     e?.preventDefault();
+    if (summaryFailed || !summary?.wallet) {
+      toast.error('Balance unavailable');
+      return;
+    }
     const dollars = parseFloat(creditAmount);
     if (Number.isNaN(dollars) || dollars <= 0 || dollars > 100) {
       toast.error('Enter an amount between $0.50 and $100');
@@ -235,7 +240,9 @@ export default function CustomerIntelligencePanel({
     id: conversation?.userId || conversationId,
     role: 'user',
   };
-  const wallet = summary?.wallet || { balanceCents: 0, balanceFormatted: '$0.00' };
+  const wallet = summary?.wallet;
+  const walletUnavailable = summaryFailed || !wallet;
+  const balanceLabel = walletUnavailable ? 'Balance unavailable' : wallet.balanceFormatted;
   const recentCalls = summary?.recentCalls || [];
   const notes = summary?.internalNotes || [];
 
@@ -343,6 +350,8 @@ export default function CustomerIntelligencePanel({
                   type="button"
                   className={classes.actionLinkBtn}
                   onClick={() => setCreditModalOpen(true)}
+                  disabled={walletUnavailable}
+                  title={walletUnavailable ? 'Balance unavailable' : 'Issue courtesy credit'}
                 >
                   <Plus size={12} />
                   <span>Issue Credit</span>
@@ -353,14 +362,19 @@ export default function CustomerIntelligencePanel({
                 <div className={classes.walletBalanceRow}>
                   <div>
                     <span className={classes.walletCaption}>Current Balance</span>
-                    <div key={wallet.balanceFormatted} className={classes.walletAmount}>
-                      {wallet.balanceFormatted}
+                    <div
+                      key={balanceLabel}
+                      className={`${classes.walletAmount}${walletUnavailable ? ` ${classes.walletAmountUnavailable}` : ''}`}
+                    >
+                      {balanceLabel}
                     </div>
                   </div>
                   <button
                     type="button"
                     className={classes.creditPillBtn}
                     onClick={() => setCreditModalOpen(true)}
+                    disabled={walletUnavailable}
+                    title={walletUnavailable ? 'Balance unavailable' : 'Adjust wallet'}
                   >
                     <Plus size={13} />
                     <span>Adjust</span>
@@ -491,7 +505,7 @@ export default function CustomerIntelligencePanel({
       </div>
 
       {/* Credit Adjustment Modal */}
-      {creditModalOpen ? (
+      {creditModalOpen && !walletUnavailable ? (
         <div className={classes.modalOverlay} role="presentation" onClick={() => setCreditModalOpen(false)}>
           <div
             className={classes.modalContent}

@@ -280,8 +280,13 @@
   padding: 0;
 }
 
-.actionLinkBtn:hover {
+.actionLinkBtn:hover:not(:disabled) {
   text-decoration: underline;
+}
+
+.actionLinkBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .sectionSubLink {
@@ -327,6 +332,13 @@
   animation: numberPopIn 320ms cubic-bezier(0.34, 1.45, 0.64, 1) both;
 }
 
+.walletAmountUnavailable {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  letter-spacing: 0;
+}
+
 .creditPillBtn {
   display: inline-flex;
   align-items: center;
@@ -342,8 +354,13 @@
   transition: all 0.15s ease;
 }
 
-.creditPillBtn:hover {
+.creditPillBtn:hover:not(:disabled) {
   background: color-mix(in srgb, var(--brand-text) 22%, transparent);
+}
+
+.creditPillBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 
