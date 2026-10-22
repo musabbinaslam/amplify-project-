@@ -470,6 +470,79 @@ async function healForceChargedLog(db, log, tx) {
   await db.collection('users').doc(log.agentId).collection('callLogs').doc(log.id).set(payload, { merge: true });
 }
 
+/**
+ * Build a best-effort timeline from durable Firestore call logs when Redis
+ * never recorded ping/route events (pre–Call Trace deploys, flushed keys, etc.).
+ */
+function synthesizeTimelineFromLogs(callLogs, e164) {
+  const events = [];
+  for (const log of callLogs || []) {
+    const endAt = logCreatedMs(log);
+    if (!endAt) continue;
+    const durationMs = Math.max(0, (Number(log.duration) || 0) * 1000);
+    const startAt = Math.max(0, endAt - durationMs);
+    const phone = e164 || log.from || null;
+    const base = {
+      phone,
+      campaignId: log.campaign || null,
+      agentId: log.agentId || null,
+      callSid: log.callSid || null,
+      source: 'call_log',
+    };
+
+    events.push({
+      ...base,
+      id: `clog-in-${log.id}`,
+      at: startAt || endAt,
+      type: 'incoming',
+      to: log.to || null,
+      detail: 'Reconstructed from call log',
+    });
+
+    if (log.agentId) {
+      events.push({
+        ...base,
+        id: `clog-act-${log.id}`,
+        at: (startAt || endAt) + 1,
+        type: 'active_snapshot',
+        detail: 'Reconstructed from call log',
+      });
+    }
+
+    const disp = log.disposition ? ` · ${log.disposition}` : '';
+    events.push({
+      ...base,
+      id: `clog-bill-${log.id}`,
+      at: endAt,
+      type: 'billing',
+      costCents: Math.round(Number(log.cost || 0) * 100),
+      detail: `${Number(log.duration) || 0}s ${log.isBillable ? 'billable' : 'not billable'}${disp}`,
+    });
+  }
+  events.sort((a, b) => (a.at || 0) - (b.at || 0));
+  return events;
+}
+
+function mergeTimelineWithLogs(redisTimeline, callLogs, e164) {
+  const live = Array.isArray(redisTimeline) ? [...redisTimeline] : [];
+  const covered = new Set(
+    live.map((e) => e?.callSid).filter(Boolean),
+  );
+  const missingLogs = (callLogs || []).filter((log) => {
+    if (!log?.callSid) return true;
+    return !covered.has(log.callSid);
+  });
+  if (!missingLogs.length) {
+    return { timeline: live, timelineSource: live.length ? 'redis' : 'empty' };
+  }
+  const synthesized = synthesizeTimelineFromLogs(missingLogs, e164);
+  if (!live.length) {
+    return { timeline: synthesized, timelineSource: synthesized.length ? 'call_logs' : 'empty' };
+  }
+  const merged = [...live, ...synthesized].sort((a, b) => (a.at || 0) - (b.at || 0));
+  return { timeline: merged, timelineSource: 'mixed' };
+}
+
 async function assembleTrace(parsed) {
   let last10 = parsed.last10 || null;
   let e164 = parsed.e164 || null;
@@ -480,7 +553,7 @@ async function assembleTrace(parsed) {
     if (last10) e164 = `+1${last10}`;
   }
 
-  const [timeline, live, rawLogs] = await Promise.all([
+  const [redisTimeline, live, rawLogs] = await Promise.all([
     last10 ? callTrace.getTimelineByLast10(last10) : Promise.resolve([]),
     last10 ? callTrace.getLive(last10) : Promise.resolve(null),
     parsed.kind === 'sid'
@@ -489,6 +562,7 @@ async function assembleTrace(parsed) {
   ]);
 
   const callLogs = await enrichLogsFromForceChargeHistory(rawLogs);
+  const { timeline, timelineSource } = mergeTimelineWithLogs(redisTimeline, callLogs, e164);
 
   const agentIds = [
     ...timeline.map((e) => e.agentId),
@@ -505,6 +579,7 @@ async function assembleTrace(parsed) {
       callSid: callSid || null,
     },
     timeline,
+    timelineSource,
     live,
     callLogs,
     agentMeta,

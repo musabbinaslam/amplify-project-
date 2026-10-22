@@ -117,6 +117,9 @@ function eventMetaChips(e, agentMeta, prev) {
   if (e.agencyId && e.agencyId !== prev?.agencyId) {
     chips.push({ key: 'agency', label: e.agencyId });
   }
+  if (e.source === 'call_log') {
+    chips.push({ key: 'source', label: 'from call log' });
+  }
   return chips;
 }
 
@@ -180,7 +183,12 @@ function eventTitle(e) {
   if (e.type === 'wallet') return e.detail || 'Wallet debit';
   if (e.type === 'wrap_up') return 'Disposition pending';
   if (e.type === 'agent_leg_ended') return e.detail || 'Leg ended';
-  if (e.type === 'active_snapshot') return 'Routed / in call';
+  if (e.type === 'active_snapshot') {
+    return e.source === 'call_log' ? (e.detail || 'Routed / in call') : 'Routed / in call';
+  }
+  if (e.type === 'incoming' && e.source === 'call_log') {
+    return e.detail || (e.to ? `To ${e.to}` : 'Inbound call');
+  }
   return TYPE_META[e.type]?.label || e.type;
 }
 
@@ -280,6 +288,7 @@ export default function AdminCallTracePage() {
     () => [...(result?.timeline || [])].sort((a, b) => (a.at || 0) - (b.at || 0)),
     [result],
   );
+  const timelineSource = result?.timelineSource || (timeline.length ? 'redis' : 'empty');
   const logs = result?.callLogs || [];
   const live = result?.live;
   const agentMeta = result?.agentMeta || {};
@@ -452,10 +461,16 @@ export default function AdminCallTracePage() {
               </div>
             ) : null}
 
+            {showTimelineCol && (timelineSource === 'call_logs' || timelineSource === 'mixed') ? (
+              <p className={classes.timelineHint}>
+                {timelineSource === 'call_logs'
+                  ? 'No live Redis events for this number — timeline reconstructed from Firestore call logs (ping/confirm steps unavailable).'
+                  : 'Mixed timeline: live Redis events plus older calls reconstructed from Firestore logs.'}
+              </p>
+            ) : null}
             {!showTimelineCol ? (
               <p className={classes.timelineHint}>
-                No Redis timeline yet for this number — events fill in after live traffic hits this API build.
-                Showing Firestore call logs.
+                No timeline events yet for this number. Showing Firestore call logs when available.
               </p>
             ) : null}
 
