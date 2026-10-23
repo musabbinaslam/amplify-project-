@@ -55,6 +55,9 @@ const US_STATES = [
 // Icons for the wizard step rail (Microphone, Campaign, Licensed States, Review)
 const STEP_ICONS = [Mic, PhoneIncoming, MapPin, Phone];
 
+// campaign.price is dollars; walletBalance from useWalletQuery is cents.
+const requiredBalanceCents = (price) => Math.round(Number(price) * 100) || 0;
+
 // ─── Step 1: Mic & Speaker Test ─────────────────────────────────────────────
 const StepOne = ({ onNext }) => {
   const user = useAuthStore((s) => s.user);
@@ -673,7 +676,7 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
 // ─── Step 4: Review Rules & Go Live ─────────────────────────────────────────
 const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, walletBalance, liveCampaigns = [] }) => {
   const selected = liveCampaigns.find((c) => c.id === campaign);
-  const requiredBalance = Number(selected?.price) || 0;
+  const requiredBalance = requiredBalanceCents(selected?.price);
   const hasBalance = walletBalance >= requiredBalance;
   const campaignLabel = selected
     ? `${selected.label} ($${Number(selected.price).toFixed(0)} / ${selected.buffer}s)`
@@ -730,7 +733,7 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
           </button>
         ) : (
           <button className={`${classes.primaryBtn} ${classes.errorBannerBtn}`} onClick={() => window.location.href = '/app/billing'}>
-            Go Admin Top Up
+            Add credits
           </button>
         )}
       </div>
@@ -992,7 +995,7 @@ const TakeCallsPage = () => {
       return;
     }
     const selected = liveCampaigns.find((c) => c.id === campaign);
-    const requiredBalance = Number(selected?.price) || 0;
+    const requiredBalance = requiredBalanceCents(selected?.price);
 
     if (walletBalance < requiredBalance) {
       alert("Low balance for the selected campaign. Please top up your wallet.");
