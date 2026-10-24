@@ -42,8 +42,8 @@ export default function AdminCallContestsPage() {
   }, [contestFilter]);
 
   useEffect(() => {
-    loadCallContests('pending');
-  }, [loadCallContests]);
+    loadCallContests(contestFilter);
+  }, [contestFilter, loadCallContests]);
 
   const openApproveContestModal = (contest) => {
     setActionNote('');
@@ -101,7 +101,7 @@ export default function AdminCallContestsPage() {
         setCallContests((prev) => (
           contestFilter === 'pending'
             ? prev.filter((c) => c.id !== contest.id)
-            : prev.map((c) => (c.id === contest.id ? { ...c, status: 'denied', contestDenyNote: trimmed } : c))
+            : prev.map((c) => (c.id === contest.id ? { ...c, status: 'denied', adminNote: trimmed } : c))
         ));
         void loadCallContests(contestFilter);
       }
@@ -135,7 +135,6 @@ export default function AdminCallContestsPage() {
                 value={contestFilter}
                 onChange={(e) => {
                   setContestFilter(e.target.value);
-                  loadCallContests(e.target.value);
                 }}
               >
                 <option value="pending">Pending</option>
