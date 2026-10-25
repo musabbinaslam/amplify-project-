@@ -319,7 +319,7 @@ exports.handleIncomingCall = async (req, res) => {
 
 /**
  * Twilio Dial statusCallback — promotes agent to IN_CALL when the client leg is answered.
- * Without this, agents stay in Redis RINGING if the browser socket never emits call_incoming.
+ * Ringing membership is set when the agent is locked; this callback handles answered / terminal outcomes.
  */
 exports.handleDialStatus = async (req, res) => {
     const { campaign, agentId } = req.query;
@@ -351,10 +351,6 @@ exports.handleDialStatus = async (req, res) => {
     }
 
     try {
-        if (event === 'ringing' || callStatus === 'ringing') {
-            await agentManager.setAgentRinging(agentId);
-        }
-
         const isAnswered =
             (event === 'answered' || callStatus === 'answered' || callStatus === 'in-progress') &&
             event !== 'ringing' && event !== 'initiated';
