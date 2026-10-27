@@ -9,7 +9,7 @@ import { apiFetch } from '../../services/apiClient';
 import { TOS_VERSION, TOS_HEADER, TOS_TEXT } from '../../utils/legalText';
 
 const TermsGatewayModal = () => {
-  const { user, initAuth } = useAuthStore();
+  const { user, refreshUserRole } = useAuthStore();
   const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
@@ -40,8 +40,8 @@ const TermsGatewayModal = () => {
         body: { version: TOS_VERSION },
       });
       toast.success('Terms accepted successfully!');
-      // Re-initialize auth to pull the fresh user profile with the new acceptedTermsVersion
-      await initAuth();
+      // Reload profile fields (including acceptedTermsVersion) so the gate unmounts
+      await refreshUserRole();
     } catch (error) {
       console.error('Failed to accept terms:', error);
       toast.error(error.message || 'Failed to accept terms. Please try again.');

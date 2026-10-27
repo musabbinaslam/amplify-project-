@@ -78,6 +78,10 @@ const useAuthStore = create((set, get) => ({
 
   initAuth: () => {
     return new Promise((resolve) => {
+      const previousUnsubscribe = get()._unsubscribe;
+      if (typeof previousUnsubscribe === 'function') {
+        previousUnsubscribe();
+      }
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         const isGoogleValidationInProgress = get().googleLoginValidationInProgress;
         if (firebaseUser) {
