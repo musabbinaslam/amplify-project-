@@ -44,14 +44,16 @@ export function useAppUpdateAvailable() {
     const interval = setInterval(checkForUpdate, CHECK_INTERVAL_MS);
 
     const onFocus = () => checkForUpdate();
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', () => {
+    const onVisible = () => {
       if (document.visibilityState === 'visible') onFocus();
-    });
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [checkForUpdate]);
 
