@@ -5,7 +5,7 @@ import useAuthStore from '../../store/authStore';
 import useDialerStore from '../../store/useDialerStore';
 import {
   Play, Phone, LayoutDashboard, List, FileText,
-  DollarSign, Box, User, HeadphonesIcon,
+  DollarSign, User, HeadphonesIcon,
   MessageSquare, Gift, Settings, LogOut,
   ChevronLeft, ChevronRight, Shield, FileEdit, ShieldCheck, Users,
   Building2, UserCog, Trophy, Flag, BarChart2, Inbox,
@@ -14,6 +14,8 @@ import { isAgencyAdminUser } from '../../utils/authRoles';
 import { isAgencyReviewLockdown } from '../../utils/agencyGate';
 import useSupportChatStore from '../../store/useSupportChatStore';
 import useSupportDeskStore from '../../store/useSupportDeskStore';
+import { HALLOWEEN_MODE } from '../../config/seasonalTheme';
+import PumpkinLogo from '../ui/PumpkinLogo';
 import toast from 'react-hot-toast';
 import classes from './Sidebar.module.css';
 
@@ -263,17 +265,22 @@ const Sidebar = () => {
 
   return (
     <aside className={`${classes.sidebar} ${isSidebarCollapsed ? classes.collapsed : ''}`}>
-      <div className={classes.header}>
+      <div className={`${classes.header} ${HALLOWEEN_MODE ? classes.headerHalloween : ''}`}>
+        {HALLOWEEN_MODE && (
+          <svg className={classes.headerWeb} viewBox="0 0 80 80" fill="none" aria-hidden="true">
+            <path d="M0 0 L80 18 M0 0 L68 48 M0 0 L44 74 M0 0 L16 80" stroke="currentColor" strokeWidth="0.9" opacity="0.35" />
+            <path d="M22 5 Q19 14 14 18 Q10 21 4 23" stroke="currentColor" strokeWidth="0.9" opacity="0.32" />
+            <path d="M44 10 Q38 26 26 36 Q18 42 8 45" stroke="currentColor" strokeWidth="0.9" opacity="0.28" />
+            <path d="M66 15 Q56 38 38 54 Q26 63 13 67" stroke="currentColor" strokeWidth="0.9" opacity="0.22" />
+          </svg>
+        )}
         {!isSidebarCollapsed && (
           <div className={classes.logo}>
-            <img
-              src="/logo.png"
-              alt="Callsflow logo"
-              className={classes.logoImg}
-              loading="eager"
-              decoding="async"
-            />
-            <h2>CALLSFLOW</h2>
+            <PumpkinLogo className={`${classes.logoImg} ${HALLOWEEN_MODE ? classes.logoImgHalloween : ''}`} />
+            <div className={classes.logoTextWrap}>
+              <h2 className={HALLOWEEN_MODE ? classes.logoTitleHalloween : ''}>CALLSFLOW</h2>
+              {HALLOWEEN_MODE && <span className={classes.halloweenTag}>SPOOKY EDITION</span>}
+            </div>
           </div>
         )}
         <button type="button" className={classes.toggleBtn} onClick={toggleSidebar} aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
