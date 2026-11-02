@@ -1,6 +1,7 @@
 import { create } from 'zustand';
+import { HALLOWEEN_MODE, HALLOWEEN_BRAND_HEX } from '../config/seasonalTheme';
 
-export const DEFAULT_BRAND = '#25f425';
+export const DEFAULT_BRAND = HALLOWEEN_MODE ? HALLOWEEN_BRAND_HEX : '#25f425';
 const STORAGE_KEY = 'brandColor';
 const HEX_RE = /^#[0-9a-f]{6}$/i;
 
@@ -81,7 +82,8 @@ function currentTheme() {
 
 function applyBrand(hex) {
   if (typeof document === 'undefined') return;
-  const clean = normalize(hex);
+  const effectiveHex = HALLOWEEN_MODE ? HALLOWEEN_BRAND_HEX : hex;
+  const clean = normalize(effectiveHex);
   const { r, g, b } = hexToRgb(clean);
   const theme = currentTheme();
 
@@ -103,9 +105,17 @@ function applyBrand(hex) {
   root.setProperty('--brand-solid', brandSolid);
   root.setProperty('--brand-text', brandText);
   root.setProperty('--brand-on', brandOn);
+
+  // Also sync --accent-green tokens during Halloween so any component using them turns orange
+  if (HALLOWEEN_MODE) {
+    root.setProperty('--accent-green', clean);
+    root.setProperty('--accent-green-dim', `rgba(${r}, ${g}, ${b}, 0.15)`);
+    root.setProperty('--accent-green-glow', `rgba(${r}, ${g}, ${b}, 0.3)`);
+  }
 }
 
 function readInitialBrand() {
+  if (HALLOWEEN_MODE) return HALLOWEEN_BRAND_HEX;
   if (typeof localStorage === 'undefined') return DEFAULT_BRAND;
   const stored = localStorage.getItem(STORAGE_KEY);
   return HEX_RE.test(stored || '') ? stored.toLowerCase() : DEFAULT_BRAND;
@@ -120,7 +130,7 @@ export const useThemeStore = create((set, get) => ({
 
   setBrandColor: (hex) => {
     const clean = normalize(hex);
-    try { localStorage.setItem(STORAGE_KEY, clean); } catch {}
+    try { localStorage.setItem(STORAGE_KEY, clean); } catch { /* ignore storage quota errors */ }
     applyBrand(clean);
     set({ brandColor: clean });
   },
@@ -130,6 +140,10 @@ export const useThemeStore = create((set, get) => ({
   },
 
   hydrateFromProfile: (profileHex) => {
+    if (HALLOWEEN_MODE) {
+      applyBrand(HALLOWEEN_BRAND_HEX);
+      return;
+    }
     if (!profileHex) return;
     const v = String(profileHex).trim().toLowerCase();
     if (!HEX_RE.test(v)) return;

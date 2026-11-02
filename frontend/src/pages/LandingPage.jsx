@@ -22,6 +22,8 @@ import { useUIStore } from '../store/uiStore';
 import { fetchCampaignPricing } from '../services/dashboardService';
 import CallDeskPreview from '../components/marketing/CallDeskPreview';
 import LightRibbons from '../components/marketing/LightRibbons';
+import PumpkinLogo from '../components/ui/PumpkinLogo';
+import { HALLOWEEN_MODE } from '../config/seasonalTheme';
 import classes from './LandingPage.module.css';
 
 const AGENT_COUNT_OPTIONS = [
@@ -242,7 +244,7 @@ const LandingPage = () => {
     <div
       id="top"
       ref={pageRef}
-      className={`appAmbient ${classes.page}`}
+      className={`appAmbient ${classes.page} ${HALLOWEEN_MODE ? classes.halloweenPage : ''}`}
       onPointerMove={handlePointerMove}
     >
       <span className={classes.spotlight} aria-hidden />
@@ -250,7 +252,7 @@ const LandingPage = () => {
       <nav className={classes.navbar} aria-label="Main">
         <div className={classes.navInner}>
           <Link to="/" className={classes.navLogo}>
-            <img src="/logo.png" alt="Callsflow logo" className={classes.logoImg} loading="eager" decoding="async" />
+            <PumpkinLogo className={classes.logoImg} />
             <span className={classes.logoText}>CALLSFLOW</span>
           </Link>
 
@@ -601,7 +603,7 @@ const LandingPage = () => {
               <div className={classes.orbit} aria-hidden>
                 <span className={classes.orbitRingOuter} />
                 <span className={classes.orbitRingInner} />
-                <span className={classes.orbitHub}><img src="/logo.png" alt="" /></span>
+                <span className={classes.orbitHub}><PumpkinLogo /></span>
                 <div className={classes.orbitSpin}>
                   {['MR', 'JK', 'PS', 'DO', 'AL', 'CW', 'TB', 'NP'].map((ini, i) => {
                     const angle = (i / 8) * 2 * Math.PI;
@@ -628,7 +630,7 @@ const LandingPage = () => {
         <div className={classes.footerInner}>
           <div className={classes.footerBrand}>
             <div className={classes.navLogo}>
-              <img src="/logo.png" alt="Callsflow logo" className={classes.logoImg} loading="lazy" decoding="async" />
+              <PumpkinLogo className={classes.logoImg} />
               <span className={classes.logoText}>CALLSFLOW</span>
             </div>
             <p>Real-time insurance call routing for licensed agents.</p>

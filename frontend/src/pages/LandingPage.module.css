@@ -17,9 +17,28 @@
   overflow-x: clip;
 }
 
+.halloweenPage {
+  --brand: #ff7a1a;
+  --brand-text: #ff9442;
+  --brand-solid: #f26400;
+  --brand-on: #ffffff;
+  --brand-glow: rgba(255, 122, 26, 0.45);
+  --brand-dim: rgba(255, 122, 26, 0.22);
+  --ribbon-mid: #ffb347;
+  --edge-light: rgba(255, 168, 92, 0.45);
+}
+
 :global([data-theme='light']) .page {
   --shadow: rgba(40, 40, 30, 0.18);
   --edge-light: rgba(0, 0, 0, 0.28);
+}
+
+:global([data-theme='light']) .halloweenPage {
+  --brand: #e05500;
+  --brand-text: #c94600;
+  --brand-solid: #e65800;
+  --brand-on: #ffffff;
+  --edge-light: rgba(224, 85, 0, 0.28);
 }
 
 .page a {
@@ -1446,9 +1465,10 @@
   border: 1px solid var(--glass-border);
 }
 
-.orbitHub img {
-  width: 12cqw;
-  height: 12cqw;
+.orbitHub img,
+.orbitHub svg {
+  width: 14cqw;
+  height: 14cqw;
   object-fit: contain;
 }
 
