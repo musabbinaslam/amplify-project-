@@ -648,7 +648,7 @@ const SettingsPage = () => {
           <div className={classes.settingRow}>
             <div className={classes.settingRowLabel}>
               <strong>Export account data</strong>
-              <span>Download a copy of your profile, settings, and activity.</span>
+              <span>Download a copy of your profile and settings.</span>
             </div>
             <div className={classes.settingRowControl}>
               <button
