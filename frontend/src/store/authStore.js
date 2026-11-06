@@ -21,6 +21,8 @@ import { getProfile, saveProfile, sendWelcomeEmail } from '../services/profileSe
 import { normalizeAgencyRole } from '../utils/authRoles';
 import { useThemeStore } from './themeStore';
 
+const TOKEN_REFRESH_MS = 15 * 60 * 1000;
+
 const mapFirebaseUser = (firebaseUser) => ({
   uid: firebaseUser.uid,
   name: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
@@ -28,6 +30,25 @@ const mapFirebaseUser = (firebaseUser) => ({
   avatar: firebaseUser.photoURL,
   authProvider: firebaseUser.providerData[0]?.providerId || 'password',
 });
+
+/** Shared post-auth lifecycle: 15-minute token refresh + Sentry user. */
+function beginSessionMaintenance(firebaseUser, set, get) {
+  if (get()._tokenRefreshInterval) clearInterval(get()._tokenRefreshInterval);
+  const intervalId = setInterval(async () => {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      try {
+        const freshToken = await currentUser.getIdToken(true);
+        set({ token: freshToken });
+      } catch (err) {
+        console.warn('[Auth] Background token refresh failed:', err);
+      }
+    }
+  }, TOKEN_REFRESH_MS);
+
+  Sentry.setUser({ id: firebaseUser.uid, email: firebaseUser.email });
+  return intervalId;
+}
 
 async function loadUserRole(uid) {
   try {
@@ -105,20 +126,7 @@ const useAuthStore = create((set, get) => ({
 
           // Proactively refresh the Firebase token every 15 minutes
           // to guarantee agents never hit the 1-hour expiration while online.
-          if (get()._tokenRefreshInterval) clearInterval(get()._tokenRefreshInterval);
-          const intervalId = setInterval(async () => {
-            const currentUser = auth.currentUser;
-            if (currentUser) {
-              try {
-                const freshToken = await currentUser.getIdToken(true);
-                set({ token: freshToken });
-              } catch (err) {
-                console.warn('[Auth] Background token refresh failed:', err);
-              }
-            }
-          }, 15 * 60 * 1000); // 15 minutes
-
-          Sentry.setUser({ id: firebaseUser.uid, email: firebaseUser.email });
+          const intervalId = beginSessionMaintenance(firebaseUser, set, get);
 
           set({
             user: {
@@ -250,10 +258,12 @@ const useAuthStore = create((set, get) => ({
         await rejectGoogleLogin();
       }
       const roleFields = await loadUserRole(result.user.uid);
+      const intervalId = beginSessionMaintenance(result.user, set, get);
       set({
         user: { ...mapFirebaseUser(result.user), meta: existing?.meta || null, ...roleFields },
         token,
         googleLoginValidationInProgress: false,
+        _tokenRefreshInterval: intervalId,
       });
       return { needsOnboarding, user: result.user };
     } catch (err) {
