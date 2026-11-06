@@ -27,6 +27,7 @@ const mockCtl = {
   signInWithPopup: null,
   forceToken: 'fresh-token',
   idToken: 'id-token',
+  forceTokenCalls: 0,
 };
 
 function completeProfile(overrides = {}) {
@@ -45,7 +46,13 @@ function makeUser(overrides = {}) {
     email: 'ada@example.com',
     photoURL: null,
     providerData: [{ providerId: 'google.com' }],
-    getIdToken: async (forceRefresh = false) => (forceRefresh ? mockCtl.forceToken : mockCtl.idToken),
+    getIdToken: async (forceRefresh = false) => {
+      if (forceRefresh) {
+        mockCtl.forceTokenCalls += 1;
+        return mockCtl.forceToken;
+      }
+      return mockCtl.idToken;
+    },
     ...overrides,
   };
 }
@@ -143,6 +150,7 @@ afterEach(() => {
   mockCtl.signInWithPopup = null;
   mockCtl.forceToken = 'fresh-token';
   mockCtl.idToken = 'id-token';
+  mockCtl.forceTokenCalls = 0;
   firebaseAuth.currentUser = null;
   mock.timers.reset();
 });
@@ -209,6 +217,13 @@ test('rejected Google accounts never acquire session maintenance', async () => {
     (err) => err.code === 'auth/no-account-yet',
   );
   assertNoMaintenance();
+
+  mockCtl.profile = null;
+  await assert.rejects(
+    () => useAuthStore.getState().googleSignIn(),
+    (err) => err.code === 'auth/no-account-yet',
+  );
+  assertNoMaintenance();
 });
 
 test('googleSignIn cancellation clears the lock and does not start maintenance', async () => {
@@ -235,6 +250,8 @@ test('logout after validated Google login clears the refresh interval', async ()
   await bootLoggedOut();
   await useAuthStore.getState().googleSignIn();
   assert.ok(useAuthStore.getState()._tokenRefreshInterval);
+  const signedInUser = firebaseAuth.currentUser;
+  assert.equal(mockCtl.forceTokenCalls, 0);
 
   await useAuthStore.getState().logout();
   const state = useAuthStore.getState();
@@ -242,6 +259,14 @@ test('logout after validated Google login clears the refresh interval', async ()
   assert.equal(state.user, null);
   assert.equal(state.token, null);
   assert.equal(sentry.setUser.mock.calls.at(-1).arguments[0], null);
+
+  // Reattach currentUser without firing auth listeners so a leaked interval
+  // would still call getIdToken(true) and resurrect store.token.
+  firebaseAuth.currentUser = signedInUser;
+  mock.timers.tick(TOKEN_REFRESH_MS);
+  await flush();
+  assert.equal(mockCtl.forceTokenCalls, 0);
+  assert.equal(useAuthStore.getState().token, null);
 });
 
 test('repeated auth events replace the existing refresh interval', async () => {
@@ -259,9 +284,11 @@ test('repeated auth events replace the existing refresh interval', async () => {
   const secondInterval = useAuthStore.getState()._tokenRefreshInterval;
   assert.ok(secondInterval);
   assert.notEqual(secondInterval, firstInterval);
+  assert.equal(mockCtl.forceTokenCalls, 0);
 
   mock.timers.tick(TOKEN_REFRESH_MS);
   await flush();
+  assert.equal(mockCtl.forceTokenCalls, 1);
   assert.equal(useAuthStore.getState().token, 'fresh-2');
 });
 
