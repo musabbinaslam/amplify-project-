@@ -71,6 +71,7 @@ async function mergeSettings(uid, partial) {
     },
     { merge: true },
   );
+  invalidateUserDoc(uid);
 }
 
 async function mergeScriptValues(uid, scriptId, values) {
@@ -84,6 +85,7 @@ async function mergeScriptValues(uid, scriptId, values) {
     },
     { merge: true },
   );
+  invalidateUserDoc(uid);
 }
 
 async function getOrCreateApiKey(uid) {
