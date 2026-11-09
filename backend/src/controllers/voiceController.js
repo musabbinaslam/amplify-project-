@@ -618,8 +618,6 @@ exports.handleCallCompleted = async (req, res) => {
                 status: effectiveStatus,
                 recordingUrl: finalRecordingUrl,
                 recordingSid,
-                disposition: '',
-                isBillable: effectiveStatus === 'completed' && (Number(effectiveDuration) >= (process.env.BILLING_DURATION_THRESHOLD || 60)),
                 agencyId: callInfo?.agencyId || null,
             });
         }
