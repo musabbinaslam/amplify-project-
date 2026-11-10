@@ -320,7 +320,7 @@ const SettingsPage = () => {
     setDeleting(true);
     try {
       await deleteAccount(deletePw);
-      toast.success('Account deleted');
+      toast.success('Login removed. You have been signed out.');
       navigate('/');
     } catch (err) {
       toast.error(err.message || 'Failed to delete account');
@@ -778,13 +778,13 @@ const SettingsPage = () => {
     <>
       <div className={classes.sectionIntro}>
         <h3>Account</h3>
-        <p>Permanently remove your account and all associated data.</p>
+        <p>Remove your login and sign out. Call history, wallet, scripts, and other account records are not deleted.</p>
       </div>
 
       <div className={classes.dangerPanel}>
         <h4><Trash2 size={16} /> Delete account</h4>
         <p className={classes.dangerText}>
-          This action cannot be undone. Your profile, scripts, integrations, and settings will be permanently deleted.
+          This removes your login and signs you out. Call history, wallet, scripts, and other account records are not deleted. Contact support if you need your data removed.
         </p>
         {!showDeleteConfirm ? (
           <button
@@ -799,9 +799,9 @@ const SettingsPage = () => {
             <div className={classes.deleteChecklist}>
               <p>Before deleting:</p>
               <ul>
-                <li>Your account and settings are permanently removed</li>
-                <li>Profile, scripts, and integrations are deleted</li>
-                <li>Process typically completes within a few minutes</li>
+                <li>Your login is removed and you are signed out</li>
+                <li>Call history, wallet, scripts, and other account records are not deleted</li>
+                <li>Contact support if you need your data removed</li>
               </ul>
             </div>
             <input
