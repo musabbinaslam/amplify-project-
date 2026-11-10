@@ -26,7 +26,7 @@ const RECENT = [
   { line: 'Medicare · FL', time: '04:12', badge: 'Billed $15', billed: true },
   { line: 'ACA · GA', time: '02:51', badge: 'Billed $35', billed: true },
   { line: 'Final Expense · NC', time: '00:08', badge: 'Under buffer', billed: false },
-  { line: 'Home · OH', time: '06:05', badge: 'Billed $70', billed: true },
+  { line: 'FE TV Calls · TX', time: '06:05', badge: 'Billed $65', billed: true },
 ];
 
 const AGENTS = ['MR', 'JK', 'PS', 'AL'];
