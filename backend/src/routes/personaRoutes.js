@@ -56,25 +56,35 @@ async function setPersonaStatus(uid, status, inquiryId) {
   await mergeUserDoc(uid, patch);
 }
 
+function signaturesMatch(expectedHex, candidateHex) {
+  const expected = Buffer.from(String(expectedHex), 'utf8');
+  const candidate = Buffer.from(String(candidateHex), 'utf8');
+  if (expected.length === 0 || expected.length !== candidate.length) return false;
+  return crypto.timingSafeEqual(expected, candidate);
+}
+
 function verifyPersonaSignature(req, rawBody, secret) {
-  if (!secret) return true;
+  if (!secret) return false;
 
   const signatureHeader = req.headers['persona-signature'];
   if (!signatureHeader) return false;
 
-  const parts = String(signatureHeader).split(',');
+  const parts = String(signatureHeader).split(',').map((p) => p.trim());
   const timestampPart = parts.find((p) => p.startsWith('t='));
-  const sigPart = parts.find((p) => p.startsWith('v1='));
-  if (!timestampPart || !sigPart) return false;
+  const v1Values = parts
+    .filter((p) => p.startsWith('v1='))
+    .map((p) => p.slice(3))
+    .filter(Boolean);
+  if (!timestampPart || v1Values.length === 0) return false;
 
-  const t = timestampPart.split('=')[1];
-  const v1 = sigPart.split('=')[1];
+  const t = timestampPart.slice(2);
   const expectedSig = crypto
     .createHmac('sha256', secret)
     .update(`${t}.${rawBody}`)
     .digest('hex');
 
-  if (expectedSig !== v1) {
+  const matched = v1Values.some((v1) => signaturesMatch(expectedSig, v1));
+  if (!matched) {
     console.warn('[Persona] Webhook signature mismatch.');
     return false;
   }
@@ -113,7 +123,11 @@ router.post('/webhook', async (req, res) => {
   try {
     const { payload, rawBody } = parseJsonBody(req);
     const secret = String(process.env.PERSONA_WEBHOOK_SECRET || '').trim();
-    if (secret && !verifyPersonaSignature(req, rawBody, secret)) {
+    if (!secret) {
+      console.warn('[Persona] PERSONA_WEBHOOK_SECRET is not configured; rejecting webhook');
+      return res.status(503).send('Persona webhook secret not configured');
+    }
+    if (!verifyPersonaSignature(req, rawBody, secret)) {
       return res.status(401).send('Invalid signature');
     }
 
