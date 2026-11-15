@@ -7,6 +7,7 @@ import {
   Plus, Trash2, Save, Pencil
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import PersonaVerificationBlocker from '../components/auth/PersonaVerificationBlocker';
@@ -672,6 +673,7 @@ const StepThree = ({ onNext, onBack, statePresets = [], onSavePresets, selectedP
 
 // ─── Step 4: Review Rules & Go Live ─────────────────────────────────────────
 const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, walletBalance, liveCampaigns = [] }) => {
+  const navigate = useNavigate();
   const selected = liveCampaigns.find((c) => c.id === campaign);
   const requiredBalance = Number(selected?.price) || 0;
   const hasBalance = walletBalance >= requiredBalance;
@@ -729,8 +731,12 @@ const StepFour = ({ onBack, onGoLive, isConnecting, campaign, licensedStates, wa
             {isConnecting ? 'Connecting...' : 'I Agree, Go Live'}
           </button>
         ) : (
-          <button className={`${classes.primaryBtn} ${classes.errorBannerBtn}`} onClick={() => window.location.href = '/app/billing'}>
-            Go Admin Top Up
+          <button
+            type="button"
+            className={`${classes.primaryBtn} ${classes.errorBannerBtn}`}
+            onClick={() => navigate('/app/billing')}
+          >
+            Add credits
           </button>
         )}
       </div>
@@ -995,14 +1001,18 @@ const TakeCallsPage = () => {
     const requiredBalance = Number(selected?.price) || 0;
 
     if (walletBalance < requiredBalance) {
-      alert("Low balance for the selected campaign. Please top up your wallet.");
+      toast.error('Low balance for the selected campaign. Please add credits before going live.', { duration: 6000 });
       return;
     }
     try {
       setIsConnecting(true);
       // Use Firebase UID as the Twilio identity so call logs are saved per-user
       const { user } = useAuthStore.getState();
-      const agentId = user?.uid || `agent_${Math.floor(Math.random() * 10000)}`;
+      const agentId = user?.uid;
+      if (!agentId) {
+        toast.error('Your session is missing an agent ID. Please sign in again.');
+        return;
+      }
       await initializeTwilioDevice(agentId, campaign, wizardStates);
     } catch (err) {
       console.error('Failed to go live:', err);

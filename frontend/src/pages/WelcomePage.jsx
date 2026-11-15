@@ -58,7 +58,7 @@ const WelcomePage = () => {
             <div className={classes.cardHeaderText}>
               <h2>How to Use CallsFlow</h2>
               <p>
-                Watch this quick video to learn how to take calls, earn commissions, and maximize your success.
+                Watch this quick video to learn how to take calls, close billable conversations, and grow your wallet.
               </p>
             </div>
           </div>

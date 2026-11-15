@@ -31,6 +31,7 @@ async function loadAuthModules() {
 }
 
 const WelcomePage = lazy(() => import('./pages/WelcomePage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const TakeCallsPage = lazy(() => import('./pages/TakeCallsPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const CallLogsPage = lazy(() => import('./pages/CallLogsPage'));
@@ -591,7 +592,7 @@ const AnimatedRoutes = () => {
             </Suspense>
           } />
 
-          <Route path="*" element={<div><h2 style={{color: 'white'}}>404 Not Found</h2></div>} />
+          <Route path="*" element={<Suspense fallback={<PageLoader />}><NotFoundPage /></Suspense>} />
         </Route>
         {/* Top-level catch-all redirect to /app */}
         <Route path="*" element={<Navigate to="/app" replace />} />

@@ -1,5 +1,5 @@
 import { DollarSign, ChevronDown } from 'lucide-react';
-import classes from '../../pages/CallLogsPage.module.css';
+import classes from './CallLogStatusCells.module.css';
 
 function dispositionLabel(log) {
   const disposition = log?.disposition;

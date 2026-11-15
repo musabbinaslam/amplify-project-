@@ -142,7 +142,9 @@ const LandingPage = () => {
   const reduceMotion = useReducedMotion();
   const [openFaq, setOpenFaq] = useState(0);
   const [verticalPricing, setVerticalPricing] = useState([]);
+  const [pricingStatus, setPricingStatus] = useState('loading');
   const [demoGateOpen, setDemoGateOpen] = useState(false);
+  const [demoError, setDemoError] = useState('');
   const [agentCount, setAgentCount] = useState(null);
   const { theme, toggleTheme } = useUIStore();
   const bookingUrl = import.meta.env.VITE_CALENDLY_URL || '#';
@@ -155,10 +157,12 @@ const LandingPage = () => {
   const closeDemoGate = () => {
     setDemoGateOpen(false);
     setAgentCount(null);
+    setDemoError('');
   };
 
   const openDemoGate = () => {
     setAgentCount(null);
+    setDemoError('');
     setDemoGateOpen(true);
   };
 
@@ -169,8 +173,10 @@ const LandingPage = () => {
     if (selectedAgentOption.bookMeeting) {
       if (bookingUrl && bookingUrl !== '#') {
         window.open(bookingUrl, '_blank', 'noopener,noreferrer');
+        closeDemoGate();
+        return;
       }
-      closeDemoGate();
+      setDemoError('Demo scheduling is not configured yet. Email us or create an account to get started.');
       return;
     }
     closeDemoGate();
@@ -178,6 +184,7 @@ const LandingPage = () => {
   };
 
   useEffect(() => {
+    setPricingStatus('loading');
     fetchCampaignPricing()
       .then((campaigns) => {
         setVerticalPricing(
@@ -188,9 +195,11 @@ const LandingPage = () => {
             detail: c.label,
           }))
         );
+        setPricingStatus('ready');
       })
       .catch(() => {
-        // Non-blocking — page is still fully usable without pricing
+        setVerticalPricing([]);
+        setPricingStatus('error');
       });
   }, []);
 
@@ -458,6 +467,14 @@ const LandingPage = () => {
             </div>
 
             <div className={classes.pricingGrid}>
+              {pricingStatus === 'loading' && verticalPricing.length === 0 ? (
+                <p className={classes.pricingEmpty}>Loading live vertical pricing…</p>
+              ) : null}
+              {pricingStatus === 'error' && verticalPricing.length === 0 ? (
+                <p className={classes.pricingEmpty}>
+                  Live pricing is unavailable right now. Create an account to see current rates by vertical.
+                </p>
+              ) : null}
               {verticalPricing.map((item, i) => (
                 <article
                   key={item.name}
@@ -711,7 +728,10 @@ const LandingPage = () => {
                         role="radio"
                         aria-checked={selected}
                         className={`${classes.demoChip} ${selected ? classes.demoChipSelected : ''}`}
-                        onClick={() => setAgentCount(option.id)}
+                        onClick={() => {
+                          setAgentCount(option.id);
+                          setDemoError('');
+                        }}
                         initial={reduceMotion ? false : { opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{
@@ -733,6 +753,7 @@ const LandingPage = () => {
                   })}
                 </div>
 
+                {demoError ? <p className={classes.demoError} role="alert">{demoError}</p> : null}
                 <div className={classes.demoActions}>
                   <button type="button" className={classes.demoCancelBtn} onClick={closeDemoGate}>
                     Cancel
@@ -743,7 +764,7 @@ const LandingPage = () => {
                     onClick={handleDemoContinue}
                     disabled={agentCount == null}
                   >
-                    Continue
+                    {selectedAgentOption?.bookMeeting ? 'Book demo' : selectedAgentOption ? 'Create account' : 'Continue'}
                     <ArrowRight size={16} className={classes.arrow} />
                   </button>
                 </div>

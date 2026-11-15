@@ -37,7 +37,7 @@ const QaAITrainingPage = () => {
       setRows(nextRows);
       setSelectedUid((prev) => (prev && nextRows.some((r) => r.uid === prev) ? prev : (nextRows[0]?.uid || '')));
     } catch (err) {
-      setError(err?.message || 'Failed to load admin coaching visibility');
+      setError(err?.message || 'Failed to load QA coaching visibility');
     } finally {
       setLoading(false);
     }
