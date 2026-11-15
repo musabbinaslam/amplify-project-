@@ -89,7 +89,7 @@ const QaDashboardPage = () => {
       } catch {
         // no-op: preserve shell failure message below
       }
-      toast.error(e.message || 'Failed to load admin data');
+      toast.error(e.message || 'Failed to load QA dashboard data');
     } finally {
       setLoading(false);
     }

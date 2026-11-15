@@ -757,10 +757,10 @@ const SettingsPage = () => {
             <div className={classes.previewNavLabel}>Dashboard</div>
           </div>
           <div className={classes.previewActionRow}>
-            <button type="button" className={classes.previewPrimaryBtn}>
+            <div className={classes.previewPrimaryBtn} aria-hidden="true">
               <Check size={13} strokeWidth={3} />
               Save changes
-            </button>
+            </div>
             <span className={classes.previewChip}>Active</span>
           </div>
           <div className={classes.previewInputWrap}>

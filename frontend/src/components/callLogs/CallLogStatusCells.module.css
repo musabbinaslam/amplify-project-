@@ -1,0 +1,40 @@
+.dispBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.dispStatusBadge {
+  min-width: 5.75rem;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.dispSold {
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  color: var(--brand-text);
+}
+
+.dispAnswered {
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+  color: var(--accent-cyan);
+}
+
+.dispMissed {
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent);
+  color: var(--accent-red);
+}
+
+.dispPolicyClosed {
+  background: color-mix(in srgb, var(--brand-text) 14%, transparent);
+  color: var(--brand-text);
+  border: 1px solid color-mix(in srgb, var(--brand-text) 28%, transparent);
+}
+
+.scoreDash {
+  color: var(--text-muted);
+}

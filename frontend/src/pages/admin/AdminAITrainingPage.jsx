@@ -36,8 +36,12 @@ const RISK_PILL_CLASS = {
 
 function formatChartDay(day) {
   if (!day) return '';
-  const d = new Date(`2026-${day}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return String(day);
+  const raw = String(day);
+  const iso = /^\d{4}-\d{2}-\d{2}/.test(raw)
+    ? raw.slice(0, 10)
+    : `${new Date().getFullYear()}-${raw}`;
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return raw;
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
