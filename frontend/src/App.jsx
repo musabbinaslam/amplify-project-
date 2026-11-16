@@ -55,6 +55,7 @@ const AdminLiveOpsPage = lazy(() => import('./pages/admin/AdminLiveOpsPage'));
 const AdminCallTracePage = lazy(() => import('./pages/admin/AdminCallTracePage'));
 const AdminEmailCampaignsPage = lazy(() => import('./pages/admin/AdminEmailCampaignsPage'));
 const AdminMedicareRetargetPage = lazy(() => import('./pages/admin/AdminMedicareRetargetPage'));
+const AdminMedicareRetargetComposePage = lazy(() => import('./pages/admin/AdminMedicareRetargetComposePage'));
 const AdminCallContestsPage = lazy(() => import('./pages/admin/AdminCallContestsPage'));
 const AdminAgentsPage = lazy(() => import('./pages/admin/AdminAgentsPage'));
 const AdminCampaignsPage = lazy(() => import('./pages/admin/AdminCampaignsPage'));
@@ -463,6 +464,13 @@ const AnimatedRoutes = () => {
             <Suspense fallback={<PageLoader />}>
               <AdminOnly>
                 <AdminMedicareRetargetPage />
+              </AdminOnly>
+            </Suspense>
+          } />
+          <Route path="admin/email-campaigns/medicare-retarget/compose" element={
+            <Suspense fallback={<PageLoader />}>
+              <AdminOnly>
+                <AdminMedicareRetargetComposePage />
               </AdminOnly>
             </Suspense>
           } />

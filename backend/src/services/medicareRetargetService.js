@@ -183,9 +183,24 @@ function copyForStep(step) {
   };
 }
 
-function buildMedicareRetargetEmailHtml({ name, step, billingUrl: payUrl }) {
-  const copy = copyForStep(step);
-  const safePay = escapeHtml(payUrl || billingUrl());
+function resolveHeadline(copy, name) {
+  return typeof copy.headline === 'function' ? copy.headline(name || 'there') : String(copy.headline || '');
+}
+
+function paragraphs(text) {
+  return String(text || '')
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
+function paragraphHtml(text) {
+  return escapeHtml(text).replace(/\n/g, '<br/>');
+}
+
+function buildMedicareRetargetEmailHtml({ name, step, billingUrl: payUrl, copy: customCopy }) {
+  const copy = customCopy || copyForStep(step);
+  const safePay = escapeHtml(copy.ctaUrl || payUrl || billingUrl());
   const BRAND = '#25f425';
   const BRAND_DARK = '#18a818';
   const BG = '#f4f6f5';
@@ -195,7 +210,55 @@ function buildMedicareRetargetEmailHtml({ name, step, billingUrl: payUrl }) {
   const MUTED = '#6b7280';
   const BORDER = '#e5e7eb';
   const HEADER_BG = '#0e0e0e';
-  const nextItems = copy.next.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+  const next = Array.isArray(copy.next) ? copy.next.filter(Boolean) : [];
+  const nextItems = next.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+  const introHtml = paragraphs(copy.intro)
+    .map((p) => `<p style="margin:0 0 14px 0;">${paragraphHtml(p)}</p>`)
+    .join('');
+  const bodyParts = paragraphs(copy.body);
+  const bodyHtml = bodyParts
+    .map((p, i) => `<p style="margin:0 0 ${i === bodyParts.length - 1 ? 18 : 14}px 0; color:${INK_SOFT};">${paragraphHtml(p)}</p>`)
+    .join('');
+  const eyebrowHtml = copy.eyebrow
+    ? `<div style="font-size:12px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:${BRAND}; margin-bottom:12px;">
+                      ${escapeHtml(copy.eyebrow)}
+                    </div>`
+    : '';
+  const subHtml = copy.sub
+    ? `<div style="font-size:14px; line-height:1.55; color:#adaaaa;">
+                      ${escapeHtml(copy.sub)}
+                    </div>`
+    : '';
+  const ctaHtml = copy.cta
+    ? `<table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="border-radius:10px; background:${BRAND};">
+                          <a href="${safePay}" style="display:inline-block; padding:12px 18px; color:${INK}; text-decoration:none; font-size:14px; font-weight:800;">
+                            ${escapeHtml(copy.cta)}
+                          </a>
+                        </td>
+                      </tr>
+                    </table>`
+    : '';
+  const nextHtml = next.length
+    ? `<tr>
+                  <td style="padding:0 40px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${BG}; border:1px solid ${BORDER}; border-left:3px solid ${BRAND_DARK}; border-radius:10px;">
+                      <tr>
+                        <td style="padding:16px 18px;">
+                          <p style="margin:0 0 10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED};">${escapeHtml(copy.nextTitle || 'Next steps')}</p>
+                          <ul style="margin:0; padding-left:16px; color:${INK_SOFT}; font-size:14px; line-height:1.65;">
+                            ${nextItems}
+                          </ul>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>`
+    : '';
+  const preheaderHtml = `<div style="display:none; font-size:0; line-height:0; max-height:0; max-width:0; opacity:0; overflow:hidden;">
+    ${escapeHtml(copy.preheader)}
+  </div>`;
 
   return `<!DOCTYPE html>
 <html>
@@ -205,9 +268,7 @@ function buildMedicareRetargetEmailHtml({ name, step, billingUrl: payUrl }) {
 <title>${escapeHtml(copy.subject)}</title>
 </head>
 <body style="margin:0; padding:0; background:${BG}; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:${INK}; -webkit-font-smoothing:antialiased;">
-  <div style="display:none; font-size:0; line-height:0; max-height:0; max-width:0; opacity:0; overflow:hidden;">
-    ${escapeHtml(copy.preheader)}
-  </div>
+  ${preheaderHtml}
 
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${BG}; padding:32px 16px;">
     <tr>
@@ -239,15 +300,11 @@ function buildMedicareRetargetEmailHtml({ name, step, billingUrl: payUrl }) {
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${HEADER_BG};">
                 <tr>
                   <td style="padding:36px 40px 28px 40px; color:#ffffff;">
-                    <div style="font-size:12px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:${BRAND}; margin-bottom:12px;">
-                      ${escapeHtml(copy.eyebrow)}
-                    </div>
+                    ${eyebrowHtml}
                     <div style="font-size:26px; line-height:1.25; font-weight:700; color:#ffffff; margin-bottom:6px;">
-                      ${escapeHtml(copy.headline(name || 'there'))}
+                      ${escapeHtml(resolveHeadline(copy, name))}
                     </div>
-                    <div style="font-size:14px; line-height:1.55; color:#adaaaa;">
-                      ${escapeHtml(copy.sub)}
-                    </div>
+                    ${subHtml}
                   </td>
                 </tr>
               </table>
@@ -255,36 +312,13 @@ function buildMedicareRetargetEmailHtml({ name, step, billingUrl: payUrl }) {
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
                   <td style="padding:30px 40px 8px 40px; font-size:15px; line-height:1.6; color:${INK};">
-                    <p style="margin:0 0 14px 0;">${escapeHtml(copy.intro)}</p>
-                    <p style="margin:0 0 18px 0; color:${INK_SOFT};">
-                      ${escapeHtml(copy.body)}
-                    </p>
-                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-                      <tr>
-                        <td style="border-radius:10px; background:${BRAND};">
-                          <a href="${safePay}" style="display:inline-block; padding:12px 18px; color:${INK}; text-decoration:none; font-size:14px; font-weight:800;">
-                            ${escapeHtml(copy.cta)}
-                          </a>
-                        </td>
-                      </tr>
-                    </table>
+                    ${introHtml}
+                    ${bodyHtml}
+                    ${ctaHtml}
                   </td>
                 </tr>
 
-                <tr>
-                  <td style="padding:0 40px;">
-                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${BG}; border:1px solid ${BORDER}; border-left:3px solid ${BRAND_DARK}; border-radius:10px;">
-                      <tr>
-                        <td style="padding:16px 18px;">
-                          <p style="margin:0 0 10px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:${MUTED};">Next steps</p>
-                          <ul style="margin:0; padding-left:16px; color:${INK_SOFT}; font-size:14px; line-height:1.65;">
-                            ${nextItems}
-                          </ul>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
+                ${nextHtml}
 
                 <tr>
                   <td style="padding:24px 40px 36px 40px; font-size:14px; line-height:1.6; color:${INK_SOFT};">
@@ -303,23 +337,16 @@ function buildMedicareRetargetEmailHtml({ name, step, billingUrl: payUrl }) {
 </html>`;
 }
 
-function buildMedicareRetargetEmailText({ name, step, billingUrl: payUrl }) {
-  const copy = copyForStep(step);
-  const who = name || 'there';
-  return [
-    copy.headline(who).replace(/,$/, '.'),
-    '',
-    copy.intro,
-    copy.body,
-    '',
-    `${copy.cta}: ${payUrl || billingUrl()}`,
-    '',
-    'Next steps:',
-    ...copy.next.map((item) => `- ${item}`),
-    '',
-    'Need help? Reply to this email. To opt out, reply STOP.',
-    '— The CallsFlow Team',
-  ].join('\n');
+function buildMedicareRetargetEmailText({ name, step, billingUrl: payUrl, copy: customCopy }) {
+  const copy = customCopy || copyForStep(step);
+  const next = Array.isArray(copy.next) ? copy.next.filter(Boolean) : [];
+  const lines = [resolveHeadline(copy, name).replace(/,$/, '.'), ''];
+  if (copy.intro) lines.push(copy.intro);
+  if (copy.body) lines.push(copy.body);
+  if (copy.cta) lines.push('', `${copy.cta}: ${copy.ctaUrl || payUrl || billingUrl()}`);
+  if (next.length) lines.push('', `${copy.nextTitle || 'Next steps'}:`, ...next.map((item) => `- ${item}`));
+  lines.push('', 'Need help? Reply to this email. To opt out, reply STOP.', '— The CallsFlow Team');
+  return lines.join('\n');
 }
 
 async function writeUserPatch(uid, patch) {
@@ -829,4 +856,9 @@ module.exports = {
   startMedicareRetargetScheduler,
   tickMedicareRetargetScheduler,
   copyForStep,
+  resolveAppBase,
+  displayName,
+  userEmail,
+  fetchUsersByStatuses,
+  fetchUnpaidFlaggedUsers,
 };

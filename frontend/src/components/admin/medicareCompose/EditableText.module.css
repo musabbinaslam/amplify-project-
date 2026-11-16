@@ -1,0 +1,43 @@
+.editable {
+  display: block;
+  min-width: 40px;
+  margin: -3px -6px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  outline: 2px solid transparent;
+  outline-offset: 0;
+  cursor: text;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  transition: outline-color 150ms ease-out, background-color 150ms ease-out;
+}
+
+.editable:hover {
+  outline: 1px dashed var(--edit-hover, rgba(24, 168, 24, 0.5));
+}
+
+.editable:focus {
+  outline: 2px solid var(--edit-ring, #18a818);
+  background-color: var(--edit-bg, rgba(24, 168, 24, 0.06));
+}
+
+.editable:empty::before {
+  content: attr(data-placeholder);
+  color: var(--edit-placeholder, #9aa3a0);
+  font-weight: inherit;
+  pointer-events: none;
+}
+
+.invalid:empty::before {
+  color: var(--edit-missing, #c77700);
+}
+
+.multiline {
+  min-height: 1.6em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editable {
+    transition: none;
+  }
+}

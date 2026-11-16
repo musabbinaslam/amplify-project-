@@ -146,5 +146,89 @@ router.post('/medicare-retarget/run', async (req, res) => {
   }
 });
 
+const medicareBroadcast = require('../services/medicareRetargetBroadcastService');
+function sendBroadcastError(res, label, err) {
+  const status = err.status || 500;
+  if (status >= 500) console.error(`[Admin] medicare-retarget ${label}:`, err.message);
+  res.status(status).json({ error: err.message || 'Request failed', runningId: err.runningId });
+}
+router.get('/medicare-retarget/custom/audiences', (req, res) => {
+  res.json({
+    audiences: medicareBroadcast.listAudiences(),
+    templates: medicareBroadcast.starterTemplates(),
+    limits: medicareBroadcast.LIMITS,
+  });
+});
+router.get('/medicare-retarget/custom/audience-count', async (req, res) => {
+  try {
+    res.json(await medicareBroadcast.countAudience(String(req.query.audience || 'active')));
+  } catch (err) {
+    sendBroadcastError(res, 'audience-count', err);
+  }
+});
+router.get('/medicare-retarget/custom/recipients', async (req, res) => {
+  try {
+    res.json({ items: await medicareBroadcast.listRecipients() });
+  } catch (err) {
+    sendBroadcastError(res, 'recipients', err);
+  }
+});
+router.post('/medicare-retarget/custom/preview', (req, res) => {
+  try {
+    res.json(medicareBroadcast.previewCustomEmail(req.body?.copy || {}, { name: req.body?.name || undefined }));
+  } catch (err) {
+    sendBroadcastError(res, 'preview', err);
+  }
+});
+router.post('/medicare-retarget/custom/test', async (req, res) => {
+  try {
+    const to = req.body?.to || req.user?.email;
+    res.json(await medicareBroadcast.sendCustomTestEmail({ copy: req.body?.copy || {}, to, name: req.body?.name }));
+  } catch (err) {
+    sendBroadcastError(res, 'test send', err);
+  }
+});
+router.post('/medicare-retarget/custom/send', async (req, res) => {
+  try {
+    if (req.body?.confirm !== true) {
+      return res.status(400).json({ error: 'Send must be confirmed' });
+    }
+    const broadcast = await medicareBroadcast.startCustomBroadcast({
+      copy: req.body?.copy || {},
+      audience: String(req.body?.audience || 'active'),
+      userIds: Array.isArray(req.body?.userIds) ? req.body.userIds : undefined,
+      createdBy: req.user?.email || req.user?.uid || null,
+    });
+    res.status(202).json(broadcast);
+  } catch (err) {
+    sendBroadcastError(res, 'send', err);
+  }
+});
+router.get('/medicare-retarget/custom/broadcasts', async (req, res) => {
+  try {
+    res.json({ items: await medicareBroadcast.listBroadcasts({ limit: req.query.limit }) });
+  } catch (err) {
+    sendBroadcastError(res, 'broadcasts', err);
+  }
+});
+router.get('/medicare-retarget/custom/broadcasts/:id', async (req, res) => {
+  try {
+    const out = await medicareBroadcast.getBroadcast(req.params.id);
+    if (!out) return res.status(404).json({ error: 'Broadcast not found' });
+    res.json(out);
+  } catch (err) {
+    sendBroadcastError(res, 'broadcast', err);
+  }
+});
+router.post('/medicare-retarget/custom/broadcasts/:id/cancel', async (req, res) => {
+  try {
+    const out = await medicareBroadcast.cancelBroadcast(req.params.id);
+    if (!out) return res.status(404).json({ error: 'Broadcast not found' });
+    res.json(out);
+  } catch (err) {
+    sendBroadcastError(res, 'cancel', err);
+  }
+});
+
 module.exports = router;
 
