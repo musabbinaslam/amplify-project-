@@ -25,8 +25,6 @@ import { formatChatTime, withDaySeparators } from '../../utils/chatDaySeparators
 import {
   CHAT_MEDIA_LIMITS,
   fetchSupportMediaObjectUrl,
-  supportMediaSrc,
-  supportMediaSrcSync,
   uploadSupportMedia,
   warmSupportMediaToken,
 } from '../../services/supportLiveService';
@@ -382,15 +380,17 @@ function MediaImage({ conversationId, media, desk = false }) {
 }
 
 function MediaFile({ conversationId, media, desk = false }) {
-  const [href, setHref] = useState(() => supportMediaSrcSync(conversationId, media, { desk }));
+  const [href, setHref] = useState('');
   useEffect(() => {
     let alive = true;
-    const sync = supportMediaSrcSync(conversationId, media, { desk });
-    if (sync) setHref(sync);
-    supportMediaSrc(conversationId, media, { desk }).then((url) => {
+    const ctrl = new AbortController();
+    fetchSupportMediaObjectUrl(conversationId, media, { desk, signal: ctrl.signal }).then((url) => {
       if (alive && url) setHref(url);
     }).catch(() => {});
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+      ctrl.abort();
+    };
   }, [conversationId, media, desk]);
   return (
     <a
@@ -412,19 +412,21 @@ function MediaFile({ conversationId, media, desk = false }) {
 
 function MediaAudio({ conversationId, media, desk = false }) {
   const audioRef = useRef(null);
-  const [src, setSrc] = useState(() => supportMediaSrcSync(conversationId, media, { desk }));
+  const [src, setSrc] = useState('');
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const duration = media.durationMs || 0;
 
   useEffect(() => {
     let alive = true;
-    const sync = supportMediaSrcSync(conversationId, media, { desk });
-    if (sync) setSrc(sync);
-    supportMediaSrc(conversationId, media, { desk }).then((url) => {
+    const ctrl = new AbortController();
+    fetchSupportMediaObjectUrl(conversationId, media, { desk, signal: ctrl.signal }).then((url) => {
       if (alive && url) setSrc(url);
     }).catch(() => {});
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+      ctrl.abort();
+    };
   }, [conversationId, media, desk]);
 
   const toggle = () => {
