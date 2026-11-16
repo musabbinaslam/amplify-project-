@@ -29,9 +29,30 @@ import NumberPopIn from '../components/ui/NumberPopIn';
 import SlidingTabs from '../components/ui/SlidingTabs';
 import { useSubtlePageMotion } from '../hooks/useSubtlePageMotion';
 import { RecordingModal } from '../components/modals/RecordingModal';
+import { getDispositionOption } from '../constants/dispositions';
 import classes from './QaDashboardPage.module.css';
 
+function qaDispositionClass(tone) {
+  if (tone === 'sold') return classes.dispSold;
+  if (tone === 'callback') return classes.dispAnswered;
+  if (tone === 'policy') return classes.dispAnswered;
+  return classes.dispMissed;
+}
 
+/* eslint-disable react/prop-types -- local presentational helper */
+function QaDispositionCell({ disposition }) {
+  const mapped = getDispositionOption(disposition);
+  if (!mapped) return <span className={classes.muted}>—</span>;
+  return (
+    <span
+      className={`${classes.statusPill} ${qaDispositionClass(mapped.tone)}`}
+      style={mapped.tone === 'policy' ? { borderColor: 'var(--brand-text)' } : undefined}
+    >
+      {mapped.label}
+    </span>
+  );
+}
+/* eslint-enable react/prop-types */
 
 const QaDashboardPage = () => {
   const presets = useSubtlePageMotion();
@@ -822,19 +843,7 @@ const QaDashboardPage = () => {
                           ) : null}
                         </td>
                         <td>
-                          {log.disposition === 'sold' ? (
-                            <span className={`${classes.statusPill} ${classes.dispSold}`}>Sold</span>
-                          ) : log.disposition === 'callback' ? (
-                            <span className={`${classes.statusPill} ${classes.dispAnswered}`}>Call back</span>
-                          ) : log.disposition === 'not_interested' ? (
-                            <span className={`${classes.statusPill} ${classes.dispMissed}`}>Not Interested</span>
-                          ) : log.disposition === 'busy' ? (
-                            <span className={`${classes.statusPill} ${classes.dispMissed}`}>Busy</span>
-                          ) : log.disposition === 'policy_closed' ? (
-                            <span className={`${classes.statusPill} ${classes.dispAnswered}`} style={{borderColor: 'var(--brand-text)'}}>Policy Closed</span>
-                          ) : (
-                            <span className={classes.muted}>—</span>
-                          )}
+                          <QaDispositionCell disposition={log.disposition} />
                         </td>
                         <td>{log.cost > 0 ? `$${log.cost.toFixed(2)}` : '—'}</td>
                         <td>

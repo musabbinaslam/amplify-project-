@@ -8,11 +8,19 @@ const SUMMARY_FIELDS = [
   'from', 'campaign', 'campaignLabel', 'type', 'callSid',
 ];
 
+// Label strings must stay identical to frontend/src/constants/dispositions.js
+// so summary.dispositions buckets match the dashboard donut keys.
 const DISPOSITION_LABELS = {
-  sold: 'Sold',
-  callback: 'Callback',
   not_interested: 'Not Interested',
-  no_answer: 'No Answer',
+  does_not_qualify: "Doesn't Qualify",
+  over_age: 'Over Age',
+  thinks_its_free: "Thinks It's Free",
+  call_dropped: 'Call Dropped',
+  callback: 'Call Back',
+  busy: 'Busy',
+  dead_air: 'Dead Air',
+  policy_closed: 'Policy Closed',
+  sold: 'Sold',
 };
 
 function dispositionLabel(log) {
@@ -158,4 +166,4 @@ async function getDashboardSummary(req, res) {
   }
 }
 
-module.exports = { getDashboardSummary };
+module.exports = { getDashboardSummary, dispositionLabel, DISPOSITION_LABELS };

@@ -6,19 +6,8 @@ import { PhoneCall, Lock, CheckCircle2, Star, Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import useDialerStore from '../../store/useDialerStore';
 import { apiFetch } from '../../services/apiClient';
+import { DISPOSITIONS } from '../../constants/dispositions';
 import classes from './DispositionModal.module.css';
-
-const OPTIONS = [
-  { id: 'not_interested', label: 'Not Interested' },
-  { id: 'does_not_qualify', label: "Doesn't Qualify" },
-  { id: 'over_age', label: 'Over Age' },
-  { id: 'thinks_its_free', label: "Thinks It's Free" },
-  { id: 'call_dropped', label: 'Call Dropped' },
-  { id: 'callback', label: 'Call Back' },
-  { id: 'busy', label: 'Busy' },
-  { id: 'dead_air', label: 'Dead Air' },
-  { id: 'policy_closed', label: 'Policy Closed', isSpecial: true },
-];
 
 export default function DispositionModal({ onComplete }) {
   const pendingDispositionCall = useDialerStore((s) => s.pendingDispositionCall);
@@ -163,7 +152,7 @@ export default function DispositionModal({ onComplete }) {
             role="radiogroup"
             aria-labelledby="disposition-modal-title"
           >
-            {OPTIONS.map((opt) => {
+            {DISPOSITIONS.map((opt) => {
               const isSelected = selected === opt.id;
               const isPolicy = opt.isSpecial;
 
