@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Mail, Loader2, Play, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Mail, Loader2, PenLine, Play, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   discoverMedicareRetargetUsers,
@@ -185,6 +186,10 @@ export default function AdminMedicareRetargetPage() {
             {discovering ? <Loader2 size={14} className={shared.spin} /> : null}
             Discover unpaid
           </button>
+          <Link to="/app/admin/email-campaigns/medicare-retarget/compose" className={`${shared.modalCancelBtn} ${classes.linkBtn}`}>
+            <PenLine size={14} />
+            Custom email
+          </Link>
           <button type="button" className={shared.primaryBtn} onClick={runTick} disabled={busy}>
             {running ? <Loader2 size={14} className={shared.spin} /> : <Play size={14} />}
             Run tick now

@@ -363,3 +363,46 @@ export function runMedicareRetargetTick() {
   return apiFetch('/api/admin/medicare-retarget/run', { method: 'POST' });
 }
 
+export function getMedicareCustomAudiences() {
+  return apiFetch('/api/admin/medicare-retarget/custom/audiences', { method: 'GET' });
+}
+
+export function countMedicareCustomAudience(audience) {
+  const qs = new URLSearchParams({ audience });
+  return apiFetch(`/api/admin/medicare-retarget/custom/audience-count?${qs.toString()}`, { method: 'GET' });
+}
+
+export function previewMedicareCustomEmail(copy) {
+  return apiFetch('/api/admin/medicare-retarget/custom/preview', {
+    method: 'POST',
+    body: { copy },
+  });
+}
+
+export function sendMedicareCustomTestEmail({ copy, to, name }) {
+  return apiFetch('/api/admin/medicare-retarget/custom/test', {
+    method: 'POST',
+    body: { copy, to, name },
+  });
+}
+
+export function listMedicareCustomRecipients() {
+  return apiFetch('/api/admin/medicare-retarget/custom/recipients', { method: 'GET' });
+}
+
+/** Pass `userIds` to send only to hand-picked people; otherwise the whole `audience` group gets it. */
+export function sendMedicareCustomBroadcast({ copy, audience, userIds }) {
+  return apiFetch('/api/admin/medicare-retarget/custom/send', {
+    method: 'POST',
+    body: userIds ? { copy, userIds, confirm: true } : { copy, audience, confirm: true },
+  });
+}
+
+export function listMedicareCustomBroadcasts({ limit = 10 } = {}) {
+  return apiFetch(`/api/admin/medicare-retarget/custom/broadcasts?limit=${limit}`, { method: 'GET' });
+}
+
+export function cancelMedicareCustomBroadcast(id) {
+  return apiFetch(`/api/admin/medicare-retarget/custom/broadcasts/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+}
+

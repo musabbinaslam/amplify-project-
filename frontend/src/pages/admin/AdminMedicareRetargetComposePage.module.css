@@ -1,0 +1,168 @@
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* The shared header never shrinks its actions; let ours wrap on narrow screens. */
+div:has(> .actions) {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 4px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.startFrom {
+  position: relative;
+}
+
+.startFromBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  white-space: nowrap;
+}
+
+.startFromMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 220px;
+  padding: 6px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: var(--surface-container-low);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.startFromItem {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 150ms ease-out;
+}
+
+.startFromItem:hover,
+.startFromItem:focus-visible {
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+  outline: none;
+}
+
+.iconTextBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.liveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand-text);
+  animation: pulse 1.6s ease-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand-text) 55%, transparent);
+  }
+
+  100% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+/* Email on the left, send settings on the right; they stack when the page gets narrow. */
+.stage {
+  container-type: inline-size;
+  padding: 6px 0 48px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 680px) 360px;
+  justify-content: center;
+  align-items: start;
+  gap: 32px;
+}
+
+.editorCol {
+  min-width: 0;
+}
+
+/* The scrolling area has 40px of top padding that sticky offsets count from; -24px pins the panel 16px from the top. */
+.rail {
+  position: sticky;
+  top: -24px;
+  min-width: 0;
+}
+
+@container (max-width: 940px) {
+  .layout {
+    grid-template-columns: minmax(0, 680px);
+    gap: 24px;
+  }
+
+  .rail {
+    position: static;
+  }
+}
+
+/* Too short to keep the whole panel in view, so let it scroll with the page. */
+@media (max-height: 760px) {
+  .rail {
+    position: static;
+  }
+}
+
+.note {
+  max-width: 680px;
+  margin: 16px auto 0;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-tertiary);
+}
+
+.note code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liveDot {
+    animation: none;
+  }
+}

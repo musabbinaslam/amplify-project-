@@ -1,0 +1,612 @@
+/* Colors and spacing here mirror the real template in
+   backend/src/services/medicareRetargetService.js so what you type is what gets sent. */
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.inbox,
+.email {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #0e0e0e;
+  -webkit-font-smoothing: antialiased;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.22);
+}
+
+.inbox button,
+.email button,
+.email input,
+.email select {
+  font-family: inherit;
+}
+
+/* ─── Inbox line ─── */
+.inbox {
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.inboxRow {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 22px;
+}
+
+.inboxRow + .inboxRow {
+  border-top: 1px solid #eef0ef;
+}
+
+.inboxLabel {
+  flex: 0 0 92px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.inboxField {
+  flex: 1;
+  min-width: 0;
+}
+
+.subjectText {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.previewText {
+  font-size: 14px;
+  line-height: 1.4;
+  color: #4b5563;
+}
+
+/* ─── Email ─── */
+.email {
+  padding: 32px 16px;
+  border-radius: 14px;
+  background: #f4f6f5;
+}
+
+.inner {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px 18px;
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #25f425;
+}
+
+.logoPlay {
+  width: 0;
+  height: 0;
+  margin-left: 2px;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 11px solid #0e0e0e;
+}
+
+.brandName {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.card {
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 4px 24px rgba(14, 14, 14, 0.06);
+}
+
+.field {
+  position: relative;
+}
+
+.header {
+  padding: 36px 40px 28px;
+  border-radius: 17px 17px 0 0;
+  background: #0e0e0e;
+  --edit-ring: #25f425;
+  --edit-hover: rgba(37, 244, 37, 0.55);
+  --edit-bg: rgba(37, 244, 37, 0.08);
+  --edit-placeholder: #6f6f6f;
+  --edit-missing: #f5b041;
+}
+
+.eyebrowWrap {
+  margin-bottom: 12px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #25f425;
+}
+
+.headlineWrap {
+  margin-bottom: 6px;
+}
+
+.headline {
+  font-size: 26px;
+  line-height: 1.25;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.sub {
+  font-size: 14px;
+  line-height: 1.55;
+  color: #adaaaa;
+}
+
+.content {
+  padding: 30px 40px 8px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.introWrap {
+  margin-bottom: 14px;
+}
+
+.bodyWrap {
+  margin-bottom: 18px;
+}
+
+.body {
+  color: #4b5563;
+}
+
+/* ─── Button ─── */
+.ctaWrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.cta {
+  display: inline-block;
+  max-width: 100%;
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: #25f425;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.3;
+  color: #0e0e0e;
+  transition: box-shadow 150ms ease-out;
+  --edit-ring: transparent;
+  --edit-hover: transparent;
+  --edit-bg: transparent;
+  --edit-placeholder: rgba(14, 14, 14, 0.45);
+}
+
+.cta:hover {
+  box-shadow: 0 0 0 3px rgba(24, 168, 24, 0.25);
+}
+
+.ctaOpen,
+.ctaOpen:hover {
+  box-shadow: 0 0 0 3px rgba(24, 168, 24, 0.55);
+}
+
+.popover {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 0;
+  z-index: 30;
+  width: 340px;
+  max-width: calc(100vw - 64px);
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-container, #1a1a1a);
+  color: var(--text-primary, #ffffff);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  transform-origin: top left;
+  animation: popIn 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  outline: none;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+.popLabel {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary, #6b6b6b);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.chip {
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-secondary, #adaaaa);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 150ms ease-out, border-color 150ms ease-out, background 150ms ease-out;
+}
+
+.chip:hover {
+  color: var(--text-primary, #ffffff);
+  border-color: color-mix(in srgb, var(--brand-text) 40%, var(--glass-border));
+}
+
+.chipActive,
+.chipActive:hover {
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand-text) 45%, transparent);
+  background: color-mix(in srgb, var(--brand-text) 12%, transparent);
+}
+
+.popSelect,
+.popInput {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background-color: var(--surface-container-high, #202020);
+  color: var(--text-primary, #ffffff);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 150ms ease-out;
+}
+
+.popSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23969696' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+  cursor: pointer;
+}
+
+.popInput {
+  margin-top: 8px;
+}
+
+.popSelect:focus,
+.popInput:focus {
+  border-color: color-mix(in srgb, var(--brand-text) 45%, var(--glass-border));
+}
+
+.popInputError,
+.popInputError:focus {
+  border-color: #e5484d;
+}
+
+.popError {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #ff8589;
+}
+
+.popRemove {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary, #6b6b6b);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 150ms ease-out;
+}
+
+.popRemove:hover {
+  color: #ff8589;
+}
+
+/* ─── "+ Add" chips for removed sections ─── */
+.addChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px dashed #cfd5d2;
+  background: transparent;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 150ms ease-out, border-color 150ms ease-out, background 150ms ease-out;
+}
+
+.addChip:hover {
+  color: #18a818;
+  border-color: #18a818;
+  background: rgba(24, 168, 24, 0.05);
+}
+
+/* ─── Steps box ─── */
+.stepsWrap {
+  padding: 0 40px;
+  margin-top: 10px;
+}
+
+.stepsBox {
+  padding: 16px 18px;
+  border: 1px solid #e5e7eb;
+  border-left: 3px solid #18a818;
+  border-radius: 10px;
+  background: #f4f6f5;
+}
+
+.stepsTitleWrap {
+  margin-bottom: 10px;
+}
+
+.stepsTitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.steps {
+  margin: 0;
+  padding: 0 0 0 16px;
+  list-style: disc;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #4b5563;
+}
+
+.step {
+  position: relative;
+  padding-right: 30px;
+}
+
+.stepRemove {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #9aa3a0;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms ease-out, color 150ms ease-out, background 150ms ease-out;
+}
+
+.step:hover .stepRemove,
+.step:focus-within .stepRemove,
+.stepRemove:focus-visible {
+  opacity: 1;
+}
+
+.stepRemove:hover {
+  color: #e5484d;
+  background: rgba(229, 72, 77, 0.1);
+}
+
+.stepsActions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.addStep,
+.removeBox {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 150ms ease-out;
+}
+
+.addStep {
+  color: #18a818;
+}
+
+.addStep:hover:not(:disabled) {
+  color: #0f7a16;
+}
+
+.addStep:disabled {
+  color: #9aa3a0;
+  cursor: default;
+}
+
+.removeBox {
+  color: #9aa3a0;
+  font-size: 12px;
+}
+
+.removeBox:hover {
+  color: #e5484d;
+}
+
+/* ─── Locked footer ─── */
+.footer {
+  padding: 24px 40px 36px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #4b5563;
+  cursor: default;
+}
+
+.footer strong {
+  color: #0e0e0e;
+}
+
+.lockNote {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9aa3a0;
+}
+
+/* ─── Pill shown above the focused field ─── */
+.pill {
+  position: absolute;
+  right: -6px;
+  bottom: calc(100% + 9px);
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: #17191a;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+  animation: pillIn 150ms ease-out;
+}
+
+@keyframes pillIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.pillBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #e8ebe9;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: color 150ms ease-out, background 150ms ease-out;
+}
+
+.pillBtn:hover {
+  color: #25f425;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.pillCount {
+  padding: 0 9px 0 7px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #f5b041;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (hover: none) {
+  .stepRemove {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .email {
+    padding: 20px 10px;
+  }
+
+  .inboxRow {
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 16px;
+  }
+
+  .inboxLabel {
+    flex: none;
+  }
+
+  .inboxField {
+    width: 100%;
+  }
+
+  .header {
+    padding: 28px 22px 22px;
+  }
+
+  .content {
+    padding: 24px 22px 8px;
+  }
+
+  .stepsWrap {
+    padding: 0 22px;
+  }
+
+  .footer {
+    padding: 20px 22px 28px;
+  }
+
+  .headline {
+    font-size: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover,
+  .pill {
+    animation: none;
+  }
+}

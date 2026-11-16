@@ -5,6 +5,13 @@
   gap: 8px;
 }
 
+.linkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+
 .strip {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }

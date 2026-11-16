@@ -21,17 +21,40 @@ const REDIS_KEY_ARG_COMMANDS = new Set([
     'lPush', 'rPop', 'lLen', 'expire',
 ]);
 
-function wrapRedisClient(client, prefix) {
-    if (!prefix) return client;
+/** Upstash disables KEYS on large DBs — always implement via SCAN. */
+async function scanMatchKeys(client, match = '*') {
+    const ids = [];
+    let cursor = '0';
+    do {
+        const reply = await client.scan(String(cursor ?? '0'), {
+            MATCH: match,
+            COUNT: 200,
+        });
+        cursor = String(reply?.cursor ?? reply?.[0] ?? '0');
+        const batch = reply?.keys ?? reply?.[1] ?? [];
+        for (const key of batch) ids.push(key);
+    } while (cursor !== '0');
+    return ids;
+}
+
+function wrapRedisClient(client, prefix = '') {
     return new Proxy(client, {
         get(target, prop) {
+            // Never call Redis KEYS — Upstash rejects it once the keyspace is large.
+            if (prop === 'keys' || prop === 'KEYS') {
+                return async (match = '*') => {
+                    const pattern = prefix ? prefixRedisKey(match, prefix) : match;
+                    return scanMatchKeys(target, pattern);
+                };
+            }
+
             const orig = target[prop];
             if (typeof orig !== 'function') return orig;
 
             if (prop === 'scanIterator') {
                 return async function* scanWithPrefix(opts = {}) {
                     const nextOpts = { ...opts };
-                    if (nextOpts.MATCH) {
+                    if (prefix && nextOpts.MATCH) {
                         nextOpts.MATCH = prefixRedisKey(nextOpts.MATCH, prefix);
                     }
                     yield* target.scanIterator(nextOpts);
@@ -41,7 +64,7 @@ function wrapRedisClient(client, prefix) {
             if (prop === 'scan') {
                 return (cursor, opts = {}) => {
                     const nextOpts = { ...opts };
-                    if (nextOpts.MATCH) {
+                    if (prefix && nextOpts.MATCH) {
                         nextOpts.MATCH = prefixRedisKey(nextOpts.MATCH, prefix);
                     }
                     // node-redis v5: cursor must be string | Buffer
@@ -49,7 +72,7 @@ function wrapRedisClient(client, prefix) {
                 };
             }
 
-            if (!REDIS_KEY_ARG_COMMANDS.has(prop)) {
+            if (!prefix || !REDIS_KEY_ARG_COMMANDS.has(prop)) {
                 return orig.bind(target);
             }
 
@@ -63,8 +86,10 @@ function wrapRedisClient(client, prefix) {
 
 function applyRedisKeyPrefix(client) {
     const prefix = getRedisKeyPrefix();
-    if (!prefix) return client;
-    console.log(`[Redis] Using key prefix "${prefix}" (staging/production isolation)`);
+    if (prefix) {
+        console.log(`[Redis] Using key prefix "${prefix}" (staging/production isolation)`);
+    }
+    // Always wrap so keys() is SCAN-backed even without a prefix (Upstash-safe).
     return wrapRedisClient(client, prefix);
 }
 
@@ -199,6 +224,14 @@ const clientMock = {
             keys.push(key);
         }
         return { cursor: '0', keys };
+    },
+    // Upstash-safe: KEYS is implemented via SCAN in wrapRedisClient; mock mirrors that.
+    keys: async (match = '*') => {
+        const keys = [];
+        for await (const key of clientMock.scanIterator({ MATCH: match })) {
+            keys.push(key);
+        }
+        return keys;
     },
     lPush: async (key, value) => {
         if (!storage.has(key)) storage.set(key, []);
