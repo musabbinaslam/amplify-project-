@@ -244,7 +244,7 @@ router.get('/ping/:campaignId/:token/:phone', handlePing);
  * Universal Vendor Confirm API — Two-Phase Reservation (Option B)
  *
  * Ringba calls this endpoint immediately before dialing the lead (after winning the bid).
- * We atomically lock a specific agent here and store a 30-second reservation keyed by
+ * We atomically lock a specific agent here and store a 20-second reservation keyed by
  * the caller's phone number. When the real Twilio call arrives seconds later, the inbound
  * handler picks up the pre-locked agent and routes instantly.
  *
@@ -282,6 +282,31 @@ async function handleConfirm(req, res) {
            type: 'confirm', phone, campaignId, agencyId, state, available: false, reason: 'paused',
          });
          return res.json({ status: 0, campaign: campaignId, paused: true });
+      }
+
+      // Last-10 digits, same rule as reserveAgentForCall. Without a real phone
+      // we cannot write confirm:reservation, so do not lock anyone — answer like
+      // the capacity ping. The inbound call still routes through the normal path.
+      const phoneKey = phone ? String(phone).replace(/\D/g, '').slice(-10) : '';
+      if (phoneKey.length !== 10) {
+         const isAvailable = await agentManager.checkAvailableAgent(campaignId, state, { agencyId });
+         console.log(
+            `[Confirm API] 📡 No-phone ping campaign='${campaignId}' agency=${agencyId || 'platform'} state=${state || 'ANY'} -> ${isAvailable ? 'AVAILABLE (1)' : 'BUSY (0)'}`
+         );
+         callTrace.trace({
+           type: 'confirm',
+           phone,
+           campaignId,
+           agencyId: agencyId || 'platform',
+           state,
+           available: Boolean(isAvailable),
+           detail: 'no-phone-ping',
+         });
+         return res.json({
+            status: isAvailable ? 1 : 0,
+            campaign: campaignId,
+            state: state || 'any',
+         });
       }
 
       // Attempt atomic reservation
