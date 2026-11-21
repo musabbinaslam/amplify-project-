@@ -6,7 +6,7 @@
  *   node scripts/load_test_sockets.js --url http://localhost:3001 --clients 500 --duration 120
  *   node scripts/load_test_sockets.js --url https://api.callsflow.io --clients 1000 --duration 120
  *
- * Pass criteria (see deploy/OPS_RUNBOOK.md):
+ * Pass criteria:
  *   - High connect success (≥99% target)
  *   - Low unexpected disconnect rate during the hold window
  *   - Watch pm2 / Hostinger CPU+RAM / Upstash while running

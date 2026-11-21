@@ -2,8 +2,7 @@
 
 Guide for estimating client cost of the **AI Flags** feature and keeping the Gemini API from being overused.
 
-> **Do not mix features.** This doc is about **AI Flags** (recording compliance / Gemini audio review).  
-> The older **QA insight** (call-score) path is separate and is off by default (`QA_INSIGHT_GEMINI_ENABLED=false`).
+> **Do not mix features.** This doc is about **AI Flags** (recording compliance / Gemini audio review).
 
 ---
 
@@ -127,7 +126,6 @@ Gemini is burned by **your jobs**, not by the model “calling itself”:
 | Retries | Max ~3 attempts; stop early on billing errors |
 | Auto-shift batch | Default max **40** per idle trigger (`QA_AUTO_BATCH_LIMIT`) |
 | Auth | Analyze / re-analyze only on admin / QA routes |
-| Feature split | QA insight Gemini is separate and **off** by default |
 
 ---
 
@@ -147,9 +145,6 @@ In [Google Cloud Billing](https://console.cloud.google.com/billing) / AI Studio:
 # AI Flags (recording compliance) — keep on for production
 AI_FLAGS_GEMINI_ENABLED=true
 
-# Old QA insight / call-score — keep off unless you intentionally need it
-QA_INSIGHT_GEMINI_ENABLED=false
-
 GEMINI_MODEL=gemini-3.5-flash-lite
 
 # End-of-shift auto analyze
@@ -159,7 +154,7 @@ QA_AUTO_SHIFT_IDLE_MS=300000
 QA_SHIFT_TIMEZONE=America/New_York
 ```
 
-To pause **only AI Flags** without touching other Gemini uses (e.g. support chat):
+To pause **only AI Flags**:
 
 ```bash
 AI_FLAGS_GEMINI_ENABLED=false
@@ -186,13 +181,11 @@ Until then, **Google budget + env kill switch** is the real safety net.
 
 ---
 
-## 8. Feature split cheat sheet
+## 8. Feature cheat sheet
 
 | Feature | Env | Default | Uses Gemini for |
 | --- | --- | --- | --- |
 | **AI Flags** | `AI_FLAGS_GEMINI_ENABLED` | **on** | Listening to recordings + compliance rules |
-| **QA insight** | `QA_INSIGHT_GEMINI_ENABLED` | **off** | Old call-score / insight JSON |
-| Support chat | (shared `GEMINI_API_KEY`) | depends on product | Unrelated to AI Flags costing above |
 
 ---
 
