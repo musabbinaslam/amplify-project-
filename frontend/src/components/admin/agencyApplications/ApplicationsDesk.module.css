@@ -1,0 +1,993 @@
+.root {
+  container-type: inline-size;
+  container-name: appdesk;
+  min-width: 0;
+}
+
+/* ─── Stages ─── */
+.listStage,
+.desk {
+  padding: 0;
+  animation: stageIn var(--duration-fast, 250ms) var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+/* Browse mode: capped panel, list scrolls inside. */
+.listStage {
+  display: flex;
+  flex-direction: column;
+  height: min(560px, 70vh);
+  min-height: 360px;
+  overflow: hidden;
+}
+
+.listBody {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.listFooter {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding: 8px 16px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+  text-align: center;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-container-low) 0%, transparent) 0%,
+    var(--surface-container-low) 45%
+  );
+  pointer-events: none;
+}
+
+/* Review mode: height comes from the review column only. The queue is overlaid
+   in the left gutter so a long application list can't stretch empty glass under
+   Approve / Reject. */
+.desk {
+  --queue-width: 360px;
+  position: relative;
+  display: block;
+  padding-left: var(--queue-width);
+  overflow: visible;
+}
+
+/* ─── Filters + search ─── */
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.filters .filterBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  transition:
+    background var(--duration-quick, 150ms) ease,
+    color var(--duration-quick, 150ms) ease,
+    border-color var(--duration-quick, 150ms) ease,
+    transform var(--duration-quick, 150ms) var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.filters .filterBtn:active {
+  transform: scale(0.97);
+}
+
+.filterCount {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.65;
+  transition: opacity var(--duration-quick, 150ms) ease;
+}
+
+.search {
+  position: relative;
+  flex: 0 1 300px;
+  min-width: 200px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.search .searchInput {
+  padding: 8px 12px 8px 34px;
+  font-size: 13px;
+}
+
+.queue .controls {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.queue .search {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.queue .filters .filterBtn {
+  flex: 1 1 0;
+  justify-content: center;
+  padding: 7px 8px;
+}
+
+.queue .filters {
+  width: 100%;
+}
+
+/* ─── Queue rows ─── */
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.rowItem {
+  --i: 0;
+  animation: rowIn var(--duration-fast, 250ms) var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  animation-delay: calc(var(--i) * var(--duration-stagger, 40ms));
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 12px 9px 14px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--duration-quick, 150ms) ease,
+    transform var(--duration-quick, 150ms) var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.row::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--brand-text);
+  opacity: 0;
+  transform: scaleY(0.35);
+  transition:
+    opacity var(--duration-quick, 150ms) ease,
+    transform var(--duration-fast, 250ms) var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.row:hover {
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
+}
+
+.row:active {
+  transform: scale(0.995);
+}
+
+.row:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand-text) 60%, transparent);
+  outline-offset: -2px;
+}
+
+.rowActive,
+.rowActive:hover {
+  background: color-mix(in srgb, var(--brand-text) 9%, transparent);
+}
+
+.rowActive::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rowName {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text-primary);
+  letter-spacing: -0.005em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowSub {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.rowFounder,
+.rowEmail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowFounder {
+  flex: 0 1 auto;
+}
+
+.rowEmail {
+  flex: 1 1 0;
+  min-width: 0;
+  color: var(--text-tertiary);
+}
+
+.rowEmail::before {
+  content: '· ';
+}
+
+.rowMeta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.rowTime {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rowChevron {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  transition: transform var(--duration-quick, 150ms) ease, color var(--duration-quick, 150ms) ease;
+}
+
+.row:hover .rowChevron {
+  color: var(--text-primary);
+  transform: translateX(2px);
+}
+
+.row .pill {
+  padding: 3px 9px;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* Compact rows inside the desk queue */
+.queue .rowMeta {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.queue .rowEmail,
+.queue .rowChevron {
+  display: none;
+}
+
+/* ─── Queue pane ─── */
+.queue {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--queue-width);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--glass-border);
+  overflow: hidden;
+  border-bottom-left-radius: inherit;
+}
+
+.queueScroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.queueList {
+  min-height: 0;
+}
+
+/* ─── Empty states ─── */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 44px 24px;
+  text-align: center;
+  animation: emptyIn var(--duration-fast, 250ms) var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+.empty h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.empty p {
+  margin: 0 0 6px;
+  max-width: 300px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.emptyIcon {
+  margin-bottom: 6px;
+  color: var(--text-tertiary);
+}
+
+/* ─── Review pane ─── */
+.review {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  /* Keep the desk tall enough that the overlaid queue can show several rows. */
+  min-height: 420px;
+  animation: paneIn var(--duration-fast, 250ms) var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+@keyframes stageIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes paneIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rowIn {
+  from {
+    opacity: 0;
+    transform: translateY(var(--distance-base, 8px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes emptyIn {
+  from {
+    opacity: 0;
+    transform: translateY(var(--distance-micro, 4px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sectionIn {
+  from {
+    opacity: 0;
+    transform: translateY(var(--distance-micro, 4px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes railIn {
+  from {
+    opacity: 0;
+    transform: translateY(var(--distance-base, 8px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.reviewHead {
+  flex-shrink: 0;
+  padding: 22px 32px 0;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 14px -6px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--duration-quick, 150ms) ease;
+}
+
+.back:hover {
+  color: var(--text-primary);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  min-width: 0;
+  font-size: 26px;
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.submitted {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.submittedAgo {
+  color: var(--text-tertiary);
+}
+
+.submittedAgo::before {
+  content: ' · ';
+}
+
+.reviewBody {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 28px 32px 8px;
+}
+
+.section {
+  animation: sectionIn var(--duration-fast, 250ms) var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+.section:nth-of-type(2) {
+  animation-delay: var(--duration-micro, 80ms);
+}
+
+.section + .section {
+  padding-top: 24px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.sectionTitle {
+  margin: 0 0 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.specGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 48px;
+  margin: 0;
+}
+
+.spec {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.specLabel {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.specValue {
+  margin: 0;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  font-size: 14.5px;
+  font-weight: 550;
+  line-height: 1.35;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.specEmpty {
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.specInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.specLink {
+  min-width: 0;
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--brand-text) 55%, transparent);
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+  transition: color var(--duration-quick, 150ms) ease;
+}
+
+.specLink:hover {
+  color: var(--brand-text);
+}
+
+.copyBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background var(--duration-quick, 150ms) ease, color var(--duration-quick, 150ms) ease;
+}
+
+.copyBtn:hover {
+  background: color-mix(in srgb, var(--surface-container-highest) 80%, transparent);
+  color: var(--text-primary);
+}
+
+.copyBtnDone,
+.copyBtnDone:hover {
+  color: var(--brand-text);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  padding: 3px 9px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.rejectedNote {
+  padding: 12px 14px;
+  border-left: 3px solid var(--accent-red);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent-red) 8%, transparent);
+  animation: sectionIn var(--duration-fast, 250ms) var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  animation-delay: calc(var(--duration-micro, 80ms) * 2);
+}
+
+.rejectedNoteLabel {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--accent-red);
+}
+
+.rejectedNote p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.rejectedNote .rejectedNoteHint {
+  margin-top: 6px;
+  color: var(--text-secondary);
+}
+
+/* ─── Decision rail ─── */
+.rail {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+  padding: 20px 32px 22px;
+  border-top: 1px solid var(--glass-border);
+  border-bottom-right-radius: calc(var(--radius-xl) - 1px);
+  background: var(--surface-container-low);
+  /* Clear the floating support chat FAB (fixed, bottom-right ~24px + ~56px). */
+  padding-right: max(32px, 88px);
+  animation: railIn var(--duration-fast, 250ms) var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  animation-delay: var(--duration-micro, 80ms);
+}
+
+.reasonField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 420px;
+}
+
+.reasonField label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.reasonField label span {
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.railActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.railActions .rejectBtn {
+  flex-shrink: 0;
+  padding: 10px 18px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.railActions .rejectBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.nextBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color var(--duration-quick, 150ms) ease, color var(--duration-quick, 150ms) ease;
+}
+
+.nextBtn:hover {
+  border-color: color-mix(in srgb, var(--brand-text) 40%, var(--glass-border));
+  color: var(--brand-text);
+}
+
+.nextBtn svg {
+  transition: transform var(--duration-quick, 150ms) ease;
+}
+
+.nextBtn:hover svg {
+  transform: translateX(2px);
+}
+
+.quietActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.quietBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--duration-quick, 150ms) ease, color var(--duration-quick, 150ms) ease;
+}
+
+.quietBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface-container-highest) 80%, transparent);
+  color: var(--text-primary);
+}
+
+.quietBtn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* ─── Approved state ─── */
+.success {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.successText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.successText strong {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.successText span {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.successCheck {
+  flex-shrink: 0;
+  stroke: var(--brand-text);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.successCheck circle,
+.successCheck path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+.successCheckAnimate {
+  animation: checkPop var(--duration-very-slow, 500ms) var(--ease-bounce, cubic-bezier(0.34, 1.36, 0.64, 1)) both;
+}
+
+.successCheckAnimate circle {
+  animation: checkDraw var(--duration-very-slow, 500ms) var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+.successCheckAnimate path {
+  animation: checkDraw var(--duration-medium, 350ms) var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1)) 220ms both;
+}
+
+@keyframes checkDraw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes checkPop {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ─── Narrow: one column, the list is the queue ─── */
+@container appdesk (min-width: 1100px) {
+  .desk {
+    --queue-width: 400px;
+  }
+
+  .reviewHead {
+    padding: 26px 40px 0;
+  }
+
+  .title {
+    font-size: 28px;
+  }
+
+  .reviewBody {
+    gap: 32px;
+    padding: 32px 40px 12px;
+  }
+
+  .specGrid {
+    gap: 22px 56px;
+  }
+
+  .rail {
+    gap: 16px;
+    padding: 22px 40px 24px;
+    padding-right: max(40px, 96px);
+  }
+}
+
+@container appdesk (max-width: 820px) {
+  .desk {
+    --queue-width: 0px;
+    padding-left: 0;
+  }
+
+  .listStage {
+    height: min(520px, 65vh);
+  }
+
+  .queue {
+    display: none;
+  }
+
+  .review {
+    min-height: 0;
+  }
+
+  .rail {
+    border-bottom-left-radius: calc(var(--radius-xl) - 1px);
+    padding-right: max(18px, 88px);
+    animation: none;
+  }
+}
+
+@container appdesk (max-width: 560px) {
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filters {
+    width: 100%;
+  }
+
+  .filters .filterBtn {
+    flex: 1 1 0;
+    justify-content: center;
+    padding: 7px 8px;
+  }
+
+  .search {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .row {
+    gap: 10px;
+  }
+
+  .rowMeta {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+  }
+
+  .rowEmail,
+  .rowChevron {
+    display: none;
+  }
+
+  .reviewHead {
+    padding: 16px 18px 0;
+  }
+
+  .title {
+    font-size: 22px;
+  }
+
+  .reviewBody {
+    padding: 20px 18px 8px;
+  }
+
+  .specGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .rail {
+    padding: 14px 18px 16px;
+    padding-right: max(18px, 88px);
+  }
+
+  .reasonField {
+    max-width: none;
+  }
+
+  .quietActions {
+    margin-left: 0;
+    flex: 1 1 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .listStage,
+  .desk,
+  .review,
+  .rowItem,
+  .empty,
+  .section,
+  .rejectedNote,
+  .rail,
+  .successCheckAnimate,
+  .successCheckAnimate circle,
+  .successCheckAnimate path {
+    animation: none;
+  }
+
+  .row,
+  .row::before,
+  .rowChevron,
+  .nextBtn svg,
+  .filters .filterBtn {
+    transition: none;
+  }
+
+  .row:active,
+  .filters .filterBtn:active {
+    transform: none;
+  }
+}
