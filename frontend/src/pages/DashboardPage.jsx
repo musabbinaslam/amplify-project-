@@ -26,7 +26,6 @@ const CAMPAIGN_DESCRIPTIONS = {
   fe_inbounds: 'High-intent FE inbound callers',
   fe_tv_calls: 'High-intent Final Expense TV calls',
   medicare_transfers: 'Live transfer Medicare calls',
-  medicare_inbound_1: 'High-intent Medicare inbound calls',
   medicare_inbound_2: 'Standard Medicare inbound calls',
   aca_transfers: 'Live transfer ACA health calls',
 };
@@ -424,9 +423,7 @@ const DashboardPage = () => {
 
   const recentCalls = summary?.recentCalls ?? EMPTY_LIST;
 
-  const campaignCards = campaigns.length > 0
-    ? campaigns
-    : Object.keys(CAMPAIGN_DESCRIPTIONS).map((id) => ({ id, label: '', price: 0, buffer: 0 }));
+  const campaignCards = campaigns;
 
   const hasChartData = chartData.some((d) => d.sales !== 0 || d.calls !== 0);
 
@@ -620,6 +617,10 @@ const DashboardPage = () => {
           <div className={classes.sectionLoading}>
             <Loader2 size={16} className={classes.spinner} /> <ShimmerText text="Loading campaign pricing…" />
           </div>
+        ) : campaignsQuery.isError ? (
+          <div className={classes.sectionLoading}>Couldn&apos;t load campaign pricing.</div>
+        ) : campaignCards.length === 0 ? (
+          <div className={classes.emptyState}>No campaigns are assigned to your agency yet.</div>
         ) : (
           <motion.div className={classes.campaignGrid} variants={presets.grid}>
             {campaignCards.map((c) => (
