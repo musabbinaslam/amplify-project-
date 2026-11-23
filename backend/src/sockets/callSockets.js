@@ -277,17 +277,6 @@ exports.setupCallSockets = (io) => {
             }
         };
 
-        socket.on('agent:call_incoming', async (payload = {}) => {
-            const agentId = String(payload.agentId || socket.agentId || '').trim();
-            if (agentId) {
-                try {
-                    await agentManager.setAgentRinging(agentId);
-                } catch (e) {
-                    console.warn('[Socket] call incoming set ringing failed:', e.message);
-                }
-            }
-        });
-
         socket.on('agent:call_accepted', handleCallDelivered);
 
         socket.on('agent:heartbeat', async (payload) => {
