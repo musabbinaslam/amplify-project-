@@ -1,6 +1,5 @@
 const admin = require('../config/firebaseAdmin');
 const { getDb } = require('../config/firestoreDb');
-const crypto = require('crypto');
 
 const USER_DOC_TTL_MS = 20_000;
 const userDocCache = new Map();
@@ -86,51 +85,6 @@ async function mergeScriptValues(uid, scriptId, values) {
   );
 }
 
-async function getOrCreateApiKey(uid) {
-  const ref = usersRef(uid);
-  if (!ref) throw new Error('Database unavailable');
-  const { FieldValue } = admin.firestore;
-  const snap = await ref.get();
-  const existing = snap.exists ? snap.data()?.apiKey : null;
-  if (existing) return existing;
-
-  const bytes = crypto.randomBytes(32);
-  const hex = bytes.toString('hex');
-  const apiKey = `ak_${hex}`;
-
-  await ref.set({ apiKey, createdAt: FieldValue.serverTimestamp() }, { merge: true });
-  return apiKey;
-}
-
-async function regenerateApiKey(uid) {
-  const ref = usersRef(uid);
-  if (!ref) throw new Error('Database unavailable');
-  const { FieldValue } = admin.firestore;
-
-  const bytes = crypto.randomBytes(32);
-  const apiKey = `ak_${bytes.toString('hex')}`;
-  await ref.set(
-    {
-      apiKey,
-      apiKeyRotatedAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true },
-  );
-  return apiKey;
-}
-
-async function isSlugAvailable(uid, slug) {
-  const db = getDb();
-  if (!db) throw new Error('Database unavailable');
-  const normalized = String(slug || '').trim().toLowerCase();
-  if (!normalized) return false;
-  const snap = await db.collection('users').where('landingPageSlug', '==', normalized).limit(1).get();
-  if (snap.empty) return true;
-  const takenBy = snap.docs[0].id;
-  return takenBy === uid;
-}
-
 function activityRef(uid) {
   const ref = usersRef(uid);
   if (!ref) return null;
@@ -161,9 +115,6 @@ module.exports = {
   mergeUserDoc,
   mergeSettings,
   mergeScriptValues,
-  getOrCreateApiKey,
-  regenerateApiKey,
-  isSlugAvailable,
   addActivity,
   listActivity,
 };
