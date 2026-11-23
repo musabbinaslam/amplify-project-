@@ -8,6 +8,7 @@ import {
   getAdminAnalyticsBundle,
   listAdminCallContests,
   countAdminQaReviewsPending,
+  listSuspiciousAgents,
 } from '../../services/adminService';
 import { ADMIN_MODULES, ADMIN_CATEGORIES } from '../../config/adminModules';
 import AdminModuleCard from '../../components/admin/AdminModuleCard';
@@ -99,6 +100,7 @@ export default function AdminHubPage() {
     liveCalls: null,
     pendingContests: 0,
     pendingAiFlags: 0,
+    suspiciousAgents: 0,
     callsToday: null,
     answerRate: null,
     billableRate: null,
@@ -112,11 +114,12 @@ export default function AdminHubPage() {
       setStatsLoading(true);
       try {
         const range = todayRangeInTz();
-        const [overview, contests, analytics, aiFlags] = await Promise.all([
+        const [overview, contests, analytics, aiFlags, suspicious] = await Promise.all([
           getAdminOverviewLite(),
           listAdminCallContests('pending', 50),
           getAdminAnalyticsBundle(range),
           countAdminQaReviewsPending().catch(() => ({ pending: 0 })),
+          listSuspiciousAgents().catch(() => ({ agents: [] })),
         ]);
         if (cancelled) return;
         const pool = overview?.pool || {};
@@ -127,6 +130,7 @@ export default function AdminHubPage() {
           liveCalls: Array.isArray(overview?.liveCalls) ? overview.liveCalls.length : 0,
           pendingContests: Array.isArray(contests?.contests) ? contests.contests.length : 0,
           pendingAiFlags: Number(aiFlags?.pending || 0),
+          suspiciousAgents: Array.isArray(suspicious?.agents) ? suspicious.agents.length : 0,
           callsToday: summary.totalCalls ?? 0,
           answerRate: Math.round((summary.answerRate || 0) * 100),
           billableRate: Math.round((summary.billableRate || 0) * 100),
@@ -141,6 +145,7 @@ export default function AdminHubPage() {
             liveCalls: null,
             pendingContests: 0,
             pendingAiFlags: 0,
+            suspiciousAgents: 0,
             callsToday: null,
             answerRate: null,
             billableRate: null,
@@ -158,6 +163,7 @@ export default function AdminHubPage() {
   const badges = {
     pendingContests: stats.pendingContests,
     pendingAiFlags: stats.pendingAiFlags,
+    suspiciousAgents: stats.suspiciousAgents,
   };
 
   const liveMetrics = [

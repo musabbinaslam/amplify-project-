@@ -382,7 +382,7 @@ const ReferralProgramPage = () => {
         </div>
         {[
           { q: 'What does "going live" mean?', a: 'Going live means completing your first inbound call that lasts at least 30 seconds. Short or missed calls don\'t count.' },
-          { q: 'How does the one-referral, one-reward policy work?', a: 'Each person you successfully refer earns you exactly one 20% discount on your next top-up. Once that discount is used (or expires), simply share your link with a new person to earn your next discount. The more people you refer, the more discounts you unlock — one at a time!' },
+          { q: 'How does the one-referral, one-reward policy work?', a: `Each person you successfully refer earns you exactly one ${config.discountPercent}% discount on your next top-up. Once that discount is used (or expires), simply share your link with a new person to earn your next discount. The more people you refer, the more discounts you unlock — one at a time!` },
           { q: 'What is the minimum top-up for my referral to count?', a: 'The person you refer must make a qualifying top-up of at least $500. Top-ups below this amount will not activate your reward.' },
           { q: 'When does my discount expire?', a: `Your referral discount expires ${config.expiryDays} days after your referred friend goes live. Use it before then!` },
           { q: 'Can I transfer my discount?', a: 'No. Referral discounts are non-transferable and can only be used by you (the referrer) on your own account.' },

@@ -127,7 +127,7 @@ export const ADMIN_MODULES = [
   {
     id: 'email-campaigns',
     title: 'Email Campaigns',
-    description: 'Retarget and drip sequences for unpaid signups.',
+    description: 'Retarget unpaid Medicare signups with a two-email drip.',
     route: '/app/admin/email-campaigns',
     icon: Mail,
     category: 'communications',
