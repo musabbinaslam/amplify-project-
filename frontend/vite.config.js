@@ -2,7 +2,7 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
 
-// Baked into the JS bundle at build time — compared against /api/public/release.
+// Baked into the JS bundle at build time — the update banner compares against /version.json.
 const appBuildId = process.env.VERCEL_GIT_COMMIT_SHA || 'dev'
 
 // Only upload source maps when an auth token is available (CI/Vercel build env),

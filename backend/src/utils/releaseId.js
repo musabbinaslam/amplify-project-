@@ -64,16 +64,4 @@ function getReleaseId() {
   return 'unknown';
 }
 
-const SHA_PATTERN = /^[0-9a-f]{7,40}$/i;
-
-function writeReleaseId(releaseId) {
-  const id = String(releaseId || '').trim();
-  if (!SHA_PATTERN.test(id)) {
-    throw new Error('Invalid release id');
-  }
-  const releaseFile = path.join(BACKEND_ROOT, '.release');
-  fs.writeFileSync(releaseFile, `${id}\n`);
-  return id;
-}
-
-module.exports = { getReleaseId, writeReleaseId, BACKEND_ROOT };
+module.exports = { getReleaseId, BACKEND_ROOT };
