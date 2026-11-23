@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { usePageBreadcrumbs } from '../../hooks/usePageBreadcrumbs';
 import {
   Building2,
@@ -40,6 +40,7 @@ import { startSupportDeskOutbound } from '../../services/supportLiveService';
 import AdminPageShell from '../../components/admin/AdminPageShell';
 import AgencyDashboardLayout from '../../components/ops/AgencyDashboardLayout';
 import AgencyInviteCard from '../../components/agency/AgencyInviteCard';
+import ApplicationsDesk from '../../components/admin/agencyApplications/ApplicationsDesk';
 import CustomSelect from '../../components/ui/CustomSelect';
 import { ADMIN_CATEGORIES } from '../../config/adminModules';
 import PageLoader from '../../components/ui/PageLoader';
@@ -309,6 +310,7 @@ function ConfirmDialog({
   title,
   body,
   confirmLabel,
+  tone = 'danger',
   confirming,
   onClose,
   onConfirm,
@@ -334,7 +336,12 @@ function ConfirmDialog({
           <button type="button" className={shared.modalCancelBtn} onClick={onClose} disabled={confirming}>
             Cancel
           </button>
-          <button type="button" className={shared.dangerBtn} onClick={onConfirm} disabled={confirming}>
+          <button
+            type="button"
+            className={tone === 'primary' ? shared.primaryBtn : shared.dangerBtn}
+            onClick={onConfirm}
+            disabled={confirming}
+          >
             {confirming ? 'Working…' : confirmLabel}
           </button>
         </div>
@@ -345,6 +352,7 @@ function ConfirmDialog({
 
 export default function AdminAgenciesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [agencies, setAgencies] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
@@ -372,8 +380,7 @@ export default function AdminAgenciesPage() {
   const [lockedDraft, setLockedDraft] = useState([]);
   const [savingCampaigns, setSavingCampaigns] = useState(false);
   const [copiedPing, setCopiedPing] = useState('');
-  const [reviewingId, setReviewingId] = useState('');
-  const [rejectReason, setRejectReason] = useState('');
+  const [approvedNowId, setApprovedNowId] = useState('');
   const [messagingUid, setMessagingUid] = useState('');
 
   const handleCopyPing = useCallback((campaignId) => {
@@ -474,16 +481,9 @@ export default function AdminAgenciesPage() {
     return counts;
   }, [allUsers, liveCallsRaw]);
 
-  const pendingApplications = useMemo(
-    () => agencies
-      .filter((a) => a.status === 'pending' || a.status === 'rejected')
-      .sort((a, b) => {
-        // Pending first, then rejected
-        if (a.status === b.status) return String(a.name || '').localeCompare(String(b.name || ''));
-        if (a.status === 'pending') return -1;
-        if (b.status === 'pending') return 1;
-        return 0;
-      }),
+  // Pending + rejected; the review desk owns filtering and ordering.
+  const applications = useMemo(
+    () => agencies.filter((a) => a.status === 'pending' || a.status === 'rejected'),
     [agencies],
   );
 
@@ -529,36 +529,34 @@ export default function AdminAgenciesPage() {
     };
   }, [agencies, liveCallsRaw.length]);
 
-  const handleApproveApplication = async (agency) => {
+  const requestApproveApplication = (agency) => {
     if (!agency?.id) return;
-    setReviewingId(agency.id);
-    try {
-      await approveAdminAgency(agency.id);
-      toast.success(`Approved ${agency.name}`);
-      await loadAgencies();
-      setSearchParams({ selected: agency.id, tab: 'members' }, { replace: true });
-      setSelectedId(agency.id);
-    } catch (err) {
-      toast.error(err.message || 'Failed to approve');
-    } finally {
-      setReviewingId('');
-    }
+    const founder = agency.application?.founderName || 'The founder';
+    setConfirm({
+      type: 'approve-application',
+      id: agency.id,
+      name: agency.name,
+      tone: 'primary',
+      title: agency.status === 'rejected' ? `Re-approve ${agency.name}?` : `Approve ${agency.name}?`,
+      body: `${agency.name} becomes an active agency. ${founder} is notified and can start inviting agents.`,
+      confirmLabel: agency.status === 'rejected' ? 'Re-approve' : 'Approve',
+    });
   };
 
-  const handleRejectApplication = async (agency) => {
+  const requestRejectApplication = (agency, reason) => {
     if (!agency?.id) return;
-    setReviewingId(agency.id);
-    try {
-      await rejectAdminAgency(agency.id, rejectReason);
-      toast.success(`Rejected ${agency.name}`);
-      setRejectReason('');
-      await loadAgencies();
-      setSearchParams({ tab: 'applications' }, { replace: true });
-    } catch (err) {
-      toast.error(err.message || 'Failed to reject');
-    } finally {
-      setReviewingId('');
-    }
+    const founder = agency.application?.founderName || 'The founder';
+    setConfirm({
+      type: 'reject-application',
+      id: agency.id,
+      name: agency.name,
+      reason: reason || '',
+      title: `Reject ${agency.name}?`,
+      body: reason
+        ? `${founder} is notified with your reason: “${reason}”. You can re-approve this application later.`
+        : `${founder} is notified without a reason. You can re-approve this application later.`,
+      confirmLabel: 'Reject',
+    });
   };
 
   const handleMessageFounder = async (agency) => {
@@ -574,7 +572,7 @@ export default function AdminAgenciesPage() {
         text: `Hi — this is CallsFlow reviewing your agency application for "${agency.name}". How can we help?`,
       });
       toast.success('Support thread started');
-      window.location.assign(`/app/support-desk?userId=${encodeURIComponent(uid)}`);
+      navigate(`/app/support-desk/inbox?userId=${encodeURIComponent(uid)}`);
     } catch (err) {
       toast.error(err.message || 'Could not start chat');
     } finally {
@@ -827,6 +825,18 @@ export default function AdminAgenciesPage() {
         setConfirm(null);
         if (selectedId === confirm.id) updateSelectedId('');
         await loadAgencies();
+      } else if (confirm.type === 'approve-application') {
+        await approveAdminAgency(confirm.id);
+        toast.success(`Approved ${confirm.name}`);
+        setApprovedNowId(confirm.id);
+        setConfirm(null);
+        // Stay on the review desk; it switches to the approved state.
+        await loadAgencies();
+      } else if (confirm.type === 'reject-application') {
+        await rejectAdminAgency(confirm.id, confirm.reason);
+        toast.success(`Rejected ${confirm.name}`);
+        setConfirm(null);
+        await loadAgencies();
       }
     } catch (err) {
       toast.error(err.message || 'Action failed');
@@ -883,6 +893,19 @@ export default function AdminAgenciesPage() {
   };
 
   if (loading && !agencies.length) return <PageLoader />;
+
+  const confirmDialog = (
+    <ConfirmDialog
+      open={Boolean(confirm)}
+      title={confirm?.title || ''}
+      body={confirm?.body || ''}
+      confirmLabel={confirm?.confirmLabel || 'Confirm'}
+      tone={confirm?.tone}
+      confirming={confirming}
+      onClose={() => !confirming && setConfirm(null)}
+      onConfirm={runConfirm}
+    />
+  );
 
   if (!selectedId) {
     return (
@@ -950,148 +973,19 @@ export default function AdminAgenciesPage() {
 
           {directoryTab === 'applications' ? (
             <div className={classes.tabContent}>
-              {focusedApplication ? (
-                <div className={`glass ${classes.agencyCard}`} style={{ cursor: 'default', textAlign: 'left' }}>
-                  <button type="button" className={classes.backBtn} onClick={() => setDirectoryTab('applications')}>
-                    <ArrowLeft size={16} />
-                    All applications
-                  </button>
-                  <div className={classes.agencyCardTop}>
-                    <div>
-                      <h3 className={classes.agencyCardName}>{focusedApplication.name}</h3>
-                      <p className={classes.agencyCardSlug}>
-                        Submitted {focusedApplication.application?.submittedAt
-                          ? new Date(focusedApplication.application.submittedAt).toLocaleString()
-                          : '—'}
-                      </p>
-                    </div>
-                    <span className={`${shared.statusPill} ${statusPillClass(focusedApplication.status, shared)}`}>
-                      {statusLabel(focusedApplication.status)}
-                    </span>
-                  </div>
-                  <dl style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '8px 12px', fontSize: 13, margin: '16px 0' }}>
-                    <dt style={{ color: 'var(--text-tertiary)' }}>Founder</dt>
-                    <dd style={{ margin: 0 }}>{focusedApplication.application?.founderName || '—'}</dd>
-                    <dt style={{ color: 'var(--text-tertiary)' }}>Email</dt>
-                    <dd style={{ margin: 0 }}>
-                      {focusedApplication.application?.founderEmail ? (
-                        <a href={`mailto:${focusedApplication.application.founderEmail}`}>
-                          {focusedApplication.application.founderEmail}
-                        </a>
-                      ) : '—'}
-                    </dd>
-                    <dt style={{ color: 'var(--text-tertiary)' }}>Phone</dt>
-                    <dd style={{ margin: 0 }}>{focusedApplication.application?.phone || '—'}</dd>
-                    <dt style={{ color: 'var(--text-tertiary)' }}>Website</dt>
-                    <dd style={{ margin: 0 }}>{focusedApplication.application?.website || '—'}</dd>
-                    <dt style={{ color: 'var(--text-tertiary)' }}>Weekly spend</dt>
-                    <dd style={{ margin: 0 }}>{focusedApplication.application?.weeklySpend || '—'}</dd>
-                    <dt style={{ color: 'var(--text-tertiary)' }}>Verticals</dt>
-                    <dd style={{ margin: 0 }}>{focusedApplication.application?.verticals || '—'}</dd>
-                    <dt style={{ color: 'var(--text-tertiary)' }}>Inbound before</dt>
-                    <dd style={{ margin: 0 }}>{focusedApplication.application?.usedInbound || '—'}</dd>
-                    <dt style={{ color: 'var(--text-tertiary)' }}>Heard about</dt>
-                    <dd style={{ margin: 0 }}>{focusedApplication.application?.hearAbout || '—'}</dd>
-                  </dl>
-                  {focusedApplication.status === 'pending' || focusedApplication.status === 'rejected' ? (
-                    <>
-                      {focusedApplication.status === 'rejected' && focusedApplication.rejectReason ? (
-                        <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text-secondary)' }}>
-                          Rejected reason: {focusedApplication.rejectReason}
-                        </p>
-                      ) : null}
-                      {focusedApplication.status === 'pending' ? (
-                        <div className={shared.formField}>
-                          <label htmlFor="reject-reason">Reject reason (optional)</label>
-                          <input
-                            id="reject-reason"
-                            className={shared.input}
-                            value={rejectReason}
-                            onChange={(e) => setRejectReason(e.target.value)}
-                            placeholder="Missing license / incomplete info…"
-                          />
-                        </div>
-                      ) : null}
-                      <div className={shared.modalActions} style={{ justifyContent: 'flex-start' }}>
-                        <button
-                          type="button"
-                          className={shared.primaryBtn}
-                          disabled={reviewingId === focusedApplication.id}
-                          onClick={() => handleApproveApplication(focusedApplication)}
-                        >
-                          <Check size={16} />
-                          {reviewingId === focusedApplication.id
-                            ? 'Working…'
-                            : focusedApplication.status === 'rejected'
-                              ? 'Re-approve'
-                              : 'Approve'}
-                        </button>
-                        {focusedApplication.status === 'pending' ? (
-                          <button
-                            type="button"
-                            className={shared.dangerBtn}
-                            disabled={reviewingId === focusedApplication.id}
-                            onClick={() => handleRejectApplication(focusedApplication)}
-                          >
-                            Reject
-                          </button>
-                        ) : null}
-                        <a
-                          className={shared.rowBtnWarn}
-                          href={focusedApplication.application?.founderEmail
-                            ? `mailto:${focusedApplication.application.founderEmail}`
-                            : undefined}
-                          style={{ textDecoration: 'none' }}
-                        >
-                          Email
-                        </a>
-                        <button
-                          type="button"
-                          className={shared.rowBtnWarn}
-                          disabled={messagingUid === (focusedApplication.createdByUid || focusedApplication.application?.founderUid)}
-                          onClick={() => handleMessageFounder(focusedApplication)}
-                        >
-                          Message
-                        </button>
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              ) : !pendingApplications.length ? (
-                <div className={shared.emptyPanel}>
-                  <Building2 size={26} className={shared.emptyPanelIcon} />
-                  <h4>No applications</h4>
-                  <p>Pending and rejected agency-admin signups will show up here.</p>
-                </div>
-              ) : (
-                <div className={classes.agencyGrid}>
-                  {pendingApplications.map((agency) => (
-                    <button
-                      key={agency.id}
-                      type="button"
-                      className={`glass ${classes.agencyCard}`}
-                      onClick={() => openApplication(agency.id)}
-                    >
-                      <div className={classes.agencyCardTop}>
-                        <div>
-                          <h3 className={classes.agencyCardName}>{agency.name}</h3>
-                          <p className={classes.agencyCardSlug}>
-                            {agency.status === 'rejected' ? 'Rejected · ' : ''}
-                            {agency.application?.founderName || agency.application?.founderEmail || 'Applicant'}
-                          </p>
-                        </div>
-                        <span className={`${shared.statusPill} ${statusPillClass(agency.status, shared)}`}>
-                          {statusLabel(agency.status)}
-                        </span>
-                      </div>
-                      <p className={classes.agencyCardSlug} style={{ marginTop: 10 }}>
-                        {agency.application?.founderEmail || '—'}
-                        {agency.application?.phone ? ` · ${agency.application.phone}` : ''}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <ApplicationsDesk
+                applications={applications}
+                focused={focusedApplication}
+                busyId={confirming ? confirm?.id : ''}
+                messagingUid={messagingUid}
+                celebrateId={approvedNowId}
+                onOpen={openApplication}
+                onBack={() => setDirectoryTab('applications')}
+                onApprove={requestApproveApplication}
+                onReject={requestRejectApplication}
+                onOpenAgency={(id) => updateSelectedId(id, 'members')}
+                onMessage={handleMessageFounder}
+              />
             </div>
           ) : (
             <>
@@ -1222,6 +1116,8 @@ export default function AdminAgenciesPage() {
             </div>
           </div>
         ) : null}
+
+        {confirmDialog}
       </>
     );
   }
@@ -1586,15 +1482,7 @@ export default function AdminAgenciesPage() {
         onSubmit={handleAssignMember}
       />
 
-      <ConfirmDialog
-        open={Boolean(confirm)}
-        title={confirm?.title || ''}
-        body={confirm?.body || ''}
-        confirmLabel={confirm?.confirmLabel || 'Confirm'}
-        confirming={confirming}
-        onClose={() => !confirming && setConfirm(null)}
-        onConfirm={runConfirm}
-      />
+      {confirmDialog}
     </>
   );
 }

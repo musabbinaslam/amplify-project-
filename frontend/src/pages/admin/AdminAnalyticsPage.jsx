@@ -1303,7 +1303,8 @@ export default function AdminAnalyticsPage() {
                               <tbody>
                                 {filteredSortedDrilldownLogs.map((log) => {
                                   const created = log.createdAt ? new Date(log.createdAt) : null;
-                                  const canSeeCaller = log.cost > 0 || log.isBillable;
+                                  // Admins always see the caller — billable gating is for agent-facing views only.
+                                  const caller = log.from || log.customerPhone;
                                   return (
                                     <tr key={log.id} className={classes.callRow}>
                                       <td>
@@ -1313,9 +1314,7 @@ export default function AdminAnalyticsPage() {
                                             {created ? <em>{created.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</em> : null}
                                           </span>
                                           <span className={classes.callFrom}>
-                                            {canSeeCaller
-                                              ? (log.from || log.customerPhone || <span className={classes.muted}>Unknown caller</span>)
-                                              : <span className={classes.muted}>Caller hidden</span>}
+                                            {caller || <span className={classes.muted}>Unknown caller</span>}
                                           </span>
                                         </span>
                                       </td>
@@ -1377,7 +1376,7 @@ export default function AdminAnalyticsPage() {
                                       </td>
                                       <td>
                                         {(log.recordingSid || log.recordingUrl) ? (
-                                          <button type="button" className={classes.iconBtn} onClick={() => setActiveRecording(log)} aria-label="Play recording" title="Play recording">
+                                          <button type="button" className={classes.iconBtn} onClick={() => setActiveRecording({ ...log, revealCaller: true })} aria-label="Play recording" title="Play recording">
                                             <Play size={14} />
                                           </button>
                                         ) : null}
