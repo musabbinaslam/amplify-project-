@@ -424,10 +424,6 @@ const DashboardPage = () => {
 
   const recentCalls = summary?.recentCalls ?? EMPTY_LIST;
 
-  const campaignCards = campaigns.length > 0
-    ? campaigns
-    : Object.keys(CAMPAIGN_DESCRIPTIONS).map((id) => ({ id, label: '', price: 0, buffer: 0 }));
-
   const hasChartData = chartData.some((d) => d.sales !== 0 || d.calls !== 0);
 
   return (
@@ -620,9 +616,13 @@ const DashboardPage = () => {
           <div className={classes.sectionLoading}>
             <Loader2 size={16} className={classes.spinner} /> <ShimmerText text="Loading campaign pricing…" />
           </div>
+        ) : campaignsQuery.isError ? (
+          <div className={classes.sectionLoading}>Couldn&apos;t load campaign pricing.</div>
+        ) : campaigns.length === 0 ? (
+          <div className={classes.emptyState}>No campaigns are available for your account yet.</div>
         ) : (
           <motion.div className={classes.campaignGrid} variants={presets.grid}>
-            {campaignCards.map((c) => (
+            {campaigns.map((c) => (
               <CampaignCard
                 key={c.id}
                 title={c.label || c.id}
