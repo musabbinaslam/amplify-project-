@@ -14,6 +14,38 @@
 
 const UNSPECIFIED = 'Not specified';
 
+const CANONICAL_TRACKS = [
+  { key: 'agent', label: 'Agent', path: '/signup/agent' },
+  { key: 'join', label: 'Join agency', path: '/signup/join-agency' },
+  { key: 'agency', label: 'Start agency', path: '/signup/start-agency' },
+];
+
+function signupTrackKeyOf(user) {
+  const explicit = String(user?.onboarding?.signupTrack || '').trim().toLowerCase();
+  if (explicit === 'agency' || explicit === 'join' || explicit === 'agent') {
+    return explicit;
+  }
+  const path = String(user?.onboarding?.signupPath || '').trim().toLowerCase();
+  if (path.startsWith('/signup/start-agency') || path.startsWith('/signup/agency')) {
+    return 'agency';
+  }
+  if (path.startsWith('/signup/join-agency')) {
+    return 'join';
+  }
+  if (user?.agencyRole === 'agency_admin' || user?.role === 'agency_admin') {
+    return 'agency';
+  }
+  if (user?.agencyId) {
+    return 'join';
+  }
+  return 'agent';
+}
+
+function signupTrackOf(user) {
+  const key = signupTrackKeyOf(user);
+  return CANONICAL_TRACKS.find((t) => t.key === key)?.label || 'Agent';
+}
+
 function verticalsOf(user) {
   const raw = user?.onboarding?.verticals;
   const parts = Array.isArray(raw) ? raw : String(raw || '').split(',');
@@ -65,8 +97,14 @@ const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
  */
 function aggregateSignups({ users = [], spendByAgent = new Map(), fromKey, toKey, tz } = {}) {
   const days = dayKeysBetween(fromKey, toKey);
-  const byDayMap = new Map(days.map((d) => [d, { day: d, total: 0, byVertical: {} }]));
+  const byDayMap = new Map(days.map((d) => [d, { day: d, total: 0, byVertical: {}, byTrack: {} }]));
   const groups = new Map();
+  const trackGroups = new Map(
+    CANONICAL_TRACKS.map((t, order) => [
+      t.key,
+      { key: t.key, track: t.label, path: t.path, order, signups: 0, spendingAgents: 0, revenue: 0 },
+    ]),
+  );
   let signups = 0;
   let spendingAgents = 0;
   let revenue = 0;
@@ -82,8 +120,17 @@ function aggregateSignups({ users = [], spendByAgent = new Map(), fromKey, toKey
     revenue += spend;
 
     const verts = verticalsOf(user);
+    const trackKey = signupTrackKeyOf(user);
+    const trackGroup = trackGroups.get(trackKey) || trackGroups.get('agent');
     const row = byDayMap.get(day);
-    if (row) row.total += 1;
+    if (row) {
+      row.total += 1;
+      row.byTrack[trackGroup.track] = (row.byTrack[trackGroup.track] || 0) + 1;
+    }
+
+    trackGroup.signups += 1;
+    if (spend > 0) trackGroup.spendingAgents += 1;
+    trackGroup.revenue += spend;
 
     verts.forEach((vertical) => {
       if (!groups.has(vertical)) {
@@ -107,6 +154,18 @@ function aggregateSignups({ users = [], spendByAgent = new Map(), fromKey, toKey
     }))
     .sort((a, b) => (b.signups - a.signups) || (b.revenue - a.revenue) || a.vertical.localeCompare(b.vertical));
 
+  const tracks = [...trackGroups.values()]
+    .map(({ order, ...t }) => ({
+      ...t,
+      order,
+      revenue: round2(t.revenue),
+      conversionRate: t.signups ? Number((t.spendingAgents / t.signups).toFixed(4)) : 0,
+      revenuePerSignup: t.signups ? round2(t.revenue / t.signups) : 0,
+      share: signups ? Number((t.signups / signups).toFixed(4)) : 0,
+    }))
+    .sort((a, b) => (b.signups - a.signups) || (b.revenue - a.revenue) || (a.order - b.order))
+    .map(({ order: _order, ...rest }) => rest);
+
   return {
     summary: {
       signups,
@@ -116,12 +175,16 @@ function aggregateSignups({ users = [], spendByAgent = new Map(), fromKey, toKey
       revenuePerSignup: signups ? round2(revenue / signups) : 0,
     },
     verticals,
+    tracks,
     byDay: [...byDayMap.values()],
   };
 }
 
 module.exports = {
   UNSPECIFIED,
+  CANONICAL_TRACKS,
+  signupTrackKeyOf,
+  signupTrackOf,
   verticalsOf,
   signupIso,
   dayKeysBetween,

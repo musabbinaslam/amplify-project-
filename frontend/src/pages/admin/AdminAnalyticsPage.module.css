@@ -596,10 +596,27 @@
 }
 
 /* ── Signups by vertical ─────────────────────────────────── */
+.signupHeadTools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .signupChips {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.signupPathBadge {
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--surface-container-highest) 70%, transparent);
+  border: 1px solid var(--glass-border);
 }
 
 .signupChip {

@@ -176,7 +176,7 @@ const LandingPage = () => {
       return;
     }
     closeDemoGate();
-    navigate('/signup');
+    navigate('/signup/agent');
   };
 
   useEffect(() => {
@@ -275,7 +275,7 @@ const LandingPage = () => {
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
             <Link to="/login" className={classes.navBtnGhost}>Log In</Link>
-            <Link to="/signup" className={`${classes.btnPrimary} ${classes.navBtnFilled}`}>Create Account</Link>
+            <Link to="/signup/agent" className={`${classes.btnPrimary} ${classes.navBtnFilled}`}>Create Account</Link>
           </div>
         </div>
         <span className={classes.scrollProgress} aria-hidden />
@@ -312,7 +312,7 @@ const LandingPage = () => {
               No cold lists. No recycled leads. Just live conversations you can close.
             </p>
             <div className={`${classes.heroActions} ${classes.load}`} style={{ animationDelay: '0.85s' }}>
-              <Link to="/signup" className={`${classes.btnPrimary} ${classes.btnLg}`}>
+              <Link to="/signup/agent" className={`${classes.btnPrimary} ${classes.btnLg}`}>
                 Create Account <ArrowRight size={18} className={classes.arrow} />
               </Link>
               <button
@@ -378,7 +378,7 @@ const LandingPage = () => {
               <p className={`${classes.sectionSubtitle} ${classes.reveal}`}>
                 A simple flow designed for speed. You can be online and receiving calls without rebuilding your stack.
               </p>
-              <Link to="/signup" className={`${classes.btnPrimary} ${classes.reveal}`} style={{ marginTop: 32 }}>
+              <Link to="/signup/agent" className={`${classes.btnPrimary} ${classes.reveal}`} style={{ marginTop: 32 }}>
                 Get started <ArrowRight size={18} className={classes.arrow} />
               </Link>
             </div>
@@ -478,7 +478,7 @@ const LandingPage = () => {
                 </article>
               ))}
               <Link
-                to="/signup"
+                to="/signup/agent"
                 className={`${classes.revealFly} ${classes.pricingCta}`}
                 style={{ '--fy': '160px', '--fr': '3deg' }}
               >
@@ -588,7 +588,7 @@ const LandingPage = () => {
                 <h2>Ready to replace lead-chasing with live conversations?</h2>
                 <p>Join CallsFlow, go online, and start receiving exclusive inbound calls routed to your license map.</p>
                 <div className={classes.heroActions}>
-                  <Link to="/signup" className={`${classes.btnPrimary} ${classes.btnLg}`}>
+                  <Link to="/signup/agent" className={`${classes.btnPrimary} ${classes.btnLg}`}>
                     Create Account <ArrowRight size={18} className={classes.arrow} />
                   </Link>
                   <button
@@ -643,7 +643,7 @@ const LandingPage = () => {
           </div>
           <div className={classes.footerLinks}>
             <Link to="/login">Log In</Link>
-            <Link to="/signup">Create Account</Link>
+            <Link to="/signup/agent">Create Account</Link>
             <Link to="/terms">Terms of Service</Link>
             <Link to="/privacy">Privacy Policy</Link>
             <button type="button" className={classes.footerDemoBtn} onClick={openDemoGate}>

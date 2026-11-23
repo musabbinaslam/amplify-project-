@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 
 const META_GRAPH_VERSION = process.env.META_GRAPH_VERSION || 'v21.0';
-const META_EVENT_SOURCE_URL_FALLBACK = process.env.CLIENT_URL || 'https://www.callsflow.io/signup';
+const META_EVENT_SOURCE_URL_FALLBACK = process.env.CLIENT_URL || 'https://www.callsflow.io/signup/agent';
 
 function normalize(str) {
   return String(str || '').trim().toLowerCase();
@@ -44,6 +44,7 @@ async function sendCompleteRegistration({
   email,
   phone,
   fullName,
+  signupTrack,
   clientUserAgent,
   clientIpAddress,
   eventSourceUrl,
@@ -66,6 +67,7 @@ async function sendCompleteRegistration({
     ...(clientIpAddress ? { client_ip_address: String(clientIpAddress) } : {}),
   };
 
+  const cleanTrack = String(signupTrack || '').trim().toLowerCase();
   const body = {
     data: [
       {
@@ -74,6 +76,7 @@ async function sendCompleteRegistration({
         action_source: 'website',
         event_source_url: String(eventSourceUrl || META_EVENT_SOURCE_URL_FALLBACK),
         ...(eventId ? { event_id: String(eventId) } : {}),
+        ...(cleanTrack ? { custom_data: { signup_track: cleanTrack } } : {}),
         user_data: userData,
       },
     ],

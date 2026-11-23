@@ -201,7 +201,7 @@ const LoginPage = () => {
 
       <p className={classes.footer}>
         Don&apos;t have an account?{' '}
-        <Link to="/signup" className={classes.footerLink}>Sign up</Link>
+        <Link to="/signup/agent" className={classes.footerLink}>Sign up</Link>
       </p>
     </AuthShell>
   );

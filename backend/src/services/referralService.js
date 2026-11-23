@@ -31,7 +31,7 @@ function generateRandomCode(length = 6) {
 }
 
 function buildShareUrl(code) {
-  return `${REFERRAL_BASE_URL}/signup?ref=${code}`;
+  return `${REFERRAL_BASE_URL}/signup/agent?ref=${code}`;
 }
 
 function buildShareText(code) {

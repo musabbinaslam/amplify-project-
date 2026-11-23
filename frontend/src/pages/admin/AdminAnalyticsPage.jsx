@@ -57,6 +57,11 @@ const BREAKDOWN_TABS = [
   { key: 'agents', label: 'Agents' },
 ];
 
+const SIGNUP_VIEW_TABS = [
+  { key: 'tracks', label: 'By signup type' },
+  { key: 'verticals', label: 'By vertical' },
+];
+
 const CHART_MODES = [
   { key: 'volume', label: 'Call volume' },
   { key: 'spend', label: 'Spend' },
@@ -108,8 +113,14 @@ const VERTICAL_COLORS = {
   leads: '#a78bfa',
   'not specified': 'color-mix(in srgb, var(--text-primary) 28%, transparent)',
 };
+const TRACK_COLORS = {
+  agent: 'var(--brand-text)',
+  'join agency': 'var(--accent-cyan)',
+  'start agency': 'var(--accent-yellow)',
+};
 const FALLBACK_COLORS = ['#f472b6', '#fb923c', '#60a5fa', '#34d399'];
 const verticalColor = (name, i = 0) => VERTICAL_COLORS[String(name || '').toLowerCase()] || FALLBACK_COLORS[i % FALLBACK_COLORS.length];
+const signupTrackColor = (name, i = 0) => TRACK_COLORS[String(name || '').toLowerCase()] || FALLBACK_COLORS[i % FALLBACK_COLORS.length];
 
 /* eslint-disable react/prop-types -- small page-local presentational components */
 
@@ -237,8 +248,16 @@ function VolumeChart({ data, mode, reduceMotion }) {
     </ResponsiveContainer>
   );
 }
-function SignupTrendChart({ byDay, verticals, reduceMotion }) {
-  const rows = useMemo(() => (byDay || []).map((d) => ({ day: d.day, ...(d.byVertical || {}) })), [byDay]);
+function SignupTrendChart({ byDay, series, dayField = 'byVertical', colorFor, reduceMotion }) {
+  const activeSeries = useMemo(
+    () => (series || []).filter((s) => (Number(s.signups) || 0) > 0),
+    [series],
+  );
+  const bars = activeSeries.length ? activeSeries : (series || []);
+  const rows = useMemo(
+    () => (byDay || []).map((d) => ({ day: d.day, ...(d[dayField] || {}) })),
+    [byDay, dayField],
+  );
   const axis = { tick: { fill: 'var(--text-secondary)', fontSize: 12 }, axisLine: false, tickLine: false };
   return (
     <ResponsiveContainer width="100%" height={240}>
@@ -251,13 +270,13 @@ function SignupTrendChart({ byDay, verticals, reduceMotion }) {
           labelFormatter={formatDay}
           cursor={{ fill: 'color-mix(in srgb, var(--text-primary) 5%, transparent)' }}
         />
-        {verticals.map((v, i) => (
+        {bars.map((item, i) => (
           <Bar
-            key={v.vertical}
-            dataKey={v.vertical}
+            key={item.name}
+            dataKey={item.name}
             stackId="signups"
-            fill={verticalColor(v.vertical, i)}
-            radius={i === verticals.length - 1 ? [5, 5, 0, 0] : [0, 0, 0, 0]}
+            fill={colorFor(item.name, i)}
+            radius={i === bars.length - 1 ? [5, 5, 0, 0] : [0, 0, 0, 0]}
             isAnimationActive={!reduceMotion}
             animationDuration={700}
           />
@@ -310,6 +329,7 @@ export default function AdminAnalyticsPage() {
   const [signupStats, setSignupStats] = useState(null);
   const [signupLoading, setSignupLoading] = useState(true);
   const [signupError, setSignupError] = useState('');
+  const [signupView, setSignupView] = useState('tracks');
   const [breakdownTab, setBreakdownTab] = useState('campaigns');
   const [campaignSort, setCampaignSort] = useState({ key: 'calls', dir: 'desc' });
   const [agentSort, setAgentSort] = useState({ key: 'calls', dir: 'desc' });
@@ -919,20 +939,34 @@ export default function AdminAnalyticsPage() {
         </div>
 
 
-        {/* ── Signups by vertical ──────────────────────────────── */}
+        {/* ── Signups by signup type / vertical ────────────────── */}
         <motion.section className={`glass ${classes.card}`} variants={presets.child} aria-labelledby="signups-title">
           <div className={classes.cardHead}>
             <div>
-              <h2 id="signups-title" className={classes.cardTitle}>Signups by vertical</h2>
-              <p className={classes.cardSub}>New agents who finished signup in {rangeLabel.toLowerCase()}, by the vertical they picked, and the call spend they generated.</p>
+              <h2 id="signups-title" className={classes.cardTitle}>
+                {signupView === 'tracks' ? 'Signups by signup type' : 'Signups by vertical'}
+              </h2>
+              <p className={classes.cardSub}>
+                {signupView === 'tracks'
+                  ? `New accounts completed in ${rangeLabel.toLowerCase()}, split by signup URL flow (Agent, Join agency, Start agency), and the call spend they generated.`
+                  : `New agents who finished signup in ${rangeLabel.toLowerCase()}, by the vertical they picked, and the call spend they generated.`}
+              </p>
             </div>
-            {!signupLoading && signupStats ? (
-              <div className={classes.signupChips}>
-                <span className={classes.signupChip}><b>{signupStats.summary?.signups ?? 0}</b> signups</span>
-                <span className={classes.signupChip}><b>{money(signupStats.summary?.revenue)}</b> revenue</span>
-                <span className={classes.signupChip}><b>{money(signupStats.summary?.revenuePerSignup)}</b> per signup</span>
-              </div>
-            ) : null}
+            <div className={classes.signupHeadTools}>
+              {!signupLoading && signupStats ? (
+                <div className={classes.signupChips}>
+                  <span className={classes.signupChip}><b>{signupStats.summary?.signups ?? 0}</b> signups</span>
+                  <span className={classes.signupChip}><b>{money(signupStats.summary?.revenue)}</b> revenue</span>
+                  <span className={classes.signupChip}><b>{money(signupStats.summary?.revenuePerSignup)}</b> per signup</span>
+                </div>
+              ) : null}
+              <SlidingTabs
+                tabs={SIGNUP_VIEW_TABS}
+                activeKey={signupView}
+                onChange={setSignupView}
+                ariaLabel="Signup breakdown view"
+              />
+            </div>
           </div>
 
           {signupLoading ? (
@@ -951,61 +985,79 @@ export default function AdminAnalyticsPage() {
               <p>Try a wider date range.</p>
             </div>
           ) : (
-            <>
-              <div className={classes.signupGrid}>
-                <div className={classes.tableScroll}>
-                  <table className={`${classes.table} ${classes.signupTable}`}>
-                    <thead>
-                      <tr>
-                        <th scope="col">Vertical</th>
-                        <th scope="col">Signups</th>
-                        <th scope="col" className={classes.thRight}>Spending</th>
-                        <th scope="col" className={classes.thRight}>Conversion</th>
-                        <th scope="col" className={classes.thRight}>Revenue</th>
-                        <th scope="col" className={classes.thRight}>Per signup</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {signupStats.verticals.map((v, i) => (
-                        <tr key={v.vertical}>
-                          <td>
-                            <span className={classes.nameCell}>
-                              <span className={classes.campaignDot} style={{ background: verticalColor(v.vertical, i) }} />
-                              {v.vertical}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={classes.rateCell}>
-                              <span className={classes.rateNum}>{v.signups}</span>
-                              <span className={classes.rateTrack} aria-hidden>
-                                <span className={classes.rateFill} style={{ width: `${Math.max(2, (v.share || 0) * 100)}%`, background: verticalColor(v.vertical, i) }} />
-                              </span>
-                            </span>
-                          </td>
-                          <td className={classes.num}>{v.spendingAgents}</td>
-                          <td className={classes.num}>{pct(v.conversionRate)}%</td>
-                          <td className={classes.num}><span className={classes.spend}>{money(v.revenue)}</span></td>
-                          <td className={classes.num}>{money(v.revenuePerSignup)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className={classes.signupChart}>
-                  <div className={classes.legend}>
-                    {signupStats.verticals.map((v, i) => (
-                      <span key={v.vertical}><i style={{ background: verticalColor(v.vertical, i) }} />{v.vertical}</span>
-                    ))}
+            (() => {
+              const isTracks = signupView === 'tracks' && Array.isArray(signupStats.tracks) && signupStats.tracks.length > 0;
+              const rows = isTracks
+                ? signupStats.tracks.map((t) => ({ ...t, name: t.track, subLabel: t.path }))
+                : (signupStats.verticals || []).map((v) => ({ ...v, name: v.vertical, subLabel: null }));
+              const colorFn = isTracks ? signupTrackColor : verticalColor;
+              return (
+                <>
+                  <div className={classes.signupGrid}>
+                    <div className={classes.tableScroll}>
+                      <table className={`${classes.table} ${classes.signupTable}`}>
+                        <thead>
+                          <tr>
+                            <th scope="col">{isTracks ? 'Signup type' : 'Vertical'}</th>
+                            <th scope="col">Signups</th>
+                            <th scope="col" className={classes.thRight}>Spending</th>
+                            <th scope="col" className={classes.thRight}>Conversion</th>
+                            <th scope="col" className={classes.thRight}>Revenue</th>
+                            <th scope="col" className={classes.thRight}>Per signup</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row, i) => (
+                            <tr key={row.name}>
+                              <td>
+                                <span className={classes.nameCell}>
+                                  <span className={classes.campaignDot} style={{ background: colorFn(row.name, i) }} />
+                                  <span>{row.name}</span>
+                                  {row.subLabel ? <code className={classes.signupPathBadge}>{row.subLabel}</code> : null}
+                                </span>
+                              </td>
+                              <td>
+                                <span className={classes.rateCell}>
+                                  <span className={classes.rateNum}>{row.signups}</span>
+                                  <span className={classes.rateTrack} aria-hidden>
+                                    <span className={classes.rateFill} style={{ width: `${row.signups > 0 ? Math.max(2, (row.share || 0) * 100) : 0}%`, background: colorFn(row.name, i) }} />
+                                  </span>
+                                </span>
+                              </td>
+                              <td className={classes.num}>{row.spendingAgents}</td>
+                              <td className={classes.num}>{pct(row.conversionRate)}%</td>
+                              <td className={classes.num}><span className={classes.spend}>{money(row.revenue)}</span></td>
+                              <td className={classes.num}>{money(row.revenuePerSignup)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className={classes.signupChart}>
+                      <div className={classes.legend}>
+                        {rows.map((row, i) => (
+                          <span key={row.name}><i style={{ background: colorFn(row.name, i) }} />{row.name}</span>
+                        ))}
+                      </div>
+                      <SignupTrendChart
+                        byDay={signupStats.byDay}
+                        series={rows}
+                        dayField={isTracks ? 'byTrack' : 'byVertical'}
+                        colorFor={colorFn}
+                        reduceMotion={reduceMotion}
+                      />
+                    </div>
                   </div>
-                  <SignupTrendChart byDay={signupStats.byDay} verticals={signupStats.verticals} reduceMotion={reduceMotion} />
-                </div>
-              </div>
-              <p className={classes.metaLine}>
-                Signup = onboarding completed in this range. Revenue = call spend by those new agents in the same range.
-                Agents who picked more than one vertical are counted in each.
-                {signupStats.meta?.truncated ? ' Showing the first 5,000 signups only.' : ''}
-              </p>
-            </>
+                  <p className={classes.metaLine}>
+                    Signup = onboarding completed in this range. Revenue = call spend by those new accounts in the same range.
+                    {isTracks
+                      ? ' Each signup belongs to one signup type (/signup/agent, /signup/join-agency, or /signup/start-agency).'
+                      : ' Agents who picked more than one vertical are counted in each.'}
+                    {signupStats.meta?.truncated ? ' Showing the first 5,000 signups only.' : ''}
+                  </p>
+                </>
+              );
+            })()
           )}
         </motion.section>
 

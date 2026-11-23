@@ -336,7 +336,7 @@ router.get(
  */
 router.post('/meta/complete-registration', async (req, res) => {
   try {
-    const { eventId, email, phone, fullName, eventSourceUrl } = req.body || {};
+    const { eventId, email, phone, fullName, signupTrack, eventSourceUrl } = req.body || {};
     if (!email && !phone) {
       return res.status(400).json({ error: 'At least email or phone is required' });
     }
@@ -346,6 +346,7 @@ router.post('/meta/complete-registration', async (req, res) => {
       email,
       phone,
       fullName,
+      signupTrack,
       eventSourceUrl,
       clientUserAgent: req.headers['user-agent'] || '',
       clientIpAddress: req.ip || req.headers['x-forwarded-for'] || '',

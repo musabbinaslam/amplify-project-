@@ -59,7 +59,7 @@ function normalizeInviteCode(code) {
 }
 
 function buildInviteShareUrl(code) {
-  return `${CLIENT_BASE_URL}/signup?agency=${encodeURIComponent(normalizeInviteCode(code))}`;
+  return `${CLIENT_BASE_URL}/signup/join-agency?agency=${encodeURIComponent(normalizeInviteCode(code))}`;
 }
 
 function buildInviteJoinUrl(code) {
@@ -347,6 +347,11 @@ async function registerAgencyApplication(uid, { name, website } = {}) {
       verticals: onboarding.verticals || null,
       hearAbout: onboarding.hearAbout || null,
       website: websiteTrimmed,
+      signupTrack: onboarding.signupTrack || 'agency',
+      entryTrack: onboarding.entryTrack || null,
+      signupPath: onboarding.signupPath || null,
+      entryUrl: onboarding.entryUrl || null,
+      utm: onboarding.utm || null,
       submittedAt: new Date().toISOString(),
     };
 

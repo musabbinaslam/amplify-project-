@@ -6,6 +6,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import PageLoader from './components/ui/PageLoader';
 import ErrorFallback from './components/ui/ErrorFallback';
 import UpdateBanner from './components/ui/UpdateBanner';
+import { isCanonicalSignupSlug, mergeRedirectSearch } from './utils/signupRoutes';
 
 const AppShell = lazy(() => import('./components/layout/AppShell'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -289,16 +290,49 @@ const AppIndex = () => {
   return <AppIndexInner useAuthStore={useAuthStore} />;
 };
 
-/** Tiny redirect: /r/AGENT-XXXXXX → /signup?ref=AGENT-XXXXXX */
-const ReferralRedirect = () => {
-  const { code } = useParams();
-  return <Navigate to={`/signup?ref=${encodeURIComponent(code || '')}`} replace />;
+/** Redirect /signup → /signup/agent (or /signup/join-agency when ?agency= is present), preserving query params */
+const SignupRootRedirect = () => {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search || '');
+  const hasAgencyInvite = Boolean(params.get('agency')?.trim());
+  const target = hasAgencyInvite ? '/signup/join-agency' : '/signup/agent';
+  return <Navigate to={`${target}${location.search || ''}`} replace />;
 };
 
-/** Tiny redirect: /join/AGENCY-XXXXXX → /signup?agency=AGENCY-XXXXXX */
+/** Legacy /signup/agency → /signup/start-agency preserving query params */
+const SignupAgencyLegacyRedirect = () => {
+  const location = useLocation();
+  return <Navigate to={`/signup/start-agency${location.search || ''}`} replace />;
+};
+
+/** Dedicated track routes: /signup/agent, /signup/join-agency, /signup/start-agency */
+const SignupTrackRoute = () => {
+  const { trackSlug } = useParams();
+  const location = useLocation();
+  if (!isCanonicalSignupSlug(trackSlug)) {
+    return <Navigate to={`/signup/agent${location.search || ''}`} replace />;
+  }
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <SignupPage />
+    </Suspense>
+  );
+};
+
+/** Tiny redirect: /r/AGENT-XXXXXX → /signup/agent?ref=AGENT-XXXXXX */
+const ReferralRedirect = () => {
+  const { code } = useParams();
+  const location = useLocation();
+  const qs = mergeRedirectSearch(location.search, { ref: code || '' });
+  return <Navigate to={`/signup/agent${qs}`} replace />;
+};
+
+/** Tiny redirect: /join/AGENCY-XXXXXX → /signup/join-agency?agency=AGENCY-XXXXXX */
 const AgencyJoinRedirect = () => {
   const { code } = useParams();
-  return <Navigate to={`/signup?agency=${encodeURIComponent(code || '')}`} replace />;
+  const location = useLocation();
+  const qs = mergeRedirectSearch(location.search, { agency: code || '' });
+  return <Navigate to={`/signup/join-agency${qs}`} replace />;
 };
 
 /** Redirect legacy /admin/ops/agencies/:id → ?selected= */
@@ -340,12 +374,9 @@ const AnimatedRoutes = () => {
           <Suspense fallback={<PageLoader />}><LandingPage /></Suspense>
         } />
 
-        <Route path="/signup" element={
-          <Suspense fallback={<PageLoader />}><SignupPage /></Suspense>
-        } />
-        <Route path="/signup/agency" element={
-          <Suspense fallback={<PageLoader />}><SignupPage /></Suspense>
-        } />
+        <Route path="/signup" element={<SignupRootRedirect />} />
+        <Route path="/signup/agency" element={<SignupAgencyLegacyRedirect />} />
+        <Route path="/signup/:trackSlug" element={<SignupTrackRoute />} />
         <Route path="/login" element={
           <GuestRoute>
             <Suspense fallback={<PageLoader />}><LoginPage /></Suspense>

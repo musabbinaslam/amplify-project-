@@ -20,6 +20,11 @@ import {
 } from '../services/agencyService';
 import { AGENCY_POST_AUTH_RETRY_KEY } from '../utils/agencyGate';
 import { initMetaPixelOnSignupPage, trackSignupComplete } from '../services/metaPixel';
+import {
+  buildTrackPath,
+  extractUtmParams,
+  resolveTrackFromPathname,
+} from '../utils/signupRoutes';
 import PersonaVerificationBlocker from '../components/auth/PersonaVerificationBlocker';
 import { EASE_SMOOTH } from '../motion/appMotion';
 
@@ -141,14 +146,24 @@ const SignupPage = () => {
     () => searchParams.get('agency')?.trim().toUpperCase() || '',
     [searchParams],
   );
-  const forceAgencyTrack = location.pathname.startsWith('/signup/agency');
-  const trackLocked = Boolean(agencyParam) || forceAgencyTrack;
+  const utm = useMemo(() => extractUtmParams(searchParams), [searchParams]);
+  const pathTrack = useMemo(
+    () => resolveTrackFromPathname(location.pathname),
+    [location.pathname],
+  );
+  const trackLocked = Boolean(agencyParam);
 
-  const initialTrack = forceAgencyTrack ? 'agency' : agencyParam ? 'join' : 'agent';
+  const initialTrack = agencyParam ? 'join' : pathTrack;
 
   const [step, setStep] = useState('credentials');
   const [track, setTrack] = useState(initialTrack);
   const googleFlowActive = useRef(false);
+  const entryTrackRef = useRef(initialTrack);
+  const entryUrlRef = useRef(
+    typeof window !== 'undefined'
+      ? window.location.href
+      : `${location.pathname}${location.search || ''}`,
+  );
 
   const [form, setForm] = useState({
     fullName: '',
@@ -180,10 +195,19 @@ const SignupPage = () => {
     if (agencyParam) {
       setTrack('join');
       setForm((prev) => ({ ...prev, inviteCode: agencyParam }));
-    } else if (forceAgencyTrack) {
-      setTrack('agency');
+      return;
     }
-  }, [agencyParam, forceAgencyTrack]);
+    setTrack(pathTrack);
+  }, [agencyParam, pathTrack]);
+
+  const handleTrackChange = (nextTrack) => {
+    if (trackLocked || nextTrack === track) return;
+    setTrack(nextTrack);
+    const nextUrl = buildTrackPath(nextTrack, location.search);
+    if (`${location.pathname}${location.search}` !== nextUrl) {
+      navigate(nextUrl);
+    }
+  };
 
   useEffect(() => {
     if (track !== 'join') {
@@ -302,9 +326,20 @@ const SignupPage = () => {
 
     setSubmitting(true);
     try {
+      const normalizedInviteCode = String(form.inviteCode || '').trim().toUpperCase();
+      const trimmedAgencyName = String(form.agencyName || '').trim();
+      const trimmedAgencyWebsite = String(form.agencyWebsite || '').trim();
       await signup({
         ...form,
         phone: buildInternationalPhone(form.phoneCountry, form.phone),
+        signupTrack: track,
+        entryTrack: entryTrackRef.current || track,
+        signupPath: location.pathname,
+        entryUrl: entryUrlRef.current || (typeof window !== 'undefined' ? window.location.href : location.pathname),
+        utm,
+        inviteCode: track === 'join' ? normalizedInviteCode : '',
+        agencyName: track === 'agency' ? trimmedAgencyName : '',
+        agencyWebsite: track === 'agency' ? trimmedAgencyWebsite : '',
         tosAccepted: true,
         tosVersion: TOS_VERSION,
         tosAcceptedAt: new Date().toISOString(),
@@ -313,6 +348,7 @@ const SignupPage = () => {
         email: form.email,
         phone: buildInternationalPhone(form.phoneCountry, form.phone),
         fullName: form.fullName,
+        signupTrack: track,
       });
       try {
         await finishPostAuth();
@@ -373,9 +409,20 @@ const SignupPage = () => {
 
     setSubmitting(true);
     try {
+      const normalizedInviteCode = String(form.inviteCode || '').trim().toUpperCase();
+      const trimmedAgencyName = String(form.agencyName || '').trim();
+      const trimmedAgencyWebsite = String(form.agencyWebsite || '').trim();
       await saveGoogleOnboarding({
         ...form,
         phone: buildInternationalPhone(form.phoneCountry, form.phone),
+        signupTrack: track,
+        entryTrack: entryTrackRef.current || track,
+        signupPath: location.pathname,
+        entryUrl: entryUrlRef.current || (typeof window !== 'undefined' ? window.location.href : location.pathname),
+        utm,
+        inviteCode: track === 'join' ? normalizedInviteCode : '',
+        agencyName: track === 'agency' ? trimmedAgencyName : '',
+        agencyWebsite: track === 'agency' ? trimmedAgencyWebsite : '',
         tosAccepted: true,
         tosVersion: TOS_VERSION,
         tosAcceptedAt: new Date().toISOString(),
@@ -385,6 +432,7 @@ const SignupPage = () => {
         email: authUser?.email || '',
         phone: buildInternationalPhone(form.phoneCountry, form.phone),
         fullName: form.fullName || authUser?.name || '',
+        signupTrack: track,
       });
       try {
         await finishPostAuth();
@@ -818,7 +866,7 @@ const SignupPage = () => {
           <SlidingTabs
             tabs={TRACKS}
             activeKey={track}
-            onChange={setTrack}
+            onChange={handleTrackChange}
             className={classes.trackSwitch}
             ariaLabel="Signup type"
           />

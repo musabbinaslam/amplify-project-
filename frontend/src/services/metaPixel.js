@@ -56,11 +56,12 @@ async function sendServerConversion(payload) {
   }
 }
 
-export async function trackSignupComplete({ email, phone, fullName }) {
+export async function trackSignupComplete({ email, phone, fullName, signupTrack }) {
   const eventId = makeEventId();
+  const customData = signupTrack ? { signup_track: String(signupTrack) } : {};
 
   if (ensurePixelLoaded()) {
-    window.fbq('track', 'CompleteRegistration', {}, { eventID: eventId });
+    window.fbq('track', 'CompleteRegistration', customData, { eventID: eventId });
   }
 
   await sendServerConversion({
@@ -68,6 +69,7 @@ export async function trackSignupComplete({ email, phone, fullName }) {
     email: email || '',
     phone: phone || '',
     fullName: fullName || '',
+    signupTrack: signupTrack || '',
     eventSourceUrl: window.location.href,
   });
 }

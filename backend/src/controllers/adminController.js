@@ -896,7 +896,7 @@ async function getSignupAnalytics(req, res) {
     const { aggregateSignups } = require('../services/signupAnalyticsService');
     const { value, hit, ageMs } = await cached(
       'signupMetrics',
-      `signups|${cacheKey(from, end)}|${tz || 'UTC'}`,
+      `signups:v2|${cacheKey(from, end)}|${tz || 'UTC'}`,
       ANALYTICS_CACHE_TTL_SEC,
       async () => {
         const db = getDb();
@@ -904,7 +904,17 @@ async function getSignupAnalytics(req, res) {
         const snap = await db.collection('users')
           .where('onboarding.completedAt', '>=', from.toISOString())
           .where('onboarding.completedAt', '<=', end.toISOString())
-          .select('onboarding.verticals', 'onboarding.completedAt')
+          .select(
+            'onboarding.verticals',
+            'onboarding.completedAt',
+            'onboarding.signupTrack',
+            'onboarding.entryTrack',
+            'onboarding.signupPath',
+            'onboarding.utm',
+            'agencyId',
+            'agencyRole',
+            'role',
+          )
           .limit(SIGNUP_ANALYTICS_MAX)
           .get();
         const users = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));

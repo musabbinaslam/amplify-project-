@@ -11,6 +11,68 @@ const {
   notifyAgent,
 } = require('../services/notificationService');
 const socketRegistry = require('../sockets/socketRegistry');
+const { sendMail, SMTP_USER } = require('../config/mailer');
+const {
+  resolveAdminSignupNotifyEmail,
+  resolveWebOrigin,
+  formatSignupProvider,
+  buildAdminAgencySignupSubject,
+  buildAdminAgencySignupAlertHtml,
+  buildAdminAgencySignupAlertText,
+} = require('../utils/adminSignupEmail');
+
+async function sendAgencyApplicationEmailInBackground({ agency, reqUser }) {
+  const adminRecipient = resolveAdminSignupNotifyEmail();
+  if (!adminRecipient || !agency) return;
+
+  try {
+    const app = agency.application || {};
+    const provider = formatSignupProvider(
+      reqUser?.signInProvider || reqUser?.provider || reqUser?.authProvider,
+    );
+    const reviewUrl = `${resolveWebOrigin()}/app/admin/agencies`;
+    const emailPayload = {
+      agencyId: agency.id,
+      agencyName: agency.name,
+      website: app.website || '',
+      founderUid: app.founderUid || reqUser?.uid || '',
+      founderName: app.founderName || reqUser?.name || '',
+      founderEmail: app.founderEmail || reqUser?.email || '',
+      provider,
+      phone: app.phone || '',
+      weeklySpend: app.weeklySpend || '',
+      usedInbound: app.usedInbound || '',
+      verticals: app.verticals || '',
+      hearAbout: app.hearAbout || '',
+      signupPath: app.signupPath || '/signup/start-agency',
+      entryUrl: app.entryUrl || '',
+      entryTrack: app.entryTrack || '',
+      utm: app.utm || null,
+      submittedAt: app.submittedAt || new Date().toISOString(),
+      reviewUrl,
+    };
+
+    await sendMail({
+      to: adminRecipient,
+      from: SMTP_USER ? `"CallsFlow" <${SMTP_USER}>` : undefined,
+      subject: buildAdminAgencySignupSubject({
+        agencyName: agency.name,
+        founderEmail: emailPayload.founderEmail,
+      }),
+      text: buildAdminAgencySignupAlertText(emailPayload),
+      html: buildAdminAgencySignupAlertHtml(emailPayload),
+    });
+
+    const db = getDb();
+    if (db && admin && agency.id) {
+      await db.collection('agencies').doc(String(agency.id)).set({
+        adminEmailNotifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
+  } catch (err) {
+    console.warn('[Agency] Admin agency signup email failed:', err?.message || err);
+  }
+}
 
 async function getAgencyMe(req, res) {
   try {
@@ -99,6 +161,8 @@ async function registerAgency(req, res) {
       priority: 'high',
       linkPath,
     }, 'agency_register');
+
+    void sendAgencyApplicationEmailInBackground({ agency, reqUser: req.user });
 
     res.status(201).json({ agency });
   } catch (err) {
