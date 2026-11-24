@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '../config/apiBase';
+import { apiFetch } from './apiClient';
 
 export const SUPPORT_ATTACHMENT_LIMITS = {
   maxFiles: 5,
@@ -74,15 +74,11 @@ export async function sendSupportEmail(
   { subject, category, description, attachments = [] },
   getIdToken
 ) {
-  const idToken = typeof getIdToken === 'function' ? await getIdToken() : getIdToken;
-  if (!idToken) {
-    throw new Error('Not signed in');
-  }
-
-  const url = `${getApiBaseUrl()}/api/support/email`;
+  // Legacy caller arg (SupportPage). Token comes from apiFetch → currentUser, never this value.
+  void getIdToken;
   const hasFiles = Array.isArray(attachments) && attachments.length > 0;
 
-  let res;
+  let body;
   if (hasFiles) {
     const form = new FormData();
     form.append('subject', subject);
@@ -91,44 +87,22 @@ export async function sendSupportEmail(
     attachments.forEach((file) => {
       form.append('attachments', file, file.name);
     });
-
-    res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${idToken}`,
-      },
-      body: form,
-    });
+    body = form;
   } else {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${idToken}`,
-      },
-      body: JSON.stringify({ subject, category, description }),
-    });
+    body = { subject, category, description };
   }
 
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    const msg =
-      typeof data?.error === 'string' && data.error.trim()
-        ? data.error
-        : res.status === 401
-          ? 'Session expired. Please sign in again.'
-          : res.status === 413
-            ? 'Attachments are too large.'
-            : res.status === 415
-              ? 'One or more files are not a supported type.'
-              : res.status === 429
-                ? 'Too many emails in a short period. Please try again in a few minutes.'
-                : 'Could not send support email. Please try again.';
-    const err = new Error(msg);
-    err.status = res.status;
+  try {
+    return await apiFetch('/api/support/email', { method: 'POST', body });
+  } catch (err) {
+    // apiFetch already prefers JSON `error`, then HTTP statusText, then "Request failed".
+    // statusText is indistinguishable from a backend `error` with the same text, so we
+    // do not remap 401/413/415/429 onto the old UX strings (that would hide real messages).
+    if (err?.message === 'Request failed') {
+      const mapped = new Error('Could not send support email. Please try again.');
+      if (err.status) mapped.status = err.status;
+      throw mapped;
+    }
     throw err;
   }
-
-  return data;
 }

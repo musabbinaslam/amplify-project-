@@ -1,4 +1,3 @@
-import { getApiBaseUrl } from '../config/apiBase';
 import { apiFetch } from './apiClient';
 
 export async function loadSettings(uid) {
@@ -30,18 +29,16 @@ export async function exportUserData(uid) {
 }
 
 export async function revokeAllSessions(token) {
-  const res = await fetch(
-    `${getApiBaseUrl()}/api/auth/revoke`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  );
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || 'Failed to revoke sessions');
+  // Legacy caller arg (SettingsPage store token). Token comes from apiFetch → currentUser.
+  void token;
+  try {
+    await apiFetch('/api/auth/revoke', { method: 'POST' });
+  } catch (err) {
+    if (err?.message === 'Request failed') {
+      const mapped = new Error('Failed to revoke sessions');
+      if (err.status) mapped.status = err.status;
+      throw mapped;
+    }
+    throw err;
   }
 }
