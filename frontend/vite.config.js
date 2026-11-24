@@ -10,13 +10,13 @@ const appBuildId = process.env.VERCEL_GIT_COMMIT_SHA || 'dev'
 const enableSentryPlugin = Boolean(process.env.SENTRY_AUTH_TOKEN)
 
 function apiProxyTarget(env) {
-  const raw = String(env.VITE_API_URL || 'http://127.0.0.1:3002').trim().replace(/\/$/, '')
+  const raw = String(env.VITE_API_URL || 'http://127.0.0.1:3001').trim().replace(/\/$/, '')
   try {
     const url = new URL(/^https?:\/\//i.test(raw) ? raw : `http://${raw}`)
     if (url.hostname === 'localhost') url.hostname = '127.0.0.1'
     return url.origin
   } catch {
-    return 'http://127.0.0.1:3002'
+    return 'http://127.0.0.1:3001'
   }
 }
 
