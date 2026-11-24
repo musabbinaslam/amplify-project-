@@ -89,6 +89,8 @@ class CallLogService {
     }
     /**
      * Records a completed call and saves it to Firestore under the agent's user document.
+     * Billing (`isBillable` / `cost`) is decided here from `CAMPAIGN_CONFIG` (`isRaw` / `buffer`);
+     * caller `isBillable` / `disposition` arguments are ignored.
      */
     async logCall(data) {
         const { 

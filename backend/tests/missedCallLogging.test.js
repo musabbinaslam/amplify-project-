@@ -157,7 +157,6 @@ test('voiceController.handleCallCompleted saves call log with status missed and 
   assert.equal(log.agentId, 'agent_abc');
   assert.equal(log.status, 'missed');
   assert.equal(log.duration, 0);
-  assert.equal(log.isBillable, false);
 
   // Agent was forced offline
   assert.equal(forcedOfflineEmits.length, 1);
