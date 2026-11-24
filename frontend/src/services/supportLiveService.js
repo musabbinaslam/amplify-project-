@@ -140,7 +140,6 @@ export function supportMediaPath(conversationId, mediaId, { desk = false } = {})
 let mediaToken = '';
 let mediaTokenAt = 0;
 const MEDIA_TOKEN_TTL_MS = 45 * 60 * 1000;
-const mediaSrcCache = new Map();
 
 export async function warmSupportMediaToken(force = false) {
   const fresh = mediaToken && !force && (Date.now() - mediaTokenAt) < MEDIA_TOKEN_TTL_MS;
@@ -157,49 +156,6 @@ export async function warmSupportMediaToken(force = false) {
 
 function toDeskMediaRel(rel) {
   return String(rel || '').replace(/^\/api\/support\//, '/api/support-desk/');
-}
-
-export function supportMediaSrcSync(conversationId, mediaOrId, { desk = false, variant = 'full' } = {}) {
-  if (!conversationId || !mediaToken) return '';
-  const id = typeof mediaOrId === 'string' ? mediaOrId : mediaOrId?.id;
-  if (!id) return '';
-  const wantThumb = variant === 'thumb';
-  const cacheKey = `${desk ? 'd' : 'u'}:${conversationId}:${id}:${wantThumb ? 't' : 'f'}:${mediaTokenAt}`;
-  const cached = mediaSrcCache.get(cacheKey);
-  if (cached) return cached;
-
-  // Prefer desk/user path builder so agents never hit customer media routes.
-  let rel = supportMediaPath(conversationId, id, { desk });
-  if (wantThumb) {
-    if (
-      mediaOrId
-      && typeof mediaOrId === 'object'
-      && typeof mediaOrId.thumbUrl === 'string'
-      && mediaOrId.thumbUrl.includes('variant=thumb')
-    ) {
-      rel = desk ? toDeskMediaRel(mediaOrId.thumbUrl) : mediaOrId.thumbUrl;
-    } else {
-      // Backend falls back to full image when no thumb exists.
-      rel = `${rel}${rel.includes('?') ? '&' : '?'}variant=thumb`;
-    }
-  } else if (!desk && mediaOrId && typeof mediaOrId === 'object' && mediaOrId.url) {
-    rel = mediaOrId.url;
-  }
-
-  const base = getApiBaseUrl();
-  const sep = String(rel).includes('?') ? '&' : '?';
-  const src = `${base}${rel}${sep}token=${encodeURIComponent(mediaToken)}`;
-  mediaSrcCache.set(cacheKey, src);
-  if (mediaSrcCache.size > 200) {
-    const first = mediaSrcCache.keys().next().value;
-    mediaSrcCache.delete(first);
-  }
-  return src;
-}
-
-export async function supportMediaSrc(conversationId, mediaOrId, { desk = false, variant = 'full' } = {}) {
-  await warmSupportMediaToken();
-  return supportMediaSrcSync(conversationId, mediaOrId, { desk, variant });
 }
 
 const mediaBlobCache = new Map();
