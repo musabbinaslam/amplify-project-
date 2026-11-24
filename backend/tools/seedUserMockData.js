@@ -44,8 +44,11 @@ const contestsPending = Math.max(0, parseInt(readArg('contests-pending', '2'), 1
 const contestsDenied = Math.max(0, parseInt(readArg('contests-denied', '1'), 10) || 0);
 const refundedCount = Math.max(0, parseInt(readArg('refunded', '1'), 10) || 0);
 
-const campaignIds = Object.keys(CAMPAIGN_CONFIG || {});
-const campaigns = campaignIds.length ? campaignIds : ['fe_transfers'];
+const campaigns = Object.keys(CAMPAIGN_CONFIG || {});
+if (!campaigns.length) {
+  console.error('[seed] CAMPAIGN_CONFIG has no campaign keys.');
+  process.exit(1);
+}
 
 function randomItem(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
