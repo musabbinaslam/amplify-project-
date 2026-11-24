@@ -13,7 +13,6 @@ const DialerOverlay = () => {
   const { 
     callState, 
     activeCall, 
-    incomingCallerId, 
     isMuted, 
     callDuration,
     activeCampaign,
@@ -25,16 +24,10 @@ const DialerOverlay = () => {
     toggleMute
   } = useDialerStore();
 
-  const [ringer, setRinger] = useState(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
-    // Play a ringer sound when status is 'ringing'
     if (callState === 'ringing') {
-      const audio = new Audio('/ringtone.mp3'); // We can add an asset later
-      audio.loop = true;
-      audio.play().catch(e => console.log('Audio autoplay prevented'));
-      setRinger(audio);
       // Request permission and then fire notification — must be awaited
       // because Brave (and some Chrome builds) don't update Notification.permission
       // synchronously after requestPermission() is called.
@@ -45,8 +38,8 @@ const DialerOverlay = () => {
         }
         if (permission === 'granted') {
           const notif = new Notification('📞 Incoming Call', {
-            body: `Campaign: ${activeCampaign || 'Standard'} — Click to answer`,
-            icon: '/favicon.ico',
+            body: `Campaign: ${activeCampaign || 'Standard'} — open CallsFlow to answer`,
+            icon: '/favicon.svg',
             requireInteraction: true, // keeps notification visible until clicked (doesn't auto-dismiss)
           });
           notif.onclick = () => {
@@ -58,20 +51,7 @@ const DialerOverlay = () => {
       if (typeof Notification !== 'undefined') {
         fireNotification().catch(e => console.warn('[Notify] Desktop notification failed:', e));
       }
-
-    } else {
-      if (ringer) {
-        ringer.pause();
-        ringer.currentTime = 0;
-        setRinger(null);
-      }
     }
-    
-    return () => {
-      if (ringer) {
-        ringer.pause();
-      }
-    };
   }, [callState, activeCampaign]);
 
   if (callState === 'offline' || callState === 'error') {
