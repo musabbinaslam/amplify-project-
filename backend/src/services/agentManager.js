@@ -1168,29 +1168,6 @@ class AgentManager {
       return { pool, totalAgents: agents.length, agents, byCampaign };
    }
 
-   async evictStaleAgentsFromCampaign(campaignId) {
-      const poolKey = this.poolKey(campaignId);
-      const candidates = await redisClient.zRange(poolKey, 0, -1);
-      let evicted = 0;
-      for (const agentId of candidates) {
-         // eslint-disable-next-line no-await-in-loop
-         const presence = await this.validateAgentPresence(campaignId, agentId, {
-            requireAvailable: false,
-            requireFresh: true,
-         });
-         if (presence.ok) continue;
-         // eslint-disable-next-line no-await-in-loop
-         await redisClient.zRem(poolKey, agentId);
-         if (['no-heartbeat', 'session-mismatch', 'missing-agent-data'].includes(presence.reason)) {
-            // eslint-disable-next-line no-await-in-loop
-            await redisClient.hDel('agents:data', agentId);
-         }
-         evicted += 1;
-         this.markDiagnostic('ghostEvicted');
-      }
-      return evicted;
-   }
-
    /**
     * Sweeps the activecalls:data hash for orphaned entries — agents that have an
     * active-call record but no live heartbeat key, OR whose call has exceeded the
@@ -1290,45 +1267,6 @@ class AgentManager {
          })
       );
       return evicted;
-   }
-
-   /**
-    * Admin force-release: immediately clears an agent's call state and puts them
-    * back into the available pool (or fully removes them if they have no agent data).
-    * Used by the admin dashboard "Force Remove" button to fix ghost states.
-    */
-   async forceReleaseAgent(agentId) {
-      const dataStr = await redisClient.hGet('agents:data', agentId);
-      const data = dataStr ? JSON.parse(dataStr) : null;
-
-      await Promise.all([
-         redisClient.hDel('activecalls:data', agentId),
-         redisClient.sRem('agents:busy', agentId),
-         redisClient.sRem('agents:ringing', agentId),
-      ]);
-
-      if (data) {
-         data.status = 'AVAILABLE';
-         data.lastSeenAt = Date.now().toString();
-         await redisClient.hSet('agents:data', agentId, JSON.stringify(data));
-         if (data.campaignId) {
-            const isPaused = await this.isAgentPaused(agentId);
-            if (!isPaused) {
-               await redisClient.zAdd(this.poolKey(data.campaignId, data.agencyId ?? null), { score: Date.now(), value: agentId });
-            }
-         }
-         console.log(`[Admin] 🔓 Force-released agent ${agentId} → AVAILABLE`);
-         return { action: 'released', agentId };
-      }
-
-      // No agent data at all — full remove
-      await Promise.all([
-         redisClient.hDel('agents:data', agentId),
-         redisClient.del(`agent:heartbeat:${agentId}`),
-         redisClient.zRem('agents:heartbeats', agentId),
-      ]);
-      console.log(`[Admin] ❌ Force-removed ghost agent ${agentId} (no agent data found)`);
-      return { action: 'removed', agentId };
    }
 
    /**
