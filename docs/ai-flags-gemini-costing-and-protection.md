@@ -2,8 +2,7 @@
 
 Guide for estimating client cost of the **AI Flags** feature and keeping the Gemini API from being overused.
 
-> **Do not mix features.** This doc is about **AI Flags** (recording compliance / Gemini audio review).  
-> The older **QA insight** (call-score) path is separate and is off by default (`QA_INSIGHT_GEMINI_ENABLED=false`).
+> This doc is about **AI Flags** (recording compliance / Gemini audio review), gated by `AI_FLAGS_GEMINI_ENABLED`.
 
 ---
 
@@ -15,7 +14,7 @@ Each analyzed call sends the **Twilio MP3 + active compliance rules** to Gemini 
 | --- | --- |
 | Model | `gemini-3.5-flash-lite` (`GEMINI_MODEL`) |
 | Trigger paths | Live call completion, end-of-shift auto batch, Admin “Analyze older calls”, single/batch re-analyze |
-| Duration cap | **None** (calls longer than 20 minutes are allowed) |
+| Duration window | Per campaign: `buffer + AI_FLAGS_BUFFER_EXTRA_MIN_SEC` … `buffer + AI_FLAGS_BUFFER_EXTRA_MAX_SEC` (defaults **+10s … +15s**). Outside that window the job skips (`below_buffer_window` / `above_buffer_window`) unless admin **force** re-analyze. Unknown campaigns use buffer **0**. |
 | Soft limit | Recording file ≈ **18 MB** max for inline upload |
 
 Official rates (paid tier — verify on [Google AI pricing](https://ai.google.dev/gemini-api/docs/pricing)):
@@ -45,6 +44,8 @@ Most of the bill is often **output** (transcript), not audio input.
 
 ### Rule of thumb (`gemini-3.5-flash-lite`, paid)
 
+Only calls **inside the campaign duration window** (or **force** re-analyzed by an admin) are sent to Gemini. Longer rows below apply only if those calls are force re-analyzed — they are not the default live / auto-shift mix.
+
 | Avg call length | Approx cost / analyzed call |
 | --- | --- |
 | ~1 min | **$0.003–0.006** |
@@ -70,7 +71,7 @@ Examples at **~$0.01 per call** (typical short–medium calls):
 | 1,000 calls/day | ~**$300** |
 | 5,000 calls/day | ~**$1,500** |
 
-Add **~10–30%** buffer for re-analyzes, auto-shift retries, and longer calls.
+Add **~10–30%** buffer for re-analyzes, auto-shift retries, and any force re-analyzes of longer calls.
 
 ### Sanity check from logs
 
@@ -96,7 +97,7 @@ Example: ~1.8k audio tokens → input ≈ **$0.0005**, plus a few cents of outpu
 ## 4. How to quote a client
 
 1. Ask for **calls/day** and **average duration**.
-2. Decide scope: **all** recordings vs sample / end-of-shift only.
+2. Decide scope: **in-window** recordings (live + catch-up) vs sample / end-of-shift only. Long calls are not analyzed unless an admin force re-analyzes them.
 3. Price options:
    - **Pass-through:** actual Google usage + **20–40%** margin  
    - **Flat:** e.g. `$X per 1,000 analyzed calls` from the table above  
@@ -110,7 +111,7 @@ Gemini is burned by **your jobs**, not by the model “calling itself”:
 
 1. Admins spam **Analyze older calls** / **Re-analyze**
 2. **End-of-shift auto batch** queues many unscored calls when the floor goes idle
-3. **Live completion** dispatches a review per finished call
+3. **Live completion** dispatches a review per finished call (Gemini still skipped outside the duration window)
 4. **Retries** on quota errors can multiply requests
 5. Without a **Google spend cap**, the key keeps charging until billing stops it
 
@@ -125,9 +126,9 @@ Gemini is burned by **your jobs**, not by the model “calling itself”:
 | Skip junk | Mock calls, failed statuses, missing recordings, already reviewed |
 | File size | Skip if recording exceeds inline size limit |
 | Retries | Max ~3 attempts; stop early on billing errors |
+| Duration window | Skip calls outside campaign buffer +10–15s (env extras) unless admin force re-analyze |
 | Auto-shift batch | Default max **40** per idle trigger (`QA_AUTO_BATCH_LIMIT`) |
-| Auth | Analyze / re-analyze only on admin / QA routes |
-| Feature split | QA insight Gemini is separate and **off** by default |
+| Auth | Analyze / re-analyze only on **admin** routes (`/api/admin/qa-reviews/*`) |
 
 ---
 
@@ -147,10 +148,11 @@ In [Google Cloud Billing](https://console.cloud.google.com/billing) / AI Studio:
 # AI Flags (recording compliance) — keep on for production
 AI_FLAGS_GEMINI_ENABLED=true
 
-# Old QA insight / call-score — keep off unless you intentionally need it
-QA_INSIGHT_GEMINI_ENABLED=false
-
 GEMINI_MODEL=gemini-3.5-flash-lite
+
+# Duration window extras (seconds added to each campaign's billable buffer)
+# AI_FLAGS_BUFFER_EXTRA_MIN_SEC=10
+# AI_FLAGS_BUFFER_EXTRA_MAX_SEC=15
 
 # End-of-shift auto analyze
 QA_AUTO_SHIFT_ENABLED=true
@@ -159,7 +161,7 @@ QA_AUTO_SHIFT_IDLE_MS=300000
 QA_SHIFT_TIMEZONE=America/New_York
 ```
 
-To pause **only AI Flags** without touching other Gemini uses (e.g. support chat):
+To pause AI Flags (no Gemini audio reviews until you turn it back on):
 
 ```bash
 AI_FLAGS_GEMINI_ENABLED=false
@@ -171,7 +173,7 @@ Then restart the backend.
 
 - Don’t leave **Re-analyze from Clear** on casually
 - While testing: analyze **1–3** calls at a time; prefer short filters
-- For long production calls: use **Any length** / live / auto-shift — there is no 20-minute duration reject
+- Live completion and end-of-shift auto-shift still apply the campaign duration window; long calls are not sent to Gemini unless an admin force re-analyzes them
 - Treat every re-analyze as a new paid Gemini call
 
 ### D. Optional app-level budget (not built yet — recommended later)
@@ -186,17 +188,7 @@ Until then, **Google budget + env kill switch** is the real safety net.
 
 ---
 
-## 8. Feature split cheat sheet
-
-| Feature | Env | Default | Uses Gemini for |
-| --- | --- | --- | --- |
-| **AI Flags** | `AI_FLAGS_GEMINI_ENABLED` | **on** | Listening to recordings + compliance rules |
-| **QA insight** | `QA_INSIGHT_GEMINI_ENABLED` | **off** | Old call-score / insight JSON |
-| Support chat | (shared `GEMINI_API_KEY`) | depends on product | Unrelated to AI Flags costing above |
-
----
-
-## 9. Quick client one-liner
+## 8. Quick client one-liner
 
 > AI Flags costs roughly **$0.01 per analyzed call** on Gemini 3.5 Flash-Lite for typical short–medium calls; longer calls cost more. Cap Google spend, keep re-analyze rare, and lower `QA_AUTO_BATCH_LIMIT` until volume is known.
 
