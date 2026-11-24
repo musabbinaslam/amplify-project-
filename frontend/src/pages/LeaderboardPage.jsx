@@ -232,7 +232,7 @@ const LeaderboardPage = () => {
 
   const entries = useMemo(() => data.entries || [], [data.entries]);
   const me = data.me || null;
-  const leaderCalls = entries[0]?.policiesClosed || 0;
+  const leaderPolicies = entries.reduce((max, e) => Math.max(max, e.policiesClosed || 0), 0);
 
   const fireConfetti = useCallback(() => {
     if (reduceMotion) return;
@@ -538,7 +538,7 @@ const LeaderboardPage = () => {
                   ))
                 ) : pagedRows.map((entry) => {
                   const isMe = me?.agentId === entry.agentId;
-                  const pct = leaderCalls ? Math.max(3, Math.round((entry.billableCalls / leaderCalls) * 100)) : 0;
+                  const pct = leaderPolicies ? Math.min(100, Math.max(3, Math.round((entry.policiesClosed / leaderPolicies) * 100))) : 0;
                   return (
                     <div
                       key={entry.agentId}
