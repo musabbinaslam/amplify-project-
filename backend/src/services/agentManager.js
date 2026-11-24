@@ -474,7 +474,7 @@ class AgentManager {
     * When the real inbound call arrives seconds later, consumeReservation() picks up
     * the pre-locked agent so routing is instant and deterministic.
     *
-    * TTL is intentionally short (30 s) — long enough to cover network + dial delay,
+    * TTL is intentionally short (20 s) — long enough to cover network + dial delay,
     * short enough that an abandoned confirmation can't strand an agent indefinitely.
     * The existing stale-ringing cleanup handles releasing the agent from agents:ringing
     * if the call never arrives.
