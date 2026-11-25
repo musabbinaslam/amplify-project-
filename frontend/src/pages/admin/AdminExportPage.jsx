@@ -20,16 +20,6 @@ import AdminPageShell from '../../components/admin/AdminPageShell';
 import { downloadAdminExcelReport, getAdminOverviewLite } from '../../services/adminService';
 import classes from './AdminExportPage.module.css';
 
-const DEFAULT_CAMPAIGNS = [
-  { id: 'fe_inbounds', label: 'FE Inbounds' },
-  { id: 'fe_inbounds_short', label: 'FE Inbounds Short Duration' },
-  { id: 'fe_tv_calls', label: 'FE TV Calls' },
-  { id: 'medicare_transfers', label: 'Medicare Transfers' },
-  { id: 'medicare_inbound_1', label: 'Medicare Inbounds (1)' },
-  { id: 'medicare_inbound_2', label: 'Medicare Inbounds (2)' },
-  { id: 'aca_transfers', label: 'ACA Transfers' },
-];
-
 const TEMPLATES = [
   {
     id: 'all',
@@ -150,13 +140,13 @@ export default function AdminExportPage() {
             id,
             label: val?.label || id,
           }));
-          setCampaignsList(list.length ? list : DEFAULT_CAMPAIGNS);
+          setCampaignsList(list.length ? list : []);
         } else {
-          setCampaignsList(DEFAULT_CAMPAIGNS);
+          setCampaignsList([]);
         }
       } catch (err) {
         console.warn('Failed to load campaigns:', err.message);
-        if (active) setCampaignsList(DEFAULT_CAMPAIGNS);
+        if (active) setCampaignsList([]);
       }
     })();
     return () => {
