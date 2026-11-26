@@ -22,6 +22,13 @@ const PERIOD_TABS = [
   { key: '7d', label: '7 days' },
 ];
 
+function formatCount(value) {
+  if (value == null) return '—';
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  return n;
+}
+
 /* eslint-disable react/prop-types */
 
 function KpiCard({ title, value, icon: Icon, hint, className = '', size, loading = false }) {
@@ -106,7 +113,7 @@ export default function SupportAnalyticsPage() {
         <KpiCard
           className={classes.tileWaiting}
           title="Waiting"
-          value={kpis?.waiting ?? 0}
+          value={formatCount(kpis?.waiting)}
           icon={Inbox}
           hint="Needs a first reply"
           loading={loading}
@@ -115,7 +122,7 @@ export default function SupportAnalyticsPage() {
           className={classes.tileOpen}
           size="hero"
           title="Open"
-          value={kpis?.open ?? 0}
+          value={formatCount(kpis?.open)}
           icon={MessageSquare}
           hint="Live threads"
           loading={loading}
@@ -123,7 +130,7 @@ export default function SupportAnalyticsPage() {
         <KpiCard
           className={classes.tileClosed}
           title="Closed"
-          value={kpis?.closed ?? 0}
+          value={formatCount(kpis?.closed)}
           icon={CheckCircle2}
           hint="All time"
           loading={loading}
@@ -139,14 +146,14 @@ export default function SupportAnalyticsPage() {
         <KpiCard
           className={classes.tileStaff}
           title="Staff online"
-          value={kpis?.staffOnline ?? 0}
+          value={formatCount(kpis?.staffOnline)}
           icon={Users}
           loading={loading}
         />
         <KpiCard
           className={classes.tileConversations}
           title="Conversations"
-          value={conversations ?? 0}
+          value={formatCount(conversations)}
           icon={Inbox}
           hint={periodHint}
           loading={loading}
@@ -154,7 +161,7 @@ export default function SupportAnalyticsPage() {
         <KpiCard
           className={classes.tileMessages}
           title="Messages"
-          value={messages ?? 0}
+          value={formatCount(messages)}
           icon={MessageSquare}
           hint={periodHint}
           loading={loading}
@@ -162,7 +169,7 @@ export default function SupportAnalyticsPage() {
         <KpiCard
           className={classes.tileReplied}
           title="I replied"
-          value={kpis?.mineReplied ?? 0}
+          value={formatCount(kpis?.mineReplied)}
           icon={UserCheck}
           hint="Threads you have answered"
           loading={loading}
@@ -178,7 +185,7 @@ export default function SupportAnalyticsPage() {
         <KpiCard
           className={classes.tileClosedByMe}
           title="Closed by me"
-          value={kpis?.mineClosedToday ?? 0}
+          value={formatCount(kpis?.mineClosedToday)}
           icon={CheckCircle2}
           hint="Today"
           loading={loading}
