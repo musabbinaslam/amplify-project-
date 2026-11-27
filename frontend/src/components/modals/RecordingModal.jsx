@@ -49,16 +49,6 @@ function formatRecordingDate(iso) {
 }
 
 function getCampaignDisplayLabel(log) {
-  const CAMPAIGN_SHORT_LABELS = {
-    fe_inbounds_short: 'FE Inbounds Short',
-    fe_tv_calls: 'FE TV Calls',
-    medicare_transfers: 'Medicare Transfers',
-    medicare_inbound_1: 'Medicare Inbounds (1)',
-    medicare_inbound_2: 'Medicare Inbounds (2)',
-    aca_transfers: 'ACA Transfers',
-  };
-  const id = log?.campaign;
-  if (id && CAMPAIGN_SHORT_LABELS[id]) return CAMPAIGN_SHORT_LABELS[id];
   return log?.campaignLabel || log?.campaign || '—';
 }
 
