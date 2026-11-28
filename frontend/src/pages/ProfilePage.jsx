@@ -23,7 +23,7 @@ import classes from './ProfilePage.module.css';
 
 const SPENDING_OPTIONS = ['Less than $500', '$500 - $1,000', '$1,000 - $2,500', '$2,500 - $5,000', '$5,000+', 'Not currently spending'];
 const HEAR_ABOUT_OPTIONS = ['Google Search', 'Facebook / Instagram', 'YouTube', 'Referral', 'Discord', 'Other'];
-const VERTICALS = ['Final Expense', 'Spanish Final Expense', 'ACA', 'Medicare', 'Leads'];
+const VERTICALS = ['Final Expense', 'Spanish Final Expense', 'ACA', 'Medicare'];
 const MAX_AVATAR_FILE_MB = 5;
 const MAX_AVATAR_OUTPUT_PX = 512;
 
@@ -520,7 +520,7 @@ const ProfilePage = () => {
                 </div>
               </div>
               <div className={classes.editGroup}>
-                <label className={classes.editLabel}>Weekly Lead Spend</label>
+                <label className={classes.editLabel}>Weekly Call Spend</label>
                 <CustomSelect
                   className={classes.profileSelect}
                   options={['', ...SPENDING_OPTIONS].map((o) => ({ value: o, label: o || 'Select an option' }))}

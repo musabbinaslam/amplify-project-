@@ -110,7 +110,6 @@ const VERTICALS = [
   'Spanish Final Expense',
   'ACA',
   'Medicare',
-  'Leads',
 ];
 
 const FIREBASE_ERROR_MAP = {
@@ -243,7 +242,7 @@ const SignupPage = () => {
       toast.error('Enter a valid phone number (at least 10 digits)');
       return false;
     }
-    if (!form.weeklySpend) { toast.error('Select your weekly lead spend'); return false; }
+    if (!form.weeklySpend) { toast.error('Select your weekly call spend'); return false; }
     if (!form.usedInbound) { toast.error('Select whether you have used inbound calls'); return false; }
     if (!form.verticals) { toast.error('Select a vertical'); return false; }
     if (!form.hearAbout) { toast.error('Select how you heard about us'); return false; }
@@ -554,7 +553,7 @@ const SignupPage = () => {
 
       <div className={classes.fieldGroup}>
         <label className={classes.label} htmlFor="signup-weekly-spend">
-          Weekly lead spend
+          Weekly call spend
           <span className={classes.required}>*</span>
         </label>
         <select
